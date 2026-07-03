@@ -10,6 +10,16 @@ the end of a session. Applies any time there's a batch of work to commit,
 whether it just happened in one conversation or was reconstructed from
 history.
 
+## When to commit (do NOT auto-commit)
+
+The user reviews changes before they are committed. **Never commit or push
+just because a task finished.** Make the change, report it, and wait for the
+user to explicitly say to push/commit. Only then create the commit(s) and
+push. (Established 2026-07-03, replacing the earlier commit-after-each-step
+habit.) When the user does ask to push, include any pending design-doc edits
+(VISION.md, ROADMAP_*.md) in the same commit as the code change they belong
+with, rather than leaving them uncommitted or splitting them off.
+
 ## Naming
 
 - If the work corresponds to a numbered step in `docs/ROADMAP_MVP.md` or
