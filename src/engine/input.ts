@@ -2,13 +2,22 @@ import { DRAG_THRESHOLD } from "../config";
 import { screenToWorld } from "./camera";
 
 /**
- * Input: keyboard (WASD/arrows), touch-drag joystick, click/tap-to-move,
- * and one action button. Mouse is primary; keys/joystick are alternates.
+ * Input: keyboard (WASD/arrows), touch-drag joystick, and mouse.
+ * Mouse-first, UO-style:
+ *   - left-click  -> move there, or act on a clicked object (main decides)
+ *   - right-click -> open a context menu on a clicked object
+ *   - hover       -> main hit-tests getPointerScreen() to highlight objects
+ * Keyboard/joystick remain as alternate steering.
  */
 const keys: Record<string, boolean> = {};
 let joy: { ox: number; oy: number; x: number; y: number } | null = null;
+let press: { sx: number; sy: number; button: number } | null = null;
 let actionQueued = false;
+
 let moveTarget: [number, number] | null = null;
+let pointerScreen: [number, number] | null = null;
+let leftClick: { wx: number; wy: number } | null = null;
+let rightClick: { wx: number; wy: number; sx: number; sy: number } | null = null;
 
 export function initInput(cv: HTMLCanvasElement, actBtn: HTMLElement) {
   addEventListener("keydown", (e) => {
@@ -17,28 +26,38 @@ export function initInput(cv: HTMLCanvasElement, actBtn: HTMLElement) {
   });
   addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
 
+  cv.addEventListener("contextmenu", (e) => e.preventDefault()); // right-click is ours
+
   cv.addEventListener("pointerdown", (e) => {
     cv.setPointerCapture(e.pointerId);
-    joy = { ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
+    press = { sx: e.clientX, sy: e.clientY, button: e.button };
+    pointerScreen = [e.clientX, e.clientY];
+    if (e.button === 0) joy = { ox: e.clientX, oy: e.clientY, x: e.clientX, y: e.clientY };
   });
   cv.addEventListener("pointermove", (e) => {
+    pointerScreen = [e.clientX, e.clientY];
     if (joy) { joy.x = e.clientX; joy.y = e.clientY; }
   });
   cv.addEventListener("pointerup", (e) => {
-    // A press that barely moved is a click/tap -> walk there. A real drag
-    // was a joystick gesture (handled live in inputVec) and sets no target.
-    if (joy) {
-      const travel = Math.hypot(e.clientX - joy.ox, e.clientY - joy.oy);
-      if (travel < DRAG_THRESHOLD) moveTarget = screenToWorld(e.clientX, e.clientY);
+    pointerScreen = [e.clientX, e.clientY];
+    // A press that barely travelled is a click; a real drag was a joystick gesture.
+    if (press) {
+      const travel = Math.hypot(e.clientX - press.sx, e.clientY - press.sy);
+      if (travel < DRAG_THRESHOLD) {
+        const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+        if (press.button === 0) leftClick = { wx, wy };
+        else if (press.button === 2) rightClick = { wx, wy, sx: e.clientX, sy: e.clientY };
+      }
     }
-    joy = null;
+    press = null; joy = null;
   });
-  cv.addEventListener("pointercancel", () => { joy = null; });
+  cv.addEventListener("pointercancel", () => { press = null; joy = null; });
+  cv.addEventListener("pointerleave", () => { pointerScreen = null; });
 
   actBtn.addEventListener("pointerdown", (e) => { e.stopPropagation(); actionQueued = true; });
 }
 
-/** Immediate steering vector from keys or an active joystick drag. */
+/** Immediate steering vector from keys or an active (left-button) joystick drag. */
 export function inputVec(): [number, number] {
   let vx = 0, vy = 0;
   if (keys["arrowup"] || keys["w"]) vy -= 1;
@@ -54,9 +73,22 @@ export function inputVec(): [number, number] {
   return [vx, vy];
 }
 
-/** Current click-to-move destination in world coords, or null. */
+/** Click-to-move destination in world coords (set by main), or null. */
 export function getMoveTarget(): [number, number] | null { return moveTarget; }
+export function setMoveTarget(wx: number, wy: number) { moveTarget = [wx, wy]; }
 export function clearMoveTarget() { moveTarget = null; }
+
+/** Last known pointer position in screen (CSS) px, or null if off-canvas. */
+export function getPointerScreen(): [number, number] | null { return pointerScreen; }
+
+/** One-shot left click at world coords, or null. */
+export function consumeLeftClick(): { wx: number; wy: number } | null {
+  const c = leftClick; leftClick = null; return c;
+}
+/** One-shot right click with both world and screen coords, or null. */
+export function consumeRightClick(): { wx: number; wy: number; sx: number; sy: number } | null {
+  const c = rightClick; rightClick = null; return c;
+}
 
 /** Returns true once per queued action press (E key or touch button). */
 export function consumeAction(): boolean {

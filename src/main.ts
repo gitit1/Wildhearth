@@ -1,16 +1,23 @@
 import { WORLD_W } from "./config";
-import { initInput, consumeAction } from "./engine/input";
-import { applyCamera } from "./engine/camera";
+import {
+  initInput, consumeAction, consumeLeftClick, consumeRightClick,
+  getPointerScreen, setMoveTarget,
+} from "./engine/input";
+import { applyCamera, screenToWorld } from "./engine/camera";
 import { paintGround } from "./world/ground";
 import { HOUSE, BARN, STALL, TREES } from "./world/zones";
-import { nearPond, nearRect } from "./world/collision";
 import { drawTree, drawFence, drawCorn, drawWaterShimmer } from "./art/props";
 import { drawHouse, drawBarn, drawStall } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals } from "./entities/animals";
-import { loadEconomy, gainItem, sellFish, fishCount } from "./systems/economy";
-import { createFishing, startCast, updateFishing, cancelCast } from "./systems/fishing";
+import { loadEconomy, gainItem } from "./systems/economy";
+import { createFishing, updateFishing, cancelCast } from "./systems/fishing";
+import {
+  hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
+  type Interactable, type InteractCtx,
+} from "./systems/interact";
+import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
 import { updateHud, setPrompt, toast, updateToast } from "./ui/hud";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initMinimap, updateMinimap } from "./ui/minimap";
@@ -32,6 +39,9 @@ initMinimap();
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
 
+let hovered: Interactable | null = null;              // object under the cursor (for the glow)
+let pending: { objId: string; actionId: string } | null = null;  // action to run once in reach
+
 let last = performance.now(), time = 0;
 
 function tick(now: number) {
@@ -43,23 +53,57 @@ function tick(now: number) {
   if (player.moving && !wasMoving && fishing.casting) { cancelCast(fishing); player.fishing = false; }
   updateAnimals(cows, hens, dt);
 
-  // interactions
-  const atPond = nearPond(player.x, player.y);
-  const atStall = nearRect(player.x, player.y, STALL);
+  // interactions (UO-style: hover highlights, left = act/move, right = menu)
+  const ictx: InteractCtx = { economy, fishing, player, toast };
+
+  const ps = getPointerScreen();
+  hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1])) : null;
+  cv.style.cursor = hovered ? "pointer" : "default";
+
+  const near = reachable(player.x, player.y);
   if (fishing.casting) setPrompt("Waiting for a bite...");
-  else if (atStall && fishCount(economy) > 0) setPrompt("E — Sell fish");
-  else if (atPond) setPrompt("E — Fish");
+  else if (near) setPrompt(defaultActionLabel(near, ictx));
   else setPrompt(null);
 
-  if (consumeAction()) {
-    if (atStall && fishCount(economy) > 0) {
-      const earned = sellFish(economy);
-      toast(`Sold fish for ${earned} coins!`);
-    } else if (atPond && !fishing.casting) {
-      startCast(fishing);
-      player.fishing = true;
+  // left-click: act on a clicked object (walking to it first), else walk to the point
+  const lc = consumeLeftClick();
+  if (lc) {
+    const obj = hitTest(lc.wx, lc.wy);
+    if (obj) {
+      if (obj.inReach(player.x, player.y)) { runDefault(obj, ictx); pending = null; }
+      else { setMoveTarget(obj.anchor[0], obj.anchor[1]); pending = { objId: obj.id, actionId: obj.defaultActionId }; }
+    } else {
+      setMoveTarget(lc.wx, lc.wy);
+      pending = null;
     }
   }
+
+  // right-click: open a context menu of the object's actions
+  const rc = consumeRightClick();
+  if (rc) {
+    const obj = hitTest(rc.wx, rc.wy);
+    if (obj) {
+      const items = obj.actions(ictx).map((a) => ({
+        label: a.label,
+        onClick: () => {
+          if (obj.inReach(player.x, player.y)) runAction(obj, a.id, ictx);
+          else { setMoveTarget(obj.anchor[0], obj.anchor[1]); pending = { objId: obj.id, actionId: a.id }; }
+        },
+      }));
+      openContextMenu(rc.sx, rc.sy, items);
+    } else closeContextMenu();
+  }
+
+  // action button / E key: use whatever is in reach
+  if (consumeAction() && near && !fishing.casting) runDefault(near, ictx);
+
+  // a queued action fires once the player arrives in reach
+  if (pending) {
+    const obj = byId(pending.objId);
+    if (obj && obj.inReach(player.x, player.y)) { runAction(obj, pending.actionId, ictx); pending = null; }
+    else if (!player.moving) pending = null;   // stopped short (blocked / unreachable)
+  }
+
   if (updateFishing(fishing, dt)) {
     player.fishing = false;
     if (gainItem(economy, "fish")) toast("Caught a fish! 🐟");
@@ -104,6 +148,8 @@ function draw() {
   for (const h of hens) ents.push({ y: h.y + 6, f: () => drawHen(ctx, h, time) });
   ents.sort((a, b) => a.y - b.y);
   for (const e of ents) e.f();
+
+  if (hovered) hovered.drawHover(ctx, time);
 
   for (const s of smoke) {
     ctx.fillStyle = `rgba(230,230,235,${s.a})`;
