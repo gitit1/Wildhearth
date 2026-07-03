@@ -9,9 +9,10 @@ import { drawHouse, drawBarn, drawStall } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals } from "./entities/animals";
-import { loadEconomy, addFish, sellFish } from "./systems/economy";
+import { loadEconomy, gainItem, sellFish, fishCount } from "./systems/economy";
 import { createFishing, startCast, updateFishing, cancelCast } from "./systems/fishing";
 import { updateHud, setPrompt, toast, updateToast } from "./ui/hud";
+import { initBackpack, updateBackpack } from "./ui/backpack";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -24,6 +25,7 @@ const player = createPlayer();
 const { cows, hens } = createAnimals();
 const economy = loadEconomy();
 const fishing = createFishing();
+initBackpack(economy);
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -43,12 +45,12 @@ function tick(now: number) {
   const atPond = nearPond(player.x, player.y);
   const atStall = nearRect(player.x, player.y, STALL);
   if (fishing.casting) setPrompt("...מחכה שדג יינשך");
-  else if (atStall && economy.fish > 0) setPrompt("E — למכור את הדגים");
+  else if (atStall && fishCount(economy) > 0) setPrompt("E — למכור את הדגים");
   else if (atPond) setPrompt("E — לדוג");
   else setPrompt(null);
 
   if (consumeAction()) {
-    if (atStall && economy.fish > 0) {
+    if (atStall && fishCount(economy) > 0) {
       const earned = sellFish(economy);
       toast(`נמכרו דגים תמורת ${earned} מטבעות!`);
     } else if (atPond && !fishing.casting) {
@@ -58,8 +60,8 @@ function tick(now: number) {
   }
   if (updateFishing(fishing, dt)) {
     player.fishing = false;
-    addFish(economy);
-    toast("דג נתפס! 🐟");
+    if (gainItem(economy, "fish")) toast("דג נתפס! 🐟");
+    else toast("!התיק מלא — אין מקום לדג");
   }
 
   // chimney smoke
@@ -72,6 +74,7 @@ function tick(now: number) {
   for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i]!.a <= 0) smoke.splice(i, 1);
 
   updateHud(economy);
+  updateBackpack(economy);
   updateToast(dt);
   draw();
   requestAnimationFrame(tick);
