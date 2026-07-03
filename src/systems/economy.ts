@@ -52,10 +52,10 @@ export function fishCount(e: Economy): number { return countItem(e.inv, "fish");
 
 export function goodCount(e: Economy, id: string): number { return countItem(e.inv, id); }
 
-/** Sells the whole held stock of one priced good; returns coins earned. */
-export function sellGood(e: Economy, id: string): number {
+/** Sells up to qty of one priced good (default: all held); returns coins earned. */
+export function sellGood(e: Economy, id: string, qty = Infinity): number {
   const price = GOOD_PRICES[id];
-  const n = countItem(e.inv, id);
+  const n = Math.min(countItem(e.inv, id), qty);
   if (!price || n <= 0) return 0;
   removeItem(e.inv, id, n);
   const earned = n * price;

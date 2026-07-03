@@ -41,6 +41,11 @@ game needs.
    one piece of Phase 1 forward if needed, since this depends on it). The
    player must physically carry goods there to sell — the stall no longer
    sits conveniently next to the farm.
+   *(Pulled forward 2026-07-04: the trade UI already exists — a vendor
+   window on the stall (`ui/shopwindow.ts`) with per-item quantity
+   steppers, unit/total prices, "Sell everything", and the buy list. What
+   remains here is the relocation itself, plus reading the Haggling
+   discount once MVP Step 6 lands.)*
 4. **House interior — first pass.** The house becomes enterable. Minimum
    viable rooms: a cooking spot, a wash basin, a bed, one rest/living
    spot — exactly the four the Needs system (VISION #13) requires. This is

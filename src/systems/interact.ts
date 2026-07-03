@@ -1,8 +1,6 @@
 import { POND, STALL } from "../world/zones";
 import { nearPond, nearRect } from "../world/collision";
-import { GOOD_PRICES, goodCount, sellGood, sellAllGoods, type Economy } from "./economy";
-import { ITEM_NAMES } from "./inventory";
-import { SHOP_STOCK, tryBuy, owned } from "./shop";
+import type { Economy } from "./economy";
 import { startCast, type FishingState } from "./fishing";
 import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
@@ -26,6 +24,7 @@ export interface InteractCtx {
   skills: Skills;
   player: Player;
   toast: (s: string) => void;
+  openShop: () => void;
 }
 
 /** True while any timed activity is running (they are mutually exclusive). */
@@ -85,59 +84,15 @@ const stall: Interactable = {
   id: "stall",
   name: "Market stall",
   anchor: [STALL.x + STALL.w / 2, STALL.y + STALL.h + 22],
-  defaultActionId: "sell",
+  defaultActionId: "trade",
   hit: (wx, wy) =>
     wx >= stallBox.x && wx <= stallBox.x + stallBox.w &&
     wy >= stallBox.y && wy <= stallBox.y + stallBox.h,
   inReach: (px, py) => nearRect(px, py, STALL),
-  actions: (c) => {
-    const list: MenuAction[] = [];
-    const held = Object.keys(GOOD_PRICES).filter((id) => goodCount(c.economy, id) > 0);
-    if (held.length > 1)
-      list.push({
-        id: "sell", label: "Sell everything",
-        run: (c) => { const earned = sellAllGoods(c.economy); c.toast(`Sold everything for ${earned} coins!`); },
-      });
-    for (const id of held)
-      list.push({
-        id: held.length === 1 ? "sell" : `sell-${id}`,
-        label: `Sell ${(ITEM_NAMES[id] ?? id).toLowerCase()} (${goodCount(c.economy, id)})`,
-        run: (c) => {
-          const name = (ITEM_NAMES[id] ?? id).toLowerCase();
-          const earned = sellGood(c.economy, id);
-          c.toast(`Sold ${name} for ${earned} coins!`);
-        },
-      });
-    // nothing to sell -> E/left-click browses instead of accidentally buying
-    if (held.length === 0)
-      list.push({
-        id: "browse", label: "Browse wares",
-        run: (c) => {
-          const wares = SHOP_STOCK.filter((s) => !owned(c.economy, s))
-            .map((s) => `${ITEM_NAMES[s.id] ?? s.id} — ${s.price} coins`);
-          c.toast(wares.length ? `For sale: ${wares.join(", ")}.` : "Nothing left you don't already own.");
-        },
-      });
-    for (const entry of SHOP_STOCK) {
-      if (owned(c.economy, entry)) continue;
-      const name = (ITEM_NAMES[entry.id] ?? entry.id).toLowerCase();
-      list.push({
-        id: `buy-${entry.id}`,
-        label: `Buy ${name} (${entry.price} coins)`,
-        run: (c) => {
-          const r = tryBuy(c.economy, entry);
-          c.toast(
-            r === "ok" ? `Bought ${name === "seeds" ? "seeds" : `a ${name}`}!`
-            : r === "no-coins" ? `Not enough coins — ${name} ${name.endsWith("s") ? "cost" : "costs"} ${entry.price}.`
-            : r === "bag-full" ? "Backpack full — no room for that."
-            : `You already own a ${name}.`
-          );
-        },
-      });
-    }
-    list.push({ id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Buy tools, sell goods.") });
-    return list;
-  },
+  actions: () => [
+    { id: "trade", label: "Trade", run: (c) => c.openShop() },
+    { id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Buy tools, sell goods.") },
+  ],
   drawHover: (g, t) => glowRect(g, stallBox.x - 2, stallBox.y - 2, stallBox.w + 4, stallBox.h + 4, t),
 };
 

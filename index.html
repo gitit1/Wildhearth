@@ -65,6 +65,32 @@
     .sk-pop{position:absolute;right:0;color:#9fe36a;font-size:calc(12px*var(--s));font-weight:700;
       text-shadow:0 1px 2px rgba(0,0,0,.8);animation:skpop 1.1s ease-out forwards}
     @keyframes skpop{from{transform:translateY(2px);opacity:1}to{transform:translateY(-16px);opacity:0}}
+    #shopWindow{--s:1;position:fixed;top:120px;left:220px;display:none;z-index:7;user-select:none;
+      background:rgba(25,32,18,.94);border:2px solid #7a5c34;border-radius:14px;
+      padding:calc(10px*var(--s)) calc(14px*var(--s));color:#f0ead6;min-width:calc(320px*var(--s))}
+    #shopWindow h2{margin:0 0 calc(6px*var(--s));font-size:calc(15px*var(--s));text-align:center}
+    #shopClose{position:absolute;top:6px;right:8px;background:transparent;border:none;color:#f0ead6;
+      font-size:calc(15px*var(--s));cursor:pointer;padding:2px 6px}
+    .shop-head{display:flex;justify-content:center;gap:6px;font-size:calc(13px*var(--s));
+      margin-bottom:calc(8px*var(--s));color:#ffd54f;font-weight:700}
+    .shop-section{font-size:calc(12px*var(--s));font-weight:700;color:#cdb98a;text-transform:uppercase;
+      letter-spacing:.06em;margin:calc(8px*var(--s)) 0 calc(4px*var(--s))}
+    .shop-row{display:flex;align-items:center;gap:calc(8px*var(--s));padding:calc(4px*var(--s)) calc(6px*var(--s));
+      border-radius:8px;background:rgba(240,234,214,.07);margin-bottom:calc(4px*var(--s))}
+    .shop-icon{flex:none;background:rgba(240,234,214,.08);border-radius:6px}
+    .shop-name{flex:1;font-size:calc(13px*var(--s));font-weight:700}
+    .shop-total{font-size:calc(12px*var(--s));color:#ffd54f;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .shop-step{display:flex;align-items:center;gap:4px}
+    .shop-step button{width:calc(22px*var(--s));height:calc(22px*var(--s));border-radius:6px;cursor:pointer;
+      border:1px solid rgba(240,234,214,.3);background:transparent;color:#f0ead6;
+      font-size:calc(13px*var(--s));line-height:1;padding:0}
+    .shop-qty{min-width:calc(20px*var(--s));text-align:center;font-size:calc(13px*var(--s));
+      font-weight:700;font-variant-numeric:tabular-nums}
+    .shop-btn{border:2px solid #b8912f;border-radius:8px;background:rgba(230,190,80,.9);color:#241d0e;
+      font-weight:700;font-size:calc(12px*var(--s));padding:calc(4px*var(--s)) calc(10px*var(--s));cursor:pointer}
+    .shop-btn:hover{background:#f2cf6b}
+    .shop-sellall{display:block;margin:calc(2px*var(--s)) auto 0}
+    .shop-empty{font-size:calc(12px*var(--s));opacity:.75;padding:calc(4px*var(--s)) calc(6px*var(--s))}
     .ctxmenu{position:fixed;z-index:8;min-width:130px;background:rgba(25,32,18,.96);
       border:2px solid #7a5c34;border-radius:10px;padding:4px;box-shadow:0 4px 14px rgba(0,0,0,.5);
       display:flex;flex-direction:column;gap:2px}
@@ -92,6 +118,15 @@
   <div id="skillsPanel">
     <h2>📜 Skills</h2>
     <div id="skillsList"></div>
+  </div>
+  <div id="shopWindow">
+    <h2>🛒 Market stall</h2>
+    <button id="shopClose" title="Close (Esc)">✕</button>
+    <div class="shop-head">🪙 <span id="shopCoins">0</span></div>
+    <div class="shop-section">Sell</div>
+    <div id="shopSell"></div>
+    <div class="shop-section">Buy</div>
+    <div id="shopBuy"></div>
   </div>
   <div id="tools">
     <button class="tool-btn" id="skillsBtn" title="Skills (K)">📜</button>

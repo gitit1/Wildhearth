@@ -28,6 +28,8 @@ import { updateHud, setPrompt, toast, updateToast } from "./ui/hud";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initMinimap, updateMinimap } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
+import { initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow } from "./ui/shopwindow";
+import { nearRect } from "./world/collision";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -55,6 +57,7 @@ registerPlots(plots);
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
+initShopWindow(economy, toast);
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -78,7 +81,10 @@ function tick(now: number) {
   updateAnimals(cows, hens, dt);
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, skills, player, toast };
+  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, skills, player, toast, openShop: openShopWindow };
+
+  // walking away from the stall closes the trade window
+  if (isShopOpen() && !nearRect(player.x, player.y, STALL)) closeShopWindow();
 
   const ps = getPointerScreen();
   hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1])) : null;
@@ -184,6 +190,7 @@ function tick(now: number) {
   updateBackpack();
   updateMinimap(player);
   updateSkillsUI();
+  updateShopWindow();
   updateToast(dt);
   draw();
   requestAnimationFrame(tick);
