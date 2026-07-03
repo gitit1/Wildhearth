@@ -11,6 +11,8 @@ export interface Inventory { slots: (ItemStack | null)[] }
 export const ITEM_NAMES: Record<string, string> = {
   fish: "Fish",
   berries: "Berries",
+  hoe: "Hoe",
+  seeds: "Seeds",
 };
 
 export function createInventory(size = INVENTORY_SLOTS): Inventory {

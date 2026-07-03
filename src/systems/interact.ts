@@ -2,6 +2,7 @@ import { POND, STALL } from "../world/zones";
 import { nearPond, nearRect } from "../world/collision";
 import { GOOD_PRICES, goodCount, sellGood, sellAllGoods, type Economy } from "./economy";
 import { ITEM_NAMES } from "./inventory";
+import { SHOP_STOCK, tryBuy, owned } from "./shop";
 import { startCast, type FishingState } from "./fishing";
 import { startPick, type ForagingState, type Bush } from "./foraging";
 import { skillValue, type Skills } from "./skills";
@@ -99,7 +100,34 @@ const stall: Interactable = {
           c.toast(`Sold ${name} for ${earned} coins!`);
         },
       });
-    list.push({ id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Sell your goods here.") });
+    // nothing to sell -> E/left-click browses instead of accidentally buying
+    if (held.length === 0)
+      list.push({
+        id: "browse", label: "Browse wares",
+        run: (c) => {
+          const wares = SHOP_STOCK.filter((s) => !owned(c.economy, s))
+            .map((s) => `${ITEM_NAMES[s.id] ?? s.id} — ${s.price} coins`);
+          c.toast(wares.length ? `For sale: ${wares.join(", ")}.` : "Nothing left you don't already own.");
+        },
+      });
+    for (const entry of SHOP_STOCK) {
+      if (owned(c.economy, entry)) continue;
+      const name = (ITEM_NAMES[entry.id] ?? entry.id).toLowerCase();
+      list.push({
+        id: `buy-${entry.id}`,
+        label: `Buy ${name} (${entry.price} coins)`,
+        run: (c) => {
+          const r = tryBuy(c.economy, entry);
+          c.toast(
+            r === "ok" ? `Bought ${name === "seeds" ? "seeds" : `a ${name}`}!`
+            : r === "no-coins" ? `Not enough coins — ${name} ${name.endsWith("s") ? "cost" : "costs"} ${entry.price}.`
+            : r === "bag-full" ? "Backpack full — no room for that."
+            : `You already own a ${name}.`
+          );
+        },
+      });
+    }
+    list.push({ id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Buy tools, sell goods.") });
     return list;
   },
   drawHover: (g, t) => glowRect(g, stallBox.x - 2, stallBox.y - 2, stallBox.w + 4, stallBox.h + 4, t),

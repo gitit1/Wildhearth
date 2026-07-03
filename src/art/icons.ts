@@ -55,10 +55,42 @@ function paintBerries(g: CanvasRenderingContext2D, s: number) {
   }
 }
 
+function paintHoe(g: CanvasRenderingContext2D, s: number) {
+  // wooden handle, diagonal
+  g.strokeStyle = "#8a6a42"; g.lineWidth = Math.max(2, s * 0.09); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.25, s * 0.78); g.lineTo(s * 0.68, s * 0.24); g.stroke();
+  // metal blade
+  g.fillStyle = "#9aa2ab";
+  g.beginPath();
+  g.moveTo(s * 0.62, s * 0.18);
+  g.lineTo(s * 0.82, s * 0.34);
+  g.lineTo(s * 0.72, s * 0.5);
+  g.lineTo(s * 0.58, s * 0.32);
+  g.closePath(); g.fill();
+  g.fillStyle = "rgba(255,255,255,.35)";
+  g.beginPath(); g.moveTo(s * 0.64, s * 0.22); g.lineTo(s * 0.76, s * 0.32); g.lineTo(s * 0.7, s * 0.4); g.closePath(); g.fill();
+}
+
+function paintSeeds(g: CanvasRenderingContext2D, s: number) {
+  // paper packet
+  g.fillStyle = "#e0cfa0";
+  g.fillRect(s * 0.3, s * 0.26, s * 0.4, s * 0.5);
+  g.fillStyle = "#c9b585";
+  g.beginPath(); g.moveTo(s * 0.3, s * 0.26); g.lineTo(s * 0.5, s * 0.36); g.lineTo(s * 0.7, s * 0.26); g.closePath(); g.fill();
+  // seeds spilling
+  g.fillStyle = "#7a5c2e";
+  const dots: Array<[number, number]> = [[0.42, 0.55], [0.52, 0.62], [0.6, 0.52], [0.47, 0.7], [0.58, 0.72]];
+  for (const [ox, oy] of dots) {
+    g.beginPath(); g.ellipse(s * ox, s * oy, s * 0.045, s * 0.03, 0.6, 0, 7); g.fill();
+  }
+}
+
 const PAINTERS: Record<string, IconPainter> = {
   fish: paintFish,
   coins: paintCoinPouch,
   berries: paintBerries,
+  hoe: paintHoe,
+  seeds: paintSeeds,
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

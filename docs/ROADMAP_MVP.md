@@ -107,7 +107,16 @@ Verified in-browser end to end incl. regrowth and mixed fish+berries sale;
   or increases yield (pick one — keep it simple for MVP).
 - Checkpoint: two independent ways to earn now exist.
 
-## Step 4 — The market stall becomes a real shop (buy, not just sell)
+## Step 4 — The market stall becomes a real shop (buy, not just sell) (DONE)
+Done (2026-07-04): `systems/shop.ts` — fixed stock (hoe 12, seeds 3; prices
+in config), `tryBuy` handles no-coins / already-owned / bag-full; the hoe is
+unique (owned once, then leaves the menu), seeds stack. Buying is part of
+the stall's UO menu (right-click: sell entries + Buy hoe / Buy seeds + Look);
+with nothing to sell, E/left-click "Browse wares" lists prices instead of
+accidentally buying. Hoe + seeds get code-painted icons. Verified in-browser:
+sold 3 fish + 3 berries (15 coins) → bought hoe (12) → seeds (3), owned-hoe
+removed from menu, broke/full-bag purchases fail politely, everything
+persists across reload. `npm run build` passes.
 - `src/systems/shop.ts`: a small fixed price list (buy hoe, buy seeds —
   just enough for Step 5). Buying removes coins, adds an inventory item/tool
   flag.

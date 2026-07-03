@@ -16,6 +16,9 @@ export const FORAGE_TIME = 1.2;         // seconds to pick a bush
 export const BUSH_RESPAWN = 25;         // seconds until a picked bush regrows
 export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds a bonus chance)
 
+export const HOE_PRICE = 12;            // shop: first tool (unlocks farming, Step 5)
+export const SEEDS_PRICE = 3;           // shop: one packet of seeds
+
 export const SKILL_GAIN_BASE = 0.3;     // gain per use at skill 0, shrinking toward 100
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
