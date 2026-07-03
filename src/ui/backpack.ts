@@ -11,6 +11,7 @@ import { makePanel } from "./panels";
 const ICON_PX = 40;
 
 let panel: HTMLElement;
+let bagBtn: HTMLElement | null;
 let open = true;
 let eco: Economy;
 let iconScale = 1;
@@ -19,6 +20,7 @@ let slotEls: { canvas: HTMLCanvasElement; qty: HTMLElement; paintedKey: string }
 export function initBackpack(economy: Economy) {
   eco = economy;
   panel = document.getElementById("backpack")!;
+  bagBtn = document.getElementById("bagBtn");
   const grid = document.getElementById("backpackGrid")!;
 
   for (let i = 0; i < economy.inv.slots.length; i++) {
@@ -32,15 +34,22 @@ export function initBackpack(economy: Economy) {
     slotEls.push({ canvas, qty, paintedKey: "" });
   }
 
+  // Two ways in: the HUD icon (mouse-first) and the I / Escape shortcuts.
+  bagBtn?.addEventListener("click", () => setOpen(!open));
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyI") { open = !open; render(); }
-    else if (e.code === "Escape" && open) open = false;
-    else return;
-    panel.style.display = open ? "block" : "none";
+    if (e.code === "KeyI") setOpen(!open);
+    else if (e.code === "Escape" && open) setOpen(false);
   });
 
-  panel.style.display = "block";
+  setOpen(true);
   makePanel(panel, panel.querySelector("h2")!, "bag", setScale);
+}
+
+function setOpen(v: boolean) {
+  open = v;
+  panel.style.display = open ? "block" : "none";
+  bagBtn?.classList.toggle("active", open);
+  if (open) render();
 }
 
 /** Call every frame; repaints only while open and only slots that changed. */

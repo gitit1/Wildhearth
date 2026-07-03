@@ -23,7 +23,11 @@ Already built and verified (`npm run build` passes):
 - Player movement/animation, ambient cow + hens
 - One working loop: fish at the pond → sell at the stall → coins persist
 
-## Step 1 — Inventory replaces the rigid coin/fish fields
+## Step 1 — Inventory replaces the rigid coin/fish fields (DONE)
+Done (2026-07-03): slot-based `inventory.ts` + `economy.ts` migration (coins
+stay currency, fish is an item, legacy saves migrate), code-painted item
+icons, backpack window. Verified in-browser: full fish→sell loop still works,
+fish visibly sit in the backpack grid before sale. `npm run build` passes.
 Why first: every later step (skills, farming, buying tools) needs a real
 item store instead of two hardcoded numbers.
 - `src/systems/inventory.ts`: slot-based item store. Item = `{id, qty}`.
@@ -37,7 +41,15 @@ item store instead of two hardcoded numbers.
 - Checkpoint: fishing loop still works end to end, fish now visibly sit in
   the backpack grid before being sold.
 
-## Step 1.5 — Mouse-first control retrofit
+## Step 1.5 — Mouse-first control retrofit (DONE)
+Done (2026-07-03): click/tap-to-move (`input.ts` sets a world target via
+`camera.ts` screen→world mapping; `player.ts` walks toward it, sliding on
+walls and abandoning unreachable targets), an on-screen backpack icon in the
+HUD toolbar (active-state highlight), and the action button now shows on
+desktop too so cast/sell work by mouse. WASD/arrows/touch-joystick kept as
+alternate input; I/Escape kept as backpack shortcuts. Verified in-browser:
+the entire fish→sell loop is playable with the mouse alone, keyboard still
+steers. `npm run build` passes.
 A late but important decision: mouse becomes the primary input, on top of
 what Step 0/1 already built.
 - `src/engine/input.ts`: add click-to-move — a click/tap on the world sets

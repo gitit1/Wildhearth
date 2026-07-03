@@ -1,6 +1,6 @@
-import { T, PLAYER_SPEED } from "../config";
+import { T, PLAYER_SPEED, CLICK_ARRIVE } from "../config";
 import { blocked } from "../world/collision";
-import { inputVec } from "../engine/input";
+import { inputVec, getMoveTarget, clearMoveTarget } from "../engine/input";
 
 export interface Player {
   x: number; y: number;
@@ -14,13 +14,29 @@ export function createPlayer(): Player {
 }
 
 export function updatePlayer(p: Player, dt: number) {
-  const [vx, vy] = inputVec();
+  const [ix, iy] = inputVec();
+  let vx = ix, vy = iy, step = PLAYER_SPEED * dt;
+
+  if (ix || iy) {
+    clearMoveTarget();                       // manual steering overrides click-to-move
+  } else {
+    const t = getMoveTarget();
+    if (t) {
+      const dx = t[0] - p.x, dy = t[1] - p.y, dist = Math.hypot(dx, dy);
+      if (dist <= CLICK_ARRIVE) { clearMoveTarget(); p.moving = false; return; }
+      vx = dx / dist; vy = dy / dist;
+      step = Math.min(step, dist);           // don't overshoot the target
+    }
+  }
+
   p.moving = !!(vx || vy);
   if (!p.moving) return;
-  p.fishing = false;                       // moving cancels fishing
-  const nx = p.x + vx * PLAYER_SPEED * dt;
-  const ny = p.y + vy * PLAYER_SPEED * dt;
-  if (!blocked(nx, p.y)) p.x = nx;
-  if (!blocked(p.x, ny)) p.y = ny;
+  p.fishing = false;                         // moving cancels fishing
+
+  const nx = p.x + vx * step, ny = p.y + vy * step;
+  const movedX = !blocked(nx, p.y), movedY = !blocked(p.x, ny);
+  if (movedX) p.x = nx;
+  if (movedY) p.y = ny;
+  if (!movedX && !movedY) clearMoveTarget(); // wall on both axes -> abandon unreachable target
   p.dir = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 1 : 3) : vy > 0 ? 2 : 0;
 }
