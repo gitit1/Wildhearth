@@ -6,17 +6,21 @@ import {
 import { applyCamera, screenToWorld } from "./engine/camera";
 import { paintGround } from "./world/ground";
 import { HOUSE, BARN, STALL, TREES } from "./world/zones";
-import { drawTree, drawFence, drawCorn, drawBush, drawWaterShimmer } from "./art/props";
+import { drawTree, drawFence, drawBush, drawTilledTile, drawCropTile, drawWaterShimmer } from "./art/props";
 import { drawHouse, drawBarn, drawStall } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals } from "./entities/animals";
-import { loadEconomy, gainItem } from "./systems/economy";
+import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, cancelPick } from "./systems/foraging";
+import {
+  createPlots, createFarmWork, updateFarmWork, updatePlots, cancelWork,
+} from "./systems/farming";
+import { removeItem, countItem } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue } from "./systems/skills";
 import {
-  hitTest, reachable, byId, runAction, runDefault, defaultActionLabel, registerBushes,
+  hitTest, reachable, byId, runAction, runDefault, defaultActionLabel, registerBushes, registerPlots,
   type Interactable, type InteractCtx,
 } from "./systems/interact";
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
@@ -43,8 +47,11 @@ const economy = loadEconomy();
 const fishing = createFishing();
 const foraging = createForaging();
 const bushes = createBushes();
+const plots = createPlots();
+const farmwork = createFarmWork();
 const skills = loadSkills();
 registerBushes(bushes);
+registerPlots(plots);
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
@@ -66,11 +73,12 @@ function tick(now: number) {
   if (player.moving && !wasMoving) {
     if (fishing.casting) { cancelCast(fishing); player.fishing = false; }
     if (foraging.picking) cancelPick(foraging);
+    if (farmwork.working) cancelWork(farmwork);
   }
   updateAnimals(cows, hens, dt);
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = { economy, fishing, foraging, skills, player, toast };
+  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, skills, player, toast };
 
   const ps = getPointerScreen();
   hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1])) : null;
@@ -79,6 +87,8 @@ function tick(now: number) {
   const near = reachable(player.x, player.y);
   if (fishing.casting) setPrompt("Waiting for a bite...");
   else if (foraging.picking) setPrompt("Picking berries...");
+  else if (farmwork.working)
+    setPrompt(farmwork.kind === "till" ? "Tilling the soil..." : farmwork.kind === "plant" ? "Planting seeds..." : "Harvesting...");
   else if (near) setPrompt(defaultActionLabel(near, ictx));
   else setPrompt(null);
 
@@ -112,7 +122,8 @@ function tick(now: number) {
   }
 
   // action button / E key: use whatever is in reach
-  if (consumeAction() && near && !fishing.casting && !foraging.picking) runDefault(near, ictx);
+  if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working)
+    runDefault(near, ictx);
 
   // a queued action fires once the player arrives in reach
   if (pending) {
@@ -136,6 +147,28 @@ function tick(now: number) {
     else toast("Backpack full — no room for berries!");
     const gained = gainSkill(skills, "foraging");
     if (gained > 0) skillGainPopup("foraging", gained);
+  }
+  updatePlots(plots, dt, skillValue(skills, "farming"));
+  const farmDone = updateFarmWork(farmwork, dt);
+  if (farmDone) {
+    const { cell, kind } = farmDone;
+    if (kind === "till") {
+      cell.state = "tilled";
+      toast("The soil is ready for seeds.");
+    } else if (kind === "plant") {
+      if (countItem(economy.inv, "seeds") > 0 && removeItem(economy.inv, "seeds", 1)) {
+        saveEconomy(economy);
+        cell.state = "growing"; cell.growth = 0;
+        toast("Seeds planted!");
+      }
+    } else {
+      if (gainItem(economy, "corn")) {
+        cell.state = "tilled"; cell.growth = 0;
+        toast("Harvested corn! 🌽");
+        const gained = gainSkill(skills, "farming");
+        if (gained > 0) skillGainPopup("farming", gained);
+      } else toast("Backpack full — no room for the corn!");
+    }
   }
 
   // chimney smoke
@@ -163,7 +196,12 @@ function draw() {
   ctx.drawImage(ground, 0, 0);
   drawWaterShimmer(ctx, time);
   drawFence(ctx);
-  drawCorn(ctx, time);
+
+  // the farm plot inside the fenced field (ground-level, under entities)
+  for (const c of plots) {
+    if (c.state === "tilled") drawTilledTile(ctx, c.x, c.y);
+    else if (c.state === "growing" || c.state === "ready") drawCropTile(ctx, c.x, c.y, c.growth, time);
+  }
 
   // depth-sorted world objects + entities
   const ents: Array<{ y: number; f: () => void }> = [

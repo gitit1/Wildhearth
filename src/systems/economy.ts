@@ -1,4 +1,4 @@
-import { FISH_PRICE, BERRY_PRICE, SAVE_KEY } from "../config";
+import { FISH_PRICE, BERRY_PRICE, CORN_PRICE, SAVE_KEY } from "../config";
 import {
   Inventory, createInventory, reviveInventory, addItem, removeItem, countItem,
 } from "./inventory";
@@ -7,6 +7,7 @@ import {
 export const GOOD_PRICES: Record<string, number> = {
   fish: FISH_PRICE,
   berries: BERRY_PRICE,
+  corn: CORN_PRICE,
 };
 
 /** Player wallet + backpack. Coins are currency (not a slot item). */
@@ -55,7 +56,7 @@ export function goodCount(e: Economy, id: string): number { return countItem(e.i
 export function sellGood(e: Economy, id: string): number {
   const price = GOOD_PRICES[id];
   const n = countItem(e.inv, id);
-  if (!price || n === 0) return 0;
+  if (!price || n <= 0) return 0;
   removeItem(e.inv, id, n);
   const earned = n * price;
   e.coins += earned;

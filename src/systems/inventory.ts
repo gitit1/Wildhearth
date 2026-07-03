@@ -13,6 +13,7 @@ export const ITEM_NAMES: Record<string, string> = {
   berries: "Berries",
   hoe: "Hoe",
   seeds: "Seeds",
+  corn: "Corn",
 };
 
 export function createInventory(size = INVENTORY_SLOTS): Inventory {

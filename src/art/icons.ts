@@ -85,12 +85,28 @@ function paintSeeds(g: CanvasRenderingContext2D, s: number) {
   }
 }
 
+function paintCorn(g: CanvasRenderingContext2D, s: number) {
+  // golden ear
+  g.fillStyle = "#e8c85a";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.48, s * 0.16, s * 0.3, 0.15, 0, 7); g.fill();
+  // kernel rows
+  g.strokeStyle = "rgba(180,140,40,.6)"; g.lineWidth = Math.max(1, s * 0.02);
+  for (const ox of [-0.06, 0, 0.06]) {
+    g.beginPath(); g.moveTo(s * (0.5 + ox), s * 0.24); g.lineTo(s * (0.52 + ox), s * 0.72); g.stroke();
+  }
+  // husk leaves
+  g.fillStyle = "#528a2c";
+  g.beginPath(); g.ellipse(s * 0.36, s * 0.62, s * 0.07, s * 0.2, 0.5, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(s * 0.62, s * 0.66, s * 0.06, s * 0.18, -0.4, 0, 7); g.fill();
+}
+
 const PAINTERS: Record<string, IconPainter> = {
   fish: paintFish,
   coins: paintCoinPouch,
   berries: paintBerries,
   hoe: paintHoe,
   seeds: paintSeeds,
+  corn: paintCorn,
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

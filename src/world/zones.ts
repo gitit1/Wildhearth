@@ -15,3 +15,5 @@ export const TREES: Array<[number, number]> = [
 export const BUSHES: Array<[number, number]> = [
   [2.9 * T, 11.2 * T], [4.4 * T, 13.8 * T], [2.2 * T, 17.5 * T],
 ];
+/** The whole fenced field is tillable (MVP farming, Step 5). Cells are T x T. */
+export const PLOT = { x: FIELD.x0 * T, y: FIELD.y0 * T, cols: FIELD.x1 - FIELD.x0, rows: FIELD.y1 - FIELD.y0 };

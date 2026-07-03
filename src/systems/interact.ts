@@ -5,6 +5,8 @@ import { ITEM_NAMES } from "./inventory";
 import { SHOP_STOCK, tryBuy, owned } from "./shop";
 import { startCast, type FishingState } from "./fishing";
 import { startPick, type ForagingState, type Bush } from "./foraging";
+import { startWork, type FarmWork, type PlotCell } from "./farming";
+import { countItem } from "./inventory";
 import { skillValue, type Skills } from "./skills";
 import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
@@ -20,9 +22,15 @@ export interface InteractCtx {
   economy: Economy;
   fishing: FishingState;
   foraging: ForagingState;
+  farmwork: FarmWork;
   skills: Skills;
   player: Player;
   toast: (s: string) => void;
+}
+
+/** True while any timed activity is running (they are mutually exclusive). */
+function busy(c: InteractCtx): boolean {
+  return c.fishing.casting || c.foraging.picking || c.farmwork.working;
 }
 
 export interface MenuAction { id: string; label: string; run: (c: InteractCtx) => void; }
@@ -52,7 +60,7 @@ const pond: Interactable = {
     {
       id: "fish", label: "Fish",
       run: (c) => {
-        if (c.fishing.casting || c.foraging.picking) return;
+        if (busy(c)) return;
         startCast(c.fishing, skillValue(c.skills, "fishing"));
         c.player.fishing = true;
       },
@@ -153,7 +161,7 @@ export function registerBushes(bushes: Bush[]) {
         if (b.full)
           list.push({
             id: "pick", label: "Pick berries",
-            run: (c) => { if (!c.fishing.casting) startPick(c.foraging, b); },
+            run: (c) => { if (!busy(c)) startPick(c.foraging, b); },
           });
         list.push({
           id: "look", label: "Look",
@@ -164,6 +172,57 @@ export function registerBushes(bushes: Bush[]) {
         return list;
       },
       drawHover: (g, t) => glowEllipse(g, b.x, b.y - 4, 22, 18, t),
+    });
+  });
+}
+
+/** Plot tiles: till (hoe) -> plant (seeds) -> grow -> harvest, per cell. */
+export function registerPlots(cells: PlotCell[]) {
+  cells.forEach((cell, i) => {
+    INTERACTABLES.push({
+      id: `plot-${i}`,
+      name: "Plot",
+      anchor: [cell.x, cell.y + 24],
+      defaultActionId: "work",
+      hit: (wx, wy) => Math.abs(wx - cell.x) <= 16 && Math.abs(wy - cell.y) <= 16,
+      inReach: (px, py) => Math.hypot(px - cell.x, py - cell.y) < 46,
+      actions: (c) => {
+        const list: MenuAction[] = [];
+        if (cell.state === "wild")
+          list.push({
+            id: "work", label: "Till",
+            run: (c) => {
+              if (busy(c)) return;
+              if (countItem(c.economy.inv, "hoe") === 0) { c.toast("You need a hoe — the stall sells one."); return; }
+              startWork(c.farmwork, cell, "till");
+            },
+          });
+        else if (cell.state === "tilled")
+          list.push({
+            id: "work", label: "Plant seeds",
+            run: (c) => {
+              if (busy(c)) return;
+              if (countItem(c.economy.inv, "seeds") === 0) { c.toast("You need seeds — the stall sells them."); return; }
+              startWork(c.farmwork, cell, "plant");
+            },
+          });
+        else if (cell.state === "ready")
+          list.push({
+            id: "work", label: "Harvest",
+            run: (c) => { if (!busy(c)) startWork(c.farmwork, cell, "harvest"); },
+          });
+        list.push({
+          id: "look", label: "Look",
+          run: (c) => c.toast(
+            cell.state === "wild" ? "A patch of ground fit for tilling."
+            : cell.state === "tilled" ? "Tilled soil, waiting for seeds."
+            : cell.state === "ready" ? "Ripe corn, ready to harvest!"
+            : `Corn growing — ${Math.round(cell.growth * 100)}% there.`
+          ),
+        });
+        return list;
+      },
+      drawHover: (g, t) => glowRect(g, cell.x - 16, cell.y - 16, 32, 32, t),
     });
   });
 }

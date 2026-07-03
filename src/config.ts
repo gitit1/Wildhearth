@@ -19,6 +19,13 @@ export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds
 export const HOE_PRICE = 12;            // shop: first tool (unlocks farming, Step 5)
 export const SEEDS_PRICE = 3;           // shop: one packet of seeds
 
+export const CORN_PRICE = 5;            // coins per harvested corn at the stall
+export const TILL_TIME = 1.0;           // seconds to till a plot tile
+export const PLANT_TIME = 0.7;          // seconds to plant seeds
+export const HARVEST_TIME = 0.8;        // seconds to harvest
+export const CROP_GROW_TIME = 30;       // seconds from planting to ready (at Farming 0)
+export const FARMING_GROW_REDUCTION = 0.4; // grow-time fraction removed at Farming 100
+
 export const SKILL_GAIN_BASE = 0.3;     // gain per use at skill 0, shrinking toward 100
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)

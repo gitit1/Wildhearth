@@ -124,7 +124,20 @@ persists across reload. `npm run build` passes.
   the stall (reuse existing E/action-button flow, no new UI framework).
 - Checkpoint: player can now spend her fish/berry money on her first tool.
 
-## Step 5 — Farming (third livelihood, and the first purchase payoff)
+## Step 5 — Farming (third livelihood, and the first purchase payoff) (DONE)
+Done (2026-07-04): the whole fenced field is tillable — 11x10 tiles derived
+from the FIELD rect (`zones.ts` PLOT); the demo corn was removed and the
+fenced field is the real farm. `systems/farming.ts`
+mirrors the fishing/foraging state machines: till (needs the hoe, helpful
+toast if not owned) → plant (consumes one seed packet) → grow (30s at
+Farming 0) → harvest → corn into the backpack, tile back to tilled for
+replanting. Per-tile crop painter with growth stages (sprout → stalk →
+golden ears) on tilled soil. Farming skill wired: gain per harvest with the
+popup; higher skill shortens grow time (40% faster at 100). Corn sells at
+the stall for CORN_PRICE (5). Plot tiles are clickable UO objects. Verified
+in-browser end to end: no-hoe refusal, till→plant→grow→harvest→replant, and
+the harvested corn sold for 5 coins — the earn → buy tool → new loop arc is
+provable in-game. `npm run build` passes.
 - `src/world/zones.ts`: designate a small tillable plot near the house
   (reuse/shrink the existing FIELD rect — MVP doesn't need the full big
   field yet).
