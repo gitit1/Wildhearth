@@ -11,7 +11,9 @@ export function applyCamera(
   canvas = cv;
   // zoom is the on-screen size of a world px (CSS px); the backing-store
   // scale multiplies by dpr so hi-dpi displays keep the same framing, crisp.
-  const zoom = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, (innerWidth / CAM_ZOOM_REF_W) * devicePixelRatio));
+  // Derived from the play window's own width (the canvas), not the screen.
+  const cssW = cv.width / devicePixelRatio;
+  const zoom = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, (cssW / CAM_ZOOM_REF_W) * devicePixelRatio));
   const scale = zoom * devicePixelRatio;
   const vw = cv.width / scale, vh = cv.height / scale;
   let camx = fx - vw / 2, camy = fy - vh / 2;

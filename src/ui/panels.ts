@@ -38,14 +38,15 @@ export function makePanel(
     el.style.right = "auto";
   };
   const saved = loadAll()[key];
-  if (saved) {
-    place(saved.x, saved.y);
-    s = clamp(saved.s, minS, maxS);
-  } else {
+  if (saved) s = clamp(saved.s, minS, maxS);
+  // size content first, THEN resolve the default position — measuring before
+  // onScale would capture a wrong (unsized) box for canvas-based panels.
+  onScale(s);
+  if (saved) place(saved.x, saved.y);
+  else {
     const r = el.getBoundingClientRect();
     place(r.left, r.top);
   }
-  onScale(s);
 
   const persist = () => {
     const r = el.getBoundingClientRect();

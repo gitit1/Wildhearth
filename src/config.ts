@@ -25,4 +25,4 @@ export const CAM_ZOOM_REF_W = 900;      // window width where zoom starts growin
 
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
-export const UI_KEY = "wildhearth-ui-v1";    // panel positions/sizes (not game state)
+export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

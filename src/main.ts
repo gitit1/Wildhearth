@@ -26,7 +26,12 @@ import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
-function fit() { cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; }
+// the canvas fills #gameArea (the UO-style play window), not the whole screen
+function fit() {
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.round(r.width * devicePixelRatio);
+  cv.height = Math.round(r.height * devicePixelRatio);
+}
 addEventListener("resize", fit); fit();
 
 initInput(cv, document.getElementById("actBtn")!);
