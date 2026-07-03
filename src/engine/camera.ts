@@ -1,4 +1,4 @@
-import { WORLD_W, WORLD_H } from "../config";
+import { WORLD_W, WORLD_H, CAM_ZOOM_MIN, CAM_ZOOM_MAX, CAM_ZOOM_REF_W } from "../config";
 
 /** Latest camera state, kept so screen clicks can be mapped back to the world. */
 let lastCam = { camx: 0, camy: 0, scale: 1 };
@@ -9,7 +9,10 @@ export function applyCamera(
   ctx: CanvasRenderingContext2D, cv: HTMLCanvasElement, fx: number, fy: number
 ): { camx: number; camy: number; vw: number; vh: number; scale: number } {
   canvas = cv;
-  const scale = Math.min(2.2, Math.max(1.4, (innerWidth / 900) * devicePixelRatio));
+  // zoom is the on-screen size of a world px (CSS px); the backing-store
+  // scale multiplies by dpr so hi-dpi displays keep the same framing, crisp.
+  const zoom = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, (innerWidth / CAM_ZOOM_REF_W) * devicePixelRatio));
+  const scale = zoom * devicePixelRatio;
   const vw = cv.width / scale, vh = cv.height / scale;
   let camx = fx - vw / 2, camy = fy - vh / 2;
   camx = Math.max(0, Math.min(WORLD_W - vw, camx));

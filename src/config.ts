@@ -19,6 +19,10 @@ export const MINIMAP_SCALE = 0.14;      // minimap px per world px
 export const CLICK_ARRIVE = 5;          // px: close enough to a click-to-move target
 export const DRAG_THRESHOLD = 10;       // px of travel before a press is a joystick drag, not a tap
 
+export const CAM_ZOOM_MIN = 1.4;        // camera zoom (CSS px per world px) bounds
+export const CAM_ZOOM_MAX = 2.2;
+export const CAM_ZOOM_REF_W = 900;      // window width where zoom starts growing past min
+
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const UI_KEY = "wildhearth-ui-v1";    // panel positions/sizes (not game state)
