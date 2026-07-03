@@ -11,5 +11,6 @@ export const FISH_TIME_MIN = 1.2;       // seconds until a bite
 export const FISH_TIME_MAX = 3.0;
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
+export const MINIMAP_SCALE = 0.14;      // minimap px per world px
 
 export const SAVE_KEY = "meshek-save-v1";

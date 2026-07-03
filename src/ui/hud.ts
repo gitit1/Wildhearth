@@ -1,15 +1,12 @@
 import type { Economy } from "../systems/economy";
-import { fishCount } from "../systems/economy";
 
 const coinsEl = document.getElementById("coins")!;
-const fishEl = document.getElementById("fish")!;
 const promptEl = document.getElementById("prompt")!;
 const toastEl = document.getElementById("toast")!;
 let toastT = 0;
 
 export function updateHud(e: Economy) {
   coinsEl.textContent = String(e.coins);
-  fishEl.textContent = String(fishCount(e));
 }
 
 export function setPrompt(text: string | null) {

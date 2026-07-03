@@ -22,9 +22,9 @@ everything after). Do not build ahead of the current phase without asking.
 3. Keep gameplay tuning values in src/config.ts, world layout in
    src/world/zones.ts — never hardcode inline.
 4. TypeScript strict mode must stay green: `npm run build` before declaring done.
-5. UI-facing strings are Hebrew; code, comments, and docs are English. The
-   user reviews docs here in chat (in Hebrew) and Claude updates the English
-   files accordingly — the files themselves stay English.
+5. Everything is English — UI-facing strings, code, comments, and docs.
+   (Product-owner decision 2026-07-03; the UI was originally Hebrew.) The
+   user may still review docs in chat in Hebrew; the files stay English.
 6. Keep modules small and single-purpose; follow the existing structure below.
 
 ## Architecture map

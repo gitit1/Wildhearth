@@ -13,6 +13,7 @@ import { loadEconomy, gainItem, sellFish, fishCount } from "./systems/economy";
 import { createFishing, startCast, updateFishing, cancelCast } from "./systems/fishing";
 import { updateHud, setPrompt, toast, updateToast } from "./ui/hud";
 import { initBackpack, updateBackpack } from "./ui/backpack";
+import { initMinimap, updateMinimap } from "./ui/minimap";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -26,6 +27,7 @@ const { cows, hens } = createAnimals();
 const economy = loadEconomy();
 const fishing = createFishing();
 initBackpack(economy);
+initMinimap();
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -44,15 +46,15 @@ function tick(now: number) {
   // interactions
   const atPond = nearPond(player.x, player.y);
   const atStall = nearRect(player.x, player.y, STALL);
-  if (fishing.casting) setPrompt("...מחכה שדג יינשך");
-  else if (atStall && fishCount(economy) > 0) setPrompt("E — למכור את הדגים");
-  else if (atPond) setPrompt("E — לדוג");
+  if (fishing.casting) setPrompt("Waiting for a bite...");
+  else if (atStall && fishCount(economy) > 0) setPrompt("E — Sell fish");
+  else if (atPond) setPrompt("E — Fish");
   else setPrompt(null);
 
   if (consumeAction()) {
     if (atStall && fishCount(economy) > 0) {
       const earned = sellFish(economy);
-      toast(`נמכרו דגים תמורת ${earned} מטבעות!`);
+      toast(`Sold fish for ${earned} coins!`);
     } else if (atPond && !fishing.casting) {
       startCast(fishing);
       player.fishing = true;
@@ -60,8 +62,8 @@ function tick(now: number) {
   }
   if (updateFishing(fishing, dt)) {
     player.fishing = false;
-    if (gainItem(economy, "fish")) toast("דג נתפס! 🐟");
-    else toast("!התיק מלא — אין מקום לדג");
+    if (gainItem(economy, "fish")) toast("Caught a fish! 🐟");
+    else toast("Backpack full — no room for the fish!");
   }
 
   // chimney smoke
@@ -75,6 +77,7 @@ function tick(now: number) {
 
   updateHud(economy);
   updateBackpack(economy);
+  updateMinimap(player);
   updateToast(dt);
   draw();
   requestAnimationFrame(tick);

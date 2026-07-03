@@ -2,12 +2,12 @@ import type { Economy } from "../systems/economy";
 import { ITEM_NAMES } from "../systems/inventory";
 import { drawItemIcon } from "../art/icons";
 
-/** Backpack window (key I): DOM grid of slots, icons painted in code. */
+/** Backpack panel: always visible UO-style, key I (or Escape) toggles it. */
 
 const ICON_PX = 40;
 
 let panel: HTMLElement;
-let open = false;
+let open = true;
 let slotEls: { canvas: HTMLCanvasElement; qty: HTMLElement; paintedKey: string }[] = [];
 
 export function initBackpack(economy: Economy) {
@@ -34,6 +34,9 @@ export function initBackpack(economy: Economy) {
     else return;
     panel.style.display = open ? "block" : "none";
   });
+
+  render(economy);
+  panel.style.display = "block";
 }
 
 /** Call every frame; repaints only while open and only slots that changed. */

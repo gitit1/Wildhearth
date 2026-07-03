@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-  <title>משק</title>
+  <title>Meshek</title>
   <style>
     html,body{margin:0;height:100%;overflow:hidden;background:#365b28;font-family:-apple-system,Segoe UI,Roboto,sans-serif}
     canvas{display:block;touch-action:none}
@@ -16,9 +16,11 @@
     #actBtn{position:fixed;bottom:18px;left:18px;width:64px;height:64px;border-radius:50%;border:none;
       background:rgba(230,190,80,.9);font-size:26px;z-index:5;display:none}
     @media (pointer:coarse){#actBtn{display:block}}
-    #backpack{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);display:none;z-index:7;
-      background:rgba(25,32,18,.94);border:2px solid #7a5c34;border-radius:14px;padding:14px 16px;color:#f0ead6}
-    #backpack h2{margin:0 0 10px;font-size:16px;text-align:center}
+    #backpack{position:fixed;top:56px;right:10px;display:none;z-index:5;
+      background:rgba(25,32,18,.88);border:2px solid #7a5c34;border-radius:14px;padding:10px 12px;color:#f0ead6}
+    #backpack h2{margin:0 0 8px;font-size:14px;text-align:center}
+    #minimap{position:fixed;top:10px;left:10px;z-index:5;display:block;border:2px solid #7a5c34;
+      border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
     #backpackGrid{display:grid;grid-template-columns:repeat(4,52px);gap:8px}
     .bp-slot{position:relative;width:52px;height:52px;border-radius:8px;background:rgba(240,234,214,.08);
       border:1px solid rgba(240,234,214,.2);display:flex;align-items:center;justify-content:center}
@@ -29,12 +31,12 @@
 <body>
   <div id="hud">
     <div class="pill">🪙 <span id="coins">0</span></div>
-    <div class="pill">🐟 <span id="fish">0</span></div>
   </div>
   <div id="prompt"></div>
   <div id="toast"></div>
+  <canvas id="minimap"></canvas>
   <div id="backpack">
-    <h2>🎒 תיק גב</h2>
+    <h2>🎒 Backpack</h2>
     <div id="backpackGrid"></div>
   </div>
   <button id="actBtn">✋</button>
