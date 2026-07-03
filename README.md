@@ -1,4 +1,4 @@
-# משק (Meshek)
+# Wildhearth
 
 Top-down 2D life-sim / farm game. All graphics are drawn in code — no asset files.
 

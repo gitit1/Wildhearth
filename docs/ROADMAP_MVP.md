@@ -1,7 +1,7 @@
 # Roadmap — MVP (the first complete, working game)
 
 Goal: a small but *whole* game. Not a tech demo — something with the
-identity of Meshek already recognizable: you start with almost nothing, you
+identity of Wildhearth already recognizable: you start with almost nothing, you
 choose how to earn, every tool is bought, skills grow, the farm visibly
 improves. No town, no NPCs, no AI yet. Those are ROADMAP_EXPANSION.md.
 
@@ -36,6 +36,21 @@ item store instead of two hardcoded numbers.
   icon + qty per item, closes on I or Escape.
 - Checkpoint: fishing loop still works end to end, fish now visibly sit in
   the backpack grid before being sold.
+
+## Step 1.5 — Mouse-first control retrofit
+A late but important decision: mouse becomes the primary input, on top of
+what Step 0/1 already built.
+- `src/engine/input.ts`: add click-to-move — a click/tap on the world sets
+  a target point, the player entity walks toward it each frame (straight
+  line against existing `blocked()` collision is fine for MVP; real
+  pathfinding is an EXPANSION polish item, not required here). Keep the
+  existing WASD/arrow keys and touch-drag joystick working as an alternate
+  input — this is additive, not a replacement.
+- The Step-1 backpack (and the Step-2 skills window, once it exists) get an
+  on-screen clickable icon in the HUD, not just a keyboard shortcut. Keep
+  the shortcut too (I/K) as a secondary way in.
+- Checkpoint: a player who never touches the keyboard can still play the
+  whole MVP loop end to end with the mouse alone.
 
 ## Step 2 — Skills (minimum viable: 5 skills, no cap yet)
 - `src/systems/skills.ts`: `Skill = {id, value: 0-100, lock: "up"|"down"|"locked"}`.
@@ -96,17 +111,31 @@ item store instead of two hardcoded numbers.
 - Checkpoint: all five starting livelihoods exist and each trains its own
   skill.
 
-## Step 7 — Skill lock + starter choice
+## Step 7 — Skill lock, and the real opening sequence
 Now that 5 skills exist, the lock system and starter choice are meaningful.
+Implement the exact flow from `VISION.md`'s "Opening sequence" section, in
+this order — do not shortcut straight to a bare choice screen:
+- `src/ui/titlescreen.ts`: New Game / Continue. Continue loads the save and
+  skips everything below entirely.
+- `src/ui/intro.ts`: short skippable text (new-game only) — a placeholder
+  sentence or two is fine for MVP, final writing is a content pass, not a
+  blocker.
+- Reveal sequence: camera/scene shows the rundown farm state (Step 8's
+  rundown painters need to exist by now — reorder Step 8 earlier if it's
+  easier to build the visuals before this screen needs them) *before* the
+  starter-choice screen appears.
+- `src/ui/newgame.ts`: starter choice — hoe / rod / instrument. Sets
+  starting tool + seeds that skill's value slightly.
+- Tutorial toggle (guided vs open), asked once here, stored as a normal
+  setting (not a one-time irreversible flag — it must be changeable later
+  from a settings menu, even if that menu is minimal for MVP).
 - Extend `skills.ts` with an overall cap (pick a placeholder number, e.g.
-  250, since MVP only has 5 skills — this gets revisited when more skills
-  arrive in EXPANSION). Enforce: a skill can't gain if the cap is full and
-  it isn't the one currently favored; `locked` skills never move (up or
-  down).
-- `src/ui/newgame.ts` (or fold into `main.ts` bootstrap): a one-time
-  starter-choice screen — hoe / rod / instrument — sets starting tool +
-  seeds that skill's value slightly.
-- Checkpoint: skill system now has real stakes, not just numbers going up.
+  250, since MVP only has 5 skills — revisited when more skills arrive in
+  EXPANSION). Enforce: a skill can't gain if the cap is full and it isn't
+  currently favored; `locked` skills never move (up or down).
+- Checkpoint: skill system now has real stakes, not just numbers going up,
+  and starting the game feels like the start of *this* game, not a bare
+  tech demo.
 
 ## Step 8 — Farm repair (visible renovation, tier 1 only)
 - `src/art/buildings.ts`: add a "rundown" paint variant for the house

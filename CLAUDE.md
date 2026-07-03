@@ -1,7 +1,7 @@
 # CLAUDE.md — agent guide for this repository
 
 ## What this project is
-"Meshek" (משק) — a single-player top-down 2D life-sim / farm / open-world game.
+"Wildhearth" — a single-player top-down 2D life-sim / farm / open-world game.
 Design pillars: The Sims + Ultima Online + farm games. The player starts nearly
 broke (fishing, street singing, foraging), buys every tool herself (no free
 progression), renovates a rundown farm, explores, and trades with LLM-powered
