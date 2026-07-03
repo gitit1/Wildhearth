@@ -52,14 +52,25 @@ const pond: Interactable = {
   drawHover: (g, t) => glowEllipse(g, POND.cx, POND.cy, POND.rx + 4, POND.ry + 4, t),
 };
 
+// The drawn stall is bigger than the STALL logic rect: the awning rises above
+// it (to y - 0.4h) and the legs drop below it (to ~y + 1.05h). Use those true
+// visible bounds so hover + highlight cover the whole structure, not just the
+// counter. (drawStall in art/buildings.ts is the source of these offsets.)
+const stallBox = {
+  x: STALL.x - 6,
+  y: STALL.y - STALL.h * 0.4,
+  w: STALL.w + 12,
+  h: STALL.h * 1.45,
+};
+
 const stall: Interactable = {
   id: "stall",
   name: "Market stall",
   anchor: [STALL.x + STALL.w / 2, STALL.y + STALL.h + 22],
   defaultActionId: "sell",
   hit: (wx, wy) =>
-    wx >= STALL.x - 6 && wx <= STALL.x + STALL.w + 6 &&
-    wy >= STALL.y - 6 && wy <= STALL.y + STALL.h + 6,
+    wx >= stallBox.x && wx <= stallBox.x + stallBox.w &&
+    wy >= stallBox.y && wy <= stallBox.y + stallBox.h,
   inReach: (px, py) => nearRect(px, py, STALL),
   actions: (c) => {
     const list: MenuAction[] = [];
@@ -72,7 +83,7 @@ const stall: Interactable = {
     list.push({ id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Sell your catch here.") });
     return list;
   },
-  drawHover: (g, t) => glowRect(g, STALL.x - 4, STALL.y - 4, STALL.w + 8, STALL.h + 8, t),
+  drawHover: (g, t) => glowRect(g, stallBox.x - 2, stallBox.y - 2, stallBox.w + 4, stallBox.h + 4, t),
 };
 
 export const INTERACTABLES: Interactable[] = [pond, stall];
