@@ -47,15 +47,30 @@ Renting/moving to town is a real idea for later, gated behind relationship
 and money — not part of the initial vertical slice.
 
 ## Opening arc — the poverty climb
-Day 1: a starter choice, Pokémon-style — the player picks ONE starting tool
-that shapes her first playstyle:
-- **Hoe** → leans into farming from day one (small starter plot).
-- **Fishing rod** → leans into fishing (as already prototyped).
-- **Instrument** → leans into busking/charisma.
-Whichever she doesn't pick, she can still do the other starter activities at
-a base ability (everyone can forage, everyone can fish a little) — the
-choice just means she starts with one skill seeded and one tool already
-owned, saving the first purchase.
+Day 1: a **Starting Path** choice — not a single item, an identity, closer
+to Ultima Online's "what will you be" than a Pokémon starter pick. Each
+path bundles a small kit (2 items) and seeds 2 skills, covering all nine
+base skills across four paths:
+- **The Provider** (wild resources) → Fishing + Foraging seeded. Kit: a
+  fishing rod + a foraging basket.
+- **The Tender** (land & home) → Farming + Building/Renovation +
+  Ornamental Gardening seeded. Kit: a hoe + a seed pouch.
+- **The Performer** (people & trade) → Busking + Haggling seeded. Kit: an
+  instrument + a trader's coin pouch/ledger.
+- **The Keeper** (animals & kitchen) → Animal Husbandry + Cooking seeded.
+  Kit: a feed pail + a cooking pot.
+Whichever path she doesn't pick, she can still do those activities at base
+ability (everyone can forage a little, everyone can fish a little) — the
+choice means she starts with two skills already seeded and two tools
+already owned, saving her first purchases, not that other paths are
+locked away.
+
+**Note on build order:** the small first MVP build (see ROADMAP_MVP.md)
+implements a simplified single-tool version of this (hoe / rod /
+instrument, one skill seeded) to keep the first playable slice small. The
+full four-path system above is the finished-game design and belongs to
+ROADMAP_EXPANSION.md — the MVP's simple version gets upgraded into it,
+not replaced by a second unrelated system.
 
 No progression is free. Every tool, animal, seed, and upgrade is bought with
 money the player earned herself. This is absolute: it's the spine of the
@@ -69,20 +84,24 @@ loop, not just a number going up.
 ## Opening sequence (the exact flow, screen by screen)
 This is the concrete order — implement it in this order, don't improvise a
 different one:
-1. **Title screen**: New Game / Continue. Continue skips everything below
-   and loads straight into the saved state — the intro story is a
-   new-game-only thing, never repeated or forced on a returning save.
-2. **New Game only — short, skippable intro story.** A few sentences, not a
-   cutscene: why she's broke, why this particular rundown farm (inherited
-   from a distant relative is the working placeholder framing — final
-   wording TBD). Any key/tap skips it immediately.
-3. **Reveal the rundown farm.** She sees the broken fences/roof *before*
-   being asked to choose anything — the choice below should feel like an
+1. **Title screen**: New Game / Continue / Settings / What's New. Continue
+   skips everything below and loads straight into the saved state — the
+   intro story and character creation are new-game-only, never repeated or
+   forced on a returning save.
+2. **New Game only — character creation.** Gender, basic appearance
+   (skin/hair/body preset), starting clothes, and her name. Real choices,
+   not a deep sculptor (see Systems #11).
+3. **Short, skippable intro story.** A few sentences, not a cutscene: why
+   she's broke, why this particular rundown farm (inherited from a distant
+   relative is the working placeholder framing — final wording TBD). Any
+   key/tap skips it immediately.
+4. **Reveal the rundown farm.** She sees the broken fences/roof *before*
+   being asked to choose a path — the choice below should feel like an
    emotional reaction to the state of the place ("okay, what do I do now"),
    not an abstract menu shown in a void.
-4. **Starter choice** (Pokémon-style): hoe / rod / instrument. Sets
-   starting tool + seeds that skill's value slightly (per Systems #1).
-5. **Tutorial toggle**, asked once here: guided (short prompts walk her
+5. **Starting Path choice** (finished game: the four-path system; MVP: the
+   simplified single-tool version — see Systems #1/Opening Arc for both).
+6. **Tutorial toggle**, asked once here: guided (short prompts walk her
    through her first catch/harvest/sale) or fully open (no hand-holding).
    This is a remembered setting, not a one-time forced sequence — she can
    still be a beginner who wants to skip hints, or an experienced player
@@ -209,12 +228,20 @@ not just resource gathering. Appearance customization itself (see #11) is
 deliberately deferred, but the professions that revolve around it are
 already part of the long-term vision.
 
-### 11. Character customization
-Explicitly **not a phase-1 concern.** The player doesn't need to customize
-her look at game start. It becomes meaningful later, hand-in-hand with the
-Fashion/Hairdressing professions (#10) — customization as something you
-build up access to in-world (a hairdresser NPC, a tailor), not a character
-creator screen on day one.
+### 11. Character creation & customization
+Revised: the finished game **does** have real day-one character creation —
+this isn't a Sims-depth sculptor, but it's a genuine choice, not deferred
+entirely as earlier drafts of this doc said.
+- **Gender**: female or male, chosen at creation.
+- **Basic appearance**: a handful of preset options (skin tone, hair
+  style/color, body type) — simple selection from a curated set, not a
+  free slider-based sculptor.
+- **Starting clothes**: pick from a few preset outfits.
+- **What stays deferred** to the Fashion/Hairdressing professions (#10) is
+  the *deep* layer: custom-tailored clothing, real hairstyling, expanded
+  wardrobes earned through play — not the initial look itself.
+- This is bundled into character creation together with the Starting Path
+  choice below; see Opening Sequence for the exact screen order.
 
 ### 12. Persistence & save system
 - One save slot for the first build; designed so a second slot (parallel

@@ -56,10 +56,21 @@ game needs.
    smaller scale: a few crop types instead of one, gated by Farming skill
    and season (seasons themselves are still Phase 6/VISION #7 — if seasons
    aren't in yet, gate by skill only for now and revisit).
+7. **Real character creation**, upgrading MVP Step 7's placeholder:
+   - `src/ui/charcreate.ts`: gender choice, a curated set of preset
+     appearance options (skin/hair/body — not free sliders), starting
+     clothes from a few preset outfits, name field.
+   - `src/systems/startingPath.ts`: replace the MVP's single-tool choice
+     with the four-path system (Provider / Tender / Performer / Keeper),
+     each granting a 2-item kit and seeding 2 skills — see VISION.md
+     Opening Arc for the exact mapping.
+   - Slot this into the Opening Sequence between the farm reveal and the
+     tutorial toggle, per VISION.md's updated screen order.
 
 **Checkpoint:** the same five livelihoods from the MVP, but each with real
-texture (many fish, a market you travel to, an interior life with needs) —
-before a single NPC or town building exists.
+texture (many fish, a market you travel to, an interior life with needs),
+and a real day-one character creation — before a single NPC or town
+building exists.
 
 ## Phase 1 — Town & scripted NPCs (still zero AI calls)
 Everything here must be fully playable and feel alive with AI OFF — this is
