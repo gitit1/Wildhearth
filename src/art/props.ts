@@ -56,6 +56,30 @@ export function drawCorn(g: CanvasRenderingContext2D, t: number) {
   }
 }
 
+/** Berry bush: leafy mound, dotted with berries while full; bare when picked. */
+export function drawBush(g: CanvasRenderingContext2D, x: number, y: number, full: boolean, t: number) {
+  shadow(g, x + 2, y + 8, 16, 6);
+  const sway = Math.sin(t * 1.1 + x * 0.3) * 0.8;
+  const blobs: Array<[number, number, number, string]> = full
+    ? [[-8, -2, 10, "#3d6626"], [8, -2, 9, "#47732c"], [0, -8, 11, "#528034"]]
+    : [[-8, -2, 9, "#4a5c33"], [8, -2, 8, "#55683a"], [0, -7, 10, "#5f7342"]];
+  for (const [ox, oy, r, c] of blobs) {
+    g.fillStyle = c;
+    g.beginPath(); g.arc(x + ox + sway, y + oy, r, 0, 7); g.fill();
+  }
+  if (full) {
+    g.fillStyle = "#c2385a";
+    const berries: Array<[number, number]> = [[-9, -4], [-2, -11], [6, -6], [1, -3], [9, -11]];
+    for (const [ox, oy] of berries) {
+      g.beginPath(); g.arc(x + ox + sway, y + oy, 2.2, 0, 7); g.fill();
+    }
+    g.fillStyle = "rgba(255,255,255,.5)";
+    for (const [ox, oy] of berries) {
+      g.beginPath(); g.arc(x + ox + sway - 0.7, y + oy - 0.7, 0.7, 0, 7); g.fill();
+    }
+  }
+}
+
 export function drawWaterShimmer(g: CanvasRenderingContext2D, t: number) {
   g.fillStyle = "rgba(255,255,255,.22)";
   for (let i = 0; i < 7; i++) {

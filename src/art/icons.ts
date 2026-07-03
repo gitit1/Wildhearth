@@ -39,9 +39,26 @@ function paintCoinPouch(g: CanvasRenderingContext2D, s: number) {
   g.beginPath(); g.arc(cx, s * 0.24, s * 0.06, 0, 7); g.stroke();
 }
 
+function paintBerries(g: CanvasRenderingContext2D, s: number) {
+  // small leaf behind the cluster
+  g.fillStyle = "#528034";
+  g.beginPath(); g.ellipse(s * 0.62, s * 0.32, s * 0.16, s * 0.08, -0.6, 0, 7); g.fill();
+  // berry cluster
+  g.fillStyle = "#c2385a";
+  const dots: Array<[number, number]> = [[0.38, 0.5], [0.56, 0.44], [0.5, 0.62], [0.66, 0.58]];
+  for (const [ox, oy] of dots) {
+    g.beginPath(); g.arc(s * ox, s * oy, s * 0.11, 0, 7); g.fill();
+  }
+  g.fillStyle = "rgba(255,255,255,.55)";
+  for (const [ox, oy] of dots) {
+    g.beginPath(); g.arc(s * (ox - 0.03), s * (oy - 0.03), s * 0.032, 0, 7); g.fill();
+  }
+}
+
 const PAINTERS: Record<string, IconPainter> = {
   fish: paintFish,
   coins: paintCoinPouch,
+  berries: paintBerries,
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

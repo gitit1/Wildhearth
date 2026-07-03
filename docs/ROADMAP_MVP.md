@@ -86,7 +86,17 @@ in-browser end to end; `npm run build` passes.
 - Checkpoint: fishing now visibly trains a skill; better skill = faster
   bites. Game still fully playable.
 
-## Step 3 — Foraging (second livelihood)
+## Step 3 — Foraging (second livelihood) (DONE)
+Done (2026-07-04): three berry bushes on the forest edge (`zones.ts` BUSHES),
+`systems/foraging.ts` mirrors the fishing state machine (pick timer → berries
+→ bush empties → regrows after 25s), `drawBush` painter with full/picked
+states + berries icon. Bushes are clickable UO-objects (hover glow,
+left-click picks, right-click menu). Foraging skill wired: +gain per pick
+with the "+0.3" popup; higher skill = chance of an extra berry per pick
+(yield option chosen over respawn). The stall now sells any priced good —
+"Sell everything" / per-good entries; berries fetch BERRY_PRICE (2).
+Verified in-browser end to end incl. regrowth and mixed fish+berries sale;
+`npm run build` passes.
 - `src/world/zones.ts`: add a forage patch (or a few bush spots) inside the
   existing forest-edge tree cluster.
 - `src/systems/foraging.ts`: interact near a bush → timer → berries added

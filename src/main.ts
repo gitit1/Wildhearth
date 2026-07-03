@@ -1,4 +1,4 @@
-import { WORLD_W } from "./config";
+import { WORLD_W, FORAGE_BASE_YIELD } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget,
@@ -6,16 +6,17 @@ import {
 import { applyCamera, screenToWorld } from "./engine/camera";
 import { paintGround } from "./world/ground";
 import { HOUSE, BARN, STALL, TREES } from "./world/zones";
-import { drawTree, drawFence, drawCorn, drawWaterShimmer } from "./art/props";
+import { drawTree, drawFence, drawCorn, drawBush, drawWaterShimmer } from "./art/props";
 import { drawHouse, drawBarn, drawStall } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals } from "./entities/animals";
 import { loadEconomy, gainItem } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast } from "./systems/fishing";
-import { loadSkills, gainSkill } from "./systems/skills";
+import { createBushes, createForaging, updateForaging, cancelPick } from "./systems/foraging";
+import { loadSkills, gainSkill, skillValue } from "./systems/skills";
 import {
-  hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
+  hitTest, reachable, byId, runAction, runDefault, defaultActionLabel, registerBushes,
   type Interactable, type InteractCtx,
 } from "./systems/interact";
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
@@ -40,7 +41,10 @@ const player = createPlayer();
 const { cows, hens } = createAnimals();
 const economy = loadEconomy();
 const fishing = createFishing();
+const foraging = createForaging();
+const bushes = createBushes();
 const skills = loadSkills();
+registerBushes(bushes);
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
@@ -59,11 +63,14 @@ function tick(now: number) {
 
   const wasMoving = player.moving;
   updatePlayer(player, dt);
-  if (player.moving && !wasMoving && fishing.casting) { cancelCast(fishing); player.fishing = false; }
+  if (player.moving && !wasMoving) {
+    if (fishing.casting) { cancelCast(fishing); player.fishing = false; }
+    if (foraging.picking) cancelPick(foraging);
+  }
   updateAnimals(cows, hens, dt);
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = { economy, fishing, skills, player, toast };
+  const ictx: InteractCtx = { economy, fishing, foraging, skills, player, toast };
 
   const ps = getPointerScreen();
   hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1])) : null;
@@ -71,6 +78,7 @@ function tick(now: number) {
 
   const near = reachable(player.x, player.y);
   if (fishing.casting) setPrompt("Waiting for a bite...");
+  else if (foraging.picking) setPrompt("Picking berries...");
   else if (near) setPrompt(defaultActionLabel(near, ictx));
   else setPrompt(null);
 
@@ -104,7 +112,7 @@ function tick(now: number) {
   }
 
   // action button / E key: use whatever is in reach
-  if (consumeAction() && near && !fishing.casting) runDefault(near, ictx);
+  if (consumeAction() && near && !fishing.casting && !foraging.picking) runDefault(near, ictx);
 
   // a queued action fires once the player arrives in reach
   if (pending) {
@@ -119,6 +127,15 @@ function tick(now: number) {
     else toast("Backpack full — no room for the fish!");
     const gained = gainSkill(skills, "fishing");
     if (gained > 0) skillGainPopup("fishing", gained);
+  }
+  if (updateForaging(foraging, bushes, dt)) {
+    // higher Foraging = a growing chance of an extra berry per pick
+    const bonus = Math.random() < skillValue(skills, "foraging") / 100 ? 1 : 0;
+    const n = FORAGE_BASE_YIELD + bonus;
+    if (gainItem(economy, "berries", n)) toast(n > 1 ? `Picked ${n} berries!` : "Picked a berry!");
+    else toast("Backpack full — no room for berries!");
+    const gained = gainSkill(skills, "foraging");
+    if (gained > 0) skillGainPopup("foraging", gained);
   }
 
   // chimney smoke
@@ -156,6 +173,7 @@ function draw() {
     { y: player.y + 13, f: () => drawFarmer(ctx, player, time) },
   ];
   for (const [tx, ty] of TREES) ents.push({ y: ty + 6, f: () => drawTree(ctx, tx, ty, time) });
+  for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time) });
   for (const c of cows) ents.push({ y: c.y + 14, f: () => drawCow(ctx, c, time) });
   for (const h of hens) ents.push({ y: h.y + 6, f: () => drawHen(ctx, h, time) });
   ents.sort((a, b) => a.y - b.y);

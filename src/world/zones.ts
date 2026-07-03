@@ -11,3 +11,7 @@ export const TREES: Array<[number, number]> = [
   [3 * T, 3 * T], [2.2 * T, 9 * T], [4 * T, 16 * T], [26 * T, 19 * T],
   [31 * T, 19.5 * T], [17 * T, 2.2 * T], [30 * T, 2.6 * T], [22.5 * T, 21 * T],
 ];
+/** Berry bushes in the forest-edge cluster west of the farm. */
+export const BUSHES: Array<[number, number]> = [
+  [2.9 * T, 11.2 * T], [4.4 * T, 13.8 * T], [2.2 * T, 17.5 * T],
+];

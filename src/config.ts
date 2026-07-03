@@ -11,6 +11,11 @@ export const FISH_TIME_MIN = 1.2;       // seconds until a bite
 export const FISH_TIME_MAX = 3.0;
 export const FISHING_BITE_REDUCTION = 0.5; // bite-time fraction removed at Fishing 100
 
+export const BERRY_PRICE = 2;           // coins per berry at the stall
+export const FORAGE_TIME = 1.2;         // seconds to pick a bush
+export const BUSH_RESPAWN = 25;         // seconds until a picked bush regrows
+export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds a bonus chance)
+
 export const SKILL_GAIN_BASE = 0.3;     // gain per use at skill 0, shrinking toward 100
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)

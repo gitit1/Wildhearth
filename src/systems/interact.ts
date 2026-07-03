@@ -1,7 +1,9 @@
 import { POND, STALL } from "../world/zones";
 import { nearPond, nearRect } from "../world/collision";
-import { fishCount, sellFish, type Economy } from "./economy";
+import { GOOD_PRICES, goodCount, sellGood, sellAllGoods, type Economy } from "./economy";
+import { ITEM_NAMES } from "./inventory";
 import { startCast, type FishingState } from "./fishing";
+import { startPick, type ForagingState, type Bush } from "./foraging";
 import { skillValue, type Skills } from "./skills";
 import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
@@ -16,6 +18,7 @@ import type { Player } from "../entities/player";
 export interface InteractCtx {
   economy: Economy;
   fishing: FishingState;
+  foraging: ForagingState;
   skills: Skills;
   player: Player;
   toast: (s: string) => void;
@@ -48,7 +51,7 @@ const pond: Interactable = {
     {
       id: "fish", label: "Fish",
       run: (c) => {
-        if (c.fishing.casting) return;
+        if (c.fishing.casting || c.foraging.picking) return;
         startCast(c.fishing, skillValue(c.skills, "fishing"));
         c.player.fishing = true;
       },
@@ -80,19 +83,62 @@ const stall: Interactable = {
   inReach: (px, py) => nearRect(px, py, STALL),
   actions: (c) => {
     const list: MenuAction[] = [];
-    const n = fishCount(c.economy);
-    if (n > 0)
+    const held = Object.keys(GOOD_PRICES).filter((id) => goodCount(c.economy, id) > 0);
+    if (held.length > 1)
       list.push({
-        id: "sell", label: `Sell fish (${n})`,
-        run: (c) => { const earned = sellFish(c.economy); c.toast(`Sold fish for ${earned} coins!`); },
+        id: "sell", label: "Sell everything",
+        run: (c) => { const earned = sellAllGoods(c.economy); c.toast(`Sold everything for ${earned} coins!`); },
       });
-    list.push({ id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Sell your catch here.") });
+    for (const id of held)
+      list.push({
+        id: held.length === 1 ? "sell" : `sell-${id}`,
+        label: `Sell ${(ITEM_NAMES[id] ?? id).toLowerCase()} (${goodCount(c.economy, id)})`,
+        run: (c) => {
+          const name = (ITEM_NAMES[id] ?? id).toLowerCase();
+          const earned = sellGood(c.economy, id);
+          c.toast(`Sold ${name} for ${earned} coins!`);
+        },
+      });
+    list.push({ id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Sell your goods here.") });
     return list;
   },
   drawHover: (g, t) => glowRect(g, stallBox.x - 2, stallBox.y - 2, stallBox.w + 4, stallBox.h + 4, t),
 };
 
 export const INTERACTABLES: Interactable[] = [pond, stall];
+
+/** Berry bushes are runtime state, so they join the registry at game init. */
+export function registerBushes(bushes: Bush[]) {
+  bushes.forEach((b, i) => {
+    INTERACTABLES.push({
+      id: `bush-${i}`,
+      name: "Berry bush",
+      anchor: [b.x, b.y + 22],
+      defaultActionId: "pick",
+      hit: (wx, wy) => {
+        const dx = (wx - b.x) / 22, dy = (wy - (b.y - 4)) / 18;
+        return dx * dx + dy * dy <= 1;
+      },
+      inReach: (px, py) => Math.hypot(px - b.x, py - b.y) < 42,
+      actions: (c) => {
+        const list: MenuAction[] = [];
+        if (b.full)
+          list.push({
+            id: "pick", label: "Pick berries",
+            run: (c) => { if (!c.fishing.casting) startPick(c.foraging, b); },
+          });
+        list.push({
+          id: "look", label: "Look",
+          run: (c) => c.toast(b.full
+            ? "A bush heavy with ripe berries."
+            : "Picked clean — give it time to regrow."),
+        });
+        return list;
+      },
+      drawHover: (g, t) => glowEllipse(g, b.x, b.y - 4, 22, 18, t),
+    });
+  });
+}
 
 export function hitTest(wx: number, wy: number): Interactable | null {
   for (const it of INTERACTABLES) if (it.hit(wx, wy)) return it;
