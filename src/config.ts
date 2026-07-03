@@ -14,3 +14,4 @@ export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
 export const MINIMAP_SCALE = 0.14;      // minimap px per world px
 
 export const SAVE_KEY = "meshek-save-v1";
+export const UI_KEY = "meshek-ui-v1";    // panel positions/sizes (not game state)

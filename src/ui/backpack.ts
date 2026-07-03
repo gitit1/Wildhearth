@@ -1,16 +1,23 @@
 import type { Economy } from "../systems/economy";
 import { ITEM_NAMES } from "../systems/inventory";
 import { drawItemIcon } from "../art/icons";
+import { makePanel } from "./panels";
 
-/** Backpack panel: always visible UO-style, key I (or Escape) toggles it. */
+/**
+ * Backpack panel: always visible UO-style. Drag the header to move, corner
+ * grip to resize, key I (or Escape) toggles.
+ */
 
 const ICON_PX = 40;
 
 let panel: HTMLElement;
 let open = true;
+let eco: Economy;
+let iconScale = 1;
 let slotEls: { canvas: HTMLCanvasElement; qty: HTMLElement; paintedKey: string }[] = [];
 
 export function initBackpack(economy: Economy) {
+  eco = economy;
   panel = document.getElementById("backpack")!;
   const grid = document.getElementById("backpackGrid")!;
 
@@ -18,9 +25,6 @@ export function initBackpack(economy: Economy) {
     const slot = document.createElement("div");
     slot.className = "bp-slot";
     const canvas = document.createElement("canvas");
-    canvas.width = ICON_PX * devicePixelRatio;
-    canvas.height = ICON_PX * devicePixelRatio;
-    canvas.style.width = canvas.style.height = `${ICON_PX}px`;
     const qty = document.createElement("span");
     qty.className = "bp-qty";
     slot.append(canvas, qty);
@@ -29,34 +33,49 @@ export function initBackpack(economy: Economy) {
   }
 
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyI") { open = !open; render(economy); }
+    if (e.code === "KeyI") { open = !open; render(); }
     else if (e.code === "Escape" && open) open = false;
     else return;
     panel.style.display = open ? "block" : "none";
   });
 
-  render(economy);
   panel.style.display = "block";
+  makePanel(panel, panel.querySelector("h2")!, "bag", setScale);
 }
 
 /** Call every frame; repaints only while open and only slots that changed. */
-export function updateBackpack(economy: Economy) {
-  if (open) render(economy);
+export function updateBackpack() {
+  if (open) render();
 }
 
-function render(economy: Economy) {
+/** Resizes the whole panel; slot canvases re-render crisp at the new size. */
+function setScale(s: number) {
+  iconScale = s;
+  panel.style.setProperty("--s", String(s));
+  const px = Math.round(ICON_PX * s);
+  for (const el of slotEls) {
+    el.canvas.width = px * devicePixelRatio;
+    el.canvas.height = px * devicePixelRatio;
+    el.canvas.style.width = el.canvas.style.height = `${px}px`;
+    el.paintedKey = "\0resized";
+  }
+  render();
+}
+
+function render() {
+  const px = Math.round(ICON_PX * iconScale);
   for (let i = 0; i < slotEls.length; i++) {
     const el = slotEls[i]!;
-    const stack = economy.inv.slots[i] ?? null;
+    const stack = eco.inv.slots[i] ?? null;
     const key = stack ? `${stack.id}:${stack.qty}` : "";
     if (key === el.paintedKey) continue;
     el.paintedKey = key;
 
     const g = el.canvas.getContext("2d")!;
     g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    g.clearRect(0, 0, ICON_PX, ICON_PX);
+    g.clearRect(0, 0, px, px);
     if (stack) {
-      drawItemIcon(g, stack.id, ICON_PX);
+      drawItemIcon(g, stack.id, px);
       el.qty.textContent = String(stack.qty);
       el.canvas.title = ITEM_NAMES[stack.id] ?? stack.id;
     } else {

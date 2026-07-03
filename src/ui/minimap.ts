@@ -1,34 +1,41 @@
 import { T, WORLD_W, WORLD_H, MINIMAP_SCALE } from "../config";
 import { FIELD, YARD, HOUSE, BARN, STALL, POND, TREES } from "../world/zones";
 import { roundR } from "../art/shapes";
+import { makePanel } from "./panels";
 import type { Player } from "../entities/player";
 
 /**
- * UO-style always-on radar map (key M toggles). The static world is painted
- * once; only the player marker redraws per frame.
+ * UO-style always-on radar map: drag to move, corner grip to resize,
+ * key M toggles. The static world repaints only when the size changes.
  */
 
+let box: HTMLElement;
 let canvas: HTMLCanvasElement;
 let g: CanvasRenderingContext2D;
 let base: HTMLCanvasElement;
 let visible = true;
-
-const W = Math.round(WORLD_W * MINIMAP_SCALE);
-const H = Math.round(WORLD_H * MINIMAP_SCALE);
+let scale = MINIMAP_SCALE;   // world px -> map px, including user resize
+let W = 0, H = 0;
 
 export function initMinimap() {
+  box = document.getElementById("minimapBox")!;
   canvas = document.getElementById("minimap") as HTMLCanvasElement;
-  canvas.width = W * devicePixelRatio;
-  canvas.height = H * devicePixelRatio;
-  canvas.style.width = `${W}px`;
-  canvas.style.height = `${H}px`;
   g = canvas.getContext("2d")!;
-  base = paintBase();
+  makePanel(box, box, "map", (userS) => {
+    scale = MINIMAP_SCALE * userS;
+    W = Math.round(WORLD_W * scale);
+    H = Math.round(WORLD_H * scale);
+    canvas.width = W * devicePixelRatio;
+    canvas.height = H * devicePixelRatio;
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
+    base = paintBase();
+  });
 
   addEventListener("keydown", (e) => {
     if (e.code !== "KeyM") return;
     visible = !visible;
-    canvas.style.display = visible ? "block" : "none";
+    box.style.display = visible ? "block" : "none";
   });
 }
 
@@ -36,19 +43,20 @@ export function updateMinimap(player: Player) {
   if (!visible) return;
   g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
   g.drawImage(base, 0, 0, W, H);
-  const px = player.x * MINIMAP_SCALE, py = player.y * MINIMAP_SCALE;
+  const px = player.x * scale, py = player.y * scale;
+  const r = Math.max(3, 3 * (scale / MINIMAP_SCALE));
   g.fillStyle = "#fff";
-  g.beginPath(); g.arc(px, py, 3, 0, 7); g.fill();
+  g.beginPath(); g.arc(px, py, r, 0, 7); g.fill();
   g.fillStyle = "#e8c34f";
-  g.beginPath(); g.arc(px, py, 1.8, 0, 7); g.fill();
+  g.beginPath(); g.arc(px, py, r * 0.6, 0, 7); g.fill();
 }
 
-/** Scaled-down echo of world/ground.ts + the buildings, painted once. */
+/** Scaled-down echo of world/ground.ts + the buildings, painted once per resize. */
 function paintBase(): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
   const b = c.getContext("2d")!;
-  const s = MINIMAP_SCALE;
+  const s = scale;
 
   b.fillStyle = "#5d8a3c"; b.fillRect(0, 0, W, H);
   // dirt yard
@@ -66,6 +74,7 @@ function paintBase(): HTMLCanvasElement {
   b.fillStyle = "#d9d3c0"; b.fillRect(STALL.x * s, STALL.y * s, STALL.w * s, STALL.h * s);
   // trees
   b.fillStyle = "#3f6b2c";
-  for (const [tx, ty] of TREES) { b.beginPath(); b.arc(tx * s, ty * s, 2.4, 0, 7); b.fill(); }
+  const tr = Math.max(2, 2.4 * (s / MINIMAP_SCALE));
+  for (const [tx, ty] of TREES) { b.beginPath(); b.arc(tx * s, ty * s, tr, 0, 7); b.fill(); }
   return c;
 }

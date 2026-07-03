@@ -76,7 +76,7 @@ function tick(now: number) {
   for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i]!.a <= 0) smoke.splice(i, 1);
 
   updateHud(economy);
-  updateBackpack(economy);
+  updateBackpack();
   updateMinimap(player);
   updateToast(dt);
   draw();
