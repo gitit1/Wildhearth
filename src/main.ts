@@ -13,6 +13,7 @@ import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals } from "./entities/animals";
 import { loadEconomy, gainItem } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast } from "./systems/fishing";
+import { loadSkills, gainSkill } from "./systems/skills";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
   type Interactable, type InteractCtx,
@@ -21,6 +22,7 @@ import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
 import { updateHud, setPrompt, toast, updateToast } from "./ui/hud";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initMinimap, updateMinimap } from "./ui/minimap";
+import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -33,8 +35,10 @@ const player = createPlayer();
 const { cows, hens } = createAnimals();
 const economy = loadEconomy();
 const fishing = createFishing();
+const skills = loadSkills();
 initBackpack(economy);
 initMinimap();
+initSkillsUI(skills);
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -54,7 +58,7 @@ function tick(now: number) {
   updateAnimals(cows, hens, dt);
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = { economy, fishing, player, toast };
+  const ictx: InteractCtx = { economy, fishing, skills, player, toast };
 
   const ps = getPointerScreen();
   hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1])) : null;
@@ -108,6 +112,8 @@ function tick(now: number) {
     player.fishing = false;
     if (gainItem(economy, "fish")) toast("Caught a fish! 🐟");
     else toast("Backpack full — no room for the fish!");
+    const gained = gainSkill(skills, "fishing");
+    if (gained > 0) skillGainPopup("fishing", gained);
   }
 
   // chimney smoke
@@ -122,6 +128,7 @@ function tick(now: number) {
   updateHud(economy);
   updateBackpack();
   updateMinimap(player);
+  updateSkillsUI();
   updateToast(dt);
   draw();
   requestAnimationFrame(tick);

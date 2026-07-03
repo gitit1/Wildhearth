@@ -64,7 +64,15 @@ what Step 0/1 already built.
 - Checkpoint: a player who never touches the keyboard can still play the
   whole MVP loop end to end with the mouse alone.
 
-## Step 2 — Skills (minimum viable: 5 skills, no cap yet)
+## Step 2 — Skills (minimum viable: 5 skills, no cap yet) (DONE)
+Done (2026-07-04): `systems/skills.ts` (five skills, 0.0–100.0, gain with
+diminishing returns, up/down/locked stored and toggleable — only "up" gains;
+full cap+lock enforcement stays Step 7), persisted under its own versioned
+key. Fishing wired: each catch grants a gain and higher skill shortens bites
+(50% faster at 100 — measured ~2.6s avg at 0 vs ~1.3s at 100). `ui/skills.ts`
+window on K + HUD 📜 icon (draggable/resizable gump like bag/map), rows show
+name, value, lock toggle, and a floating "+0.3" popup on gain. Verified
+in-browser end to end; `npm run build` passes.
 - `src/systems/skills.ts`: `Skill = {id, value: 0-100, lock: "up"|"down"|"locked"}`.
   Five skills: Fishing, Foraging, Farming, Busking, Haggling.
   Gain function with diminishing returns near 100; no overall cap yet

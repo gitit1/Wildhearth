@@ -9,6 +9,9 @@ export const COW_SPEED = 22, HEN_SPEED = 30;
 export const FISH_PRICE = 3;            // coins per fish at the stall
 export const FISH_TIME_MIN = 1.2;       // seconds until a bite
 export const FISH_TIME_MAX = 3.0;
+export const FISHING_BITE_REDUCTION = 0.5; // bite-time fraction removed at Fishing 100
+
+export const SKILL_GAIN_BASE = 0.3;     // gain per use at skill 0, shrinking toward 100
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
 export const MINIMAP_SCALE = 0.14;      // minimap px per world px
@@ -17,4 +20,5 @@ export const CLICK_ARRIVE = 5;          // px: close enough to a click-to-move t
 export const DRAG_THRESHOLD = 10;       // px of travel before a press is a joystick drag, not a tap
 
 export const SAVE_KEY = "wildhearth-save-v1";
+export const SKILLS_KEY = "wildhearth-skills-v1";
 export const UI_KEY = "wildhearth-ui-v1";    // panel positions/sizes (not game state)

@@ -2,6 +2,7 @@ import { POND, STALL } from "../world/zones";
 import { nearPond, nearRect } from "../world/collision";
 import { fishCount, sellFish, type Economy } from "./economy";
 import { startCast, type FishingState } from "./fishing";
+import { skillValue, type Skills } from "./skills";
 import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
 
@@ -15,6 +16,7 @@ import type { Player } from "../entities/player";
 export interface InteractCtx {
   economy: Economy;
   fishing: FishingState;
+  skills: Skills;
   player: Player;
   toast: (s: string) => void;
 }
@@ -45,7 +47,11 @@ const pond: Interactable = {
   actions: () => [
     {
       id: "fish", label: "Fish",
-      run: (c) => { if (!c.fishing.casting) { startCast(c.fishing); c.player.fishing = true; } },
+      run: (c) => {
+        if (c.fishing.casting) return;
+        startCast(c.fishing, skillValue(c.skills, "fishing"));
+        c.player.fishing = true;
+      },
     },
     { id: "look", label: "Look", run: (c) => c.toast("A calm pond. Fish glint below the surface.") },
   ],
