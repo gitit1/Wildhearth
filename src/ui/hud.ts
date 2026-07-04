@@ -1,12 +1,18 @@
 import type { Economy } from "../systems/economy";
+import type { CalendarSlice } from "../systems/worldContext";
 
 const coinsEl = document.getElementById("coins")!;
+const calEl = document.getElementById("calendar")!;
 const promptEl = document.getElementById("prompt")!;
 const toastEl = document.getElementById("toast")!;
 let toastT = 0;
 
-export function updateHud(e: Economy) {
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const pad = (n: number) => String(n).padStart(2, "0");
+
+export function updateHud(e: Economy, cal?: CalendarSlice) {
   coinsEl.textContent = String(e.coins);
+  if (cal) calEl.textContent = `${cap(cal.season)} · Day ${cal.day} · ${pad(cal.hour)}:${pad(cal.minute)}`;
 }
 
 export function setPrompt(text: string | null) {

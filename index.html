@@ -18,6 +18,7 @@
       border-left:4px solid #2f2317;box-shadow:-4px 0 14px rgba(0,0,0,.35)}
     #hud{position:fixed;top:10px;right:10px;width:284px;display:flex;justify-content:center;gap:8px;z-index:5}
     .pill{background:rgba(25,32,18,.85);color:#f0ead6;padding:7px 14px;border-radius:12px;font-size:15px;font-weight:700}
+    #calendar{font-size:13px;white-space:nowrap}
     #prompt{position:absolute;bottom:86px;left:50%;transform:translateX(-50%);background:rgba(25,32,18,.9);
       color:#ffd54f;padding:8px 16px;border-radius:12px;font-size:15px;font-weight:700;display:none;z-index:5}
     #toast{position:absolute;top:60px;left:50%;transform:translateX(-50%);background:rgba(46,90,38,.95);
@@ -133,6 +134,7 @@
   <div id="sidebar"></div>
   <div id="hud">
     <div class="pill">🪙 <span id="coins">0</span></div>
+    <div class="pill" id="calendar">—</div>
   </div>
   <div id="minimapBox"><canvas id="minimap"></canvas></div>
   <div id="backpack">

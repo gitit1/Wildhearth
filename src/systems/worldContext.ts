@@ -44,6 +44,7 @@ export interface CalendarSlice {
   season: Season;
   day: number;
   hour: number;
+  minute: number;
   phase: DayPhase;
 }
 
@@ -85,7 +86,8 @@ export function getWorldContext(
     },
     calendar: sources.calendar
       ? { season: currentSeason(sources.calendar), day: sources.calendar.day,
-          hour: sources.calendar.hour, phase: currentPhase(sources.calendar) }
+          hour: sources.calendar.hour, minute: sources.calendar.minute,
+          phase: currentPhase(sources.calendar) }
       : undefined,
     weather: sources.weather
       ? { state: sources.weather.kind, daysSinceChange: sources.weather.daysSinceChange }

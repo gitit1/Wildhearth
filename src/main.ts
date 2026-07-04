@@ -1,4 +1,4 @@
-import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, GAME_HOUR_SECONDS } from "./config";
+import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget, clearMoveTarget,
@@ -23,13 +23,14 @@ import {
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
 import { removeItem, countItem, addItem } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
-import { saveSettings, isGuided } from "./systems/settings";
+import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
-import { loadCalendar, resetCalendar, advanceHour, currentSeason, absoluteDay } from "./systems/calendar";
+import { loadCalendar, resetCalendar, advanceMinute, currentSeason, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather } from "./systems/weather";
 import { loadWorldFlags, resetWorldFlags, pruneExpired } from "./systems/worldFlags";
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
+import { getWorldContext } from "./systems/worldContext";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel, registerBushes, registerPlots,
   type Interactable, type InteractCtx,
@@ -85,7 +86,7 @@ const smoke: Puff[] = [];
 // ---- opening sequence (title -> intro -> reveal -> choice -> tutorial) ----
 let openingActive = true;
 let hintSellShown = false;
-let hourAccum = 0;   // real seconds banked toward the next in-game hour
+let minuteAccum = 0;   // real seconds banked toward the next in-game minute
 
 // The guided first-tip points at the livelihood the starter tool unlocks, so
 // the very first thing the game suggests matches what the player just chose.
@@ -155,13 +156,14 @@ function tick(now: number) {
     if (busking.playing) cancelBusk(busking);
   }
 
-  // world time: one in-game hour passes per GAME_HOUR_SECONDS of actual play;
-  // each new day (the hour rolling to 0) rerolls the weather for the season.
-  hourAccum += dt;
-  while (hourAccum >= GAME_HOUR_SECONDS) {
-    hourAccum -= GAME_HOUR_SECONDS;
-    advanceHour(calendar);
-    if (calendar.hour === 0) {
+  // world time: the day-length setting sets the pace; a full in-game day takes
+  // dayLengthSeconds of actual play, so one minute is that over 24*60. Each new
+  // day (advanceMinute returns true) rerolls the weather and prunes flags once.
+  const minuteSeconds = dayLengthSeconds() / (24 * 60);
+  minuteAccum += dt;
+  while (minuteAccum >= minuteSeconds) {
+    minuteAccum -= minuteSeconds;
+    if (advanceMinute(calendar)) {
       rollDailyWeather(weather, currentSeason(calendar));
       pruneExpired(worldFlags, absoluteDay(calendar));
     }
@@ -290,7 +292,9 @@ function tick(now: number) {
   }
   for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i]!.a <= 0) smoke.splice(i, 1);
 
-  updateHud(economy);
+  // one World Context snapshot per frame, feeding the always-visible HUD
+  const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags });
+  updateHud(economy, wc.calendar);
   updateBackpack();
   updateMinimap(player);
   updateSkillsUI();

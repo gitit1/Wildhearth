@@ -11,10 +11,11 @@ export interface CalendarState {
   seasonIndex: number; // 0-3, index into SEASON_ORDER
   day: number;          // day-of-season counter, 1-based
   hour: number;         // 0-23
+  minute: number;       // 0-59
 }
 
 function fresh(): CalendarState {
-  return { version: 1, seasonIndex: 0, day: 1, hour: 6 };
+  return { version: 1, seasonIndex: 0, day: 1, hour: 6, minute: 0 };
 }
 
 export function loadCalendar(): CalendarState {
@@ -27,6 +28,7 @@ export function loadCalendar(): CalendarState {
       seasonIndex: typeof p.seasonIndex === "number" ? p.seasonIndex : 0,
       day: typeof p.day === "number" ? p.day : 1,
       hour: typeof p.hour === "number" ? p.hour : 6,
+      minute: typeof p.minute === "number" ? p.minute : 0,
     };
   } catch {
     return fresh();
@@ -41,7 +43,7 @@ export function saveCalendar(c: CalendarState) {
 /** New Game: back to day 1 of spring, morning. */
 export function resetCalendar(c: CalendarState) {
   const f = fresh();
-  c.seasonIndex = f.seasonIndex; c.day = f.day; c.hour = f.hour;
+  c.seasonIndex = f.seasonIndex; c.day = f.day; c.hour = f.hour; c.minute = f.minute;
   saveCalendar(c);
 }
 
@@ -64,19 +66,22 @@ export function currentPhase(c: CalendarState): DayPhase {
   return "night";
 }
 
-/** Advances the hour; rolls the day and (rarely) the season. Call once per
- *  in-game hour worth of elapsed time from main.ts's tick(). Returns true
- *  exactly on the tick the season changes, so weather (Block 4) can react. */
-export function advanceHour(c: CalendarState): boolean {
+/** Advances one in-game minute, rolling minute → hour → day → season. Call
+ *  once per in-game minute worth of elapsed time from main.ts's tick().
+ *  Returns true exactly on the tick a NEW DAY begins (minute+hour both wrap to
+ *  0), so weather's daily reroll and the world-flag prune fire once per day —
+ *  not once per minute. */
+export function advanceMinute(c: CalendarState): boolean {
+  c.minute = (c.minute + 1) % 60;
+  if (c.minute !== 0) { saveCalendar(c); return false; }
   c.hour = (c.hour + 1) % 24;
   if (c.hour !== 0) { saveCalendar(c); return false; }
+  // hour wrapped past midnight → a new day
   c.day += 1;
-  let seasonChanged = false;
   if (c.day > DAYS_PER_SEASON) {
     c.day = 1;
     c.seasonIndex = (c.seasonIndex + 1) % SEASON_ORDER.length;
-    seasonChanged = true;
   }
   saveCalendar(c);
-  return seasonChanged;
+  return true;
 }

@@ -42,6 +42,69 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## HUD — season, day & time display (with real minutes + day-length setting)
+- **Date:** 2026-07-04
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "HUD - season, day & time
+  display") A small always-visible readout of season / day / time — the first
+  real, visible consumer of `getWorldContext()`. Build one `WorldContext`
+  snapshot per frame in `tick()` and feed `wc.calendar` into `hud.ts`'s existing
+  `updateHud` pattern. **Amendment folded in before first commit:** (1) add real
+  minutes to `calendar.ts` (`minute` field + `advanceMinute` replacing
+  `advanceHour`, still firing weather/flag daily work once per day); (2) add a
+  real `dayLengthSeconds` setting driving the tick pace instead of the fixed
+  `GAME_HOUR_SECONDS` constant; (3) show `HH:MM`.
+- **Done:**
+  - **Files:**
+    - `index.html`: a second `.pill` (`#calendar`) inside the existing `#hud`,
+      plus one CSS line (`#calendar{font-size:13px;white-space:nowrap}`).
+    - `src/ui/hud.ts`: extended the existing `updateHud` to take an optional
+      `CalendarSlice` and render `Season · Day N · HH:MM` (zero-padded); no new
+      update mechanism.
+    - `src/main.ts`: builds one snapshot per frame where `updateHud` is called —
+      `getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags })`
+      — and passes `wc.calendar`. The world-time loop is renamed
+      `hourAccum`→`minuteAccum`, its interval read from `dayLengthSeconds()/(24*60)`
+      each frame, advancing via `advanceMinute`; weather reroll + flag prune fire
+      on its `newDay` return.
+    - `src/systems/calendar.ts`: added `minute` to `CalendarState`
+      (`fresh`/`load`/`reset` extended the same way as `hour`/`day`); replaced
+      `advanceHour` with `advanceMinute(c)` which rolls minute→hour→day→season and
+      returns `true` only when a new day begins.
+    - `src/systems/settings.ts`: `Settings` gained `dayLengthSeconds` (default
+      1440 = 24 real min/day, matching the prior pace) + a clamped
+      `dayLengthSeconds()` accessor (1s floor).
+    - `src/config.ts`: removed the now-unused `GAME_HOUR_SECONDS`.
+    - `src/systems/worldContext.ts`: `minute` added to `CalendarSlice` and its
+      populate.
+    - `docs/ROADMAP_EXPANSION.md`: block ticked `[x]` in the working tree, but
+      **not staged into this commit** — the entire HUD-blocks section is part of
+      the product owner's uncommitted edits to that file (HEAD is 214 lines vs
+      1101 in the working tree), so staging it would have pulled in ~887 lines of
+      their in-progress work. The tick rides along with their eventual
+      `ROADMAP_EXPANSION.md` commit.
+  - **Systems / functions:** `getWorldContext` gains its first permanent call
+    site; `CalendarState`/`CalendarSlice` carry `minute`; `advanceMinute`
+    replaces `advanceHour` (returns new-day, so daily work stays once/day, not
+    once/minute); `dayLengthSeconds` is a live setting that controls the clock.
+  - **Behavior:** the HUD always shows `Season · Day N · HH:MM`, updating every
+    in-game minute (~1 real second at the default pace) with days and seasons
+    rolling over live and surviving reload. The passage of time is now a real,
+    changeable setting (no UI yet) rather than a hardcoded constant.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 9/9 (fast/slow runs seeded via the
+  `dayLengthSeconds` setting — no source instrumentation): default day length is
+  1440s when unset; the HUD shows `HH:MM` matching the calendar; minutes visibly
+  move within a few real seconds (06:00→06:03 over 3s); 80/80 samples matched the
+  live calendar including minutes; days rolled over live (14 distinct days) with
+  hour/minute always in range; season also advanced spring→summer; the
+  minute-precise calendar survived reload; and halving `dayLengthSeconds` ~doubled
+  the pace (60s→73 min/3s vs 30s→144 min/3s, ratio 1.97).
+- **Commit:** HUD — season, day & time display (real minutes + day-length setting)
+- **Follow-ups:** no settings UI yet — `dayLengthSeconds` is real and controls the
+  pace but can only be changed by editing the saved setting; a settings screen is
+  a later UI block. Next agreed work: the HUD weather indicator block (not started
+  yet).
+
 ## World Context Block 6 — recipe closed; Infrastructure (Blocks 1-6) complete
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 6 — the "add a new data
