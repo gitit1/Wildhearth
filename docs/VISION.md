@@ -32,15 +32,52 @@ motion over realism.
 ## World structure
 Large world, multiple defined regions, each with distinct character:
 - **The farm** — player's starting property (rundown at game start).
+- **Neighboring farms**, passed along the road to town — other, more
+  established properties (visual contrast to the player's rundown start),
+  likely tied to future NPCs (see OPEN_QUESTIONS.md's NPC roster item —
+  a neighbor is a natural candidate for one of the first named NPCs).
 - **The town** — the social and commercial hub. Multiple specialized
   merchants from the start (fish buyer, tool smith, seed seller, etc. —
   not one generic shop). Inn, town square (busking spot), homes of NPCs.
+  Coastal — a seafront belongs here, not near the farm.
 - **Forest** — foraging, foraging respawns, treasure spots, wildlife.
 - **River/lake** — fishing, boats (later).
-- **Mine** — mining skill, ore, gems, deeper/rarer resources further in.
+- **Mountains** — the region the mine sits in (not a flat opening in the
+  ground); mining skill, ore, gems, deeper/rarer resources further in.
+- **Coast** (near the town) — a distinct region from the river, sea-based
+  rather than freshwater; content TBD (likely its own fishing flavor,
+  possibly its own boat use beyond the river's).
 Regions are hand-authored, not procedurally expanded — depth over
 proceduralism. More regions can be added over time (this is explicitly a
 "phase 3+ keeps growing" world, not a fixed small map).
+
+**Topology: hub-and-spoke, farm at the hub.** The farm is the anchor
+players return to; town, river, forest, and mountain are spokes reachable
+from it (directly or via town). This is a deliberate choice over an "open
+web" of equally-connected regions — it keeps the farm meaningful as home
+base rather than one stop among many.
+
+**Three independent gating axes, used deliberately per region/feature —
+not just one kind of gate everywhere:**
+- **Tool-gating** (metroidvania-style): fishing needs a rod, mining needs
+  a pick, diving needs a boat. Access = ownership.
+- **Relationship-gating**: some content (a neighbor's back field, an
+  NPC's personal quest, moving into town) opens through Fame/Reputation
+  or a specific NPC's Friendship/Romance level (#3, #6), not money or
+  tools at all.
+- **Money-gating**: fast travel, animals, renovations — straightforward
+  earned-economy purchases.
+Mixing these deliberately (not defaulting to money-gating everywhere) is
+what keeps exploration, relationships, and money each feel like their own
+axis of progress rather than one system doing all the work.
+
+**Travel is meant to feel worth doing, not just permitted** — borrowing
+from UO's approach of distributing resources unevenly across cities to
+force real trade and travel between them: some materials, foods, or
+recipes should be regionally distinctive (only found/cheap near the
+coast, or only near the mountains) rather than everything being available
+everywhere — this is what makes fast travel (#9) a convenience on top of
+a world worth crossing, not a way to skip a world with nothing in it.
 
 Player housing: starts and stays on her own farm for the whole first build.
 Renting/moving to town is a real idea for later, gated behind relationship
@@ -59,10 +96,15 @@ base skills across four paths:
   instrument + a trader's coin pouch/ledger.
 - **The Keeper** (animals & kitchen) → Animal Husbandry + Cooking seeded.
   Kit: a feed pail + a cooking pot.
-Whichever path she doesn't pick, she can still do those activities at base
-ability (everyone can forage a little, everyone can fish a little) — the
-choice means she starts with two skills already seeded and two tools
-already owned, saving her first purchases, not that other paths are
+**Correction — tools gate activities, this isn't uniform.** Foraging is
+bare-hand possible (picking berries needs no tool, a basket just helps
+capacity/yield). **Fishing is not** — without an owned rod, fishing isn't
+possible at all, full stop. So whichever path she doesn't pick, she keeps
+bare-hand foraging as a fallback, but any path other than The Provider
+means saving up for a rod before fishing opens up — the tool is the gate,
+not a convenience. Either way, the path choice means she starts with two
+skills already seeded and two tools already owned, saving her first
+purchases, not that other paths are
 locked away.
 
 **Note on build order:** the small first MVP build (see ROADMAP_MVP.md)
@@ -101,12 +143,50 @@ different one:
    not an abstract menu shown in a void.
 5. **Starting Path choice** (finished game: the four-path system; MVP: the
    simplified single-tool version — see Systems #1/Opening Arc for both).
-6. **Tutorial toggle**, asked once here: guided (short prompts walk her
-   through her first catch/harvest/sale) or fully open (no hand-holding).
-   This is a remembered setting, not a one-time forced sequence — she can
-   still be a beginner who wants to skip hints, or an experienced player
-   who wants them back on later via settings.
-6. Gameplay begins.
+6. **Guidance Mode**, asked once here: a three-way choice, not a binary
+   toggle — **Tutorial Quests** (short authored quests walk her through her
+   first catch/harvest/sale/repair), **Aspiration Quests** (quests drawn
+   from her chosen Starting Path and the "what does she love to do"/trait
+   picks from character creation — e.g. a Performer-leaning character gets
+   nudged toward busking and town social quests instead of generic ones),
+   or **None** (fully open sandbox, no quest prompts at all). This feeds
+   directly into the Quests system (#5) — tutorial and aspiration quests
+   are just specific authored/generated quest sources, not a separate
+   system. **Always a live setting**, changeable at any moment from
+   Settings, never locked in at creation.
+7. Gameplay begins.
+
+### First quests by path (the concrete micro-content)
+This is the actual content for the two guidance sources named above —
+written now so nobody has to re-derive it later.
+
+**Tutorial Quests** (same 4-step skeleton for every path, wording adapts
+to the chosen kit/tool):
+1. Get your bearings — move around the farm.
+2. First action — use your path's primary tool (catch a fish / till &
+   plant / play a tune / cook something).
+3. First sale — walk to the market, sell, watch coins land in your purse.
+4. First purchase — spend those coins on the next concrete step (see
+   Aspiration Quests below for what that step is per path).
+A **persistent Help icon** stays on screen whenever Tutorial Quests mode is
+active — clicking it re-shows the current step's hint on demand, it is not
+a one-time popup that vanishes forever once dismissed.
+
+**Aspiration Quests** (path-specific starter chains):
+- **The Provider**: fish → sell → buy an upgraded gathering basket *or* a
+  better rod → this opens access to the nearby forest edge.
+- **The Tender**: till & plant → wait for the harvest → sell → buy more
+  seed *or* repair the first stretch of fence.
+- **The Performer**: busk in the square → collect tips → buy a tool
+  upgrade *or* learn an additional tune.
+- **The Keeper**: **resolves a real day-one gap** — her kit (feed pail +
+  cooking pot) has nothing to feed or cook on day one, since no animal is
+  free (per the earned-economy pillar). Her actual opening loop is:
+  forage (base ability everyone has) → cook the foraged ingredient in her
+  already-owned pot (a genuine head start — she skips buying a cooking
+  tool) → sell the cooked dish for more than the raw ingredient would
+  fetch → save toward her first hen. Animal Husbandry proper kicks in once
+  she can actually afford an animal.
 
 ## Controls
 **Mouse-first**, on top of the keyboard/touch base already built:
@@ -137,6 +217,33 @@ different one:
   in-world "video/tutorial" equivalent — which is faster than grinding.
   Teaching quality/speed is itself a property of the teacher NPC (an AI-layer
   hook: a good teacher, taught well, teaches faster — personality-driven).
+- **Gain from use is a chance per attempt, not a guaranteed tick — this
+  applies to every skill in the game, not just Fishing.** Each relevant
+  action (successful or not — a failed attempt can still teach something)
+  rolls a chance to gain a small amount, roughly UO-style. This is
+  deliberate: it's what keeps a skill from "leveling in a second" just
+  because a fast loop (like casting a rod, or any other repeatable action)
+  can be repeated quickly — the uncertainty in skill gain mirrors the
+  uncertainty already built into catching/crafting/performing outcomes
+  themselves, across the board.
+- **A pity mechanism against pure bad luck**, borrowed directly from UO's
+  Gain Guard System: after a run of consecutive failed gain-rolls on the
+  same skill, the next attempt is guaranteed to succeed. This keeps the
+  probabilistic system (above) from ever feeling like it's punishing a
+  player who's genuinely trying — uncertainty stays, but never turns into
+  a visible losing streak.
+- **Tools and consumables require a skill floor to pay off, or they're
+  wasted — again, a universal rule, not specific to fishing gear.**
+  Rare-tier bait, a net, a higher rod tier, but equally a better hoe, a
+  finer instrument, pricier seeds, or any other skill-linked purchase:
+  using any of these below the skill level they're meant for either does
+  nothing extra (the money/item is spent with no benefit) or fails
+  outright, rather than always granting their full benefit regardless of
+  skill. This makes buying ahead of your skill level a real mistake to
+  avoid everywhere in the game, not a fishing-only quirk — see
+  ROADMAP_EXPANSION Phase 1's fishing-gear items for the first concrete
+  instance, which every later skill's gear should follow the same pattern
+  for.
 - Skills **decay slowly with neglect**, and the decay rate itself is dynamic:
   frequent-but-occasional use slows decay a lot; total neglect decays faster.
   This dynamic-decay behavior is intentionally the seam where the AI layer
@@ -169,8 +276,39 @@ different one:
   relationship-driven trades ("I'll trade you my old fiddle for a basket of
   berries") rather than pure shop transactions.
 - Multiple specialized merchants in town from the start (not one generalist).
+- **Town-wide Fame/Reputation, separate from per-NPC relationships** —
+  borrowed from UO's fame/karma concept: a single town-facing number that
+  shifts general treatment (better opening prices, NPCs more willing to
+  offer quests or credit) independent of how any *specific* NPC feels
+  about the player. This is the mechanical answer to "the town respects
+  you," distinct from Haggling (a skill) and from any one friendship
+  score (#6) — all three can move independently.
 - Starting money: enough for exactly one starter-tool choice (see Opening
   Arc) — tight by design, this is the poverty pillar in numbers.
+
+**Confirmed price anchor table** (coins — the reference scale everything
+else gets tuned against, not final content, but the ratios are decided):
+| Item | Cost |
+|---|---|
+| Starting coins | 15 |
+| Basic fish/foraged item | 2–3 |
+| Rare fish | 15–20 |
+| Basic tool (if bought separately from a starting kit) | 20–30 |
+| Binoculars (bird/animal/flower sighting) | 20–30 |
+| Bait (cheap tier) | 2–3 per use |
+| Bait (rare-shifting tier) | 8–12 per use |
+| Fishing net (boat-based, separate from rod) | 30–40 |
+| Fast travel (per discovered-location trip) | 3–5 |
+| Seed pouch | 5 |
+| Fence-section repair | 10 |
+| First hen | 40–50 |
+| First cow | 150–200 |
+
+The intended pacing: a first small goal (seeds, a small repair) is
+reachable within minutes of play; a mid goal (a hen) takes something like
+half an hour; a cow is a real, multi-session savings target. Tune future
+prices (crafted goods, upgrades, rare fish, animals beyond the first of
+each kind) against this scale rather than picking numbers in isolation.
 
 ### 4. Crafting
 - **Depth is the player's choice, not a requirement** — this is a design
@@ -187,10 +325,56 @@ different one:
   on, NPCs can also generate dynamic quest offers based on season,
   relationship level, and world state. Both systems feed the same quest-log
   UI; the player shouldn't need to know which kind she's looking at.
+- **Guidance Mode** (see Opening Sequence #6) is the player-facing control
+  over *how much* quest prompting she gets, always changeable in Settings:
+  Tutorial Quests (mechanics-teaching), Aspiration Quests (drawn from her
+  Starting Path + character-creation preferences), or None (no prompting,
+  pure sandbox — she can still see/accept quests NPCs offer her directly,
+  this setting only controls proactive prompting).
 
 ### 6. Relationships (Sims-depth social system)
-This is a core pillar equal to the economy, not a side feature.
-- Friendship/affection tracks per NPC, gifts, dialogue, dating.
+This is a core pillar equal to the economy, not a side feature. Refined
+with concrete mechanics from Sims/Stardew research rather than a vague
+"friendship meter":
+- **Two separate axes per NPC, not one number**: Friendship and Romance
+  track independently (Sims-style) — a high Friendship doesn't imply
+  Romance interest, and pursuing Romance doesn't require maxing Friendship
+  first. Both feed the Memory Book differently.
+- **Categorized interactions, not a single generic "talk"**: interactions
+  are grouped (Friendly, Funny, Romantic, and — even in a peaceful game —
+  a small "blunt/teasing" category for personality flavor), each category
+  containing a handful of specific actions rather than one catch-all
+  button. This gives the social system texture without needing full
+  natural-language chat for every NPC (scripted mode) or wasting an LLM
+  call on trivial small talk (AI mode).
+- **Gifting uses explicit preference tiers with real point values**
+  (Stardew-style): each NPC has loved/liked/neutral/disliked/hated items,
+  and gifting moves the relevant axis by a concrete, tuned amount per
+  tier (loved > liked > neutral > disliked > hated, with hated actively
+  *hurting* the relationship, not just giving zero). Exact point values
+  TBD during implementation, but the five-tier structure itself is
+  confirmed, not a placeholder.
+  **Preferences are derived from personality traits, not hand-authored
+  per NPC** — a trait-to-category mapping (e.g. a "romantic" trait implies
+  loving flowers; a trait tied to her role/setting implies loving items
+  from that domain) generates each NPC's preference list, so adding a new
+  NPC doesn't require manually writing a full gift table from scratch.
+  Concrete first instance: the Riverside Fisherwoman's traits should
+  derive a preference for **rare aquatic/river items** — an unusual catch
+  or a fine bit of river-found craft means more to her than a generic
+  gift would.
+- **Relationships decay slowly if neglected**, mirroring the Skills decay
+  principle (#1) — ignoring an NPC for a long stretch drifts the numbers
+  down, not just stalls them. Gives a reason to revisit people, not just
+  meet them once and forget them.
+- **Milestone "heart events"**: at set relationship thresholds, a short
+  scripted (or AI-flavored, if that layer is on) scene triggers — not
+  random, tied to the specific NPC and threshold. **Fire independently on
+  both axes** — a Friendship-threshold scene and a separate Romance-
+  threshold scene with the same NPC are different events, not one merged
+  track. These are exactly what feeds the Memory Book's Memories half
+  (#14): a heart event *is* a memory entry, not a separate system bolted
+  alongside it.
 - **Marriage/partnership, cohabitation, and children** are in scope for
   maturity — full Sims-depth, not just a friendship meter.
 - **Pets** (dogs, cats, etc.) are part of this system too — companionship,
@@ -218,6 +402,13 @@ This is a core pillar equal to the economy, not a side feature.
 - Old-world only: horses, carriages, boats (no motor vehicles). Available
   to buy from early game, gated by money like everything else — not free,
   not withheld artificially either.
+- **Fast travel, Sims-style**: walking takes real time across real
+  distance (no teleporting by default), but clicking a discovered location
+  on the minimap offers a quick-travel option **for a small coin cost**
+  (an old-world framing like paying a coachman/ferryman fits better than
+  a free instant warp — exact framing TBD). Only unlocked for locations
+  already discovered on foot at least once; this is a convenience on top
+  of the walked world, not a replacement for exploring it.
 
 ### 10. Professions beyond the starter set
 Fishing, Foraging, Farming, Busking, Haggling are the confirmed starting
@@ -246,6 +437,9 @@ entirely as earlier drafts of this doc said.
 ### 12. Persistence & save system
 - One save slot for the first build; designed so a second slot (parallel
   playthroughs) can be added later without a rearchitecture.
+- **Autosave every few minutes**, in addition to any explicit save points —
+  this is a hard requirement, not optional polish; the player should never
+  lose more than a few minutes of progress to a crash or closed tab.
 - **Offline progress is a player-chosen setting**: she can choose whether
   skills/world/NPCs keep advancing while she's not playing, or freeze
   entirely when she's away. Not a fixed design decision — expose it.
@@ -280,7 +474,35 @@ consequences.
   fire pit) so needs are manageable from the very first days, before any
   furniture shopping exists.
 
+### 14. Collections & Memories
+Formalizing an idea floated early on as "farm-game inspiration" (a
+museum/album mechanic), now extended with a second dimension the person
+specifically asked for: a Sims-style **memory book/scrapbook**, not just a
+collection checklist.
+- **Collections half**: album/collection tracking per category — the
+  first confirmed instances are **birds, wild animals, and wild flowers**
+  (river region, requires owning binoculars for birds/animals — see
+  ROADMAP_EXPANSION Phase 1), generalizing to fish species caught, foraged
+  items found, and later minerals/treasures — one system, multiple
+  collections, not one-off code per category. Sighting/catching a new
+  entry logs it; a UI screen shows progress per collection (X/Y
+  discovered), tracked separately per category, not one merged list.
+- **Memories half**: life-event entries, not just items — first day on the
+  farm, first sale, first hen/cow bought, first repair completed, a
+  relationship milestone (per #6: dating, marriage, a child born), a
+  festival attended (per #7 seasons). Each memory can carry a short bit of
+  flavor text and a timestamp (in-game date).
+- **Presented as one physical, diegetic book** the player can open — sits
+  in the house (a natural fit for the rest/living spot from #13's tier-1
+  furniture) rather than being a pure abstract menu. Both halves
+  (collections and memories) live in the same book, different sections/
+  tabs, not two separate UI systems.
+- Completing a collection or logging a major memory can reward money, a
+  unique item, or a relationship/reputation bump — exact rewards TBD per
+  entry, but the system should support rewarding milestones, not just be a
+  checklist with no payoff.
 
+## NPC brain (AI layer — phase 2+ design)
 - Two-part model: **fixed character sheet** (personality, role, schedule,
   tastes, teaching-skill-if-relevant) + **dynamic memory** (interactions,
   opinions of the player, current mood, recent events).
@@ -297,14 +519,46 @@ consequences.
   settings, since she supplies her own API key and budget.
 - Skill values (esp. Haggling) are read by the brain layer and should visibly
   change tone/outcomes, not just a hidden number.
+- **Documented pitfalls from shipped LLM-NPC games (Suck Up!, AI Dungeon,
+  and similar), to design against from the start:**
+  - **Players will actively try to break character** — get the blacksmith
+    to discuss quantum physics, extract the system prompt, or act
+    completely against their sheet, purely to test the seams. The
+    character sheet's constraints need to be genuinely strong (not just
+    "please stay in character" politeness), and the structured-JSON
+    validator (above) is the real backstop: if a response doesn't fit the
+    closed action set or reads as badly off-character, fall back to a
+    scripted line rather than surfacing whatever the model produced.
+  - **Cost discipline is a gameplay feature, not just an engineering
+    concern** — this reinforces the existing on/off toggle and depth/cost
+    dial, but the lesson from real deployments is that uncontrolled call
+    volume (e.g. a curious player rapid-firing dialogue) can spike costs
+    fast; rate-limit calls per NPC per session in addition to caching.
+  - **"Alive" doesn't require constant novelty** — several of these games
+    lean on a fairly small set of well-written scripted fallback lines and
+    still read as engaging; this supports Design Principle Zero directly
+    (the AI-off experience isn't a lesser fallback, it's most of the
+    actual game).
 
 ## Art direction
-Top-down 2D, everything drawn in code (canvas) — no image assets. Warm
-palette, soft shadows, constant gentle ambient motion (sway, shimmer,
-smoke). See ROADMAP Phase 4 for the "more Ultima Online" depth/animation
-upgrade path — richer rigs and faked-height depth, while deliberately
-staying off true isometric (that path was tried and abandoned; see project
-history/CLAUDE.md notes).
+Top-down 2D, everything drawn in code (canvas) — no image assets, and
+**no true 3D anywhere in the game, ever** (this was explicitly considered
+and ruled out — see the project's early history with an isometric-asset
+detour that got abandoned, in CLAUDE.md/this doc's earlier drafts).
+
+**The single depth technique, used everywhere, not just as late polish:**
+a consistent 2D "depth illusion" toolkit — jointed/volumetric character
+rigs, buildings with two visible faces, diagonal cast shadows, parallax
+background layers, and scene-transition effects (like an underwater state
+for diving: color-tint shift, bubbles, light shafts, blurred background
+layer) built from the same flat-canvas techniques already used for the
+farm and characters. This is the core art identity of the whole game, not
+a Phase-7-only upgrade — ROADMAP_EXPANSION's Phase 7 "Juice & feel" is
+where the *fullest* version of these techniques lands, but simpler
+versions of the same toolkit (e.g. a basic diving transition) can and
+should appear as soon as content needs them, using whatever level of
+polish is practical at that point in the build. Warm palette, soft
+shadows, constant gentle ambient motion (sway, shimmer, smoke) throughout.
 
 ## Non-goals
 Multiplayer. True isometric or realistic/photographic graphics. Combat,
