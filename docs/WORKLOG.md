@@ -42,6 +42,53 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Farm environment detail pass
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 2)
+- **Block given:** (batch-2 instruction) Richer visual texture on existing
+  farm objects, fully code-drawn: furrowed tilled soil, weathered/patched vs.
+  repaired shingle roofs, vertical plank wall striping, multi-tone tree
+  canopies, procedurally scattered ambient props (leaves/stones/mushrooms,
+  no gameplay function), drop shadows under entities if missing.
+- **Done:**
+  - **Files:**
+    - `src/art/props.ts` — `drawTilledTile`: four gently-waved furrow rows
+      (dark groove + lit crest) with per-tile deterministic wobble and soil
+      crumbs, still darker/damp when watered. `drawTree`: a true three-tone
+      blob-clustered canopy — dark under-layer, mid-tone body, sunlit top
+      clusters — with subtle per-tree tint variation and a bark seam.
+    - `src/art/buildings.ts` — new shared helpers: `drawPlankWall` (vertical
+      planks with alternating tone, thin seams, occasional knots —
+      deterministic, never shimmers) applied to the house and barn walls;
+      `drawShingleRoof` (overlapping offset shingle rows, per-shingle tone
+      jitter, row shadow lines) applied to both gables — **weathered state
+      (pre-repair) gets stronger jitter and missing-shingle gaps; repaired
+      reads neat and even**. The existing rundown extras (roof hole + patch
+      plank, boarded window, barn boards) draw on top unchanged.
+    - `src/world/ground.ts` — `scatterAmbientProps`: 42 stones (faceted grey
+      pairs), 56 fallen leaves (tinted ovals with midribs), 7 mushrooms,
+      baked once into the pre-rendered ground (zero per-frame cost) with a
+      fixed seed and rejection zones covering the field at its **maximum
+      expanded size**, pond, buildings, path, bushes, flower beds, and the
+      busking spot — so props can never sit under interactables or block
+      anything (nothing in the ground layer collides by construction).
+    - Drop shadows under entities: **already present** (`shadow()` in
+      drawFarmer/drawCow/drawHen) — verified, not duplicated.
+  - **Behavior:** purely visual — the farm reads richer at every zoom: soil
+    has furrows under every crop, roofs are shingled and visibly weathered
+    until repaired, walls are planked wood, canopies have depth, and the
+    grass is quietly alive with leaves, stones, and the odd mushroom.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** screenshots reviewed at both farm states and zoomed
+  (weathered vs. neat shingles contrast; furrows + five crop palettes over
+  them; planks + knots up close; props scattered on grass but absent from
+  field/pond/paths). Functional smoke in-browser: field prompts (Till) still
+  live after the art pass; zero page errors during play.
+- **Commit:** Farm environment detail pass
+- **Follow-ups:** the WORLD_MAP.md rundown-farm concrete details (coop, well,
+  missing fence section, sparkle spots, broken bridge, mine on the horizon,
+  visible road) are now unblocked by the new doc but belong to their own
+  ROADMAP block — not folded into this purely-textural pass.
+
 ## UI/HUD exterior design pass
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 2)
 - **Block given:** (batch-2 instruction) A general visual redesign of the UI

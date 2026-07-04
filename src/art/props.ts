@@ -3,20 +3,40 @@ import { FIELD, POND } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
 import { shadow } from "./shapes";
 
+/** A tree with a blob-clustered, three-tone canopy: a dark under-layer, the
+ *  mid-tone body, and sunlit top clusters — each tree slightly its own shade
+ *  (deterministic by position). */
 export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
   shadow(g, x + 4, y + 6, 20, 8);
+  const rnd = mulberry32(((x * 31) ^ (y * 17)) | 0);
+  const hueShift = (rnd() - 0.5) * 0.15;           // subtle per-tree variation
+  const tone = (base: [number, number, number]) => {
+    const [r, gg, b] = base;
+    return `rgb(${Math.round(r * (1 + hueShift))},${Math.round(gg * (1 + hueShift * 0.6))},${b})`;
+  };
+  // trunk with a bark seam
   g.fillStyle = "#6b4a2b"; g.fillRect(x - 4, y - 14, 8, 20);
+  g.strokeStyle = "rgba(50,32,16,.6)"; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(x - 1, y - 12); g.lineTo(x, y + 4); g.stroke();
   const sway = Math.sin(t * 0.8 + x) * 2;
-  const blobs: Array<[number, number, number, string]> = [
-    [-10, -26, 16, "#3d6626"], [10, -24, 14, "#47732c"],
-    [0, -38, 17, "#528034"], [-2, -28, 12, "#5d8f3c"],
-  ];
-  for (const [ox, oy, r, c] of blobs) {
-    g.fillStyle = c;
-    g.beginPath(); g.arc(x + ox + sway * 0.4, y + oy, r, 0, 7); g.fill();
+  const sx = x + sway * 0.4;
+  // 1) dark under-canopy (the shaded mass beneath)
+  g.fillStyle = tone([46, 74, 28]);
+  for (const [ox, oy, r] of [[-11, -22, 14], [9, -21, 13], [0, -24, 15]] as const) {
+    g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill();
   }
-  g.fillStyle = "rgba(255,255,220,.14)";
-  g.beginPath(); g.arc(x - 6 + sway * 0.4, y - 40, 9, 0, 7); g.fill();
+  // 2) mid-tone body
+  g.fillStyle = tone([71, 115, 44]);
+  for (const [ox, oy, r] of [[-10, -28, 14], [10, -26, 12], [0, -38, 15], [-2, -30, 11]] as const) {
+    g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill();
+  }
+  // 3) sunlit clusters on top
+  g.fillStyle = tone([104, 152, 66]);
+  for (const [ox, oy, r] of [[-6, -40, 8], [6, -36, 7], [-12, -32, 6]] as const) {
+    g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill();
+  }
+  g.fillStyle = "rgba(255,255,220,.16)";
+  g.beginPath(); g.arc(sx - 5, y - 42, 6, 0, 7); g.fill();
 }
 
 export function drawFence(
@@ -80,13 +100,38 @@ export function drawCorn(g: CanvasRenderingContext2D, t: number) {
   }
 }
 
-/** A tilled plot tile; watered soil reads visibly darker and damp. */
+/** A tilled plot tile: real furrow ridges — a dark groove with a lit ridge
+ *  crest per row, gently waved, plus a few soil crumbs (deterministic per
+ *  tile). Watered soil reads visibly darker and damp. */
 export function drawTilledTile(g: CanvasRenderingContext2D, cx: number, cy: number, watered = false) {
   const x = cx - T / 2, y = cy - T / 2;
+  const rnd = mulberry32(((cx * 13) ^ (cy * 7)) | 0);
   g.fillStyle = watered ? "#3f2e1e" : "#57402a";
   g.fillRect(x + 2, y + 2, T - 4, T - 4);
-  g.fillStyle = watered ? "rgba(25,16,9,.65)" : "rgba(40,26,14,.6)";
-  for (let i = 0; i < 3; i++) g.fillRect(x + 4, y + 6 + i * 9, T - 8, 3);
+  // furrows: 4 waved rows, groove shadow + crest highlight
+  for (let i = 0; i < 4; i++) {
+    const ry = y + 6 + i * 7 + rnd() * 1.5;
+    const wob = rnd() * 2 - 1;
+    g.strokeStyle = watered ? "rgba(18,11,6,.7)" : "rgba(38,24,12,.7)";
+    g.lineWidth = 2.6;
+    g.beginPath();
+    g.moveTo(x + 4, ry);
+    g.quadraticCurveTo(cx, ry + wob * 2, x + T - 4, ry);
+    g.stroke();
+    g.strokeStyle = watered ? "rgba(150,120,90,.28)" : "rgba(170,130,90,.45)";
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.moveTo(x + 4, ry - 2);
+    g.quadraticCurveTo(cx, ry - 2 + wob * 2, x + T - 4, ry - 2);
+    g.stroke();
+  }
+  // soil crumbs
+  g.fillStyle = watered ? "rgba(20,13,7,.55)" : "rgba(120,88,55,.5)";
+  for (let i = 0; i < 4; i++) {
+    g.beginPath();
+    g.ellipse(x + 5 + rnd() * (T - 10), y + 5 + rnd() * (T - 10), 1.4 + rnd(), 1 + rnd() * 0.7, rnd(), 0, 7);
+    g.fill();
+  }
   g.strokeStyle = "rgba(150,110,70,.45)"; g.lineWidth = 1.5;
   g.strokeRect(x + 2, y + 2, T - 4, T - 4);
   if (watered) {                                   // damp sheen
