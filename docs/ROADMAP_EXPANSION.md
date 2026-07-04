@@ -702,7 +702,7 @@ Full pet relationship depth (beyond Phase 1's simple companion flag).
 ---
 
 ## The Season system itself
-- [ ] not started
+- [x] satisfied by the World Context Infrastructure work (see `docs/WORLD_CONTEXT.md` Block 3 + the HUD block's minutes amendment) — 2026-07-04. `src/systems/calendar.ts` is real: four seasons, advancing day/hour/minute, day-phase, `absoluteDay`, day-length as a player setting (`settings.dayLengthSeconds`). The "season-change event" is the return-value convention (`advanceMinute` signals day rollover; season read via `currentSeason`). Crop/fish season gating wires in via their own variety blocks.
 
 **The Season system itself** (VISION #7 — referenced as a dependency in
 several earlier items, e.g. Phase 0's crop-variety pass and Phase 1's
@@ -899,7 +899,7 @@ add weather/event variants later) rather than needing full coverage on day one.
 ---
 
 ## World Context Infrastructure — build these 4 together, in this order
-- [ ] not started (package)
+- [x] built, verified, and closed out in `docs/WORLD_CONTEXT.md` (Blocks 1-6, commits 8c81d32…9e28515) — 2026-07-04. Calendar, weather (season-weighted daily roll, `isRaining` exposed), world event flags (absolute-day expiry), and `getWorldContext()` are all real; the rain→crop-watering mechanical effect intentionally waits for the crop active-tending block, and location/relationships/reputation slices join via Block 6's recipe when their systems exist.
 
 Wildhearth simulates a real, connected world (see the standing skills rule:
 "Reality-simulation state check") — nearly every system can be affected by

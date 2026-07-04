@@ -42,6 +42,22 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## docs — reconcile stale ROADMAP_EXPANSION blocks with built work
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** autorun instruction — small corrections traceable to the docs.
+  Two ROADMAP_EXPANSION.md blocks describe systems that were already built and
+  verified during the World Context Infrastructure work but still read "not
+  started".
+- **Done (docs only):** ticked "The Season system itself" (satisfied by
+  `systems/calendar.ts` + the day-length setting; noted the season-change-event
+  convention) and "World Context Infrastructure — build these 4 together"
+  (satisfied by WORLD_CONTEXT.md Blocks 1-6, commits 8c81d32…9e28515; noted the
+  rain→crop effect intentionally waits for active tending).
+- **Build:** `npm run build` — ✅ (no source change).
+- **Commit:** docs — reconcile stale ROADMAP_EXPANSION blocks with built work
+- **Follow-ups:** the older combined "HUD — Calendar & Weather indicator" block
+  stays open until the weather-indicator half ships.
+
 ## HUD — season, day & time display (with real minutes + day-length setting)
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "HUD - season, day & time
