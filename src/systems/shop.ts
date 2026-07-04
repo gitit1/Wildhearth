@@ -1,4 +1,4 @@
-import { HOE_PRICE, SEEDS_PRICE, HEN_PRICE, COW_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
+import { HOE_PRICE, SEEDS_PRICE, ROD_PRICE, HEN_PRICE, COW_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
 import { addItem, countItem } from "./inventory";
 import { saveEconomy, type Economy } from "./economy";
 import { saveLivestock, type Livestock } from "./livestock";
@@ -21,6 +21,7 @@ export interface ShopEntry {
 
 export const SHOP_STOCK: ShopEntry[] = [
   { id: "hoe", price: HOE_PRICE, unique: true },
+  { id: "rod", price: ROD_PRICE, unique: true },   // fishing is a hard tool gate — the rod must be buyable
   { id: "seeds", price: SEEDS_PRICE },
   { id: "hen", price: HEN_PRICE, livestock: "hen" },
   { id: "cow", price: COW_PRICE, livestock: "cow", unique: true },

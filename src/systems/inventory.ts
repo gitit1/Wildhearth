@@ -1,4 +1,6 @@
 import { INVENTORY_SLOTS } from "../config";
+import { FISH } from "../data/fish";
+import { JUNK } from "../data/junk";
 
 /**
  * Slot-based item store. Pure state + operations, no persistence —
@@ -7,9 +9,10 @@ import { INVENTORY_SLOTS } from "../config";
 export interface ItemStack { id: string; qty: number }
 export interface Inventory { slots: (ItemStack | null)[] }
 
-/** UI-facing item names. */
+/** UI-facing item names. Table-driven goods (fish species, junk) name
+ *  themselves from their data tables. */
 export const ITEM_NAMES: Record<string, string> = {
-  fish: "Fish",
+  fish: "Fish",     // legacy generic fish from pre-variety saves
   berries: "Berries",
   hoe: "Hoe",
   seeds: "Seeds",
@@ -18,6 +21,8 @@ export const ITEM_NAMES: Record<string, string> = {
   lute: "Lute",
   hen: "Hen",       // livestock: named for shop rows/toasts, never a bag item
   cow: "Cow",
+  ...Object.fromEntries(FISH.map((s) => [s.id, s.name])),
+  ...Object.fromEntries(JUNK.map((j) => [j.id, j.name])),
 };
 
 export function createInventory(size = INVENTORY_SLOTS): Inventory {

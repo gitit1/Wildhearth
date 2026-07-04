@@ -1,17 +1,24 @@
-/** Code-painted item icons for the backpack grid. One painter per item type. */
+/** Code-painted item icons for the backpack grid. One painter per item type;
+ *  table-driven goods (fish species, junk) share parameterized painters. */
+
+import { FISH } from "../data/fish";
 
 type IconPainter = (g: CanvasRenderingContext2D, s: number) => void;
 
-function paintFish(g: CanvasRenderingContext2D, s: number) {
+/** Shared fish silhouette, tinted per species from its data-table palette. */
+function paintFishSpecies(
+  g: CanvasRenderingContext2D, s: number,
+  pal: { body: string; belly: string; tail: string } = { body: "#6fa8c9", belly: "#a8cde3", tail: "#5b90ad" },
+) {
   const cx = s * 0.46, cy = s * 0.5;
   // body
-  g.fillStyle = "#6fa8c9";
+  g.fillStyle = pal.body;
   g.beginPath(); g.ellipse(cx, cy, s * 0.3, s * 0.17, 0, 0, 7); g.fill();
   // belly highlight
-  g.fillStyle = "#a8cde3";
+  g.fillStyle = pal.belly;
   g.beginPath(); g.ellipse(cx, cy + s * 0.06, s * 0.24, s * 0.09, 0, 0, 7); g.fill();
   // tail
-  g.fillStyle = "#5b90ad";
+  g.fillStyle = pal.tail;
   g.beginPath();
   g.moveTo(cx + s * 0.26, cy);
   g.lineTo(cx + s * 0.44, cy - s * 0.14);
@@ -20,6 +27,46 @@ function paintFish(g: CanvasRenderingContext2D, s: number) {
   // eye
   g.fillStyle = "#22303a";
   g.beginPath(); g.arc(cx - s * 0.16, cy - s * 0.04, s * 0.035, 0, 7); g.fill();
+}
+
+const paintFish: IconPainter = (g, s) => paintFishSpecies(g, s);
+
+function paintBoot(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#6f5334";
+  g.beginPath();
+  g.moveTo(s * 0.34, s * 0.24); g.lineTo(s * 0.52, s * 0.24);
+  g.lineTo(s * 0.52, s * 0.55); g.lineTo(s * 0.74, s * 0.62);
+  g.quadraticCurveTo(s * 0.8, s * 0.72, s * 0.72, s * 0.78);
+  g.lineTo(s * 0.34, s * 0.78);
+  g.closePath(); g.fill();
+  g.fillStyle = "#57402a";
+  g.fillRect(s * 0.3, s * 0.74, s * 0.48, s * 0.08);   // worn sole
+  g.strokeStyle = "#4a3722"; g.lineWidth = Math.max(1, s * 0.025);
+  g.beginPath(); g.moveTo(s * 0.38, s * 0.3); g.lineTo(s * 0.48, s * 0.34); g.stroke();
+  g.beginPath(); g.moveTo(s * 0.38, s * 0.4); g.lineTo(s * 0.48, s * 0.44); g.stroke();
+}
+
+function paintTin(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#9aa2ab";
+  g.fillRect(s * 0.34, s * 0.32, s * 0.32, s * 0.42);
+  g.fillStyle = "#c4cad2";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.32, s * 0.16, s * 0.06, 0, 0, 7); g.fill();
+  // dented side + bent lid
+  g.fillStyle = "#7f868f";
+  g.beginPath(); g.ellipse(s * 0.4, s * 0.55, s * 0.05, s * 0.09, 0.3, 0, 7); g.fill();
+  g.strokeStyle = "#c4cad2"; g.lineWidth = Math.max(1, s * 0.04); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.62, s * 0.3); g.lineTo(s * 0.74, s * 0.2); g.stroke();
+}
+
+function paintRope(g: CanvasRenderingContext2D, s: number) {
+  g.strokeStyle = "#a9885a"; g.lineWidth = Math.max(2, s * 0.07); g.lineCap = "round";
+  g.beginPath(); g.arc(s * 0.46, s * 0.5, s * 0.18, 0.4, 5.6); g.stroke();
+  g.beginPath(); g.arc(s * 0.56, s * 0.56, s * 0.11, 1.2, 6.6); g.stroke();
+  // loose frayed end
+  g.beginPath(); g.moveTo(s * 0.62, s * 0.36); g.quadraticCurveTo(s * 0.78, s * 0.3, s * 0.8, s * 0.44); g.stroke();
+  g.strokeStyle = "#8a6c42"; g.lineWidth = Math.max(1, s * 0.025);
+  g.beginPath(); g.moveTo(s * 0.78, s * 0.44); g.lineTo(s * 0.84, s * 0.52); g.stroke();
+  g.beginPath(); g.moveTo(s * 0.8, s * 0.42); g.lineTo(s * 0.88, s * 0.46); g.stroke();
 }
 
 function paintCoinPouch(g: CanvasRenderingContext2D, s: number) {
@@ -180,6 +227,11 @@ const PAINTERS: Record<string, IconPainter> = {
   lute: paintLute,
   hen: paintHen,
   cow: paintCow,
+  boot: paintBoot,
+  tin: paintTin,
+  rope: paintRope,
+  // every fish species shares the tinted silhouette painter
+  ...Object.fromEntries(FISH.map((sp) => [sp.id, ((g, s) => paintFishSpecies(g, s, sp.palette)) as IconPainter])),
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

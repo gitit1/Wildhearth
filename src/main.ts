@@ -16,13 +16,13 @@ import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/animals";
 import { loadLivestock, resetLivestock } from "./systems/livestock";
 import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
-import { createFishing, updateFishing, cancelCast } from "./systems/fishing";
+import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, cancelPick } from "./systems/foraging";
 import {
   createPlots, createFarmWork, updateFarmWork, updatePlots, cancelWork,
 } from "./systems/farming";
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
-import { removeItem, countItem, addItem } from "./systems/inventory";
+import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
@@ -236,8 +236,12 @@ function tick(now: number) {
 
   if (updateFishing(fishing, dt)) {
     player.fishing = false;
-    if (gainItem(economy, "fish")) toast("Caught a fish! 🐟");
-    else toast("Backpack full — no room for the fish!");
+    // what actually bit: species/junk table roll against skill, season, weather
+    const haul = resolveCatch(skillValue(skills, "fishing"), currentSeason(calendar), weather.kind);
+    const haulName = ITEM_NAMES[haul.id] ?? haul.id;
+    if (gainItem(economy, haul.id)) {
+      toast(haul.kind === "junk" ? `You fished up... ${haulName.toLowerCase()}.` : `Caught a ${haulName}! 🐟`);
+    } else toast("Backpack full — the catch slips away!");
     const gained = gainSkill(skills, "fishing");
     if (gained > 0) skillGainPopup("fishing", gained);
     if (isGuided() && !hintSellShown) {

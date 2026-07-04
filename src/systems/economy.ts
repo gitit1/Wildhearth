@@ -1,13 +1,19 @@
 import { FISH_PRICE, BERRY_PRICE, CORN_PRICE, SAVE_KEY } from "../config";
+import { FISH } from "../data/fish";
+import { JUNK } from "../data/junk";
 import {
   Inventory, createInventory, reviveInventory, addItem, removeItem, countItem,
 } from "./inventory";
 
-/** What the market stall pays per unit. Grows as new goods are introduced. */
+/** What the market stall pays per unit. Grows as new goods are introduced.
+ *  Fish species and junk price themselves from their data tables; the legacy
+ *  generic "fish" stays priced so pre-variety saves can still sell it. */
 export const GOOD_PRICES: Record<string, number> = {
   fish: FISH_PRICE,
   berries: BERRY_PRICE,
   corn: CORN_PRICE,
+  ...Object.fromEntries(FISH.map((s) => [s.id, s.price])),
+  ...Object.fromEntries(JUNK.map((j) => [j.id, j.price])),
 };
 
 /** Player wallet + backpack. Coins are currency (not a slot item). */

@@ -65,6 +65,8 @@ const pond: Interactable = {
       id: "fish", label: "Fish",
       run: (c) => {
         if (busy(c)) return;
+        // fishing is a hard tool gate (unlike bare-hand foraging) — no rod, no cast
+        if (countItem(c.economy.inv, "rod") === 0) { c.toast("You need a fishing rod — the stall sells one."); return; }
         startCast(c.fishing, skillValue(c.skills, "fishing"));
         c.player.fishing = true;
       },

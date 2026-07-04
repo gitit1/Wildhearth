@@ -57,7 +57,7 @@ normal/rundown pairing already established for the house.
 ---
 
 ## Fish variety (rich tier — 10+ species) + junk catches
-- [ ] not started
+- [x] built, verified in-browser (12 species incl. season/weather/location tags, junk odds by skill, rod hard-gate + rod in shop), committed — 2026-07-04 (autorun branch)
 
 **Fish variety (rich tier — 10+ species) + junk catches.**
 `data/fish.ts`: table of species, each with a rarity weight, a required

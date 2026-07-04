@@ -42,6 +42,58 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Fish variety (rich tier — 10+ species) + junk catches + the rod gate
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Fish variety (rich tier —
+  10+ species) + junk catches") `data/fish.ts` species table (rarity weight,
+  Fishing-skill floor, where/when tags), `data/junk.ts`, `systems/fishing.ts`
+  rolls both tables; plus the fix: fishing must hard-require an owned rod.
+- **Done:**
+  - **Files:**
+    - `src/data/fish.ts` (NEW): 12 species — Common Carp, Perch, Bluegill,
+      Sunfish, Crucian Carp, Weather Loach (rain/storm-only), Pike, Silver Eel
+      (autumn), Golden Koi, Moonfish (fog-only), Sturgeon (lake/boat — tagged
+      for future zones, unreachable from the pond), Elder Carp (floor 90 pond
+      legend). Each: price, weight, skillFloor, location tags
+      (pond/river/lake/boat), optional season/weather tags, icon palette.
+    - `src/data/junk.ts` (NEW): old boot / empty tin / tangled rope, token
+      1-coin value (the spec's "no sell value (or a token amount)" — token
+      chosen so junk never permanently clogs the bag).
+    - `src/systems/fishing.ts`: `resolveCatch(skill, season, weather, location)`
+      — junk odds `JUNK_CHANCE_BASE` 0.35 → `JUNK_CHANCE_MIN` 0.05 at skill 100,
+      then a weighted roll over species filtered by location/floor/season/
+      weather. Bite speed was already skill-scaled (slow bites at low skill).
+    - `src/systems/interact.ts`: the rod gate — the pond's Fish action refuses
+      without an owned rod ("You need a fishing rod — the stall sells one.").
+    - `src/systems/shop.ts` + config: rod added to stall stock (`ROD_PRICE` 12,
+      unique — same basic-tool tier as the hoe) so the hard gate never
+      dead-ends a non-rod start; VISION's "everyone can fish a little" then
+      holds via purchase.
+    - `src/systems/economy.ts` / `inventory.ts`: `GOOD_PRICES`/`ITEM_NAMES` now
+      build from the data tables (legacy generic "fish" stays priced for old
+      saves).
+    - `src/art/icons.ts`: parameterized fish-silhouette painter tinted per
+      species palette; boot/tin/rope painters.
+    - `src/main.ts`: the catch handler resolves against the tables using live
+      skill + season + weather and toasts the actual species/junk by name.
+  - **Behavior:** casting without a rod is refused with a shop hint; the stall
+    sells a rod for 12. Catches are real species now — low skill sees junk
+    (~35%) and commons; high skill sees junk rarely and reaches Pike/Koi/Elder;
+    season and weather genuinely matter (Bluegill vanishes in winter, Crucian
+    appears; Weather Loach only bites in rain; Moonfish only in fog). Every
+    species sells at its own table price.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 20/20 across 7 scenarios: the
+  rod gate refusal; buying the rod (20→8 coins) then landing a real catch;
+  20 catches at skill 0 spring/clear → only Carp/Perch/Bluegill + 6 junk;
+  25 catches at skill 95 → no out-of-season/weather species, high-floor
+  species present, 1 junk; winter → Bluegill/Koi gone + Crucian present; rain
+  → Weather Loach caught; species sell rows show table prices (Carp 3, Koi 14).
+- **Commit:** Fish variety (rich tier) + junk catches + the rod gate
+- **Follow-ups:** catch quality tiers, bait, and rod tiers belong to the
+  Riverside Fisherwoman block (skipped this run — needs the river/NPC systems).
+  River/lake/boat location tags are already in the table for when zones grow.
+
 ## Fix: no free animals
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Fix: no free animals")

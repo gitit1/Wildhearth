@@ -6,10 +6,13 @@ export const WORLD_W = MW * T, WORLD_H = MH * T;
 export const PLAYER_SPEED = 150;        // px/sec
 export const COW_SPEED = 22, HEN_SPEED = 30;
 
-export const FISH_PRICE = 3;            // coins per fish at the stall
+export const FISH_PRICE = 3;            // coins per legacy generic fish (old saves)
 export const FISH_TIME_MIN = 1.2;       // seconds until a bite
 export const FISH_TIME_MAX = 3.0;
 export const FISHING_BITE_REDUCTION = 0.5; // bite-time fraction removed at Fishing 100
+export const ROD_PRICE = 12;            // shop: fishing rod (basic-tool tier, same as the hoe)
+export const JUNK_CHANCE_BASE = 0.35;   // junk-catch odds at Fishing 0...
+export const JUNK_CHANCE_MIN = 0.05;    // ...falling to this at Fishing 100
 
 export const BERRY_PRICE = 2;           // coins per berry at the stall
 export const FORAGE_TIME = 1.2;         // seconds to pick a bush
