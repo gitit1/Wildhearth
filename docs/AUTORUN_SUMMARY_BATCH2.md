@@ -151,3 +151,68 @@ functional smoke in-browser — field prompts still live, zero page errors.
 Captured under the session scratchpad during verification: `expand-before/
 tier1/tier2/descent.png`, `ui-noon.png`, `ui-dial-{dawn,night,rain,dusk-fog}.png`,
 `env-rundown.png`, `env-repaired.png`, `env-field-zoom.png`.
+
+---
+
+# Batch 3 — continuation (same branch)
+
+Date: 2026-07-04. Baseline commit `8d58520`: the product owner's updated
+VISION.md (starting coins decided: **50**) and the revised
+ROADMAP_EXPANSION.md carrying the new stall-selling block. (Note: that
+revision also reset the file's earlier `[x]` ticks — left as delivered;
+WORKLOG.md remains the authoritative built-record.)
+
+## 4. Fix: starting coins = 50 — `ff95174`
+**Source:** VISION.md price anchor table (resolves the 0-in-code vs
+15-in-old-doc conflict batch 2 flagged).
+`STARTING_COINS = 50` in config; `newGameReset` seeds from it. Nothing else
+touches starting money.
+**Verified (2/2):** a New Game over a seeded 999-coin life starts at exactly
+50 — HUD and persisted save both checked — and survives reload + Continue.
+
+## 5. Visual pass II — shared outlines + richer grass — `aa3d0ba`
+**Source:** batch-3 instruction (reference-look direction).
+- **One game-wide outline**, defined once in `shapes.ts` (`OUTLINE`
+  rgba(43,32,19,.62), width 1.6) with `outline`/`oRect`/`oEllipse` helpers —
+  applied to every major silhouette: player (torso/head/hat), cow, hen,
+  tree trunks + canopy blobs, bush blobs, every fence post, ripe crop ears,
+  flower beds, the busk hat, house/barn wall contours, both shingled gables
+  (stroked crisp outside the clip), doors, chimney, stall counter + awning.
+  Deliberately not outlined: sub-2px specks (grass blades, crumbs, sprouts),
+  which would turn to mud at this stroke width.
+- **Richer grass**: 240 fanning grass-blade tufts (two greens) + 320 tiny
+  pastel flower dots, deterministic, baked into the pre-rendered ground
+  (zero per-frame cost), painted under the yard/field/pond layers.
+- **Shadow audit**: every drawn entity already carried the shared elliptical
+  shadow (player, cow, hen, trees, bushes, house, barn, stall) — confirmed,
+  none added, none duplicated.
+**Verified:** full-farm and zoomed screenshots reviewed — the outline is the
+single change that most pulls the scene toward the reference; functional
+smoke green (prompts live, no page errors).
+
+## 6. Stall selling by path — Fishing — `9bc81c1`
+**Source:** the new ROADMAP_EXPANSION block, Fishing scope only.
+New `systems/sellCategories.ts`: a `SellCategory` dispatch where the fishing
+category — **capability-gated**: owns a rod, OR the Memory Book records any
+catch, OR the bag holds legacy fish — claims all 12 species + 3 junk +
+legacy "fish". Goods no category claims yet (crops, forage, dishes…) pass
+through untouched until their own blocks land; output preserves
+`GOOD_PRICES` order so a fisher's stall renders pixel-identical. The shop
+window reads the injected lookup, and **"Sell everything" now sells only
+what the stall shows** — previously it used `economy.sellAllGoods`, which
+would have silently sold hidden fish. Adding Farming later is one new
+`SELL_CATEGORIES` entry; the dispatch, the window, and main stay untouched
+(the block's generalizability criterion, verified by inspection).
+**Verified (6/6):** rod owner sells carp/junk/berries exactly as today
+(2 carp → +6); a hoe-life player holding seeded carp+tin sees neither row
+while berries/corn still sell, and Sell-everything earned exactly the
+visible 16 leaving carp+tin in the bag; buying a rod surfaced the fish rows
+in the same window; a rodless player with a recorded catch still sells fish.
+
+## Batch-3 follow-ups
+- `economy.sellAllGoods` is now uncalled — remove or repoint when the next
+  category block (Farming/eggs) lands.
+- The interior room kept its softer un-outlined look on purpose (it has its
+  own light language); revisit with Housing tier 2.
+- The ROADMAP revision's tick reset means WORKLOG.md (and these summaries)
+  are the reliable record of what's actually built.
