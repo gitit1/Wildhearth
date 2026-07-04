@@ -25,7 +25,8 @@ import { removeItem, countItem, addItem } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
-import { loadCalendar, resetCalendar, advanceHour } from "./systems/calendar";
+import { loadCalendar, resetCalendar, advanceHour, currentSeason } from "./systems/calendar";
+import { loadWeather, resetWeather, rollDailyWeather } from "./systems/weather";
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import {
@@ -67,6 +68,7 @@ const busking = createBusking();
 const skills = loadSkills();
 const farm = loadFarm();
 const calendar = loadCalendar();
+const weather = loadWeather();
 const meta = loadMeta();
 registerBushes(bushes);
 registerPlots(plots);
@@ -116,6 +118,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   for (const b of bushes) { b.full = true; b.regrow = 0; }
   resetFarm(farm);
   resetCalendar(calendar);
+  resetWeather(weather);
   meta.starterTool = tool;
   saveMeta(meta);
   saveSettings({ guided });         // settings are not game state — kept across a New Game
@@ -149,9 +152,14 @@ function tick(now: number) {
     if (busking.playing) cancelBusk(busking);
   }
 
-  // world time: one in-game hour passes per GAME_HOUR_SECONDS of actual play
+  // world time: one in-game hour passes per GAME_HOUR_SECONDS of actual play;
+  // each new day (the hour rolling to 0) rerolls the weather for the season.
   hourAccum += dt;
-  while (hourAccum >= GAME_HOUR_SECONDS) { hourAccum -= GAME_HOUR_SECONDS; advanceHour(calendar); }
+  while (hourAccum >= GAME_HOUR_SECONDS) {
+    hourAccum -= GAME_HOUR_SECONDS;
+    advanceHour(calendar);
+    if (calendar.hour === 0) rollDailyWeather(weather, currentSeason(calendar));
+  }
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
   const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, farm, player, toast, openShop: openShopWindow };

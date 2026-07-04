@@ -42,6 +42,61 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## World Context Block 4 — Weather
+- **Date:** 2026-07-04
+- **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 4 — Weather) Create
+  `systems/weather.ts` in the same shape as `calendar.ts`; add `WEATHER_KEY` to
+  config, add it to `saves.ts`'s `GAME_KEYS`, instantiate + reset in `main.ts`
+  and reroll it on each new in-game day (season-weighted), and expose a
+  `weather` slice from World Context. The spec also notes a real mechanical
+  effect (skip manual watering on rainy days) — per the product-owner
+  instruction it is NOT wired yet (its farming.ts active-tending host block
+  hasn't landed) and is recorded under Follow-ups instead.
+- **Done:**
+  - **Files:**
+    - `src/systems/weather.ts` (NEW): `WeatherState { version, kind,
+      daysSinceChange }` with `loadWeather/saveWeather/resetWeather`, a
+      per-season weighted `WEATHER_TABLE`, `rollWeather`, `rollDailyWeather`
+      (reroll for the day; `daysSinceChange` climbs on a repeat, resets to 0 on
+      a change), and `isRaining`. Exactly the spec's code.
+    - `src/config.ts`: added `WEATHER_KEY = "wildhearth-weather-v1"` (matching
+      the existing key convention).
+    - `src/systems/saves.ts`: added `WEATHER_KEY` to `GAME_KEYS`.
+    - `src/main.ts`: `const weather = loadWeather()` beside the other stores;
+      `resetWeather(weather)` in `newGameReset()`; the `tick()` hour loop now
+      calls `rollDailyWeather(weather, currentSeason(calendar))` whenever
+      `advanceHour` rolls the hour to 0 (a new day) — the "check
+      `calendar.hour === 0` at the call site" option, leaving Block 3's
+      `advanceHour` untouched. Also imports `currentSeason` from calendar.
+    - `src/systems/worldContext.ts`: imported the weather types, enabled the
+      `weather?: WeatherState` source, added a `WeatherSlice` (`state`,
+      `daysSinceChange`) to `WorldContext`, and populated it in
+      `getWorldContext()` (mapping `kind` → `state`, per the data-owner table).
+    - `docs/WORLD_CONTEXT.md`: Block 4 ticked `[x]`.
+  - **Systems / functions:** new save key `wildhearth-weather-v1`; new
+    `WeatherState` + `WeatherKind`; season-weighted daily reroll; World Context
+    now surfaces a live `weather` slice. `isRaining` is exported but not yet
+    consumed (see Follow-ups).
+  - **Behavior:** each new in-game day the weather rerolls, weighted by the
+    current season (spring/summer lean clear with some rain, autumn adds fog,
+    winter adds storm + fog). Persisted, and reset to clear on New Game. No
+    visible/mechanical effect yet — it feeds World Context for now.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, two phases (both green). Variety
+  (temporary fast cadence + a calendar/weather debug log, since reverted, 7/7):
+  93 days across all four seasons produced no impossible season/weather pair,
+  all four kinds appeared, storm only ever occurred in winter, `clear` was the
+  modal kind (66/20/5/2 clear/rain/fog/storm) matching the weightings, and
+  `daysSinceChange` both reset to 0 and climbed. Persistence (shipping build,
+  3/3): a seeded storm/5 loaded unchanged on Continue, survived a reload, and
+  New Game reset it to clear/0.
+- **Commit:** World Context Block 4 — Weather
+- **Follow-ups:** the real mechanical effect is deferred — when the crop
+  active-tending block from `ROADMAP_EXPANSION.md` lands in `farming.ts`, use
+  `isRaining(weather)` to skip the manual watering step for outdoor plots on
+  rainy/stormy days. Not built now because its host system doesn't exist yet.
+  Next: Block 5 (World event flags), pending your go-ahead.
+
 ## World Context Block 3 — Calendar & time
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 3 — Calendar & time)

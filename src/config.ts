@@ -56,4 +56,5 @@ export const SETTINGS_KEY = "wildhearth-settings-v1";
 export const RENOVATION_KEY = "wildhearth-farm-v1";  // per-part farm repair state (Step 8)
 export const META_KEY = "wildhearth-meta-v1";        // playthrough origin: starter choice (Step 9)
 export const CALENDAR_KEY = "wildhearth-calendar-v1"; // season/day/hour (World Context Block 3)
+export const WEATHER_KEY = "wildhearth-weather-v1";  // daily weather (World Context Block 4)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

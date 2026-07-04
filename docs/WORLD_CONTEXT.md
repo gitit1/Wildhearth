@@ -300,7 +300,7 @@ the current season/day/hour/phase.
 ---
 
 ## Block 4 — Weather
-- [ ] not started — **depends on Block 3 (reads the current season to weight its roll)**
+- [x] built, verified (in-browser: season-weighted variety + persistence), committed — 2026-07-04
 
 Weather doesn't exist anywhere in the code yet — only mentioned as a
 concept in `VISION.md`. Build it exactly like Block 3, same shape as
