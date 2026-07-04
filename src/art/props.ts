@@ -19,21 +19,41 @@ export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: n
   g.beginPath(); g.arc(x - 6 + sway * 0.4, y - 40, 9, 0, 7); g.fill();
 }
 
-export function drawFence(g: CanvasRenderingContext2D) {
+export function drawFence(g: CanvasRenderingContext2D, rundown = false) {
   g.strokeStyle = "#8a6a42"; g.lineWidth = 4; g.lineCap = "round";
   const fx0 = FIELD.x0 * T - 14, fy0 = FIELD.y0 * T - 14;
   const fx1 = FIELD.x1 * T + 14, fy1 = FIELD.y1 * T + 14;
+  // a broken-plank gap in the top and bottom rails when rundown
+  const gapAt = fx0 + (fx1 - fx0) * 0.38, gapW = T * 1.6;
   for (const yy of [fy0, fy1]) {
-    g.beginPath(); g.moveTo(fx0, yy); g.lineTo(fx1, yy); g.stroke();
-    g.beginPath(); g.moveTo(fx0, yy + 7); g.lineTo(fx1, yy + 7); g.stroke();
+    if (rundown) {
+      g.beginPath(); g.moveTo(fx0, yy); g.lineTo(gapAt, yy); g.stroke();
+      g.beginPath(); g.moveTo(gapAt + gapW, yy); g.lineTo(fx1, yy); g.stroke();
+      g.beginPath(); g.moveTo(fx0, yy + 7); g.lineTo(gapAt - T * 0.4, yy + 7); g.stroke();
+      g.beginPath(); g.moveTo(gapAt + gapW + T * 0.4, yy + 7); g.lineTo(fx1, yy + 7); g.stroke();
+      // the fallen plank, tilted into the grass
+      g.save();
+      g.translate(gapAt + gapW / 2, yy + 12); g.rotate(0.35);
+      g.beginPath(); g.moveTo(-T * 0.7, 0); g.lineTo(T * 0.7, 0); g.stroke();
+      g.restore();
+    } else {
+      g.beginPath(); g.moveTo(fx0, yy); g.lineTo(fx1, yy); g.stroke();
+      g.beginPath(); g.moveTo(fx0, yy + 7); g.lineTo(fx1, yy + 7); g.stroke();
+    }
   }
   for (const xx of [fx0, fx1]) {
     g.beginPath(); g.moveTo(xx, fy0); g.lineTo(xx, fy1); g.stroke();
     g.beginPath(); g.moveTo(xx + 7, fy0); g.lineTo(xx + 7, fy1); g.stroke();
   }
   g.fillStyle = "#6f5334";
-  for (let xx = fx0; xx <= fx1; xx += T * 1.5)
-    for (const yy of [fy0, fy1]) g.fillRect(xx - 3, yy - 6, 6, 16);
+  let post = 0;
+  for (let xx = fx0; xx <= fx1; xx += T * 1.5, post++)
+    for (const yy of [fy0, fy1]) {
+      if (rundown && post % 5 === 3) {
+        g.save(); g.translate(xx, yy + 2); g.rotate(0.3);
+        g.fillRect(-3, -8, 6, 16); g.restore();   // leaning post
+      } else g.fillRect(xx - 3, yy - 6, 6, 16);
+    }
   for (let yy = fy0; yy <= fy1; yy += T * 1.5)
     for (const xx of [fx0, fx1]) g.fillRect(xx - 3, yy - 6, 6, 16);
 }

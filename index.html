@@ -50,7 +50,9 @@
     #skillsPanel{--s:1;position:fixed;top:492px;right:14px;display:none;z-index:5;user-select:none;
       background:rgba(25,32,18,.88);border:2px solid #7a5c34;border-radius:14px;
       padding:calc(10px*var(--s)) calc(12px*var(--s));color:#f0ead6;min-width:calc(210px*var(--s))}
-    #skillsPanel h2{margin:0 0 calc(8px*var(--s));font-size:calc(14px*var(--s));text-align:center}
+    #skillsPanel h2{margin:0 0 calc(4px*var(--s));font-size:calc(14px*var(--s));text-align:center}
+    #skillsTotal{text-align:center;font-size:calc(11px*var(--s));color:#cdb98a;font-weight:700;
+      margin-bottom:calc(6px*var(--s));font-variant-numeric:tabular-nums}
     #skillsList{display:flex;flex-direction:column;gap:calc(4px*var(--s));
       max-height:calc(240px*var(--s));overflow-y:auto}
     .sk-row{position:relative;display:flex;align-items:center;gap:calc(8px*var(--s));
@@ -91,6 +93,28 @@
     .shop-btn:hover{background:#f2cf6b}
     .shop-sellall{display:block;margin:calc(2px*var(--s)) auto 0}
     .shop-empty{font-size:calc(12px*var(--s));opacity:.75;padding:calc(4px*var(--s)) calc(6px*var(--s))}
+    #opening{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center}
+    #opening.dark{background:rgba(14,18,10,.93)}
+    #opening.reveal{background:transparent;pointer-events:none;align-items:flex-end}
+    .menu-panel{background:rgba(25,32,18,.96);border:2px solid #7a5c34;border-radius:16px;
+      padding:28px 36px;color:#f0ead6;text-align:center;max-width:600px}
+    .menu-title{font-size:44px;font-weight:800;letter-spacing:.04em;margin:0 0 4px;color:#ffd54f;
+      text-shadow:0 2px 8px rgba(0,0,0,.6)}
+    .menu-sub{opacity:.75;margin:6px 0 0;font-size:13px}
+    .menu-text{font-size:15px;line-height:1.7;margin:0 0 16px}
+    .menu-btn{display:block;width:260px;margin:10px auto 0;padding:12px;border-radius:12px;
+      border:2px solid #b8912f;background:rgba(230,190,80,.92);color:#241d0e;font-weight:800;
+      font-size:16px;cursor:pointer}
+    .menu-btn:hover{background:#f2cf6b}
+    .choice-row{display:flex;gap:14px;justify-content:center;margin:6px 0 4px}
+    .choice-card{width:160px;background:rgba(240,234,214,.07);border:2px solid rgba(240,234,214,.25);
+      border-radius:14px;padding:14px 10px;cursor:pointer;text-align:center}
+    .choice-card:hover{border-color:#e8c34f;background:rgba(230,190,80,.15)}
+    .choice-card h3{margin:8px 0 6px;font-size:15px;color:#ffd54f}
+    .choice-card p{margin:0;font-size:12px;opacity:.8;line-height:1.45}
+    .reveal-bar{pointer-events:auto;margin-bottom:56px;background:rgba(25,32,18,.92);
+      border:2px solid #7a5c34;border-radius:14px;padding:16px 24px;text-align:center;max-width:600px;
+      color:#f0ead6}
     .ctxmenu{position:fixed;z-index:8;min-width:130px;background:rgba(25,32,18,.96);
       border:2px solid #7a5c34;border-radius:10px;padding:4px;box-shadow:0 4px 14px rgba(0,0,0,.5);
       display:flex;flex-direction:column;gap:2px}
@@ -117,6 +141,7 @@
   </div>
   <div id="skillsPanel">
     <h2>📜 Skills</h2>
+    <div id="skillsTotal"></div>
     <div id="skillsList"></div>
   </div>
   <div id="shopWindow">
@@ -132,6 +157,7 @@
     <button class="tool-btn" id="skillsBtn" title="Skills (K)">📜</button>
     <button class="tool-btn" id="bagBtn" title="Backpack (I)">🎒</button>
   </div>
+  <div id="opening"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

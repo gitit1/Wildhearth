@@ -1,4 +1,4 @@
-import { SKILLS_KEY, SKILL_GAIN_BASE } from "../config";
+import { SKILLS_KEY, SKILL_GAIN_BASE, SKILL_CAP } from "../config";
 
 /**
  * UO-style skills: 0.0-100.0 per skill, three-state lock (up/down/locked).
@@ -57,18 +57,45 @@ export function skillValue(s: Skills, id: string): number {
   return getSkill(s, id)?.value ?? 0;
 }
 
+export function totalSkills(s: Skills): number {
+  return r1(s.list.reduce((sum, x) => sum + x.value, 0));
+}
+
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
 /**
- * Grants use-based gain with diminishing returns near 100.
- * Returns the amount actually gained (0 if locked/down or already maxed).
+ * Grants use-based gain with diminishing returns near 100, under the UO-style
+ * total cap: only "up" skills gain; at the cap, gains are paid for by
+ * draining "down"-marked skills — with nothing marked down, nothing gains.
+ * Locked skills never move in either direction.
+ * Returns the amount actually gained (0 if blocked).
  */
 export function gainSkill(s: Skills, id: string): number {
   const sk = getSkill(s, id);
   if (!sk || sk.lock !== "up" || sk.value >= 100) return 0;
   const gain = Math.max(0.01, SKILL_GAIN_BASE * (1 - sk.value / 100));
-  const applied = Math.min(gain, 100 - sk.value);
-  sk.value = Math.round((sk.value + applied) * 10) / 10;
+  let applied = r1(Math.min(gain, 100 - sk.value));
+
+  const capRoom = Math.max(0, r1(SKILL_CAP - totalSkills(s)));
+  if (applied > capRoom) {
+    // free the difference from "down" skills, richest first
+    let need = r1(applied - capRoom);
+    let freed = 0;
+    const downs = s.list
+      .filter((x) => x.lock === "down" && x.value > 0 && x.id !== id)
+      .sort((a, b) => b.value - a.value);
+    for (const d of downs) {
+      if (freed >= need) break;
+      const take = r1(Math.min(d.value, need - freed));
+      d.value = r1(d.value - take);
+      freed = r1(freed + take);
+    }
+    applied = r1(capRoom + freed);
+  }
+  if (applied <= 0) return 0;
+  sk.value = r1(sk.value + applied);
   saveSkills(s);
-  return Math.round(applied * 10) / 10;
+  return applied;
 }
 
 /** Cycles a skill's lock up -> down -> locked -> up (UO-style arrow toggle). */

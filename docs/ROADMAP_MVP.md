@@ -175,7 +175,22 @@ own skill. `npm run build` passes.
 - Checkpoint: all five starting livelihoods exist and each trains its own
   skill.
 
-## Step 7 — Skill lock, and the real opening sequence
+## Step 7 — Skill lock, and the real opening sequence (DONE)
+Done (2026-07-04): the full opening flow in VISION's order —
+`ui/titlescreen.ts` (New Game / Continue, Continue only with a save and it
+skips everything), `ui/intro.ts` (skippable placeholder text + the reveal:
+overlay clears to show the rundown farm with a caption before any choice),
+`ui/newgame.ts` (starter choice hoe/rod/lute with code-painted cards —
+grants the tool + seeds its skill to 10 — then the tutorial toggle, stored
+as a changeable setting in `systems/settings.ts`; guided mode shows tip
+toasts). New Game wipes the previous life. Step 8's rundown painters were
+pulled forward: house (roof hole + boarded window), barn (missing plank,
+crooked board), fence (broken-plank gap, leaning posts) — the farm starts
+rundown. Skill cap: SKILL_CAP 250 in `skills.ts` — at the cap, "up" skills
+gain only by draining "down"-marked skills (richest first); nothing marked
+down = no gain; locked never moves. Skills window shows "Total X / 250".
+Verified in-browser end to end incl. the cap arithmetic (50.0→50.2 paid by
+100→99.8 at an exact 250 total). `npm run build` passes.
 Now that 5 skills exist, the lock system and starter choice are meaningful.
 Implement the exact flow from `VISION.md`'s "Opening sequence" section, in
 this order — do not shortcut straight to a bare choice screen:

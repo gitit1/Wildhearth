@@ -1,7 +1,7 @@
-import { WORLD_W, FORAGE_BASE_YIELD } from "./config";
+import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, SAVE_KEY } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
-  getPointerScreen, setMoveTarget,
+  getPointerScreen, setMoveTarget, clearMoveTarget,
 } from "./engine/input";
 import { applyCamera, screenToWorld } from "./engine/camera";
 import { paintGround } from "./world/ground";
@@ -21,8 +21,9 @@ import {
   createPlots, createFarmWork, updateFarmWork, updatePlots, cancelWork,
 } from "./systems/farming";
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
-import { removeItem, countItem } from "./systems/inventory";
-import { loadSkills, gainSkill, skillValue } from "./systems/skills";
+import { removeItem, countItem, addItem } from "./systems/inventory";
+import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
+import { saveSettings, isGuided } from "./systems/settings";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel, registerBushes, registerPlots,
   type Interactable, type InteractCtx,
@@ -33,6 +34,9 @@ import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initMinimap, updateMinimap } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
 import { initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow } from "./ui/shopwindow";
+import { showTitle, hideOpening } from "./ui/titlescreen";
+import { showIntro, showReveal } from "./ui/intro";
+import { showStarterChoice, showTutorialToggle, type StarterTool } from "./ui/newgame";
 import { nearRect } from "./world/collision";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
@@ -67,6 +71,42 @@ initShopWindow(economy, skills, toast);
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
 
+// The farm starts rundown; Step 8 (renovation) turns this into per-repair state.
+const FARM_RUNDOWN = true;
+
+// ---- opening sequence (title -> intro -> reveal -> choice -> tutorial) ----
+let openingActive = true;
+let hintSellShown = false;
+
+function beginPlay() {
+  hideOpening();
+  openingActive = false;
+  consumeAction(); consumeLeftClick(); consumeRightClick(); clearMoveTarget();
+  if (isGuided())
+    setTimeout(() => toast("Tip: click the pond to fish or a bush to forage — first coins!"), 500);
+}
+
+function newGameReset(tool: StarterTool, guided: boolean) {
+  economy.coins = 0;
+  economy.inv.slots.fill(null);
+  addItem(economy.inv, tool);
+  saveEconomy(economy);
+  for (const s of skills.list) { s.value = 0; s.lock = "up"; }
+  const seeded = getSkill(skills, tool === "hoe" ? "farming" : tool === "rod" ? "fishing" : "busking");
+  if (seeded) seeded.value = STARTER_SKILL_SEED;
+  saveSkills(skills);
+  for (const c of plots) { c.state = "wild"; c.growth = 0; }
+  for (const b of bushes) { b.full = true; b.regrow = 0; }
+  saveSettings({ guided });
+}
+
+showTitle(
+  !!localStorage.getItem(SAVE_KEY),
+  () => showIntro(() => showReveal(() => showStarterChoice((tool) =>
+    showTutorialToggle((guided) => { newGameReset(tool, guided); beginPlay(); })))),
+  beginPlay,
+);
+
 let hovered: Interactable | null = null;              // object under the cursor (for the glow)
 let pending: { objId: string; actionId: string } | null = null;  // action to run once in reach
 
@@ -76,6 +116,9 @@ function tick(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now; time += dt;
 
+  updateAnimals(cows, hens, dt);   // ambience runs even behind the opening screens
+
+  if (!openingActive) {
   const wasMoving = player.moving;
   updatePlayer(player, dt);
   if (player.moving && !wasMoving) {
@@ -84,7 +127,6 @@ function tick(now: number) {
     if (farmwork.working) cancelWork(farmwork);
     if (busking.playing) cancelBusk(busking);
   }
-  updateAnimals(cows, hens, dt);
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
   const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, player, toast, openShop: openShopWindow };
@@ -151,6 +193,10 @@ function tick(now: number) {
     else toast("Backpack full — no room for the fish!");
     const gained = gainSkill(skills, "fishing");
     if (gained > 0) skillGainPopup("fishing", gained);
+    if (isGuided() && !hintSellShown) {
+      hintSellShown = true;
+      setTimeout(() => toast("Sell your catch: walk to the stall and Trade."), 2400);
+    }
   }
   if (updateForaging(foraging, bushes, dt)) {
     // higher Foraging = a growing chance of an extra berry per pick
@@ -191,6 +237,10 @@ function tick(now: number) {
       } else toast("Backpack full — no room for the corn!");
     }
   }
+  } else {
+    setPrompt(null);
+    hovered = null;
+  }
 
   // chimney smoke
   if (Math.random() < dt * 3)
@@ -217,7 +267,7 @@ function draw() {
   ctx.clearRect(camx, camy, vw, vh);
   ctx.drawImage(ground, 0, 0);
   drawWaterShimmer(ctx, time);
-  drawFence(ctx);
+  drawFence(ctx, FARM_RUNDOWN);
 
   // the farm plot inside the fenced field (ground-level, under entities)
   for (const c of plots) {
@@ -229,8 +279,8 @@ function draw() {
 
   // depth-sorted world objects + entities
   const ents: Array<{ y: number; f: () => void }> = [
-    { y: HOUSE.y + HOUSE.h, f: () => drawHouse(ctx) },
-    { y: BARN.y + BARN.h, f: () => drawBarn(ctx) },
+    { y: HOUSE.y + HOUSE.h, f: () => drawHouse(ctx, FARM_RUNDOWN) },
+    { y: BARN.y + BARN.h, f: () => drawBarn(ctx, FARM_RUNDOWN) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
     { y: player.y + 13, f: () => drawFarmer(ctx, player, time) },
   ];

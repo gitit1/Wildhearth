@@ -100,6 +100,32 @@ function paintCorn(g: CanvasRenderingContext2D, s: number) {
   g.beginPath(); g.ellipse(s * 0.62, s * 0.66, s * 0.06, s * 0.18, -0.4, 0, 7); g.fill();
 }
 
+function paintRod(g: CanvasRenderingContext2D, s: number) {
+  // rod
+  g.strokeStyle = "#8a6a42"; g.lineWidth = Math.max(2, s * 0.07); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.2, s * 0.82); g.lineTo(s * 0.74, s * 0.2); g.stroke();
+  // line + hook
+  g.strokeStyle = "#d8d2c0"; g.lineWidth = Math.max(1, s * 0.025);
+  g.beginPath(); g.moveTo(s * 0.74, s * 0.2); g.lineTo(s * 0.78, s * 0.6); g.stroke();
+  g.beginPath(); g.arc(s * 0.74, s * 0.63, s * 0.05, -0.5, 2.6); g.stroke();
+}
+
+function paintLute(g: CanvasRenderingContext2D, s: number) {
+  // body
+  g.fillStyle = "#a9784a";
+  g.beginPath(); g.ellipse(s * 0.42, s * 0.6, s * 0.2, s * 0.24, -0.5, 0, 7); g.fill();
+  g.fillStyle = "#5e4025";
+  g.beginPath(); g.arc(s * 0.44, s * 0.58, s * 0.06, 0, 7); g.fill();
+  // neck + head
+  g.strokeStyle = "#7a5230"; g.lineWidth = Math.max(2, s * 0.07); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.52, s * 0.46); g.lineTo(s * 0.78, s * 0.2); g.stroke();
+  g.fillStyle = "#5e4025"; g.fillRect(s * 0.74, s * 0.12, s * 0.1, s * 0.12);
+  // strings
+  g.strokeStyle = "#e8ddca"; g.lineWidth = Math.max(1, s * 0.02);
+  g.beginPath(); g.moveTo(s * 0.36, s * 0.68); g.lineTo(s * 0.76, s * 0.22); g.stroke();
+  g.beginPath(); g.moveTo(s * 0.42, s * 0.72); g.lineTo(s * 0.8, s * 0.26); g.stroke();
+}
+
 const PAINTERS: Record<string, IconPainter> = {
   fish: paintFish,
   coins: paintCoinPouch,
@@ -107,6 +133,8 @@ const PAINTERS: Record<string, IconPainter> = {
   hoe: paintHoe,
   seeds: paintSeeds,
   corn: paintCorn,
+  rod: paintRod,
+  lute: paintLute,
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

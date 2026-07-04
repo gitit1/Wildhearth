@@ -1,4 +1,5 @@
-import { SKILL_NAMES, cycleLock, type Skills, type SkillLock } from "../systems/skills";
+import { SKILL_CAP } from "../config";
+import { SKILL_NAMES, cycleLock, totalSkills, type Skills, type SkillLock } from "../systems/skills";
 import { makePanel } from "./panels";
 
 /**
@@ -75,6 +76,8 @@ function refresh() {
     rows[i]!.value.textContent = sk.list[i]!.value.toFixed(1);
     rows[i]!.lock.textContent = LOCK_GLYPH[sk.list[i]!.lock];
   }
+  const totalEl = document.getElementById("skillsTotal");
+  if (totalEl) totalEl.textContent = `Total ${totalSkills(sk).toFixed(1)} / ${SKILL_CAP}`;
 }
 
 /** Call every frame; keeps visible numbers current. */

@@ -1,7 +1,7 @@
 import { HOUSE, BARN, STALL } from "../world/zones";
 import { shadow } from "./shapes";
 
-export function drawHouse(g: CanvasRenderingContext2D) {
+export function drawHouse(g: CanvasRenderingContext2D, rundown = false) {
   const { x, y, w, h } = HOUSE;
   shadow(g, x + w / 2 + 8, y + h + 8, w * 0.55, 12);
   g.fillStyle = "#c9a06a"; g.fillRect(x, y + h * 0.35, w, h * 0.65);
@@ -27,9 +27,30 @@ export function drawHouse(g: CanvasRenderingContext2D) {
   }
   g.fillStyle = "#8c8c94"; g.fillRect(x + w * 0.72, y - h * 0.16, w * 0.09, h * 0.3);
   g.fillStyle = "#6f6f78"; g.fillRect(x + w * 0.72, y - h * 0.16, w * 0.09, 5);
+
+  if (rundown) {
+    // hole in the roof, hastily patched with a mismatched plank
+    g.fillStyle = "#3a2a1c";
+    g.beginPath();
+    g.moveTo(x + w * 0.3, y + h * 0.12);
+    g.lineTo(x + w * 0.42, y + h * 0.05);
+    g.lineTo(x + w * 0.46, y + h * 0.18);
+    g.lineTo(x + w * 0.33, y + h * 0.22);
+    g.closePath(); g.fill();
+    g.save();
+    g.translate(x + w * 0.38, y + h * 0.14); g.rotate(-0.35);
+    g.fillStyle = "#a58254"; g.fillRect(-w * 0.09, -3, w * 0.18, 6);
+    g.restore();
+    // right window boarded shut
+    const wx = x + w * 0.72, wy = y + h * 0.52, ww = w * 0.15, wh = h * 0.22;
+    g.fillStyle = "#4a3a26"; g.fillRect(wx, wy, ww, wh);
+    g.strokeStyle = "#8a6a42"; g.lineWidth = 5; g.lineCap = "round";
+    g.beginPath(); g.moveTo(wx - 3, wy + 3); g.lineTo(wx + ww + 3, wy + wh - 3); g.stroke();
+    g.beginPath(); g.moveTo(wx + ww + 3, wy + 3); g.lineTo(wx - 3, wy + wh - 3); g.stroke();
+  }
 }
 
-export function drawBarn(g: CanvasRenderingContext2D) {
+export function drawBarn(g: CanvasRenderingContext2D, rundown = false) {
   const { x, y, w, h } = BARN;
   shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
   g.fillStyle = "#b24a3e"; g.fillRect(x, y + h * 0.3, w, h * 0.7);
@@ -43,6 +64,16 @@ export function drawBarn(g: CanvasRenderingContext2D) {
   g.strokeRect(x + w * 0.32, y + h * 0.45, w * 0.36, h * 0.55);
   g.beginPath(); g.moveTo(x + w * 0.32, y + h * 0.45); g.lineTo(x + w * 0.68, y + h);
   g.moveTo(x + w * 0.68, y + h * 0.45); g.lineTo(x + w * 0.32, y + h); g.stroke();
+
+  if (rundown) {
+    // missing wall plank + a board hanging loose over the door
+    g.fillStyle = "#3a1f1a";
+    g.fillRect(x + w * 0.8, y + h * 0.42, w * 0.07, h * 0.5);
+    g.save();
+    g.translate(x + w * 0.5, y + h * 0.5); g.rotate(0.5);
+    g.fillStyle = "#8a6a42"; g.fillRect(-w * 0.22, -3, w * 0.44, 6);
+    g.restore();
+  }
 }
 
 export function drawStall(g: CanvasRenderingContext2D, t: number) {

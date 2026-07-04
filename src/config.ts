@@ -33,6 +33,8 @@ export const CROP_GROW_TIME = 30;       // seconds from planting to ready (at Fa
 export const FARMING_GROW_REDUCTION = 0.4; // grow-time fraction removed at Farming 100
 
 export const SKILL_GAIN_BASE = 0.3;     // gain per use at skill 0, shrinking toward 100
+export const SKILL_CAP = 250;           // total skill budget (placeholder for MVP's 5 skills)
+export const STARTER_SKILL_SEED = 10;   // starting value of the skill matching the starter tool
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
 export const MINIMAP_SCALE = 0.14;      // minimap px per world px
@@ -46,4 +48,5 @@ export const CAM_ZOOM_REF_W = 900;      // window width where zoom starts growin
 
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
+export const SETTINGS_KEY = "wildhearth-settings-v1";
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)
