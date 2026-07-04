@@ -42,6 +42,24 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Toast/notification queue
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Toast/notification
+  queue") Toasts share one slot with no queueing — simultaneous events
+  visually collide. Add a simple queue: one at a time, short delay between.
+- **Done:** `src/ui/hud.ts` only — `toast()` enqueues instead of overwriting;
+  `updateToast` shows each for 2.2s with a 0.3s gap before the next. A soft
+  cap (4 waiting) drops the oldest message so an event burst (rapid fishing)
+  can't leave minutes-stale toasts playing. No caller changes — same API.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 4/4: two back-to-back repairs
+  fired two toasts that played in order ("roof is whole" → "light back in")
+  with a visible gap and no clobbering. Bonus proof: on the first run the
+  guided tip toast — which the old single-slot code would have clobbered —
+  correctly queued and played first.
+- **Commit:** Toast/notification queue
+- **Follow-ups:** none.
+
 ## Complete the base skill set — 4 new skills + the Gain Guard
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Complete the base skill

@@ -20,12 +20,32 @@ export function setPrompt(text: string | null) {
   else promptEl.style.display = "none";
 }
 
+// Toasts queue instead of clobbering each other: one shows at a time for
+// TOAST_SHOW seconds, then a short gap, then the next in line. The queue is
+// soft-capped so a burst of events can't leave minutes-stale toasts playing —
+// the oldest waiting message drops first.
+const TOAST_SHOW = 2.2;
+const TOAST_GAP = 0.3;
+const TOAST_MAX_QUEUED = 4;
+const queue: string[] = [];
+let gapT = 0;   // remaining pause between toasts
+
 export function toast(text: string) {
-  toastEl.textContent = text;
-  toastEl.style.display = "block";
-  toastT = 2.2;
+  queue.push(text);
+  while (queue.length > TOAST_MAX_QUEUED) queue.shift();
 }
 
 export function updateToast(dt: number) {
-  if (toastT > 0) { toastT -= dt; if (toastT <= 0) toastEl.style.display = "none"; }
+  if (toastT > 0) {
+    toastT -= dt;
+    if (toastT <= 0) { toastEl.style.display = "none"; gapT = TOAST_GAP; }
+    return;
+  }
+  if (gapT > 0) { gapT -= dt; return; }
+  const next = queue.shift();
+  if (next !== undefined) {
+    toastEl.textContent = next;
+    toastEl.style.display = "block";
+    toastT = TOAST_SHOW;
+  }
 }

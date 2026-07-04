@@ -245,7 +245,7 @@ failures, not dozens), force the next roll to succeed. Applies to all
 ---
 
 ## Toast/notification queue
-- [ ] not started
+- [x] built, verified in-browser (two simultaneous events play in order with a visible gap), committed — 2026-07-04 (autorun branch)
 
 **Toast/notification queue.** Autosave, skill-gain, buy, and sell
 toasts currently all share one slot in `ui/hud.ts` with no queueing —
