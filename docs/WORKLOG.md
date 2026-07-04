@@ -42,6 +42,52 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Stall selling — driven by the player's chosen path (Fishing)
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 3)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Stall selling — driven
+  by the player's chosen path, starting with Fishing") Make the sell surface
+  path-aware as a first-class concept — capability-gated (owns a rod / has
+  fished), never a frozen day-one label — with fish/junk routed through the
+  new lookup and structured so a second category is a small additive
+  registration. **Scope: Fishing only**, per the explicit note.
+- **Done:**
+  - **Files:**
+    - `src/systems/sellCategories.ts` (NEW): `SellCategory { id, applies(ctx),
+      itemIds }` + `SELL_CATEGORIES` (just `fishing` for now) +
+      `sellableGoodIds(ctx)` — the dispatch: goods claimed by NO category
+      pass through (their categories arrive in later blocks); an applying
+      category adds its goods; output preserves `GOOD_PRICES` order so
+      fisher-side rows render exactly as before. Fishing's capability check:
+      owns a rod, OR the Memory Book records any caught species, OR the bag
+      holds legacy generic fish. Fishing claims all 12 species + 3 junk +
+      legacy "fish".
+    - `src/ui/shopwindow.ts`: the sell list reads the injected
+      `sellable()` lookup instead of flat `GOOD_PRICES`; **"Sell everything"
+      now sells only what the stall shows** (hidden-category goods stay in
+      the bag) — it previously used `economy.sellAllGoods`, which would have
+      silently sold hidden fish.
+    - `src/main.ts`: composes the context (`{ inv, collections }`) into
+      `initShopWindow`.
+  - **Generalizability (the block's inspection criterion):** adding Farming
+    later = one new `SellCategory` entry (id, capability check, item ids) in
+    `SELL_CATEGORIES` — `sellableGoodIds`, the shop window, and main are
+    untouched. The claimed-set and pass-through are derived, not hand-listed.
+  - **Behavior:** a fisher's stall is pixel-identical to before. A player
+    with no fishing capability doesn't see fish/junk rows or fish UI framing
+    at all — and Sell-everything can't touch such goods — but the moment
+    they buy a rod (or have ever landed a catch), the fish counter is theirs.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 6/6: rod owner sells carp/junk/
+  berries exactly as today (2 carp → +6 coins); a hoe-life player holding
+  seeded carp+tin sees neither row while berries/corn still sell, and Sell
+  everything earned exactly the visible 16 leaving carp+tin in the bag;
+  buying a rod surfaced the fish rows in the same window; a rodless player
+  whose Memory Book records a catch still sells fish (has-fished capability).
+- **Commit:** Stall selling — driven by the player's chosen path (Fishing)
+- **Follow-ups:** `economy.sellAllGoods` is now uncalled (kept for
+  compatibility; remove or repoint when the next category block lands).
+  Farming/eggs and Performer behaviors are the next blocks, one at a time.
+
 ## Visual pass II — shared outlines + richer grass
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 3)
 - **Block given:** (batch-3 instruction) Push toward the reference look:

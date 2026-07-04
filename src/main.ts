@@ -29,6 +29,7 @@ import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
 import { recipeById } from "./data/recipes";
 import { loadGarden, resetGarden, saveGarden, updateGarden } from "./systems/gardening";
 import { loadCollections, resetCollections, discover, discoveredName } from "./systems/collections";
+import { sellableGoodIds } from "./systems/sellCategories";
 import { loadMemories, resetMemories, addMemory } from "./systems/memories";
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
@@ -134,6 +135,7 @@ initShopWindow(economy, skills, farm, livestock,
     else { const h = spawnHen(); hens.push(h); registerAnimal("hen", h, hens); }
   },
   () => currentSeason(calendar),
+  () => sellableGoodIds({ inv: economy.inv, collections }),
   toast, remember);
 
 interface Puff { x: number; y: number; a: number; r: number }

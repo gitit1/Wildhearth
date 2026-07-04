@@ -1,4 +1,4 @@
-import { GOOD_PRICES, goodCount, sellGood, sellAllGoods, type Economy } from "../systems/economy";
+import { GOOD_PRICES, goodCount, sellGood, type Economy } from "../systems/economy";
 import { SHOP_STOCK, tryBuy, tryBuyLivestock, owned, discountedPrice } from "../systems/shop";
 import { ITEM_NAMES } from "../systems/inventory";
 import { skillValue, gainSkill, type Skills } from "../systems/skills";
@@ -29,6 +29,7 @@ let farmSt: FarmState;
 let stock: Livestock;
 let onAnimal: (kind: "hen" | "cow") => void = () => {};
 let seasonNow: () => Season = () => "spring";
+let sellableIds: () => string[] = () => [];   // path/category-aware sell list
 let toastFn: (s: string) => void = () => {};
 let memoryFn: (key: string, text: string) => void = () => {};
 const sellQty = new Map<string, number>();
@@ -37,6 +38,7 @@ const buyQty = new Map<string, number>();
 export function initShopWindow(
   economy: Economy, skills: Skills, farm: FarmState, livestock: Livestock,
   onAnimalBought: (kind: "hen" | "cow") => void, currentSeason: () => Season,
+  sellable: () => string[],
   toast: (s: string) => void, memory: (key: string, text: string) => void,
 ) {
   eco = economy;
@@ -45,6 +47,7 @@ export function initShopWindow(
   stock = livestock;
   onAnimal = onAnimalBought;
   seasonNow = currentSeason;
+  sellableIds = sellable;
   toastFn = toast;
   memoryFn = memory;
   panel = document.getElementById("shopWindow")!;
@@ -107,9 +110,9 @@ function stepper(get: () => number, set: (n: number) => void, max: () => number)
 function render() {
   coinsEl.textContent = String(eco.coins);
 
-  // ----- sell side -----
+  // ----- sell side (path/category-aware: only goods this player can sell) -----
   sellList.replaceChildren();
-  const goods = Object.keys(GOOD_PRICES).filter((id) => goodCount(eco, id) > 0);
+  const goods = sellableIds().filter((id) => goodCount(eco, id) > 0);
   if (goods.length === 0) {
     const empty = document.createElement("div");
     empty.className = "shop-empty";
@@ -150,7 +153,9 @@ function render() {
     all.className = "shop-btn shop-sellall";
     all.textContent = "Sell everything";
     all.addEventListener("click", () => {
-      const earned = sellAllGoods(eco);
+      // sell everything THE STALL SHOWS — hidden-category goods stay in the bag
+      let earned = 0;
+      for (const id of goods) earned += sellGood(eco, id);
       if (earned > 0) {
         toastFn(`Sold everything for ${earned} coins!`);
         memoryFn("first_sale", "Your first sale at the stall.");

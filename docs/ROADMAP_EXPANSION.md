@@ -1121,7 +1121,7 @@ daily reroll fires.
 ---
 
 ## Stall selling — driven by the player's chosen path, starting with Fishing
-- [ ] not started
+- [x] built, verified in-browser (capability-gated fishing category; unchanged selling for fishers; hidden rows + protected Sell-everything for non-fishers; rod purchase surfaces fish instantly), committed — 2026-07-04 (autorun batch 3)
 
 The player's own stall (the existing trade window) sells goods based on
 what the player actually does, not a fixed universal list. Different
