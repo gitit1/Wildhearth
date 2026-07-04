@@ -1,4 +1,4 @@
-import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED } from "./config";
+import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget, clearMoveTarget,
@@ -187,7 +187,7 @@ function beginPlay() {
 
 function newGameReset(tool: StarterTool, guided: boolean) {
   clearSavedGame();                 // wipe every game-state key first, then re-seed fresh
-  economy.coins = 0;
+  economy.coins = STARTING_COINS;   // "enough for exactly one starter-tool choice" — anchor table: 50
   economy.inv.slots.fill(null);
   addItem(economy.inv, tool);
   saveEconomy(economy);

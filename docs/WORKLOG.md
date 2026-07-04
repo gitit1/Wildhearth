@@ -42,6 +42,23 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Fix: starting coins = 50
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 3)
+- **Block given:** (batch-3 instruction) VISION.md's price anchor table now
+  decides starting coins = 50 (was 15 in the old doc, 0 in code — a conflict
+  batch 2 flagged). Update the code to match; verify a fresh New Game starts
+  with exactly 50, in-browser.
+- **Done:** `STARTING_COINS = 50` in `config.ts` (with the anchor-table
+  reference); `newGameReset` in `main.ts` seeds `economy.coins` from it
+  instead of 0. Nothing else touches starting money.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 2/2: a New Game over a seeded
+  999-coin old life starts at exactly 50 (HUD and persisted save both
+  checked), and the 50 survives reload + Continue.
+- **Commit:** Fix: starting coins = 50
+- **Follow-ups:** none. (VISION says "enough for exactly one starter-tool
+  choice" — 50 comfortably covers the 12-coin tools; the anchor number wins.)
+
 ## Farm environment detail pass
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 2)
 - **Block given:** (batch-2 instruction) Richer visual texture on existing

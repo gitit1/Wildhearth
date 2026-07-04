@@ -4,6 +4,8 @@ export const MW = 34, MH = 24;          // map size in tiles
 export const WORLD_W = MW * T, WORLD_H = MH * T;
 
 export const PLAYER_SPEED = 150;        // px/sec
+
+export const STARTING_COINS = 50;       // a new life's purse (VISION price anchor table)
 export const COW_SPEED = 22, HEN_SPEED = 30;
 
 export const FISH_PRICE = 3;            // coins per legacy generic fish (old saves)
