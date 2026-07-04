@@ -290,7 +290,7 @@ a one-time popup that vanishes forever once dismissed.
 else gets tuned against, not final content, but the ratios are decided):
 | Item | Cost |
 |---|---|
-| Starting coins | 15 |
+| Starting coins | 50 |
 | Basic fish/foraged item | 2–3 |
 | Rare fish | 15–20 |
 | Basic tool (if bought separately from a starting kit) | 20–30 |

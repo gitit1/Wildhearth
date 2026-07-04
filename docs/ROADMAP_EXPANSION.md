@@ -22,7 +22,7 @@ town" — mark it TODO if that's wrong, and resolve before starting it.
 ---
 
 ## Fix: no free animals
-- [x] built, verified in-browser (empty yard on new game; barn-gated hen/cow purchases spawn + persist), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 > Context (was Phase 0 intro): Before building anything new (town, NPCs), fix and enrich what the MVP already has. Two of these are **bug fixes against our own pillar** — the current prototype has a cow and hens roaming for free, which contradicts "nothing is free" — everything below either corrects that or takes a single-note system (one fish, one crop) and gives it the texture a real game needs.
 
@@ -57,7 +57,7 @@ normal/rundown pairing already established for the house.
 ---
 
 ## Fish variety (rich tier — 10+ species) + junk catches
-- [x] built, verified in-browser (12 species incl. season/weather/location tags, junk odds by skill, rod hard-gate + rod in shop), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 **Fish variety (rich tier — 10+ species) + junk catches.**
 `data/fish.ts`: table of species, each with a rarity weight, a required
@@ -100,7 +100,7 @@ just a proper interface for it.
 ---
 
 ## House interior — first pass, deliberately bare and broken
-- [x] built, verified in-browser (enterable, all five bare/broken spots + day-gated wall-crack light), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 **House interior — first pass, deliberately bare and broken.** The
 house becomes enterable. Minimum viable rooms, each functional but
@@ -143,7 +143,7 @@ else — no game over, no lost save.
 ---
 
 ## Crop/farming variety pass
-- [x] built, verified in-browser (9 crops skill+season gated, active watering/wilt, rain auto-water, field persistence), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 **Crop/farming variety pass, and farming becomes active, not
 automatic.** Two changes together:
@@ -191,7 +191,7 @@ automatic.** Two changes together:
 ---
 
 ## Foraging variety pass
-- [x] built, verified in-browser (11 finds, season+skill gated, table-driven prices/names/icons), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 **Foraging variety pass**, same spirit as the fish/crop tables: many
 more wild fruit and vegetable types to find (not just one generic
@@ -207,7 +207,7 @@ everything just being available in the shop from day one.
 ---
 
 ## Complete the base skill set
-- [x] built, verified in-browser (9 skills: repairs→Building, hearth→Cooking, feeding→Husbandry, flowers→Gardening; chance-based gains + Gain Guard), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 **Complete the base skill set — 4 skills the MVP left out, and add a
 pity counter to the gain algorithm.** VISION's confirmed 9-skill base
@@ -245,7 +245,7 @@ failures, not dozens), force the next roll to succeed. Applies to all
 ---
 
 ## Toast/notification queue
-- [x] built, verified in-browser (two simultaneous events play in order with a visible gap), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 **Toast/notification queue.** Autosave, skill-gain, buy, and sell
 toasts currently all share one slot in `ui/hud.ts` with no queueing —
@@ -256,7 +256,7 @@ them overlap or clobber each other.
 ---
 
 ## Camera zoom
-- [x] built, verified in-browser (wheel + on-screen ± buttons, clamped bounds), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 **Camera zoom.** `src/engine/camera.ts` gets zoom in/out — both a
 mouse scroll-wheel handler on the game canvas and an on-screen
@@ -319,7 +319,7 @@ clock, no AI.
 ---
 
 ## The Memory Book system
-- [x] built, verified in-browser (generic collections engine + curated memories + two-tab gump; fish/forage are the first live categories — birds/animals/flowers join via the same engine with binoculars), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 **The Memory Book system** (VISION #14) — must exist before anything
 can log into it (bird-watching below needs this immediately).
@@ -516,7 +516,7 @@ Mining skill + mine region: resource nodes, rarity increases deeper in.
 ---
 
 ## Cooking skill, extended
-- [x] built, verified in-browser (5 multi-ingredient recipes, floors 5-25, all priced above raw), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 Cooking skill, extended: Phase 0 item 10 already added a minimal
 version (one recipe) to unblock the Keeper starting path — this item
@@ -702,7 +702,7 @@ Full pet relationship depth (beyond Phase 1's simple companion flag).
 ---
 
 ## The Season system itself
-- [x] satisfied by the World Context Infrastructure work (see `docs/WORLD_CONTEXT.md` Block 3 + the HUD block's minutes amendment) — 2026-07-04. `src/systems/calendar.ts` is real: four seasons, advancing day/hour/minute, day-phase, `absoluteDay`, day-length as a player setting (`settings.dayLengthSeconds`). The "season-change event" is the return-value convention (`advanceMinute` signals day rollover; season read via `currentSeason`). Crop/fish season gating wires in via their own variety blocks.
+- [ ] not started
 
 **The Season system itself** (VISION #7 — referenced as a dependency in
 several earlier items, e.g. Phase 0's crop-variety pass and Phase 1's
@@ -836,7 +836,7 @@ table so a loved gift and a rare-fish sale feel proportionate in the economy.
 ---
 
 ## Farm plot expansion — money-gated
-- [x] built, verified in-browser (two discrete south tiers at 120/180 via the farmhouse hub; fence + minimap + tillable cells grow instantly and persist), committed — 2026-07-04 (autorun batch 2)
+- [ ] not started
 
 The farm's tillable/usable area is not fixed forever. Once the starting plot
 is in use, the player can buy expansions that grow the usable farm area,
@@ -899,7 +899,7 @@ add weather/event variants later) rather than needing full coverage on day one.
 ---
 
 ## World Context Infrastructure — build these 4 together, in this order
-- [x] built, verified, and closed out in `docs/WORLD_CONTEXT.md` (Blocks 1-6, commits 8c81d32…9e28515) — 2026-07-04. Calendar, weather (season-weighted daily roll, `isRaining` exposed), world event flags (absolute-day expiry), and `getWorldContext()` are all real; the rain→crop-watering mechanical effect intentionally waits for the crop active-tending block, and location/relationships/reputation slices join via Block 6's recipe when their systems exist.
+- [ ] not started (package)
 
 Wildhearth simulates a real, connected world (see the standing skills rule:
 "Reality-simulation state check") — nearly every system can be affected by
@@ -981,7 +981,7 @@ above is wired to it, not duplicating its own season/weather checks.
 ---
 
 ## HUD — Calendar & Weather indicator
-- [x] satisfied by the two newer split blocks below ("HUD - season, day & time display" + "HUD - weather indicator"), both built — 2026-07-04. This older combined block predates the split; it named a separate `ui/calendarhud.ts`, but the split blocks' approach (extend `ui/hud.ts`'s existing updateHud) shipped instead.
+- [ ] not started
 
 The World Context Infrastructure (see `docs/WORLD_CONTEXT.md`) already
 tracks a real, advancing season/day/hour and a real, changing weather
@@ -1009,7 +1009,7 @@ survive a save/reload showing the correct restored values.
 ---
 
 ## Dev tool — World Context inspector (optional, developer-only)
-- [x] built, verified in-browser (backtick toggles a live full-snapshot dump), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 A small toggle-able debug overlay that dumps the full `getWorldContext()`
 snapshot as readable text on screen — useful now and increasingly useful
@@ -1032,7 +1032,7 @@ current World Context snapshot during play.
 ---
 
 ## HUD - season, day & time display
-- [x] built, verified in-browser (HH:MM, live day/season rollover, day-length setting), committed — 2026-07-04
+- [ ] not started
 
 Adds a small, always-visible readout showing the current season, in-game
 day, and time. This is the first real, visible consumer of
@@ -1040,11 +1040,42 @@ day, and time. This is the first real, visible consumer of
 data layer is genuinely useful to a player, not just internally verified
 via debug logs.
 
-What to show: season name, day number (within the season), and either the
-hour or the day-phase (dawn/day/dusk/night) - whichever reads better in a
-small HUD corner. Plain readable text is a completely fine first pass; no
-icons or animation required yet (that belongs to the later "Juice & feel"
-art pass).
+**Amendment (folded into this same block before its first commit):** the
+first pass only showed whole hours, which made the clock read as
+"stuck" between rollovers and gave no way to see time actually passing at
+a glance. Two real gaps, both belong in this block, not a later patch:
+
+1. **`calendar.ts` needs real minutes, not just hours.** Add
+   `minute: number` (0-59) to `CalendarState`. Replace (or supplement)
+   `advanceHour` with a finer-grained `advanceMinute(c)` that increments
+   the minute, rolls to the next hour at minute 60, rolls the day at hour
+   24, and rolls the season past `DAYS_PER_SEASON` - same boundary logic
+   as today's `advanceHour`, just one level more granular. It must still
+   return enough information (e.g. `{ dayChanged, seasonChanged }`) for
+   the existing call sites that key off a day rolling over - `weather.ts`'s
+   daily reroll and `worldFlags.ts`'s `pruneExpired` (both currently
+   triggered via the `calendar.hour === 0` check at the `main.ts` call
+   site) must keep firing exactly once per in-game day, not once per
+   minute. Persisted save/load for `CalendarState` extends naturally to
+   include `minute` the same way `hour`/`day` are already handled.
+2. **The pace (real-seconds-per-in-game-time) becomes a real setting, not
+   a hardcoded constant.** `settings.ts` already holds player-facing,
+   New-Game-persistent settings (`{ version, guided }`) - add a
+   `dayLengthSeconds: number` field (real seconds for one full in-game
+   day) with a sensible default matching today's implicit pace. Derive
+   the per-minute (or per-hour) real-time tick interval from this setting
+   at the `main.ts` call site instead of the fixed `GAME_HOUR_SECONDS`
+   constant in `config.ts`. **No settings UI screen is required in this
+   block** - that's a separate, later piece of work (a real Settings
+   screen is already speced conceptually in `VISION.md`'s Opening
+   Sequence). This block only needs the setting to genuinely exist and
+   genuinely drive the pace, so a later UI can simply read/write it.
+
+What to show: season name, day number (within the season), and now
+**hour:minute** (`HH:MM`, zero-padded) so movement is visible within a
+single glance rather than only at hour boundaries. Plain readable text is
+still a fine visual treatment; no icons or animation required yet (that
+belongs to the later "Juice & feel" art pass).
 
 Implementation:
 - In `main.ts`'s `tick()`, build one `WorldContext` snapshot per frame:
@@ -1054,14 +1085,19 @@ Implementation:
 - Feed `wc.calendar` into the existing HUD update pattern in
   `src/ui/hud.ts` - extend whatever convention `updateHud()` already uses
   there (it currently takes `economy`) rather than inventing a new one.
+  Format as `Season · Day N · HH:MM`.
 
-**Done when:** the HUD visibly shows the correct season/day/time, and it
-updates live as the game's day advances during play (no reload needed).
+**Done when:** the HUD visibly shows the correct season/day/hour/minute,
+minutes visibly advance within less than a real minute of watching (not
+just on hour rollovers), the day/season still roll over at the correct
+in-game moments (verified the same way Blocks 3-4 in `WORLD_CONTEXT.md`
+were - fast-cadence test, then reverted), and changing `dayLengthSeconds`
+in `settings.ts` measurably changes how fast the clock moves.
 
 ---
 
 ## HUD - weather indicator
-- [x] built, verified in-browser (label matches the live store, changes exactly on the daily reroll), committed — 2026-07-04 (autorun branch)
+- [ ] not started
 
 Depends on the block above - reuses the same `WorldContext` snapshot
 already being built once per frame in `main.ts`'s `tick()`. Do not call
@@ -1081,6 +1117,52 @@ Implementation:
 **Done when:** the HUD visibly shows the correct current weather, and it
 changes at the correct point (the next in-game day) when `weather.ts`'s
 daily reroll fires.
+
+---
+
+## Stall selling — driven by the player's chosen path, starting with Fishing
+- [ ] not started
+
+The player's own stall (the existing trade window) sells goods based on
+what the player actually does, not a fixed universal list. Different
+Starting Paths (and any skills gained beyond the starting pair) surface
+different sell categories at the stall - a Fisher sells fish, a Tender
+sells crops/eggs, a Performer doesn't sell goods at the stall at all
+(busking pays directly, per the existing busking.ts loop). If a player
+has multiple relevant skills (e.g. fishing AND farming), the stall shows
+the UNION of everything relevant - not an either/or.
+
+**Scope for this block: Fishing only.** Every other path's stall behavior
+(Farming/eggs, Performer, combinations) is deliberately deferred to later
+blocks, one path at a time, per the product owner's explicit "focus on
+one, then add more and more" instruction. Do not build the other paths'
+behavior now, even partially.
+
+What this block actually is: today, `SHOP_STOCK`/the sell side already
+handles fish generically alongside everything else. This block makes the
+sell surface **aware of the player's path** as a first-class concept, so
+adding the next path later is a small, structured addition rather than
+another special case bolted onto growing if-chains. Concretely:
+- Introduce an explicit notion of "sellable categories a player currently
+  has" (for now: just `fishing`, derived from the player's Starting Path
+  choice and/or owning a rod - whichever the codebase's existing
+  `meta.ts`/starter-tool tracking already makes cheapest to check).
+  A player who chose a non-Fishing path but later buys a rod and starts
+  fishing should still see fish at their stall - gate on capability
+  (owns a rod / has fished), not on a frozen day-one path label.
+- The stall's sell list surfaces all fish species/junk the player is
+  currently holding when the fishing category applies, exactly as today,
+  but through this new path/category-aware lookup rather than a flat
+  always-on list - so a future non-fishing playthrough's stall doesn't
+  show fish-specific UI framing it doesn't need.
+- Structure this so a second category (e.g. `farming`) is a small,
+  additive registration later - not a rewrite of this block's code.
+
+**Done when:** a Fishing-path player's stall sells their fish/junk exactly
+as it does today, verified unchanged in-browser; the category-lookup
+mechanism itself is real and generalizable (inspect the code to confirm a
+second category could be added without touching this block's core
+dispatch logic) even though no second category is built yet.
 
 ---
 
