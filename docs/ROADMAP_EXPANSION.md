@@ -516,7 +516,7 @@ Mining skill + mine region: resource nodes, rarity increases deeper in.
 ---
 
 ## Cooking skill, extended
-- [ ] not started
+- [x] built, verified in-browser (5 multi-ingredient recipes, floors 5-25, all priced above raw), committed — 2026-07-04 (autorun branch)
 
 Cooking skill, extended: Phase 0 item 10 already added a minimal
 version (one recipe) to unblock the Keeper starting path — this item

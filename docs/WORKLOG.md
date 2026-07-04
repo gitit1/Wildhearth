@@ -42,6 +42,28 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Cooking skill, extended
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Cooking skill,
+  extended") The minimal one-recipe version exists; build it out — more
+  recipes using 2+ inventory items → 1 cooked item, sellable for more than
+  the raw ingredients.
+- **Done:** `src/data/recipes.ts` only — five multi-ingredient recipes join
+  the same table the hearth already reads: Root stew (potato+carrot → 14,
+  floor 5), Corn chowder (corn+potato → 15, floor 10), Forest sauté
+  (mushroom+wild garlic → 9, floor 15), Fisher's supper (carp+sorrel → 10,
+  floor 20), Berry pie (2 berries+wheat → 13, floor 25). Every dish prices
+  above its raw-ingredient total; prices/names/icons flow through the
+  existing table-driven plumbing with zero code changes.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 6/6: at the hearth with mixed
+  ingredients the compote cooked first; Root stew was offered once its floor
+  (5 ≤ Cooking 6) and BOTH ingredients were held, consumed both and produced
+  the dish; the floor-25 Berry pie stayed hidden at Cooking 6 despite its
+  ingredients being present; the stew sold at 14 (> 10 raw) in the stall menu.
+- **Commit:** Cooking skill, extended
+- **Follow-ups:** none — new dishes are one table row each.
+
 ## The Memory Book system
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "The Memory Book
