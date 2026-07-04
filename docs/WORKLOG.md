@@ -42,6 +42,48 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Visual pass II — shared outlines + richer grass
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 3)
+- **Block given:** (batch-3 instruction) Push toward the reference look:
+  (1) a consistent dark outline stroke around every drawn shape via a shared
+  helper — the identified highest-impact cheap technique; (2) grass-blade
+  tufts + tiny flower dots baked into the pre-rendered ground; (3) confirm
+  every entity has the soft drop shadow, extend where missing.
+- **Done:**
+  - **Files:**
+    - `src/art/shapes.ts`: the game-wide outline defined ONCE — `OUTLINE`
+      (rgba(43,32,19,.62)) + `OUTLINE_W` (1.6) with three helpers:
+      `outline(g)` (strokes the current path right after a fill), `oRect`,
+      `oEllipse`. No per-object stroke styling anywhere.
+    - Applied across every major silhouette: player (torso, head, hat),
+      cow (body, head), hen (body, head), tree trunks + canopy blobs, bush
+      blobs, every fence post (incl. leaning ones), ripe crop ears, flower
+      beds, the busk hat, house/barn walls (contour on `drawPlankWall`),
+      both shingled gables (contour stroked outside the clip), doors,
+      chimney, the stall counter + awning. Deliberately NOT outlined: tiny
+      specks (grass blades, soil crumbs, sprouts) and pre-existing stroked
+      details, which would turn to mud at 1.6px.
+    - `src/world/ground.ts`: 240 grass tufts (3-5 blades fanning from a
+      base point, two greens) + 320 tiny pastel flower dots, deterministic,
+      painted before the yard/field/pond layers so those areas stay clean —
+      zero per-frame cost like batch 2's props.
+  - **Shadow audit:** every drawn entity already carries the shared
+    elliptical `shadow()` — player, cow, hen, trees, bushes, house, barn,
+    stall. Nothing was missing; nothing duplicated. (Ground decals —
+    stones/leaves/mushrooms/flower beds — correctly cast none.)
+  - **Behavior:** purely visual. The farm reads dramatically closer to the
+    reference: every object pops from the ground with the same soft dark
+    contour, and the grass is textured with tufts and flower specks instead
+    of flat green.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** screenshots reviewed full-farm and zoomed (outlined
+  farmer/buildings/fence/trees/crops; tufted, dotted grass; weathered-roof
+  contour crisp outside the shingle clip). Functional smoke: field prompts
+  live, zero page errors.
+- **Commit:** Visual pass II — shared outlines + richer grass
+- **Follow-ups:** the interior room deliberately kept its softer look (it
+  has its own light language); revisit with the Housing tier-2 pass.
+
 ## Fix: starting coins = 50
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 3)
 - **Block given:** (batch-3 instruction) VISION.md's price anchor table now

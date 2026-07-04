@@ -21,6 +21,28 @@ export function paintGround(): HTMLCanvasElement {
     const x = rnd() * WORLD_W, y = rnd() * WORLD_H, h = 3 + rnd() * 4;
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() * 2 - 1), y - h); g.stroke();
   }
+  // grass-blade tufts: 3-5 blades fanning from a base, two greens (visual
+  // pass, batch 3) — painted before the yard/field/pond so those cover them
+  for (let i = 0; i < 240; i++) {
+    const x = rnd() * WORLD_W, y = rnd() * WORLD_H;
+    const blades = 3 + (rnd() * 3 | 0);
+    g.strokeStyle = rnd() < 0.5 ? "rgba(52,92,32,.75)" : "rgba(84,130,52,.75)";
+    g.lineWidth = 1.2;
+    for (let b = 0; b < blades; b++) {
+      const lean = (b / (blades - 1) - 0.5) * 5;
+      const h = 4 + rnd() * 4;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.quadraticCurveTo(x + lean * 0.4, y - h * 0.6, x + lean, y - h);
+      g.stroke();
+    }
+  }
+  // tiny flower dots sprinkled through the grass
+  for (let i = 0; i < 320; i++) {
+    const x = rnd() * WORLD_W, y = rnd() * WORLD_H;
+    g.fillStyle = ["#f2e8b8", "#f2d857", "#e89ab0", "#c9d8f0", "#e8b4d0"][(rnd() * 5) | 0]!;
+    g.beginPath(); g.arc(x, y, 1 + rnd() * 0.8, 0, 7); g.fill();
+  }
   for (let i = 0; i < 130; i++) {
     const x = rnd() * WORLD_W, y = rnd() * WORLD_H;
     if (x > YARD.x0 * T && x < FIELD.x1 * T && y > 4 * T && y < 16 * T) continue;

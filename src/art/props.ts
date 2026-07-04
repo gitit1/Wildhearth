@@ -1,7 +1,7 @@
 import { T } from "../config";
 import { FIELD, POND } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
-import { shadow } from "./shapes";
+import { shadow, outline, oRect } from "./shapes";
 
 /** A tree with a blob-clustered, three-tone canopy: a dark under-layer, the
  *  mid-tone body, and sunlit top clusters — each tree slightly its own shade
@@ -15,20 +15,20 @@ export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: n
     return `rgb(${Math.round(r * (1 + hueShift))},${Math.round(gg * (1 + hueShift * 0.6))},${b})`;
   };
   // trunk with a bark seam
-  g.fillStyle = "#6b4a2b"; g.fillRect(x - 4, y - 14, 8, 20);
+  oRect(g, x - 4, y - 14, 8, 20, "#6b4a2b");
   g.strokeStyle = "rgba(50,32,16,.6)"; g.lineWidth = 1.5;
   g.beginPath(); g.moveTo(x - 1, y - 12); g.lineTo(x, y + 4); g.stroke();
   const sway = Math.sin(t * 0.8 + x) * 2;
   const sx = x + sway * 0.4;
-  // 1) dark under-canopy (the shaded mass beneath)
+  // 1) dark under-canopy (the shaded mass beneath) — carries the outline
   g.fillStyle = tone([46, 74, 28]);
   for (const [ox, oy, r] of [[-11, -22, 14], [9, -21, 13], [0, -24, 15]] as const) {
-    g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill();
+    g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill(); outline(g);
   }
   // 2) mid-tone body
   g.fillStyle = tone([71, 115, 44]);
   for (const [ox, oy, r] of [[-10, -28, 14], [10, -26, 12], [0, -38, 15], [-2, -30, 11]] as const) {
-    g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill();
+    g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill(); outline(g);
   }
   // 3) sunlit clusters on top
   g.fillStyle = tone([104, 152, 66]);
@@ -69,17 +69,16 @@ export function drawFence(
     g.beginPath(); g.moveTo(xx, fy0); g.lineTo(xx, fy1); g.stroke();
     g.beginPath(); g.moveTo(xx + 7, fy0); g.lineTo(xx + 7, fy1); g.stroke();
   }
-  g.fillStyle = "#6f5334";
   let post = 0;
   for (let xx = fx0; xx <= fx1; xx += T * 1.5, post++)
     for (const yy of [fy0, fy1]) {
       if (rundown && post % 5 === 3) {
         g.save(); g.translate(xx, yy + 2); g.rotate(0.3);
-        g.fillRect(-3, -8, 6, 16); g.restore();   // leaning post
-      } else g.fillRect(xx - 3, yy - 6, 6, 16);
+        oRect(g, -3, -8, 6, 16, "#6f5334"); g.restore();   // leaning post
+      } else oRect(g, xx - 3, yy - 6, 6, 16, "#6f5334");
     }
   for (let yy = fy0; yy <= fy1; yy += T * 1.5)
-    for (const xx of [fx0, fx1]) g.fillRect(xx - 3, yy - 6, 6, 16);
+    for (const xx of [fx0, fx1]) oRect(g, xx - 3, yy - 6, 6, 16, "#6f5334");
 }
 
 export function drawCorn(g: CanvasRenderingContext2D, t: number) {
@@ -173,6 +172,7 @@ export function drawCropTile(
       if (stage >= 1) {
         g.fillStyle = pal.fruit;
         g.beginPath(); g.ellipse(x + sway * 0.8, y - h + 2, 2.6, 5, sway * 0.05, 0, 7); g.fill();
+        outline(g);
       }
     }
   }
@@ -200,7 +200,7 @@ export function drawBush(g: CanvasRenderingContext2D, x: number, y: number, full
     : [[-8, -2, 9, "#4a5c33"], [8, -2, 8, "#55683a"], [0, -7, 10, "#5f7342"]];
   for (const [ox, oy, r, c] of blobs) {
     g.fillStyle = c;
-    g.beginPath(); g.arc(x + ox + sway, y + oy, r, 0, 7); g.fill();
+    g.beginPath(); g.arc(x + ox + sway, y + oy, r, 0, 7); g.fill(); outline(g);
   }
   if (full) {
     g.fillStyle = "#c2385a";
@@ -223,8 +223,7 @@ export function drawFlowerBed(
   // the bed itself: an oval of turned earth
   g.fillStyle = "#57402a";
   g.beginPath(); g.ellipse(x, y, 15, 10, 0, 0, 7); g.fill();
-  g.strokeStyle = "rgba(150,110,70,.5)"; g.lineWidth = 1.5;
-  g.beginPath(); g.ellipse(x, y, 15, 10, 0, 0, 7); g.stroke();
+  outline(g);
   if (!bed.planted) return;
   const rnd = mulberry32((x * 7 + y) | 0);
   if (!bed.bloomed) {
@@ -268,7 +267,7 @@ export function drawBuskSpot(g: CanvasRenderingContext2D, x: number, y: number, 
   }
   // upturned hat
   g.fillStyle = "#7a5230";
-  g.beginPath(); g.ellipse(x, y + 2, 9, 5, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(x, y + 2, 9, 5, 0, 0, 7); g.fill(); outline(g);
   g.fillStyle = "#5d3e22";
   g.beginPath(); g.ellipse(x, y, 6.5, 3.5, 0, 0, 7); g.fill();
   // a coin glinting inside

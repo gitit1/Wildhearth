@@ -1,5 +1,5 @@
 import { HOUSE, BARN, STALL } from "../world/zones";
-import { shadow } from "./shapes";
+import { shadow, oRect, OUTLINE, OUTLINE_W } from "./shapes";
 import { mulberry32 } from "../engine/rng";
 
 /** Vertical plank striping for wall faces: alternating tones, thin seams,
@@ -23,6 +23,8 @@ function drawPlankWall(
       g.beginPath(); g.ellipse(x + px + plank * 0.5, y + h * (0.2 + rnd() * 0.6), 1.6, 2.2, 0, 0, 7); g.fill();
     }
   }
+  g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W;
+  g.strokeRect(x, y, w, h);                        // the wall's contour
 }
 
 /** Shingled roof for a triangular gable: overlapping rows, per-shingle tone
@@ -58,13 +60,17 @@ function drawShingleRoof(
     g.beginPath(); g.moveTo(leftX, ry + rowH); g.lineTo(rightX, ry + rowH); g.stroke();
   }
   g.restore();
+  // the gable's contour (outside the clip so it stays crisp)
+  g.beginPath();
+  g.moveTo(leftX, baseY); g.lineTo(apexX, apexY); g.lineTo(rightX, baseY); g.closePath();
+  g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W; g.stroke();
 }
 
 export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk = true) {
   const { x, y, w, h } = HOUSE;
   shadow(g, x + w / 2 + 8, y + h + 8, w * 0.55, 12);
   drawPlankWall(g, x, y + h * 0.35, w, h * 0.65, "#c9a06a", 101);
-  g.fillStyle = "#7a5230"; g.fillRect(x + w * 0.44, y + h * 0.55, w * 0.13, h * 0.45);
+  oRect(g, x + w * 0.44, y + h * 0.55, w * 0.13, h * 0.45, "#7a5230");
   g.fillStyle = "#5d3e22"; g.fillRect(x + w * 0.44, y + h * 0.55, w * 0.13, 4);
   g.fillStyle = "#e8c46a"; g.beginPath(); g.arc(x + w * 0.54, y + h * 0.8, 2.4, 0, 7); g.fill();
   for (const wx of [x + w * 0.14, x + w * 0.72]) {
@@ -75,7 +81,7 @@ export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk =
   // the roof: neat shingles when repaired, patchy weathered ones when not
   drawShingleRoof(g, x + w / 2, y - h * 0.28, x - 10, x + w + 10, y + h * 0.38,
     "#a8433a", !roofOk, 202);
-  g.fillStyle = "#8c8c94"; g.fillRect(x + w * 0.72, y - h * 0.16, w * 0.09, h * 0.3);
+  oRect(g, x + w * 0.72, y - h * 0.16, w * 0.09, h * 0.3, "#8c8c94");
   g.fillStyle = "#6f6f78"; g.fillRect(x + w * 0.72, y - h * 0.16, w * 0.09, 5);
 
   if (!roofOk) {
@@ -130,7 +136,7 @@ export function drawStall(g: CanvasRenderingContext2D, t: number) {
   const { x, y, w, h } = STALL;
   shadow(g, x + w / 2 + 4, y + h + 6, w * 0.55, 8);
   // counter
-  g.fillStyle = "#9a7245"; g.fillRect(x, y + h * 0.45, w, h * 0.55);
+  oRect(g, x, y + h * 0.45, w, h * 0.55, "#9a7245");
   g.fillStyle = "rgba(0,0,0,.15)"; g.fillRect(x, y + h * 0.45, w, 4);
   // legs
   g.fillStyle = "#6f5334";
@@ -151,6 +157,9 @@ export function drawStall(g: CanvasRenderingContext2D, t: number) {
     g.lineTo(x - 6 + i * sw, y - h * 0.05 + fl);
     g.closePath(); g.fill();
   }
+  // the awning's contour as one shape
+  g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W;
+  g.strokeRect(x - 6, y - h * 0.4, w + 12, h * 0.35 + fl);
   // goods: little fish crate
   g.fillStyle = "#b08a58"; g.fillRect(x + w * 0.2, y + h * 0.3, w * 0.28, h * 0.2);
   g.fillStyle = "#7fb0c8";
