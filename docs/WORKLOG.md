@@ -42,6 +42,31 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## World Context Block 1 — shared types
+- **Date:** 2026-07-04
+- **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 1 — Shared types)
+  Create `src/systems/worldContext.ts` with the World Context types at the top
+  of the same file that will implement `getWorldContext()` (this codebase keeps
+  types and functions together, e.g. `renovation.ts`). Done when it compiles
+  with no runtime code yet (just the interfaces) and nothing else imports it.
+- **Done:**
+  - **Files:**
+    - `src/systems/worldContext.ts` (NEW): the World Context type layer only —
+      no runtime code yet.
+    - `docs/WORLD_CONTEXT.md` (NEW to git): the standalone build spec, renamed
+      from the mistyped `World.md`; Block 1 ticked `[x]`.
+  - **Systems / functions:** interfaces `WorldContextSources` (economy, skills,
+    farm now; calendar/weather/flags commented in for Blocks 3-5),
+    `WorldContextQuery` (the `npcId` scoping hook for Block 6), `FarmSlice`, and
+    `WorldContext`. No functions, no save keys, no module-level state — pure
+    types following the explicit-`sources` convention (no registry).
+  - **Behavior:** none yet — this is infrastructure. Nothing imports it, so it
+    is tree-shaken out of the bundle; it exists for Block 2's function and the
+    future systems that will read a world snapshot.
+- **Build:** `npm run build` — ✅ passing.
+- **Commit:** World Context Block 1 — shared types
+- **Follow-ups:** none — Block 2 adds `getWorldContext()` to the same file.
+
 ## Step 9 — Save/load hardening
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/ROADMAP_MVP.md`, Step 9 — Save/load hardening)
