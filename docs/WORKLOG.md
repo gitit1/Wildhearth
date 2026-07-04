@@ -42,6 +42,53 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## The Memory Book system
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "The Memory Book
+  system") `systems/collections.ts` — a generic tracked-category engine (add
+  entry, X/Y discovered), never one-off code per category;
+  `systems/memories.ts` — a life-event log (timestamp + flavor text);
+  `ui/memorybook.ts` — one window, two tabs, opened via an on-screen icon.
+- **Done:**
+  - **Files:**
+    - `src/systems/collections.ts` (NEW): the generic engine — a `CATEGORIES`
+      table + `discover()` (returns true only on FIRST discovery),
+      `discoveredCount`, persisted on `wildhearth-collections-v1`.
+      **Adaptation, documented:** the spec's first three categories
+      (birds/animals/flowers) have no content source until the
+      binoculars-sighting mechanic (Riverside Fisherwoman block, skipped this
+      run) — so the first LIVE categories are fish (12) and wild finds (11),
+      which the spec explicitly says plug into the same engine; the bird/
+      animal/flower categories are one table row each when sightings land.
+    - `src/systems/memories.ts` (NEW): curated once-per-key life events with
+      an in-game date stamp (season + day), on `wildhearth-memories-v1`.
+      Deliberately curated, per the spec's anti-Sims-3-log warning.
+    - `src/ui/memorybook.ts` + index.html (NEW): a draggable/resizable gump
+      (makePanel, like skills/backpack) with Collections/Memories tabs,
+      opened from a new 📖 tool icon or key M; re-renders at most 1×/sec
+      while open.
+    - Event wiring: ten curated firsts — first catch/forage/harvest/busk/
+      cook (main.ts), first repair + farm-made-whole (doRepair via a new
+      `InteractCtx.memory` hook), first flowers (flower beds), first sale +
+      first animal (`initShopWindow` gains a memory callback). Fish/forage
+      discoveries log from the catch/pick handlers with a "New in your book"
+      toast on first sighting only.
+    - Both keys in `GAME_KEYS`; New Game wipes the book.
+  - **Behavior:** a 📖 Memory Book opens anywhere: Collections shows "Fish
+    2/12"-style progress with named, icon'd entries per discovery; Memories
+    reads like a diary — "Spring, Day 4 — Your first catch…" — each moment
+    recorded exactly once with its in-game date, surviving reload.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 8/8: empty book shows 0/12 +
+  0/11 with empty states; four casts recorded 2 distinct species (junk
+  correctly excluded) and exactly one first_catch memory stamped Spring Day
+  4; both tabs render the real content; everything persists across reload.
+  Screenshot reviewed (gump, tabs, dated entry, active tool icon).
+- **Commit:** The Memory Book system
+- **Follow-ups:** birds/animals/flowers categories + the diegetic "book sits
+  at the rest corner" flavor arrive with the binoculars/sighting mechanic;
+  minerals with mining (both blocked on skipped blocks).
+
 ## Camera zoom
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Camera zoom")

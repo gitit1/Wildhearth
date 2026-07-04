@@ -1,0 +1,130 @@
+import { CATEGORIES, discoveredCount, discoveredName, type Collections } from "../systems/collections";
+import type { Memories } from "../systems/memories";
+import { drawItemIcon } from "../art/icons";
+import { makePanel } from "./panels";
+
+/**
+ * The Memory Book (Memory Book block): one window, two tabs — Collections
+ * (X/Y discovered per category) and Memories (the curated life-event log).
+ * Opens from the 📖 tool icon (mouse-first) or key M; the physical book
+ * "sits" at the house's rest corner, but the window opens from anywhere.
+ */
+
+const ICON_PX = 22;
+
+let panel: HTMLElement;
+let bookBtn: HTMLElement | null;
+let tabCol: HTMLElement;
+let tabMem: HTMLElement;
+let body: HTMLElement;
+let open = false;
+let tab: "collections" | "memories" = "collections";
+let col: Collections;
+let mem: Memories;
+
+export function initMemoryBook(collections: Collections, memories: Memories) {
+  col = collections;
+  mem = memories;
+  panel = document.getElementById("memoryPanel")!;
+  bookBtn = document.getElementById("bookBtn");
+  tabCol = document.getElementById("bookTabCollections")!;
+  tabMem = document.getElementById("bookTabMemories")!;
+  body = document.getElementById("bookBody")!;
+
+  tabCol.addEventListener("click", () => { tab = "collections"; render(); });
+  tabMem.addEventListener("click", () => { tab = "memories"; render(); });
+  bookBtn?.addEventListener("click", () => setOpen(!open));
+  addEventListener("keydown", (e) => {
+    if (e.code === "KeyM") setOpen(!open);
+    if (e.code === "Escape" && open) setOpen(false);
+  });
+
+  panel.style.display = "block";        // measurable for makePanel, then hidden
+  makePanel(panel, panel.querySelector("h2")!, "memorybook", (s) => {
+    panel.style.setProperty("--s", String(s));
+  });
+  panel.style.display = "none";
+}
+
+function setOpen(o: boolean) {
+  open = o;
+  panel.style.display = open ? "block" : "none";
+  bookBtn?.classList.toggle("active", open);
+  if (open) render();
+}
+
+function iconCanvas(id: string): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = c.height = ICON_PX * devicePixelRatio;
+  c.style.width = c.style.height = `${ICON_PX}px`;
+  const g = c.getContext("2d")!;
+  g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  drawItemIcon(g, id, ICON_PX);
+  return c;
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function render() {
+  tabCol.classList.toggle("active", tab === "collections");
+  tabMem.classList.toggle("active", tab === "memories");
+  body.replaceChildren();
+
+  if (tab === "collections") {
+    for (const cat of CATEGORIES) {
+      const head = document.createElement("div");
+      head.className = "book-cat";
+      head.textContent = `${cat.name}  ${discoveredCount(col, cat.id)}/${cat.itemIds.length}`;
+      body.append(head);
+      const found = col.discovered[cat.id] ?? [];
+      if (found.length === 0) {
+        const none = document.createElement("div");
+        none.className = "book-empty";
+        none.textContent = "Nothing recorded yet.";
+        body.append(none);
+        continue;
+      }
+      const grid = document.createElement("div");
+      grid.className = "book-grid";
+      for (const id of found) {
+        const cell = document.createElement("div");
+        cell.className = "book-item";
+        const name = document.createElement("span");
+        name.textContent = discoveredName(id);
+        cell.append(iconCanvas(id), name);
+        grid.append(cell);
+      }
+      body.append(grid);
+    }
+  } else {
+    if (mem.entries.length === 0) {
+      const none = document.createElement("div");
+      none.className = "book-empty";
+      none.textContent = "No memories yet — go live a little.";
+      body.append(none);
+    }
+    // newest last in storage; the book reads oldest -> newest, like a diary
+    for (const e of mem.entries) {
+      const row = document.createElement("div");
+      row.className = "book-mem";
+      const when = document.createElement("span");
+      when.className = "book-when";
+      when.textContent = `${cap(e.season)}, Day ${e.day}`;
+      const what = document.createElement("span");
+      what.textContent = e.text;
+      row.append(when, what);
+      body.append(row);
+    }
+  }
+}
+
+/** Keeps the page fresh while open (a discovery can land mid-view) —
+ *  re-rendered at most once a second to spare the DOM. */
+let lastRender = 0;
+export function updateMemoryBook() {
+  if (!open) return;
+  const now = performance.now();
+  if (now - lastRender < 1000) return;
+  lastRender = now;
+  render();
+}

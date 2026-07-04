@@ -52,6 +52,24 @@
     .panel-grip{position:absolute;right:1px;bottom:1px;width:16px;height:16px;cursor:nwse-resize;
       touch-action:none;background:linear-gradient(135deg,transparent 55%,#a5814f 55%);
       border-radius:0 0 9px 0;opacity:.8;z-index:2}
+    #memoryPanel{--s:1;position:fixed;top:120px;right:330px;display:none;z-index:5;user-select:none;
+      background:rgba(25,32,18,.92);border:2px solid #7a5c34;border-radius:14px;
+      padding:calc(10px*var(--s)) calc(12px*var(--s));color:#f0ead6;min-width:calc(250px*var(--s))}
+    #memoryPanel h2{margin:0 0 calc(6px*var(--s));font-size:calc(14px*var(--s));text-align:center}
+    #bookTabs{display:flex;gap:calc(6px*var(--s));margin-bottom:calc(8px*var(--s))}
+    .book-tab{flex:1;border:1px solid #7a5c34;border-radius:8px;background:rgba(240,234,214,.07);
+      color:#cdb98a;font-size:calc(12px*var(--s));font-weight:700;padding:calc(4px*var(--s));cursor:pointer}
+    .book-tab.active{background:rgba(230,190,80,.85);color:#2b2313;border-color:#b8912f}
+    #bookBody{display:flex;flex-direction:column;gap:calc(5px*var(--s));
+      max-height:calc(280px*var(--s));overflow-y:auto;font-size:calc(12px*var(--s))}
+    .book-cat{font-weight:700;color:#ffd54f;margin-top:calc(4px*var(--s))}
+    .book-grid{display:flex;flex-wrap:wrap;gap:calc(6px*var(--s))}
+    .book-item{display:flex;align-items:center;gap:4px;background:rgba(240,234,214,.07);
+      border-radius:8px;padding:2px 7px 2px 3px}
+    .book-mem{display:flex;flex-direction:column;background:rgba(240,234,214,.07);
+      border-radius:8px;padding:calc(4px*var(--s)) calc(7px*var(--s))}
+    .book-when{color:#cdb98a;font-size:calc(10px*var(--s));font-weight:700}
+    .book-empty{color:#9a8f74;font-style:italic}
     #skillsPanel{--s:1;position:fixed;top:492px;right:14px;display:none;z-index:5;user-select:none;
       background:rgba(25,32,18,.88);border:2px solid #7a5c34;border-radius:14px;
       padding:calc(10px*var(--s)) calc(12px*var(--s));color:#f0ead6;min-width:calc(210px*var(--s))}
@@ -154,6 +172,14 @@
     <div id="skillsTotal"></div>
     <div id="skillsList"></div>
   </div>
+  <div id="memoryPanel">
+    <h2>📖 Memory Book</h2>
+    <div id="bookTabs">
+      <button class="book-tab active" id="bookTabCollections">Collections</button>
+      <button class="book-tab" id="bookTabMemories">Memories</button>
+    </div>
+    <div id="bookBody"></div>
+  </div>
   <div id="shopWindow">
     <h2>🛒 Market stall</h2>
     <button id="shopClose" title="Close (Esc)">✕</button>
@@ -165,6 +191,7 @@
   </div>
   <div id="tools">
     <button class="tool-btn" id="skillsBtn" title="Skills (K)">📜</button>
+    <button class="tool-btn" id="bookBtn" title="Memory Book (M)">📖</button>
     <button class="tool-btn" id="bagBtn" title="Backpack (I)">🎒</button>
   </div>
   <div id="opening"></div>

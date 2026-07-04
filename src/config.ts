@@ -74,4 +74,6 @@ export const WORLD_FLAGS_KEY = "wildhearth-flags-v1"; // expiring event flags (W
 export const LIVESTOCK_KEY = "wildhearth-livestock-v1"; // owned animals (no-free-animals fix)
 export const PLOTS_KEY = "wildhearth-plots-v1";      // field state incl. crops/watering (crop-variety block)
 export const GARDEN_KEY = "wildhearth-garden-v1";    // ornamental flower beds (base-skill-set block)
+export const COLLECTIONS_KEY = "wildhearth-collections-v1"; // Memory Book: discoveries
+export const MEMORIES_KEY = "wildhearth-memories-v1";       // Memory Book: life events
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

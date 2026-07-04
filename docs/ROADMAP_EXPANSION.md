@@ -319,7 +319,7 @@ clock, no AI.
 ---
 
 ## The Memory Book system
-- [ ] not started
+- [x] built, verified in-browser (generic collections engine + curated memories + two-tab gump; fish/forage are the first live categories — birds/animals/flowers join via the same engine with binoculars), committed — 2026-07-04 (autorun branch)
 
 **The Memory Book system** (VISION #14) — must exist before anything
 can log into it (bird-watching below needs this immediately).

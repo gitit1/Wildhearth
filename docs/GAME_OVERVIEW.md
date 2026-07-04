@@ -151,14 +151,14 @@ tips and dialogue tone; total neglect triggers a soft "collapse" that costs
 coins, never a game over. Tier-1 house interior (hearth, wash basin, bed,
 rest chair) is the minimum needed to restore all five. Not built.
 
-### Collections & Memories 🔵
-One physical, diegetic book in the house, two tabs. **Collections**:
-per-category discovery tracking (birds/animals/flowers first, requires
-binoculars; fish/foraged items/minerals generalize the same engine later).
-**Memories**: a curated life-event log (first sale, first hen, a
-relationship milestone, a festival) with a timestamp and flavor text —
-deliberately curated, not auto-logging everything (a documented Sims 3
-failure mode). Not built.
+### Collections & Memories 🟢 (engine + first categories) / 🔵 (sightings)
+One book, two tabs, built. **Collections**: the generic per-category engine
+is real with fish (12) and wild finds (11) as the first live categories —
+discoveries log on first catch/pick. Birds/animals/flowers join through the
+same engine when the binoculars sighting mechanic (Fisherwoman block) lands
+🔵. **Memories**: the curated life-event log is real — ten "firsts" (sale,
+catch, harvest, animal, repair, farm-whole…) each written once with an
+in-game date stamp. Opens from the 📖 icon or M.
 
 ### Transportation 🟡
 Old-world only (horses, carriages, boats), money-gated. Fast travel is

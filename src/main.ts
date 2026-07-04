@@ -28,6 +28,9 @@ import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/bus
 import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
 import { recipeById } from "./data/recipes";
 import { loadGarden, resetGarden, saveGarden, updateGarden } from "./systems/gardening";
+import { loadCollections, resetCollections, discover, discoveredName } from "./systems/collections";
+import { loadMemories, resetMemories, addMemory } from "./systems/memories";
+import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
@@ -88,6 +91,8 @@ const cooking = createCooking();
 const skills = loadSkills();
 const farm = loadFarm();
 const garden = loadGarden();
+const collections = loadCollections();
+const memories = loadMemories();
 const calendar = loadCalendar();
 const weather = loadWeather();
 const worldFlags = loadWorldFlags();
@@ -100,13 +105,24 @@ for (const h of hens) registerAnimal("hen", h, hens);
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
+initMemoryBook(collections, memories);
+
+/** Writes a once-only life event into the Memory Book (+ a quiet toast). */
+function remember(key: string, text: string) {
+  if (addMemory(memories, key, text, calendar)) toast(`✒ ${text}`);
+}
+
+/** Records a species/find discovery; celebrates only the first time. */
+function record(category: "fish" | "forage", id: string) {
+  if (discover(collections, category, id)) toast(`New in your book: ${discoveredName(id)}.`);
+}
 initShopWindow(economy, skills, farm, livestock,
   (kind) => {
     if (kind === "cow") { const c = spawnCow(); cows.push(c); registerAnimal("cow", c, cows); }
     else { const h = spawnHen(); hens.push(h); registerAnimal("hen", h, hens); }
   },
   () => currentSeason(calendar),
-  toast);
+  toast, remember);
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -169,6 +185,8 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   saveSkills(skills);
   resetPlots(plots);
   resetGarden(garden);
+  resetCollections(collections);
+  resetMemories(memories);
   for (const b of bushes) { b.full = true; b.regrow = 0; }
   resetFarm(farm);
   resetCalendar(calendar);
@@ -228,6 +246,7 @@ function tick(now: number) {
   const ictx: InteractCtx = {
     economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, player,
     toast, openShop: openShopWindow, enterHouse, leaveHouse, skillPopup: skillGainPopup,
+    memory: remember,
   };
 
   // walking away from the stall closes the trade window
@@ -294,6 +313,10 @@ function tick(now: number) {
     const haulName = ITEM_NAMES[haul.id] ?? haul.id;
     if (gainItem(economy, haul.id)) {
       toast(haul.kind === "junk" ? `You fished up... ${haulName.toLowerCase()}.` : `Caught a ${haulName}! 🐟`);
+      if (haul.kind === "fish") {
+        record("fish", haul.id);
+        remember("first_catch", "Your first catch — the pond gave something back.");
+      }
     } else toast("Backpack full — the catch slips away!");
     const gained = gainSkill(skills, "fishing");
     if (gained > 0) skillGainPopup("fishing", gained);
@@ -309,8 +332,11 @@ function tick(now: number) {
     const bonus = Math.random() < skillValue(skills, "foraging") / 100 ? 1 : 0;
     const n = FORAGE_BASE_YIELD + bonus;
     const foundName = (ITEM_NAMES[found] ?? found).toLowerCase();
-    if (gainItem(economy, found, n)) toast(n > 1 ? `Picked ${n} ${foundName}!` : `Picked ${foundName}!`);
-    else toast("Backpack full — no room for the find!");
+    if (gainItem(economy, found, n)) {
+      toast(n > 1 ? `Picked ${n} ${foundName}!` : `Picked ${foundName}!`);
+      record("forage", found);
+      remember("first_forage", "The forest fed you today — first wild pickings.");
+    } else toast("Backpack full — no room for the find!");
     const gained = gainSkill(skills, "foraging");
     if (gained > 0) skillGainPopup("foraging", gained);
   }
@@ -319,6 +345,7 @@ function tick(now: number) {
     economy.coins += tip;
     saveEconomy(economy);
     toast(`Earned ${tip} coin${tip === 1 ? "" : "s"} busking! 🎶`);
+    remember("first_busk", "You played for strangers, and they paid — first tips.");
     const gained = gainSkill(skills, "busking");
     if (gained > 0) skillGainPopup("busking", gained);
   }
@@ -328,8 +355,10 @@ function tick(now: number) {
     if (r) {
       // consume the ingredients, serve the dish (worked-in value)
       for (const [id, n] of Object.entries(r.inputs)) removeItem(economy.inv, id, n);
-      if (gainItem(economy, r.id)) toast(`Cooked ${r.name.toLowerCase()}! 🍲`);
-      else toast("Backpack full — the dish burns while you rummage!");
+      if (gainItem(economy, r.id)) {
+        toast(`Cooked ${r.name.toLowerCase()}! 🍲`);
+        remember("first_cook", "A warm meal from your own hearth — first dish.");
+      } else toast("Backpack full — the dish burns while you rummage!");
       const gained = gainSkill(skills, "cooking");
       if (gained > 0) skillGainPopup("cooking", gained);
     }
@@ -364,6 +393,7 @@ function tick(now: number) {
       if (crop && gainItem(economy, crop.id)) {
         cell.state = "tilled"; cell.growth = 0; cell.cropId = null; cell.watered = false; cell.dryDays = 0;
         toast(`Harvested ${crop.name.toLowerCase()}! 🌽`);
+        remember("first_harvest", "The first harvest from your own soil.");
         const gained = gainSkill(skills, "farming");
         if (gained > 0) skillGainPopup("farming", gained);
       } else if (crop) toast(`Backpack full — no room for the ${crop.name.toLowerCase()}!`);
@@ -391,6 +421,7 @@ function tick(now: number) {
   if (scene === "world") updateMinimap(player);   // inside, the dot would be room coords
   updateSkillsUI();
   updateShopWindow();
+  updateMemoryBook();
   updateToast(dt);
   draw();
   requestAnimationFrame(tick);

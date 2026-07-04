@@ -2,7 +2,7 @@ import { POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_
 import { REPAIR_COST, FEED_GAIN_ITEM } from "../config";
 import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
-import { saveFarm, type FarmState, type FarmPart } from "./renovation";
+import { saveFarm, repairsLeft, type FarmState, type FarmPart } from "./renovation";
 import { startCast, type FishingState } from "./fishing";
 import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
@@ -40,6 +40,7 @@ export interface InteractCtx {
   enterHouse: () => void;
   leaveHouse: () => void;
   skillPopup: (id: string, amount: number) => void;
+  memory: (key: string, text: string) => void;   // once-only Memory Book events
 }
 
 /** True while any timed activity is running (they are mutually exclusive). */
@@ -156,6 +157,9 @@ function doRepair(c: InteractCtx, part: FarmPart) {
   // every repair is Building practice (base-skill-set block)
   const gained = gainSkill(c.skills, "building");
   if (gained > 0) c.skillPopup("building", gained);
+  c.memory("first_repair", "The farm is a little less broken — first repair.");
+  if (repairsLeft(c.farm) === 0)
+    c.memory("farm_whole", "Every board mended — the farm stands whole again.");
 }
 
 // The drawn house rises above HOUSE.y (the roof) — cover that in the hitbox.
@@ -355,6 +359,7 @@ export function registerFlowerBeds(garden: Garden) {
               bed.planted = true; bed.growth = 0; bed.bloomed = false;
               saveGarden(c.garden);
               c.toast("Flowers planted — they'll open soon.");
+              c.memory("first_flowers", "You planted something just because it's pretty.");
               const gained = gainSkill(c.skills, "gardening");
               if (gained > 0) c.skillPopup("gardening", gained);
             },

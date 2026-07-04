@@ -30,13 +30,14 @@ let stock: Livestock;
 let onAnimal: (kind: "hen" | "cow") => void = () => {};
 let seasonNow: () => Season = () => "spring";
 let toastFn: (s: string) => void = () => {};
+let memoryFn: (key: string, text: string) => void = () => {};
 const sellQty = new Map<string, number>();
 const buyQty = new Map<string, number>();
 
 export function initShopWindow(
   economy: Economy, skills: Skills, farm: FarmState, livestock: Livestock,
   onAnimalBought: (kind: "hen" | "cow") => void, currentSeason: () => Season,
-  toast: (s: string) => void,
+  toast: (s: string) => void, memory: (key: string, text: string) => void,
 ) {
   eco = economy;
   sk = skills;
@@ -45,6 +46,7 @@ export function initShopWindow(
   onAnimal = onAnimalBought;
   seasonNow = currentSeason;
   toastFn = toast;
+  memoryFn = memory;
   panel = document.getElementById("shopWindow")!;
   sellList = document.getElementById("shopSell")!;
   buyList = document.getElementById("shopBuy")!;
@@ -133,7 +135,10 @@ function render() {
     btn.textContent = "Sell";
     btn.addEventListener("click", () => {
       const earned = sellGood(eco, id, q);
-      if (earned > 0) toastFn(`Sold ${q} ${(ITEM_NAMES[id] ?? id).toLowerCase()} for ${earned} coins!`);
+      if (earned > 0) {
+        toastFn(`Sold ${q} ${(ITEM_NAMES[id] ?? id).toLowerCase()} for ${earned} coins!`);
+        memoryFn("first_sale", "Your first sale at the stall.");
+      }
       sellQty.delete(id);
       render();
     });
@@ -146,7 +151,10 @@ function render() {
     all.textContent = "Sell everything";
     all.addEventListener("click", () => {
       const earned = sellAllGoods(eco);
-      if (earned > 0) toastFn(`Sold everything for ${earned} coins!`);
+      if (earned > 0) {
+        toastFn(`Sold everything for ${earned} coins!`);
+        memoryFn("first_sale", "Your first sale at the stall.");
+      }
       sellQty.clear();
       render();
     });
@@ -184,6 +192,7 @@ function render() {
         if (r === "owned") { render(); return; }
         onAnimal(kind);
         toastFn(kind === "cow" ? "A cow of your own! She heads for the barn." : "A new hen joins the yard!");
+        memoryFn("first_animal", "The yard has a heartbeat now — first animal.");
         const gained = gainSkill(sk, "haggling");   // every purchase is practice
         if (gained > 0) skillGainPopup("haggling", gained);
         render();
