@@ -1,5 +1,12 @@
 import { T, WORLD_W, WORLD_H, MINIMAP_SCALE } from "../config";
 import { FIELD, YARD, HOUSE, BARN, STALL, POND, TREES } from "../world/zones";
+
+/** The field can grow (plot expansions) — main keeps this current. */
+let fieldBounds = { x0: FIELD.x0, y0: FIELD.y0, x1: FIELD.x1, y1: FIELD.y1 };
+export function setMinimapField(b: { x0: number; y0: number; x1: number; y1: number }) {
+  fieldBounds = b;
+  if (base) base = paintBase();   // repaint the static layer with the new field
+}
 import { roundR } from "../art/shapes";
 import { makePanel } from "./panels";
 import type { Player } from "../entities/player";
@@ -62,8 +69,9 @@ function paintBase(): HTMLCanvasElement {
   // dirt yard
   roundR(b, YARD.x0 * T * s, YARD.y0 * T * s, (YARD.x1 - YARD.x0) * T * s, (YARD.y1 - YARD.y0) * T * s, 4);
   b.fillStyle = "#a58254"; b.fill();
-  // tilled field
-  roundR(b, FIELD.x0 * T * s, FIELD.y0 * T * s, (FIELD.x1 - FIELD.x0) * T * s, (FIELD.y1 - FIELD.y0) * T * s, 3);
+  // tilled field (live bounds — plot expansions grow it)
+  roundR(b, fieldBounds.x0 * T * s, fieldBounds.y0 * T * s,
+    (fieldBounds.x1 - fieldBounds.x0) * T * s, (fieldBounds.y1 - fieldBounds.y0) * T * s, 3);
   b.fillStyle = "#6e4f33"; b.fill();
   // pond
   b.fillStyle = "#3d6f8e";

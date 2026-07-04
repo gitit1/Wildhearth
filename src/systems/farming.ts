@@ -2,7 +2,7 @@ import {
   T, TILL_TIME, PLANT_TIME, HARVEST_TIME, WATER_TIME, CLEAR_TIME,
   WILT_DRY_DAYS, FARMING_GROW_REDUCTION, PLOTS_KEY,
 } from "../config";
-import { PLOT } from "../world/zones";
+import { PLOT, PLOT_EXPANSIONS } from "../world/zones";
 import { cropById } from "../data/crops";
 
 /**
@@ -34,22 +34,38 @@ export const WORK_TIMES: Record<WorkKind, number> = {
   till: TILL_TIME, plant: PLANT_TIME, water: WATER_TIME, harvest: HARVEST_TIME, clear: CLEAR_TIME,
 };
 
-function freshCells(): PlotCell[] {
+function stripCells(strip: { x: number; y: number; cols: number; rows: number }): PlotCell[] {
   const cells: PlotCell[] = [];
-  for (let r = 0; r < PLOT.rows; r++)
-    for (let c = 0; c < PLOT.cols; c++)
+  for (let r = 0; r < strip.rows; r++)
+    for (let c = 0; c < strip.cols; c++)
       cells.push({
-        x: PLOT.x + (c + 0.5) * T, y: PLOT.y + (r + 0.5) * T,
+        x: strip.x + (c + 0.5) * T, y: strip.y + (r + 0.5) * T,
         state: "wild", growth: 0, cropId: null, watered: false, dryDays: 0,
       });
+  return cells;
+}
+
+/** Fresh wild cells for one just-purchased expansion tier (1-based). */
+export function expansionCells(tier: number): PlotCell[] {
+  const strip = PLOT_EXPANSIONS[tier - 1];
+  return strip ? stripCells(strip) : [];
+}
+
+/** The full cell layout for the given expansion tier count: the base field,
+ *  then each unlocked strip IN TIER ORDER — saved cells map positionally, so
+ *  this order must never change. */
+function freshCells(tiers: number): PlotCell[] {
+  const cells = stripCells(PLOT);
+  for (let t = 0; t < Math.min(tiers, PLOT_EXPANSIONS.length); t++)
+    cells.push(...stripCells(PLOT_EXPANSIONS[t]!));
   return cells;
 }
 
 interface SavedCell { s: CellState; g: number; c: string | null; w: boolean; d: number }
 
 /** Loads the field, tolerant of junk/missing saves (fresh wild field). */
-export function loadPlots(): PlotCell[] {
-  const cells = freshCells();
+export function loadPlots(tiers = 0): PlotCell[] {
+  const cells = freshCells(tiers);
   try {
     const raw = localStorage.getItem(PLOTS_KEY);
     if (!raw) return cells;
@@ -81,8 +97,11 @@ export function savePlots(cells: PlotCell[]) {
   try { localStorage.setItem(PLOTS_KEY, JSON.stringify(data)); } catch { /* private mode */ }
 }
 
-/** New Game: the whole field back to wild. */
+/** New Game: the whole field back to wild — and back to its unexpanded size
+ *  (purchased strips are gone with the old life; their interactables guard
+ *  on live-array membership, like animals do). */
 export function resetPlots(cells: PlotCell[]) {
+  cells.length = PLOT.cols * PLOT.rows;
   for (const c of cells) {
     c.state = "wild"; c.growth = 0; c.cropId = null; c.watered = false; c.dryDays = 0;
   }

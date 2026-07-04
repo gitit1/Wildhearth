@@ -142,7 +142,9 @@ and NPC mood/routine shifts by season (need NPCs).
 Tiered, player-directed depth: tier-1 is the MVP's static rundown/repaired
 states 🟢 (4 repairs: roof/window/barn/fence), tier-2 is template-based
 room/furniture upgrades 🔵, tier-3 is full freeform placement 🔵. Farm-plot
-expansion (buy more usable farm area with money) is 🔵 speced, not built.
+expansion is 🟢 built: two discrete money-gated tiers (120/180) bought at
+the farmhouse, each visibly leaping the fence southward with 22 new
+tillable tiles, persisted with the farm state.
 
 ### Needs 🔵
 Hunger, energy, hygiene, mood, social — full Sims-style interaction, not

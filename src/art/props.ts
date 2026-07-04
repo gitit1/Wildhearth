@@ -19,11 +19,14 @@ export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: n
   g.beginPath(); g.arc(x - 6 + sway * 0.4, y - 40, 9, 0, 7); g.fill();
 }
 
-export function drawFence(g: CanvasRenderingContext2D, fenceOk = true) {
+export function drawFence(
+  g: CanvasRenderingContext2D, fenceOk = true,
+  bounds: { x0: number; y0: number; x1: number; y1: number } = FIELD,
+) {
   const rundown = !fenceOk;   // broken until the field fence is mended (Step 8)
   g.strokeStyle = "#8a6a42"; g.lineWidth = 4; g.lineCap = "round";
-  const fx0 = FIELD.x0 * T - 14, fy0 = FIELD.y0 * T - 14;
-  const fx1 = FIELD.x1 * T + 14, fy1 = FIELD.y1 * T + 14;
+  const fx0 = bounds.x0 * T - 14, fy0 = bounds.y0 * T - 14;
+  const fx1 = bounds.x1 * T + 14, fy1 = bounds.y1 * T + 14;
   // a broken-plank gap in the top and bottom rails when rundown
   const gapAt = fx0 + (fx1 - fx0) * 0.38, gapW = T * 1.6;
   for (const yy of [fy0, fy1]) {

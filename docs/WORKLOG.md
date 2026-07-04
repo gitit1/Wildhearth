@@ -42,6 +42,54 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Farm plot expansion — money-gated
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 2)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Farm plot expansion —
+  money-gated") Buy expansions that grow the usable farm area; plain
+  money-gating, discrete steps, immediately visible payoff; exact
+  size/price/tier count TBD during implementation.
+- **Implementation decisions (the TBDs), with reasoning:**
+  - **Two tiers**, each a full-width 2-row strip **south** of the field, so
+    the fenced area stays one clean rectangle and the fence visibly leaps
+    outward on purchase (the block's visible-transformation principle). Each
+    tier adds 22 tiles (+20% of the 110-tile base).
+  - **Prices 120 / 180** (`PLOT_EXPANSION_PRICES` in config): the block says
+    "above a fence-repair-scale purchase (10), closer to an animal-tier
+    spend" — tier 1 sits between the hen (45) and cow (175); tier 2 at cow
+    tier, escalating since it permanently doubles-down on capacity.
+  - **Sold at the farmhouse hub** beside repairs — the same
+    money-into-visible-farm-growth family; no doc names another vendor.
+  - Two decorative trees south of the field moved to rows 20.8/21 in
+    `zones.ts` so the tier-2 fence never swallows them.
+- **Done:**
+  - **Files:** `zones.ts` (`PLOT_EXPANSIONS` strips + `fieldBounds(tiers)`,
+    tree nudge), `renovation.ts` (`FarmState.plotTiers`, tolerant load, reset
+    to 0), `config.ts` (prices), `farming.ts` (`stripCells`/`expansionCells`;
+    `loadPlots(tiers)` builds base+strips in tier order so saved cells map
+    positionally; `resetPlots` truncates back to the base 110), `interact.ts`
+    ("Expand the field (price)" on the farmhouse when a next tier exists —
+    coins check, `plotTiers`+1, `expandFarm()` callback, Memory Book
+    `first_expansion` entry; plot interactables now use a module id counter
+    and guard on live-array membership so New-Game-dropped cells go inert),
+    `props.ts` (`drawFence` takes live bounds), `minimap.ts`
+    (`setMinimapField` repaints the static layer), `main.ts` (farm loads
+    before plots; `expandFarm` materializes+registers the new strip, saves,
+    updates the minimap).
+  - **Behavior:** the farmhouse offers "Expand the field (120)"; buying it
+    drops 120 coins, the fence and minimap jump southward instantly, and 22
+    new wild tiles are tillable on the spot. Tier 2 (180) follows; after it
+    the offer disappears. All of it persists; New Game shrinks the farm back.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 8/8: tier-1 offer/purchase
+  (350→230 coins, 110→132 persisted cells, screenshot of the leapt fence),
+  tier-2 (230→50, 154 cells), no tier 3 offered, **a cell at store index 143
+  (tier-2 strip by construction) tilled through normal play**, and the broke
+  refusal changing nothing. Minimap growth visible in screenshots.
+- **Commit:** Farm plot expansion — money-gated
+- **Follow-ups:** expansion ground keeps the grass texture (the pre-rendered
+  ground doesn't repaint) — tilled tiles read fine on it; a dirt underlay
+  could join a future ground pass.
+
 ## HUD — weather indicator
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "HUD - weather

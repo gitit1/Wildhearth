@@ -5,7 +5,7 @@ import {
 } from "./engine/input";
 import { applyCamera, screenToWorld, adjustZoom } from "./engine/camera";
 import { paintGround } from "./world/ground";
-import { HOUSE, BARN, STALL, TREES, BUSK_SPOT, HOUSE_DOOR, ROOM, ROOM_ENTRY, FLOWER_BEDS } from "./world/zones";
+import { HOUSE, BARN, STALL, TREES, BUSK_SPOT, HOUSE_DOOR, ROOM, ROOM_ENTRY, FLOWER_BEDS, fieldBounds } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
   drawTree, drawFence, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
@@ -20,8 +20,8 @@ import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
 import {
-  loadPlots, savePlots, resetPlots, createFarmWork, updateFarmWork, updatePlots,
-  rollPlotsDay, cancelWork,
+  loadPlots, savePlots, resetPlots, expansionCells, createFarmWork, updateFarmWork,
+  updatePlots, rollPlotsDay, cancelWork,
 } from "./systems/farming";
 import { cropById, cropBySeed } from "./data/crops";
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
@@ -50,7 +50,7 @@ import {
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
 import { updateHud, setPrompt, toast, updateToast } from "./ui/hud";
 import { initBackpack, updateBackpack } from "./ui/backpack";
-import { initMinimap, updateMinimap } from "./ui/minimap";
+import { initMinimap, updateMinimap, setMinimapField } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
 import { initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow } from "./ui/shopwindow";
 import { showTitle, hideOpening } from "./ui/titlescreen";
@@ -85,12 +85,12 @@ const economy = loadEconomy();
 const fishing = createFishing();
 const foraging = createForaging();
 const bushes = createBushes();
-const plots = loadPlots();     // the field persists: crops, watering, wilt
+const farm = loadFarm();       // loaded before the plots — the field's size depends on plotTiers
+const plots = loadPlots(farm.plotTiers);   // the field persists: crops, watering, wilt, expansions
 const farmwork = createFarmWork();
 const busking = createBusking();
 const cooking = createCooking();
 const skills = loadSkills();
-const farm = loadFarm();
 const garden = loadGarden();
 const collections = loadCollections();
 const memories = loadMemories();
@@ -99,8 +99,18 @@ const weather = loadWeather();
 const worldFlags = loadWorldFlags();
 const meta = loadMeta();
 registerBushes(bushes);
-registerPlots(plots, () => currentSeason(calendar));
+registerPlots(plots, plots, () => currentSeason(calendar));
 registerFlowerBeds(garden);
+setMinimapField(fieldBounds(farm.plotTiers));
+
+/** A just-bought expansion tier becomes real, tillable field on the spot. */
+function expandFarm() {
+  const fresh = expansionCells(farm.plotTiers);   // plotTiers was already incremented
+  plots.push(...fresh);
+  registerPlots(fresh, plots, () => currentSeason(calendar));
+  savePlots(plots);
+  setMinimapField(fieldBounds(farm.plotTiers));
+}
 for (const c of cows) registerAnimal("cow", c, cows);
 for (const h of hens) registerAnimal("hen", h, hens);
 initBackpack(economy);
@@ -185,7 +195,8 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   const seeded = getSkill(skills, tool === "hoe" ? "farming" : tool === "rod" ? "fishing" : "busking");
   if (seeded) seeded.value = STARTER_SKILL_SEED;
   saveSkills(skills);
-  resetPlots(plots);
+  resetPlots(plots);                        // also drops purchased expansion cells
+  setMinimapField(fieldBounds(0));
   resetGarden(garden);
   resetCollections(collections);
   resetMemories(memories);
@@ -249,6 +260,7 @@ function tick(now: number) {
     economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, player,
     toast, openShop: openShopWindow, enterHouse, leaveHouse, skillPopup: skillGainPopup,
     memory: remember,
+    expandFarm,
   };
 
   // walking away from the stall closes the trade window
@@ -438,7 +450,7 @@ function draw() {
   ctx.clearRect(camx, camy, vw, vh);
   ctx.drawImage(ground, 0, 0);
   drawWaterShimmer(ctx, time);
-  drawFence(ctx, farm.fence);
+  drawFence(ctx, farm.fence, fieldBounds(farm.plotTiers));
 
   // the farm plot inside the fenced field (ground-level, under entities)
   for (const c of plots) {

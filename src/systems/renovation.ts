@@ -16,10 +16,11 @@ export interface FarmState {
   window: boolean;
   barn: boolean;
   fence: boolean;
+  plotTiers: number;   // purchased farm-plot expansions (money-gated block)
 }
 
 function fresh(): FarmState {
-  return { version: 1, roof: false, window: false, barn: false, fence: false };
+  return { version: 1, roof: false, window: false, barn: false, fence: false, plotTiers: 0 };
 }
 
 export function loadFarm(): FarmState {
@@ -27,7 +28,10 @@ export function loadFarm(): FarmState {
     const raw = localStorage.getItem(RENOVATION_KEY);
     if (!raw) return fresh();
     const p = JSON.parse(raw) as Partial<FarmState>;
-    return { version: 1, roof: !!p.roof, window: !!p.window, barn: !!p.barn, fence: !!p.fence };
+    return {
+      version: 1, roof: !!p.roof, window: !!p.window, barn: !!p.barn, fence: !!p.fence,
+      plotTiers: typeof p.plotTiers === "number" ? Math.max(0, Math.floor(p.plotTiers)) : 0,
+    };
   } catch {
     return fresh();
   }
@@ -37,9 +41,10 @@ export function saveFarm(f: FarmState) {
   localStorage.setItem(RENOVATION_KEY, JSON.stringify(f));
 }
 
-/** New Game: the whole farm falls back to rundown. */
+/** New Game: the whole farm falls back to rundown, expansions included. */
 export function resetFarm(f: FarmState) {
   f.roof = f.window = f.barn = f.fence = false;
+  f.plotTiers = 0;
   saveFarm(f);
 }
 

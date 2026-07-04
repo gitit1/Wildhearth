@@ -31,6 +31,9 @@ export const REPAIR_COST = { roof: 25, window: 15, barn: 30, fence: 10 } as cons
 
 export const HEN_PRICE = 45;            // livestock (price anchor: first hen 40-50)
 export const COW_PRICE = 175;           // livestock (price anchor: first cow 150-200)
+// Farm plot expansions: above fence-repair scale (10), at animal-tier spends —
+// tier 1 lands between hen and cow, tier 2 at cow tier. Each adds 22 tiles (+20%).
+export const PLOT_EXPANSION_PRICES = [120, 180] as const;
 
 export const TILL_TIME = 1.0;           // seconds to till a plot tile
 export const PLANT_TIME = 0.7;          // seconds to plant seeds

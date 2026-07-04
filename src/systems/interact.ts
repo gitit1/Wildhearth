@@ -1,5 +1,5 @@
 import { POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS } from "../world/zones";
-import { REPAIR_COST, FEED_GAIN_ITEM } from "../config";
+import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES } from "../config";
 import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
 import { saveFarm, repairsLeft, type FarmState, type FarmPart } from "./renovation";
@@ -41,6 +41,7 @@ export interface InteractCtx {
   leaveHouse: () => void;
   skillPopup: (id: string, amount: number) => void;
   memory: (key: string, text: string) => void;   // once-only Memory Book events
+  expandFarm: () => void;                        // materialize a just-bought plot tier
 }
 
 /** True while any timed activity is running (they are mutually exclusive). */
@@ -183,6 +184,24 @@ const house: Interactable = {
           label: `${r.label} (${REPAIR_COST[r.part]})`,
           run: (c) => doRepair(c, r.part),
         });
+    // farm plot expansion (money-gated block): the next tier, while one exists
+    const nextTier = c.farm.plotTiers;   // 0-based index of the tier on offer
+    const price = PLOT_EXPANSION_PRICES[nextTier];
+    if (price !== undefined)
+      list.push({
+        id: "expand-plot",
+        label: `Expand the field (${price})`,
+        run: (c) => {
+          if (c.economy.coins < price) { c.toast(`Not enough coins — the land costs ${price}.`); return; }
+          c.economy.coins -= price;
+          saveEconomy(c.economy);
+          c.farm.plotTiers += 1;
+          saveFarm(c.farm);
+          c.expandFarm();   // main materializes the new strip of tillable cells
+          c.toast("The fence leaps outward — more field to work!");
+          c.memory("first_expansion", "The farm grew beyond its first fence.");
+        },
+      });
     list.push({
       id: "look", label: "Look",
       run: (c) => {
@@ -412,16 +431,20 @@ export function registerBushes(bushes: Bush[]) {
 }
 
 /** Plot tiles: till (hoe) -> plant (a held, in-season seed) -> water daily ->
- *  harvest; wilted crops get cleared. Active tending per the crop block. */
-export function registerPlots(cells: PlotCell[], currentSeason: () => Season) {
-  cells.forEach((cell, i) => {
+ *  harvest; wilted crops get cleared. Active tending per the crop block.
+ *  Callable again for newly-purchased expansion cells: ids come from a module
+ *  counter, and hit/reach guard on live-array membership so cells dropped by
+ *  a New Game go inert (the same pattern as animals). */
+let plotIdSeq = 0;
+export function registerPlots(cells: PlotCell[], all: PlotCell[], currentSeason: () => Season) {
+  cells.forEach((cell) => {
     INTERACTABLES.push({
-      id: `plot-${i}`,
+      id: `plot-${plotIdSeq++}`,
       name: "Plot",
       anchor: [cell.x, cell.y + 24],
       defaultActionId: "work",
-      hit: (wx, wy) => Math.abs(wx - cell.x) <= 16 && Math.abs(wy - cell.y) <= 16,
-      inReach: (px, py) => Math.hypot(px - cell.x, py - cell.y) < 46,
+      hit: (wx, wy) => all.includes(cell) && Math.abs(wx - cell.x) <= 16 && Math.abs(wy - cell.y) <= 16,
+      inReach: (px, py) => all.includes(cell) && Math.hypot(px - cell.x, py - cell.y) < 46,
       actions: (c) => {
         const list: MenuAction[] = [];
         if (cell.state === "wild")

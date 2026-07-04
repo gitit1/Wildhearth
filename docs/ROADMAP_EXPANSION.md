@@ -836,7 +836,7 @@ table so a loved gift and a rare-fish sale feel proportionate in the economy.
 ---
 
 ## Farm plot expansion — money-gated
-- [ ] not started
+- [x] built, verified in-browser (two discrete south tiers at 120/180 via the farmhouse hub; fence + minimap + tillable cells grow instantly and persist), committed — 2026-07-04 (autorun batch 2)
 
 The farm's tillable/usable area is not fixed forever. Once the starting plot
 is in use, the player can buy expansions that grow the usable farm area,

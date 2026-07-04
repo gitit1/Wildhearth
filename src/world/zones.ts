@@ -7,9 +7,11 @@ export const HOUSE = { x: 7.5 * T, y: 5 * T,    w: 5 * T,   h: 3.4 * T };
 export const BARN  = { x: 14 * T,  y: 10.4 * T, w: 3.6 * T, h: 2.8 * T };
 export const STALL = { x: 16.2 * T, y: 6.2 * T, w: 2.4 * T, h: 1.6 * T };
 export const POND  = { cx: 9 * T, cy: 19.4 * T, rx: 3.6 * T, ry: 2.2 * T };
+// The two trees south of the field sit below tile row 20.5 so the tier-2
+// plot expansion's fence (bottom row 19) never swallows them.
 export const TREES: Array<[number, number]> = [
-  [3 * T, 3 * T], [2.2 * T, 9 * T], [4 * T, 16 * T], [26 * T, 19 * T],
-  [31 * T, 19.5 * T], [17 * T, 2.2 * T], [30 * T, 2.6 * T], [22.5 * T, 21 * T],
+  [3 * T, 3 * T], [2.2 * T, 9 * T], [4 * T, 16 * T], [26 * T, 20.8 * T],
+  [31.5 * T, 21 * T], [17 * T, 2.2 * T], [30 * T, 2.6 * T], [22.5 * T, 21 * T],
 ];
 /** Berry bushes in the forest-edge cluster west of the farm. */
 export const BUSHES: Array<[number, number]> = [
@@ -17,6 +19,22 @@ export const BUSHES: Array<[number, number]> = [
 ];
 /** The whole fenced field is tillable (MVP farming, Step 5). Cells are T x T. */
 export const PLOT = { x: FIELD.x0 * T, y: FIELD.y0 * T, cols: FIELD.x1 - FIELD.x0, rows: FIELD.y1 - FIELD.y0 };
+
+/**
+ * Farm plot expansions (money-gated block): discrete full-width strips south
+ * of the field, so each purchase keeps the fenced area one clean rectangle
+ * and the fence visibly leaps outward the moment it's bought.
+ */
+export const PLOT_EXPANSIONS = [
+  { x: FIELD.x0 * T, y: FIELD.y1 * T, cols: FIELD.x1 - FIELD.x0, rows: 2 },        // tier 1: rows 15-16
+  { x: FIELD.x0 * T, y: (FIELD.y1 + 2) * T, cols: FIELD.x1 - FIELD.x0, rows: 2 },  // tier 2: rows 17-18
+] as const;
+
+/** The fenced field's tile bounds for the current expansion tier. */
+export function fieldBounds(tiers: number): { x0: number; y0: number; x1: number; y1: number } {
+  const t = Math.max(0, Math.min(PLOT_EXPANSIONS.length, tiers));
+  return { x0: FIELD.x0, y0: FIELD.y0, x1: FIELD.x1, y1: FIELD.y1 + 2 * t };
+}
 /** Busking spot: a little plaza corner between the barn and the field gate. */
 export const BUSK_SPOT: [number, number] = [18.3 * T, 10.4 * T];
 
