@@ -256,7 +256,7 @@ them overlap or clobber each other.
 ---
 
 ## Camera zoom
-- [ ] not started
+- [x] built, verified in-browser (wheel + on-screen ± buttons, clamped bounds), committed — 2026-07-04 (autorun branch)
 
 **Camera zoom.** `src/engine/camera.ts` gets zoom in/out — both a
 mouse scroll-wheel handler on the game canvas and an on-screen

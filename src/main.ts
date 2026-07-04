@@ -3,7 +3,7 @@ import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget, clearMoveTarget,
 } from "./engine/input";
-import { applyCamera, screenToWorld } from "./engine/camera";
+import { applyCamera, screenToWorld, adjustZoom } from "./engine/camera";
 import { paintGround } from "./world/ground";
 import { HOUSE, BARN, STALL, TREES, BUSK_SPOT, HOUSE_DOOR, ROOM, ROOM_ENTRY, FLOWER_BEDS } from "./world/zones";
 import { drawInterior } from "./art/interior";
@@ -65,6 +65,14 @@ function fit() {
 addEventListener("resize", fit); fit();
 
 initInput(cv, document.getElementById("actBtn")!);
+
+// camera zoom: mouse wheel over the play window, plus on-screen +/− (touch)
+cv.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  adjustZoom(e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+document.getElementById("zoomIn")!.addEventListener("click", () => adjustZoom(1));
+document.getElementById("zoomOut")!.addEventListener("click", () => adjustZoom(-1));
 const ground = paintGround();
 const player = createPlayer();
 const livestock = loadLivestock();

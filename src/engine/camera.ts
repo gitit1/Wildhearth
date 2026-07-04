@@ -1,8 +1,18 @@
-import { WORLD_W, WORLD_H, CAM_ZOOM_MIN, CAM_ZOOM_MAX, CAM_ZOOM_REF_W } from "../config";
+import {
+  WORLD_W, WORLD_H, CAM_ZOOM_MIN, CAM_ZOOM_MAX, CAM_ZOOM_REF_W,
+  CAM_USER_ZOOM_MIN, CAM_USER_ZOOM_MAX, CAM_USER_ZOOM_STEP,
+} from "../config";
 
 /** Latest camera state, kept so screen clicks can be mapped back to the world. */
 let lastCam = { camx: 0, camy: 0, scale: 1 };
 let canvas: HTMLCanvasElement | null = null;
+
+/** Player-controlled zoom factor on top of the automatic fit (wheel / +−). */
+let userZoom = 1;
+export function adjustZoom(steps: number) {
+  userZoom = Math.max(CAM_USER_ZOOM_MIN, Math.min(CAM_USER_ZOOM_MAX, userZoom + steps * CAM_USER_ZOOM_STEP));
+}
+export function zoomFactor(): number { return userZoom; }
 
 /** Applies a camera transform centred on (fx,fy), clamped to `bounds`
  *  (the world by default; a scene smaller than the viewport — the house
@@ -16,7 +26,8 @@ export function applyCamera(
   // scale multiplies by dpr so hi-dpi displays keep the same framing, crisp.
   // Derived from the play window's own width (the canvas), not the screen.
   const cssW = cv.width / devicePixelRatio;
-  const zoom = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, (cssW / CAM_ZOOM_REF_W) * devicePixelRatio));
+  const autoZoom = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, (cssW / CAM_ZOOM_REF_W) * devicePixelRatio));
+  const zoom = autoZoom * userZoom;   // the player's wheel/buttons scale the automatic fit
   const scale = zoom * devicePixelRatio;
   const vw = cv.width / scale, vh = cv.height / scale;
   let camx = bounds.w < vw ? (bounds.w - vw) / 2 : Math.max(0, Math.min(bounds.w - vw, fx - vw / 2));

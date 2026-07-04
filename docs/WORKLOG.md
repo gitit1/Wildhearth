@@ -42,6 +42,30 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Camera zoom
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Camera zoom")
+  `engine/camera.ts` gets zoom in/out — a mouse scroll-wheel handler on the
+  game canvas and an on-screen button pair for touch, adjusting the existing
+  scale within reasonable min/max bounds.
+- **Done:**
+  - `src/engine/camera.ts`: a player `userZoom` factor multiplies the
+    automatic fit; `adjustZoom(steps)` clamps it to
+    `CAM_USER_ZOOM_MIN/MAX` (0.6–2.4, step 0.15 — knobs in config).
+  - `src/main.ts`: wheel listener on the canvas (preventDefault, notch = one
+    step) + `#zoomIn`/`#zoomOut` click wiring.
+  - `index.html`: a stacked ＋/− button pair bottom-right of the play area,
+    styled like the existing tool buttons.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 5/5, measured by counting the
+  farmer's exact shirt-tone pixels on the live canvas (sprite area scales
+  with zoom²): baseline 398px → 1326px after five wheel-ups → 128px zoomed
+  out → unchanged after 20 more wheel-downs (min clamp holds) → 982px after
+  six ＋-button presses (touch path). Screenshot reviewed at max zoom-in.
+- **Commit:** Camera zoom
+- **Follow-ups:** zoom level is session-only (not persisted) — the spec
+  doesn't ask for persistence; noted in case it's wanted later.
+
 ## Toast/notification queue
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Toast/notification

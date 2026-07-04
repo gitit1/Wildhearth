@@ -59,6 +59,9 @@ export const DRAG_THRESHOLD = 10;       // px of travel before a press is a joys
 export const CAM_ZOOM_MIN = 1.4;        // camera zoom (CSS px per world px) bounds
 export const CAM_ZOOM_MAX = 2.2;
 export const CAM_ZOOM_REF_W = 900;      // window width where zoom starts growing past min
+export const CAM_USER_ZOOM_MIN = 0.6;   // player zoom factor bounds (wheel / +− buttons)...
+export const CAM_USER_ZOOM_MAX = 2.4;
+export const CAM_USER_ZOOM_STEP = 0.15; // ...changed by this much per wheel notch / button press
 
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
