@@ -1,14 +1,16 @@
 import { openingRoot } from "./titlescreen";
 import { drawItemIcon } from "../art/icons";
 import { STARTER_SKILL_SEED } from "../config";
+import type { StarterTool } from "../systems/meta";
 
 /**
  * Starter choice (hoe / rod / instrument) + the tutorial toggle — the last
  * two screens of the opening sequence. The choice grants the tool and seeds
- * its skill; the toggle is a normal, changeable setting.
+ * its skill; the toggle is a normal, changeable setting. The StarterTool type
+ * lives in systems/meta (it's persisted game origin, not a UI concept).
  */
 
-export type StarterTool = "hoe" | "rod" | "lute";
+export type { StarterTool };
 
 const CHOICES: Array<{ tool: StarterTool; title: string; blurb: string }> = [
   { tool: "hoe", title: "The Hoe", blurb: `Work the land from day one. +${STARTER_SKILL_SEED} Farming.` },

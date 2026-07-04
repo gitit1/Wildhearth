@@ -241,7 +241,23 @@ passes.
 - Checkpoint: the farm visibly changes as a direct result of money earned
   — the renovation arc from VISION.md is now real, not just described.
 
-## Step 9 — Save/load hardening
+## Step 9 — Save/load hardening (DONE)
+Done (2026-07-04): every persisted store now carries its own version and a
+junk-tolerant loader — economy (v2, migrates the legacy v1 `{coins, fish}`
+shape), inventory (revived tolerantly inside the economy save), skills,
+farm-repair, settings (version + non-object guard), and the new
+`systems/meta.ts` recording the starter choice (the roadmap's missing store).
+Two new hardening pieces: `systems/saves.ts` is the persistence hub —
+`hasSavedGame()` (Continue is offered only for a present *and parseable* save,
+so a corrupt blob falls back to New Game) and `clearSavedGame()` (wipes every
+game-state key, leaving settings + UI panel layout intact). New Game routes
+through `clearSavedGame()` then re-seeds and stamps the chosen tool into meta;
+the guided first-tip now points at the livelihood the starter tool unlocks.
+Verified in-browser (14/14 + a corrupt-boot probe): corrupt-save gating, a
+full new-game → fish → reload → Continue round-trip restoring skill and
+inventory exactly, starter choice persistence, New Game wiping game state
+while keeping UI layout, and a clean boot with every key corrupted (no page
+errors). `npm run build` passes. This is the MVP finish line.
 - Version the save schema (`SAVE_KEY` + a `version` field already
   scaffolded in `economy.ts` — extend the same pattern to inventory,
   skills, farm-repair state, starter choice).

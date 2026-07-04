@@ -6,16 +6,20 @@ import { SETTINGS_KEY } from "../config";
  * a normal, changeable setting, not a one-time flag.
  */
 
-export interface Settings { guided: boolean }
+export interface Settings { version: number; guided: boolean }
 
-const DEFAULTS: Settings = { guided: true };
+const DEFAULTS: Settings = { version: 1, guided: true };
 let cached: Settings | null = null;
 
 export function loadSettings(): Settings {
   if (cached) return cached;
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    cached = raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    // tolerate junk / a bare value: only merge a real object over the defaults
+    cached = parsed && typeof parsed === "object"
+      ? { ...DEFAULTS, ...(parsed as Partial<Settings>), version: 1 }
+      : { ...DEFAULTS };
   } catch { cached = { ...DEFAULTS }; }
   return cached!;
 }

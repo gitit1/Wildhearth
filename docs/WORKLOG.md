@@ -42,6 +42,64 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Step 9 — Save/load hardening
+- **Date:** 2026-07-04
+- **Block given:** (from `docs/ROADMAP_MVP.md`, Step 9 — Save/load hardening)
+  - Version the save schema (`SAVE_KEY` + a `version` field already scaffolded
+    in `economy.ts` — extend the same pattern to inventory, skills, farm-repair
+    state, starter choice).
+  - One explicit "new game" vs "continue" entry point.
+  - Checkpoint: this is the MVP finish line. Closing and reopening the browser
+    preserves everything above.
+- **Done:**
+  - **Files:**
+    - `src/systems/meta.ts` (NEW): the playthrough-origin store — records the
+      starter choice (the roadmap's one missing store), versioned and
+      junk-tolerant. Now owns the `StarterTool` type.
+    - `src/systems/saves.ts` (NEW): the persistence hub — knows the whole set
+      of game-state keys; `hasSavedGame()` and `clearSavedGame()`.
+    - `src/config.ts`: added `META_KEY = "wildhearth-meta-v1"`.
+    - `src/ui/newgame.ts`: imports `StarterTool` from `systems/meta` and
+      re-exports it (the type is persisted game origin, not a UI concept), so
+      existing importers are unchanged.
+    - `src/systems/settings.ts`: added a `version` field and a non-object
+      parse guard (a bare/junk value now falls back to defaults instead of
+      being spread over them).
+    - `src/main.ts`: loads meta (`const meta = loadMeta()`); the title screen
+      is gated on `hasSavedGame()` instead of raw key presence; `newGameReset`
+      calls `clearSavedGame()` first, then re-seeds and stamps
+      `meta.starterTool` + `saveMeta`; the guided first-tip (`firstTip()`) is
+      tailored to the chosen starter tool; dropped the now-unused `SAVE_KEY`
+      import.
+    - `docs/ROADMAP_MVP.md`: Step 9 marked (DONE) with the dated note.
+  - **Systems / functions:**
+    - New save key `wildhearth-meta-v1` (`META_KEY`).
+    - New type `Meta { version, starterTool }`; `StarterTool` union relocated
+      to `systems/meta`. New fns `loadMeta()`, `saveMeta()`.
+    - `saves.ts`: `hasSavedGame()` (present-and-parseable check), and
+      `clearSavedGame()` over the `GAME_KEYS` set (economy, skills, renovation,
+      meta — deliberately excludes settings + UI layout).
+    - `settings.ts`: `Settings` now carries `version`.
+    - `main.ts`: `firstTip()`; `newGameReset` now wipes-then-seeds and persists
+      the starter choice.
+  - **Behavior:** Continue is offered only when a real, parseable save exists —
+    a corrupt save now falls back to New Game rather than a broken Continue.
+    Closing and reopening restores coins, backpack, skills, farm repairs, and
+    the remembered starter choice exactly. New Game wipes all game state (via
+    one `clearSavedGame()` call) yet keeps player settings and panel layout;
+    the guided first-tip now points at the livelihood the chosen tool unlocks.
+    A fully corrupt localStorage boots cleanly to the title with no errors.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright, 14/14 checks + a corrupt-boot probe:
+  corrupt-save gating, a full new-game → fish → reload → Continue round-trip
+  restoring Fishing 10.3 and the caught fish exactly, starter-choice
+  persistence + tailored tip surviving Continue, New Game wiping
+  coins/bag/skills/farm while preserving UI panel layout, and a clean boot
+  with every key corrupted (zero page errors).
+- **Commit:** <fill after committing>
+- **Follow-ups:** none. This is the MVP finish line — every ROADMAP_MVP.md
+  checkpoint is now complete; next work is `docs/ROADMAP_EXPANSION.md`.
+
 ## Step 8 — Farm repair (tier-1 visible renovation)
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/ROADMAP_MVP.md`, Step 8 — Farm repair

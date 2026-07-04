@@ -1,4 +1,4 @@
-import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, SAVE_KEY } from "./config";
+import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget, clearMoveTarget,
@@ -25,6 +25,8 @@ import { removeItem, countItem, addItem } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
+import { loadMeta, saveMeta } from "./systems/meta";
+import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel, registerBushes, registerPlots,
   type Interactable, type InteractCtx,
@@ -63,6 +65,7 @@ const farmwork = createFarmWork();
 const busking = createBusking();
 const skills = loadSkills();
 const farm = loadFarm();
+const meta = loadMeta();
 registerBushes(bushes);
 registerPlots(plots);
 initBackpack(economy);
@@ -77,15 +80,27 @@ const smoke: Puff[] = [];
 let openingActive = true;
 let hintSellShown = false;
 
+// The guided first-tip points at the livelihood the starter tool unlocks, so
+// the very first thing the game suggests matches what the player just chose.
+function firstTip(): string {
+  switch (meta.starterTool) {
+    case "rod":  return "Tip: click the pond to cast — your rod's ready. First coins await!";
+    case "lute": return "Tip: click the busking spot and play a tune for your first coins!";
+    case "hoe":  return "Tip: forage a bush or fish the pond for first coins — then buy seeds for your hoe.";
+    default:     return "Tip: click the pond to fish or a bush to forage — first coins!";
+  }
+}
+
 function beginPlay() {
   hideOpening();
   openingActive = false;
   consumeAction(); consumeLeftClick(); consumeRightClick(); clearMoveTarget();
   if (isGuided())
-    setTimeout(() => toast("Tip: click the pond to fish or a bush to forage — first coins!"), 500);
+    setTimeout(() => toast(firstTip()), 500);
 }
 
 function newGameReset(tool: StarterTool, guided: boolean) {
+  clearSavedGame();                 // wipe every game-state key first, then re-seed fresh
   economy.coins = 0;
   economy.inv.slots.fill(null);
   addItem(economy.inv, tool);
@@ -97,11 +112,13 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   for (const c of plots) { c.state = "wild"; c.growth = 0; }
   for (const b of bushes) { b.full = true; b.regrow = 0; }
   resetFarm(farm);
-  saveSettings({ guided });
+  meta.starterTool = tool;
+  saveMeta(meta);
+  saveSettings({ guided });         // settings are not game state — kept across a New Game
 }
 
 showTitle(
-  !!localStorage.getItem(SAVE_KEY),
+  hasSavedGame(),
   () => showIntro(() => showReveal(() => showStarterChoice((tool) =>
     showTutorialToggle((guided) => { newGameReset(tool, guided); beginPlay(); })))),
   beginPlay,
