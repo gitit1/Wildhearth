@@ -1,6 +1,8 @@
-import { POND, STALL, BUSK_SPOT } from "../world/zones";
+import { POND, STALL, BUSK_SPOT, HOUSE } from "../world/zones";
+import { REPAIR_COST } from "../config";
 import { nearPond, nearRect } from "../world/collision";
-import type { Economy } from "./economy";
+import { saveEconomy, type Economy } from "./economy";
+import { saveFarm, type FarmState, type FarmPart } from "./renovation";
 import { startCast, type FishingState } from "./fishing";
 import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
@@ -24,6 +26,7 @@ export interface InteractCtx {
   farmwork: FarmWork;
   busking: BuskingState;
   skills: Skills;
+  farm: FarmState;
   player: Player;
   toast: (s: string) => void;
   openShop: () => void;
@@ -115,7 +118,64 @@ const buskSpot: Interactable = {
   drawHover: (g, t) => glowEllipse(g, BUSK_SPOT[0], BUSK_SPOT[1], 26, 19, t),
 };
 
-export const INTERACTABLES: Interactable[] = [pond, stall, buskSpot];
+// The farmhouse is the renovation hub (Step 8): walk up to it and each still-
+// broken part offers a paid repair that flips its rundown flag and swaps the
+// painter output. Kept on the house (not per-structure) so the whole
+// tillable field stays clickable — a fence hitbox would overlap the plots.
+const REPAIRS: Array<{ part: FarmPart; label: string; done: string }> = [
+  { part: "roof",   label: "Patch the roof",     done: "The roof is whole again." },
+  { part: "window", label: "Reglaze the window", done: "Clean glass lets the light back in." },
+  { part: "barn",   label: "Mend the barn",      done: "The barn stands square again." },
+  { part: "fence",  label: "Mend the fence",     done: "The field fence is sound again." },
+];
+
+function doRepair(c: InteractCtx, part: FarmPart) {
+  if (c.farm[part]) return;
+  const cost = REPAIR_COST[part];
+  if (c.economy.coins < cost) { c.toast(`Not enough coins — that repair costs ${cost}.`); return; }
+  c.economy.coins -= cost;
+  saveEconomy(c.economy);
+  c.farm[part] = true;
+  saveFarm(c.farm);
+  c.toast(REPAIRS.find((r) => r.part === part)!.done);
+}
+
+// The drawn house rises above HOUSE.y (the roof) — cover that in the hitbox.
+const houseBox = { x: HOUSE.x - 10, y: HOUSE.y - HOUSE.h * 0.3, w: HOUSE.w + 20, h: HOUSE.h * 1.3 };
+
+const house: Interactable = {
+  id: "house",
+  name: "Farmhouse",
+  anchor: [HOUSE.x + HOUSE.w / 2, HOUSE.y + HOUSE.h + 20],
+  defaultActionId: "repair-next",   // no action owns this id -> resolves to the first repair (or Look)
+  hit: (wx, wy) =>
+    wx >= houseBox.x && wx <= houseBox.x + houseBox.w &&
+    wy >= houseBox.y && wy <= houseBox.y + houseBox.h,
+  inReach: (px, py) => nearRect(px, py, HOUSE),
+  actions: (c) => {
+    const list: MenuAction[] = [];
+    for (const r of REPAIRS)
+      if (!c.farm[r.part])
+        list.push({
+          id: `repair-${r.part}`,
+          label: `${r.label} (${REPAIR_COST[r.part]})`,
+          run: (c) => doRepair(c, r.part),
+        });
+    list.push({
+      id: "look", label: "Look",
+      run: (c) => {
+        const left = REPAIRS.filter((r) => !c.farm[r.part]).length;
+        c.toast(left === 0
+          ? "Your farmhouse — mended, warm, and wholly yours."
+          : `Your farmhouse. ${left} repair${left === 1 ? "" : "s"} left before it's whole.`);
+      },
+    });
+    return list;
+  },
+  drawHover: (g, t) => glowRect(g, houseBox.x - 2, houseBox.y - 2, houseBox.w + 4, houseBox.h + 4, t),
+};
+
+export const INTERACTABLES: Interactable[] = [pond, stall, buskSpot, house];
 
 /** Berry bushes are runtime state, so they join the registry at game init. */
 export function registerBushes(bushes: Bush[]) {

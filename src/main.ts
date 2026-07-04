@@ -24,6 +24,7 @@ import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/bus
 import { removeItem, countItem, addItem } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided } from "./systems/settings";
+import { loadFarm, resetFarm } from "./systems/renovation";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel, registerBushes, registerPlots,
   type Interactable, type InteractCtx,
@@ -61,6 +62,7 @@ const plots = createPlots();
 const farmwork = createFarmWork();
 const busking = createBusking();
 const skills = loadSkills();
+const farm = loadFarm();
 registerBushes(bushes);
 registerPlots(plots);
 initBackpack(economy);
@@ -70,9 +72,6 @@ initShopWindow(economy, skills, toast);
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
-
-// The farm starts rundown; Step 8 (renovation) turns this into per-repair state.
-const FARM_RUNDOWN = true;
 
 // ---- opening sequence (title -> intro -> reveal -> choice -> tutorial) ----
 let openingActive = true;
@@ -97,6 +96,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   saveSkills(skills);
   for (const c of plots) { c.state = "wild"; c.growth = 0; }
   for (const b of bushes) { b.full = true; b.regrow = 0; }
+  resetFarm(farm);
   saveSettings({ guided });
 }
 
@@ -129,7 +129,7 @@ function tick(now: number) {
   }
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, player, toast, openShop: openShopWindow };
+  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, farm, player, toast, openShop: openShopWindow };
 
   // walking away from the stall closes the trade window
   if (isShopOpen() && !nearRect(player.x, player.y, STALL)) closeShopWindow();
@@ -267,7 +267,7 @@ function draw() {
   ctx.clearRect(camx, camy, vw, vh);
   ctx.drawImage(ground, 0, 0);
   drawWaterShimmer(ctx, time);
-  drawFence(ctx, FARM_RUNDOWN);
+  drawFence(ctx, farm.fence);
 
   // the farm plot inside the fenced field (ground-level, under entities)
   for (const c of plots) {
@@ -279,8 +279,8 @@ function draw() {
 
   // depth-sorted world objects + entities
   const ents: Array<{ y: number; f: () => void }> = [
-    { y: HOUSE.y + HOUSE.h, f: () => drawHouse(ctx, FARM_RUNDOWN) },
-    { y: BARN.y + BARN.h, f: () => drawBarn(ctx, FARM_RUNDOWN) },
+    { y: HOUSE.y + HOUSE.h, f: () => drawHouse(ctx, farm.roof, farm.window) },
+    { y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
     { y: player.y + 13, f: () => drawFarmer(ctx, player, time) },
   ];

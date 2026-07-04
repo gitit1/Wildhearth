@@ -1,7 +1,7 @@
 import { HOUSE, BARN, STALL } from "../world/zones";
 import { shadow } from "./shapes";
 
-export function drawHouse(g: CanvasRenderingContext2D, rundown = false) {
+export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk = true) {
   const { x, y, w, h } = HOUSE;
   shadow(g, x + w / 2 + 8, y + h + 8, w * 0.55, 12);
   g.fillStyle = "#c9a06a"; g.fillRect(x, y + h * 0.35, w, h * 0.65);
@@ -28,7 +28,7 @@ export function drawHouse(g: CanvasRenderingContext2D, rundown = false) {
   g.fillStyle = "#8c8c94"; g.fillRect(x + w * 0.72, y - h * 0.16, w * 0.09, h * 0.3);
   g.fillStyle = "#6f6f78"; g.fillRect(x + w * 0.72, y - h * 0.16, w * 0.09, 5);
 
-  if (rundown) {
+  if (!roofOk) {
     // hole in the roof, hastily patched with a mismatched plank
     g.fillStyle = "#3a2a1c";
     g.beginPath();
@@ -41,7 +41,9 @@ export function drawHouse(g: CanvasRenderingContext2D, rundown = false) {
     g.translate(x + w * 0.38, y + h * 0.14); g.rotate(-0.35);
     g.fillStyle = "#a58254"; g.fillRect(-w * 0.09, -3, w * 0.18, 6);
     g.restore();
-    // right window boarded shut
+  }
+  if (!windowOk) {
+    // right window boarded shut (drawn over the normal glass pane above)
     const wx = x + w * 0.72, wy = y + h * 0.52, ww = w * 0.15, wh = h * 0.22;
     g.fillStyle = "#4a3a26"; g.fillRect(wx, wy, ww, wh);
     g.strokeStyle = "#8a6a42"; g.lineWidth = 5; g.lineCap = "round";
@@ -50,7 +52,7 @@ export function drawHouse(g: CanvasRenderingContext2D, rundown = false) {
   }
 }
 
-export function drawBarn(g: CanvasRenderingContext2D, rundown = false) {
+export function drawBarn(g: CanvasRenderingContext2D, barnOk = true) {
   const { x, y, w, h } = BARN;
   shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
   g.fillStyle = "#b24a3e"; g.fillRect(x, y + h * 0.3, w, h * 0.7);
@@ -65,7 +67,7 @@ export function drawBarn(g: CanvasRenderingContext2D, rundown = false) {
   g.beginPath(); g.moveTo(x + w * 0.32, y + h * 0.45); g.lineTo(x + w * 0.68, y + h);
   g.moveTo(x + w * 0.68, y + h * 0.45); g.lineTo(x + w * 0.32, y + h); g.stroke();
 
-  if (rundown) {
+  if (!barnOk) {
     // missing wall plank + a board hanging loose over the door
     g.fillStyle = "#3a1f1a";
     g.fillRect(x + w * 0.8, y + h * 0.42, w * 0.07, h * 0.5);

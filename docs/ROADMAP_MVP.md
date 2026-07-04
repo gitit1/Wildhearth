@@ -216,7 +216,22 @@ this order — do not shortcut straight to a bare choice screen:
   and starting the game feels like the start of *this* game, not a bare
   tech demo.
 
-## Step 8 — Farm repair (visible renovation, tier 1 only)
+## Step 8 — Farm repair (visible renovation, tier 1 only) (DONE)
+Done (2026-07-04): `systems/renovation.ts` holds four per-part repair flags
+(roof, window, barn, fence), all false = fully rundown, persisted on their own
+versioned key (`wildhearth-farm-v1`). The painters now read per-part flags
+instead of one blanket `rundown` bool: `drawHouse(g, roofOk, windowOk)`,
+`drawBarn(g, barnOk)`, `drawFence(g, fenceOk)`. The farmhouse is the
+renovation hub — walk up to it and every still-broken part offers a paid
+repair (roof 25, window 15, barn 30, fence 10 — knobs in `config.REPAIR_COST`):
+left-click / E does the next repair, right-click lists them all; each deducts
+coins, flips its flag, and swaps the painter output instantly. Kept on the
+house (not per-structure) so the whole tillable field stays clickable — a
+fence hitbox would overlap the plots. New Game wipes the farm back to rundown.
+Verified in-browser end to end (11/11): rundown start, all four repairs with
+correct coin deductions (200→120) and live visual swaps, the broke-player
+refusal, Look-only once whole, and persistence across reload. `npm run build`
+passes.
 - `src/art/buildings.ts`: add a "rundown" paint variant for the house
   (patched roof hole, boarded window, broken-plank fence) alongside the
   existing normal state.

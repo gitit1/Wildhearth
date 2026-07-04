@@ -25,6 +25,8 @@ export const BUSK_TIP_BASE_MAX = 3;
 export const BUSK_TIP_SKILL_BONUS = 5;  // extra random tip range unlocked at Busking 100
 export const HAGGLE_MAX_DISCOUNT = 0.25; // shop discount at Haggling 100
 
+export const REPAIR_COST = { roof: 25, window: 15, barn: 30, fence: 10 } as const; // farm renovation, Step 8
+
 export const CORN_PRICE = 5;            // coins per harvested corn at the stall
 export const TILL_TIME = 1.0;           // seconds to till a plot tile
 export const PLANT_TIME = 0.7;          // seconds to plant seeds
@@ -49,4 +51,5 @@ export const CAM_ZOOM_REF_W = 900;      // window width where zoom starts growin
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";
+export const RENOVATION_KEY = "wildhearth-farm-v1";  // per-part farm repair state (Step 8)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

@@ -19,7 +19,8 @@ export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: n
   g.beginPath(); g.arc(x - 6 + sway * 0.4, y - 40, 9, 0, 7); g.fill();
 }
 
-export function drawFence(g: CanvasRenderingContext2D, rundown = false) {
+export function drawFence(g: CanvasRenderingContext2D, fenceOk = true) {
+  const rundown = !fenceOk;   // broken until the field fence is mended (Step 8)
   g.strokeStyle = "#8a6a42"; g.lineWidth = 4; g.lineCap = "round";
   const fx0 = FIELD.x0 * T - 14, fy0 = FIELD.y0 * T - 14;
   const fx1 = FIELD.x1 * T + 14, fy1 = FIELD.y1 * T + 14;

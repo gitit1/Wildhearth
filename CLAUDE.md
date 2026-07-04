@@ -27,6 +27,19 @@ everything after). Do not build ahead of the current phase without asking.
    user may still review docs in chat in Hebrew; the files stay English.
 6. Keep modules small and single-purpose; follow the existing structure below.
 
+## Commit & push workflow (MANDATORY)
+Updating docs/WORKLOG.md is PART of committing. A commit that changes game
+behavior without a matching WORKLOG entry is incomplete. Every time a
+commit or push is requested, in order:
+1. Finish the work for the current block only.
+2. Run `npm run build` and confirm it passes.
+3. Add/update the docs/WORKLOG.md entry for this block (see WORKLOG.md for
+   the required detail level).
+4. `git add -A`
+5. `git commit` — message matches the WORKLOG entry title.
+6. `git push`
+Never split the code change and the WORKLOG update into separate commits.
+
 ## Architecture map
 - src/config.ts — tuning knobs (speeds, prices, sizes)
 - src/engine/ — input (keyboard+touch), camera, deterministic rng
