@@ -100,7 +100,7 @@ just a proper interface for it.
 ---
 
 ## House interior — first pass, deliberately bare and broken
-- [ ] not started
+- [x] built, verified in-browser (enterable, all five bare/broken spots + day-gated wall-crack light), committed — 2026-07-04 (autorun branch)
 
 **House interior — first pass, deliberately bare and broken.** The
 house becomes enterable. Minimum viable rooms, each functional but

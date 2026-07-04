@@ -42,7 +42,7 @@ sheet of exactly what's been detailed vs. just named.
 | Region | Status | Notes |
 |---|---|---|
 | The Farm | 🟢 rundown state built (repairs: roof/window/barn/fence) | renovated states 🟡 (tiers named, visuals not walked through) |
-| House interior | 🔵 | tier-1 bare/broken pass fully speced, not built |
+| House interior | 🟢 tier-1 bare/broken built (enterable; hearth/basin/bed/rest/bare-walls per spec) | tier 2/3 furniture upgrades still 🔵 |
 | Market/dock area | 🟡 | confirmed separate & walkable, layout not detailed |
 | Road (farm → town) | 🔵 | neighboring farm, ambient wildlife, minimap reveal, paid fast travel all speced |
 | Town | 🟡 | inn + 3 merchants + 5-8 homes named, coastal, not walked as a place |

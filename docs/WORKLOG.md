@@ -42,6 +42,61 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## House interior — first pass, deliberately bare and broken
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "House interior — first
+  pass, deliberately bare and broken") The house becomes enterable; minimum
+  viable rooms, each functional but rundown: soot-blackened hearth + rusty pot
+  + empty shelf, cracked basin on a wobbly stand + empty bucket, straw bed with
+  one threadbare blanket and no pillow, a short-legged chair + crate table,
+  bare walls with a crack letting in a line of light at certain times of day,
+  creaky/rotten floorboards.
+- **Done:**
+  - **Files:**
+    - `src/world/zones.ts`: `HOUSE_DOOR` (matches drawHouse's door), `ROOM`
+      (10×7-tile interior coordinate space), spot rects `R_HEARTH`/`R_BASIN`/
+      `R_BED`/`R_REST`/`R_DOOR`, `ROOM_ENTRY`.
+    - `src/world/collision.ts`: scene-aware collision — `Scene` type,
+      `setCollisionScene()` (module-level, camera.ts precedent), interior walls
+      + bed/basin/crate blocking; the world path unchanged.
+    - `src/engine/camera.ts`: `applyCamera` takes optional bounds; a scene
+      smaller than the viewport (the room) is centred instead of corner-pinned.
+    - `src/art/interior.ts` (NEW): the whole room painter — plank floor with two
+      split rotten boards, bare walls, the wall crack with a **day/dawn-gated
+      light shaft** (reads day-phase), sooty hearth + rusty pot + empty shelf,
+      cracked clay basin on a splay-legged stand + bucket, straw mattress +
+      threadbare blanket (worn patch, no pillow), tilted short-leg chair +
+      crate table, worn exit mat.
+    - `src/systems/interact.ts`: `scene` field on Interactable + scene-filtered
+      `hitTest`/`reachable`; new interactables — front door ("Go inside",
+      registered before the house hub so the small hotspot wins), four interior
+      Look spots with flavor text, and the exit mat ("Go outside", ordered
+      before the rest corner so it wins their overlap; rest corner reach
+      tightened). `InteractCtx` gains `enterHouse`/`leaveHouse`.
+    - `src/main.ts`: scene state + `enterHouse()`/`leaveHouse()` (position
+      swap, collision-scene switch, pending/menu cleanup), scene passed to all
+      hit/reach lookups, `drawInteriorScene()` (centred room on darkness,
+      dimmer vignette), minimap update paused indoors, shared `drawVignette`.
+  - **Behavior:** clicking the farmhouse door (or E beside it) steps inside a
+    small, centred room containing exactly the five specced spots, each
+    inspectable with honest tier-1 flavor; the wall crack visibly leaks light
+    during day/dawn; the exit mat walks you back out at the front door. World
+    objects (pond/stall/plots) are unreachable indoors and vice versa. The
+    interior is the future home of Cooking (hearth — next unit) and the Needs
+    system (skipped this run; see AUTORUN notes).
+  - **Not persisted:** which scene you're in — a reload starts outside (the
+    spec doesn't ask for indoor save-position; noted here for honesty).
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 7/7: door offers "Go inside";
+  all four spots found and Look-ed (exact flavor lines asserted); no world
+  interactable leaks into the interior; exit via the mat returns to the yard
+  with the door prompt back. Screenshots reviewed: centred room, hearth/bed/
+  basin/chair/crate/mat all render, light shaft visible at noon.
+- **Commit:** House interior — first pass, deliberately bare and broken
+- **Follow-ups:** hearth Cook action lands with the base-skill-set unit; needs
+  restoration at these spots waits on the Needs system (skipped — social need
+  has no restoration path until NPCs exist).
+
 ## Fish variety (rich tier — 10+ species) + junk catches + the rod gate
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Fish variety (rich tier —

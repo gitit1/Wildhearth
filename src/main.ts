@@ -5,7 +5,8 @@ import {
 } from "./engine/input";
 import { applyCamera, screenToWorld } from "./engine/camera";
 import { paintGround } from "./world/ground";
-import { HOUSE, BARN, STALL, TREES, BUSK_SPOT } from "./world/zones";
+import { HOUSE, BARN, STALL, TREES, BUSK_SPOT, HOUSE_DOOR, ROOM, ROOM_ENTRY } from "./world/zones";
+import { drawInterior } from "./art/interior";
 import {
   drawTree, drawFence, drawBush, drawTilledTile, drawCropTile,
   drawBuskSpot, drawMusicNotes, drawWaterShimmer,
@@ -26,7 +27,7 @@ import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory"
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
-import { loadCalendar, resetCalendar, advanceMinute, currentSeason, absoluteDay } from "./systems/calendar";
+import { loadCalendar, resetCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather } from "./systems/weather";
 import { loadWorldFlags, resetWorldFlags, pruneExpired } from "./systems/worldFlags";
 import { loadMeta, saveMeta } from "./systems/meta";
@@ -45,7 +46,7 @@ import { initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShop
 import { showTitle, hideOpening } from "./ui/titlescreen";
 import { showIntro, showReveal } from "./ui/intro";
 import { showStarterChoice, showTutorialToggle, type StarterTool } from "./ui/newgame";
-import { nearRect } from "./world/collision";
+import { nearRect, setCollisionScene, type Scene } from "./world/collision";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -86,6 +87,28 @@ initShopWindow(economy, skills, farm, livestock,
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
+
+// ---- scenes: the world, and the house interior (tier-1 bare/broken) ----
+let scene: Scene = "world";
+
+function enterHouse() {
+  scene = "interior";
+  setCollisionScene(scene);
+  player.x = ROOM_ENTRY[0]; player.y = ROOM_ENTRY[1];
+  player.moving = false; player.dir = 0;     // stepping in, facing the room
+  clearMoveTarget(); closeContextMenu();
+  pending = null;
+}
+
+function leaveHouse() {
+  scene = "world";
+  setCollisionScene(scene);
+  player.x = HOUSE_DOOR.x + HOUSE_DOOR.w / 2;
+  player.y = HOUSE.y + HOUSE.h + 16;
+  player.moving = false; player.dir = 2;     // stepping out, facing the yard
+  clearMoveTarget(); closeContextMenu();
+  pending = null;
+}
 
 // ---- opening sequence (title -> intro -> reveal -> choice -> tutorial) ----
 let openingActive = true;
@@ -176,16 +199,16 @@ function tick(now: number) {
   }
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, farm, player, toast, openShop: openShopWindow };
+  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, farm, player, toast, openShop: openShopWindow, enterHouse, leaveHouse };
 
   // walking away from the stall closes the trade window
   if (isShopOpen() && !nearRect(player.x, player.y, STALL)) closeShopWindow();
 
   const ps = getPointerScreen();
-  hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1])) : null;
+  hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1]), scene) : null;
   cv.style.cursor = hovered ? "pointer" : "default";
 
-  const near = reachable(player.x, player.y);
+  const near = reachable(player.x, player.y, scene);
   if (fishing.casting) setPrompt("Waiting for a bite...");
   else if (foraging.picking) setPrompt("Picking berries...");
   else if (farmwork.working)
@@ -197,7 +220,7 @@ function tick(now: number) {
   // left-click: act on a clicked object (walking to it first), else walk to the point
   const lc = consumeLeftClick();
   if (lc) {
-    const obj = hitTest(lc.wx, lc.wy);
+    const obj = hitTest(lc.wx, lc.wy, scene);
     if (obj) {
       if (obj.inReach(player.x, player.y)) { runDefault(obj, ictx); pending = null; }
       else { setMoveTarget(obj.anchor[0], obj.anchor[1]); pending = { objId: obj.id, actionId: obj.defaultActionId }; }
@@ -210,7 +233,7 @@ function tick(now: number) {
   // right-click: open a context menu of the object's actions
   const rc = consumeRightClick();
   if (rc) {
-    const obj = hitTest(rc.wx, rc.wy);
+    const obj = hitTest(rc.wx, rc.wy, scene);
     if (obj) {
       const items = obj.actions(ictx).map((a) => ({
         label: a.label,
@@ -306,7 +329,7 @@ function tick(now: number) {
   const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags });
   updateHud(economy, wc.calendar);
   updateBackpack();
-  updateMinimap(player);
+  if (scene === "world") updateMinimap(player);   // inside, the dot would be room coords
   updateSkillsUI();
   updateShopWindow();
   updateToast(dt);
@@ -315,6 +338,7 @@ function tick(now: number) {
 }
 
 function draw() {
+  if (scene === "interior") { drawInteriorScene(); return; }
   const { camx, camy, vw, vh } = applyCamera(ctx, cv, player.x, player.y);
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(camx, camy, vw, vh);
@@ -351,15 +375,31 @@ function draw() {
     ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
   }
 
-  // warm daylight vignette (screen space)
+  drawVignette();
+}
+
+/** Warm daylight vignette (screen space) — shared by both scenes. */
+function drawVignette(inner = "rgba(255,240,200,0)", outer = "rgba(60,50,20,.18)") {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const grd = ctx.createRadialGradient(
     cv.width / 2, cv.height / 2, cv.height * 0.35,
     cv.width / 2, cv.height / 2, cv.height * 0.95
   );
-  grd.addColorStop(0, "rgba(255,240,200,0)");
-  grd.addColorStop(1, "rgba(60,50,20,.18)");
+  grd.addColorStop(0, inner);
+  grd.addColorStop(1, outer);
   ctx.fillStyle = grd; ctx.fillRect(0, 0, cv.width, cv.height);
+}
+
+/** The house interior: the small room, centred, on a dark surround. */
+function drawInteriorScene() {
+  const { camx, camy, vw, vh } = applyCamera(ctx, cv, player.x, player.y, ROOM);
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "#171209";                     // beyond-the-walls darkness
+  ctx.fillRect(camx, camy, vw, vh);
+  drawInterior(ctx, time, currentPhase(calendar));
+  drawFarmer(ctx, player, time);
+  if (hovered) hovered.drawHover(ctx, time);
+  drawVignette("rgba(60,45,25,0)", "rgba(15,10,5,.42)");   // dimmer indoors
 }
 
 void WORLD_W;

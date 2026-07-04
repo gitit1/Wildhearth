@@ -1,4 +1,4 @@
-import { POND, STALL, BUSK_SPOT, HOUSE } from "../world/zones";
+import { POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR } from "../world/zones";
 import { REPAIR_COST } from "../config";
 import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
@@ -30,6 +30,8 @@ export interface InteractCtx {
   player: Player;
   toast: (s: string) => void;
   openShop: () => void;
+  enterHouse: () => void;
+  leaveHouse: () => void;
 }
 
 /** True while any timed activity is running (they are mutually exclusive). */
@@ -38,6 +40,8 @@ function busy(c: InteractCtx): boolean {
 }
 
 export interface MenuAction { id: string; label: string; run: (c: InteractCtx) => void; }
+
+export type InteractScene = "world" | "interior";
 
 export interface Interactable {
   id: string;
@@ -48,6 +52,7 @@ export interface Interactable {
   inReach: (px: number, py: number) => boolean;
   actions: (c: InteractCtx) => MenuAction[];// available actions right now
   drawHover: (g: CanvasRenderingContext2D, time: number) => void;
+  scene?: InteractScene;                    // where it lives (default: world)
 }
 
 const pond: Interactable = {
@@ -177,7 +182,70 @@ const house: Interactable = {
   drawHover: (g, t) => glowRect(g, houseBox.x - 2, houseBox.y - 2, houseBox.w + 4, houseBox.h + 4, t),
 };
 
-export const INTERACTABLES: Interactable[] = [pond, stall, buskSpot, house];
+// The front door: a small hotspot inside the house's larger hit box —
+// registered BEFORE the house so its area wins the hit test.
+const houseDoor: Interactable = {
+  id: "house-door",
+  name: "Front door",
+  anchor: [HOUSE_DOOR.x + HOUSE_DOOR.w / 2, HOUSE.y + HOUSE.h + 18],
+  defaultActionId: "enter",
+  hit: (wx, wy) =>
+    wx >= HOUSE_DOOR.x && wx <= HOUSE_DOOR.x + HOUSE_DOOR.w &&
+    wy >= HOUSE_DOOR.y && wy <= HOUSE_DOOR.y + HOUSE_DOOR.h,
+  inReach: (px, py) => nearRect(px, py, HOUSE),
+  actions: () => [
+    { id: "enter", label: "Go inside", run: (c) => { if (!busy(c)) c.enterHouse(); } },
+    { id: "look", label: "Look", run: (c) => c.toast("The front door. It still opens, at least.") },
+  ],
+  drawHover: (g, t) => glowRect(g, HOUSE_DOOR.x - 2, HOUSE_DOOR.y - 2, HOUSE_DOOR.w + 4, HOUSE_DOOR.h + 4, t),
+};
+
+// ---- the interior's spots (tier-1: present and honest about their state;
+// cooking/sleeping mechanics arrive with their own systems) ----
+function spot(
+  id: string, name: string, r: { x: number; y: number; w: number; h: number },
+  look: string, anchorDy = 20, reachPad = 34,
+): Interactable {
+  return {
+    id, name, scene: "interior",
+    anchor: [r.x + r.w / 2, r.y + r.h + anchorDy],
+    defaultActionId: "look",
+    hit: (wx, wy) => wx >= r.x - 4 && wx <= r.x + r.w + 4 && wy >= r.y - 12 && wy <= r.y + r.h + 4,
+    inReach: (px, py) => nearRect(px, py, r, reachPad),
+    actions: () => [{ id: "look", label: "Look", run: (c) => c.toast(look) }],
+    drawHover: (g, t) => glowRect(g, r.x - 3, r.y - 3, r.w + 6, r.h + 6, t),
+  };
+}
+
+const hearthSpot = spot("hearth", "Hearth", R_HEARTH,
+  "A soot-blackened hearth and one rusty pot. It could cook a meal — barely.", 26);
+const basinSpot = spot("basin", "Wash basin", R_BASIN,
+  "A cracked clay basin on a wobbly stand. Water comes from the well, bucket by bucket.");
+const bedSpot = spot("bed", "Bed", R_BED,
+  "A straw mattress, a creaky frame, one threadbare blanket. No pillow.");
+// tight reach: the rest corner sits beside the door mat and must not swallow it
+const restSpot = spot("rest", "Rest corner", R_REST,
+  "A chair with one short leg and a crate standing in for a table.", 20, 18);
+
+const doorMat: Interactable = {
+  id: "room-door",
+  name: "Door",
+  scene: "interior",
+  anchor: [R_DOOR.x + R_DOOR.w / 2, R_DOOR.y + R_DOOR.h * 0.35],
+  defaultActionId: "leave",
+  hit: (wx, wy) =>
+    wx >= R_DOOR.x && wx <= R_DOOR.x + R_DOOR.w && wy >= R_DOOR.y - 8 && wy <= R_DOOR.y + R_DOOR.h,
+  inReach: (px, py) => nearRect(px, py, R_DOOR, 30),
+  actions: () => [
+    { id: "leave", label: "Go outside", run: (c) => { if (!busy(c)) c.leaveHouse(); } },
+  ],
+  drawHover: (g, t) => glowRect(g, R_DOOR.x - 2, R_DOOR.y - 2, R_DOOR.w + 4, R_DOOR.h + 4, t),
+};
+
+export const INTERACTABLES: Interactable[] = [
+  pond, stall, buskSpot, houseDoor, house,
+  hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
+];
 
 /** Berry bushes are runtime state, so they join the registry at game init. */
 export function registerBushes(bushes: Bush[]) {
@@ -263,13 +331,13 @@ export function registerPlots(cells: PlotCell[]) {
   });
 }
 
-export function hitTest(wx: number, wy: number): Interactable | null {
-  for (const it of INTERACTABLES) if (it.hit(wx, wy)) return it;
+export function hitTest(wx: number, wy: number, scene: InteractScene = "world"): Interactable | null {
+  for (const it of INTERACTABLES) if ((it.scene ?? "world") === scene && it.hit(wx, wy)) return it;
   return null;
 }
 
-export function reachable(px: number, py: number): Interactable | null {
-  for (const it of INTERACTABLES) if (it.inReach(px, py)) return it;
+export function reachable(px: number, py: number, scene: InteractScene = "world"): Interactable | null {
+  for (const it of INTERACTABLES) if ((it.scene ?? "world") === scene && it.inReach(px, py)) return it;
   return null;
 }
 
