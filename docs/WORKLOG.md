@@ -42,6 +42,31 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## HUD — weather indicator
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "HUD - weather
+  indicator") A small weather indicator next to (or directly below) the
+  calendar readout showing `wc.weather` — plain text label first pass,
+  reusing the same per-frame snapshot (no second `getWorldContext()` call).
+  Not the visual weather layer.
+- **Done:** a `#weather` pill in the HUD (index.html) rendering
+  "☀ Clear / 🌧 Rain / ⛈ Storm / 🌫 Fog" from the snapshot already built in
+  `tick()`; `updateHud` gains the optional `WeatherSlice`. Layout: the HUD
+  row now wraps so the weather pill sits directly below the calendar (the
+  spec's "or directly below") and the minimap moved down 36px to clear it.
+  Also ticks the older combined "HUD — Calendar & Weather indicator" block —
+  both its halves now exist via the split blocks.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 4/4 (fast 6s days): the seeded
+  Storm showed immediately; across ~15 in-game days the label always matched
+  the live weather store; every label change coincided exactly with a day
+  rollover (the daily reroll — the block's "changes at the correct point"
+  criterion); multiple states observed. Screenshot reviewed (clean two-row
+  HUD, minimap clear).
+- **Commit:** HUD — weather indicator
+- **Follow-ups:** the visual weather layer (rain particles, sky tint) remains
+  its own future polish item, as the block states.
+
 ## Dev tool — World Context inspector
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Dev tool — World

@@ -16,9 +16,10 @@
       background:repeating-linear-gradient(180deg,rgba(0,0,0,.10) 0 2px,transparent 2px 46px),
         linear-gradient(90deg,#4e3a24,#5d4630 30%,#56402a);
       border-left:4px solid #2f2317;box-shadow:-4px 0 14px rgba(0,0,0,.35)}
-    #hud{position:fixed;top:10px;right:10px;width:284px;display:flex;justify-content:center;gap:8px;z-index:5}
+    #hud{position:fixed;top:10px;right:10px;width:284px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;z-index:5}
     .pill{background:rgba(25,32,18,.85);color:#f0ead6;padding:7px 14px;border-radius:12px;font-size:15px;font-weight:700}
     #calendar{font-size:13px;white-space:nowrap}
+    #weather{font-size:13px;white-space:nowrap}
     #prompt{position:absolute;bottom:86px;left:50%;transform:translateX(-50%);background:rgba(25,32,18,.9);
       color:#ffd54f;padding:8px 16px;border-radius:12px;font-size:15px;font-weight:700;display:none;z-index:5}
     #toast{position:absolute;top:60px;left:50%;transform:translateX(-50%);background:rgba(46,90,38,.95);
@@ -40,7 +41,7 @@
       background:rgba(25,32,18,.88);border:2px solid #7a5c34;border-radius:14px;
       padding:calc(10px*var(--s)) calc(12px*var(--s));color:#f0ead6}
     #backpack h2{margin:0 0 calc(8px*var(--s));font-size:calc(14px*var(--s));text-align:center}
-    #minimapBox{position:fixed;top:52px;right:14px;z-index:5;display:block;border:2px solid #7a5c34;
+    #minimapBox{position:fixed;top:88px;right:14px;z-index:5;display:block;border:2px solid #7a5c34;
       border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.4);font-size:0}
     #minimap{border-radius:8px}
     #backpackGrid{display:grid;grid-template-columns:repeat(4,calc(52px*var(--s)));gap:calc(8px*var(--s))}
@@ -161,6 +162,7 @@
   <div id="hud">
     <div class="pill">🪙 <span id="coins">0</span></div>
     <div class="pill" id="calendar">—</div>
+    <div class="pill" id="weather">—</div>
   </div>
   <div id="minimapBox"><canvas id="minimap"></canvas></div>
   <div id="backpack">

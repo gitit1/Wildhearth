@@ -981,7 +981,7 @@ above is wired to it, not duplicating its own season/weather checks.
 ---
 
 ## HUD — Calendar & Weather indicator
-- [ ] not started
+- [x] satisfied by the two newer split blocks below ("HUD - season, day & time display" + "HUD - weather indicator"), both built — 2026-07-04. This older combined block predates the split; it named a separate `ui/calendarhud.ts`, but the split blocks' approach (extend `ui/hud.ts`'s existing updateHud) shipped instead.
 
 The World Context Infrastructure (see `docs/WORLD_CONTEXT.md`) already
 tracks a real, advancing season/day/hour and a real, changing weather
@@ -1061,7 +1061,7 @@ updates live as the game's day advances during play (no reload needed).
 ---
 
 ## HUD - weather indicator
-- [ ] not started
+- [x] built, verified in-browser (label matches the live store, changes exactly on the daily reroll), committed — 2026-07-04 (autorun branch)
 
 Depends on the block above - reuses the same `WorldContext` snapshot
 already being built once per frame in `main.ts`'s `tick()`. Do not call

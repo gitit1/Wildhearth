@@ -1,8 +1,9 @@
 import type { Economy } from "../systems/economy";
-import type { CalendarSlice } from "../systems/worldContext";
+import type { CalendarSlice, WeatherSlice } from "../systems/worldContext";
 
 const coinsEl = document.getElementById("coins")!;
 const calEl = document.getElementById("calendar")!;
+const weatherEl = document.getElementById("weather")!;
 const promptEl = document.getElementById("prompt")!;
 const toastEl = document.getElementById("toast")!;
 let toastT = 0;
@@ -10,9 +11,13 @@ let toastT = 0;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const pad = (n: number) => String(n).padStart(2, "0");
 
-export function updateHud(e: Economy, cal?: CalendarSlice) {
+// plain text labels for the first pass (visual weather is its own later block)
+const WEATHER_GLYPH: Record<string, string> = { clear: "☀", rain: "🌧", storm: "⛈", fog: "🌫" };
+
+export function updateHud(e: Economy, cal?: CalendarSlice, wx?: WeatherSlice) {
   coinsEl.textContent = String(e.coins);
   if (cal) calEl.textContent = `${cap(cal.season)} · Day ${cal.day} · ${pad(cal.hour)}:${pad(cal.minute)}`;
+  if (wx) weatherEl.textContent = `${WEATHER_GLYPH[wx.state] ?? ""} ${cap(wx.state)}`;
 }
 
 export function setPrompt(text: string | null) {

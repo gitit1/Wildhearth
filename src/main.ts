@@ -419,7 +419,7 @@ function tick(now: number) {
   // one World Context snapshot per frame, feeding the always-visible HUD
   // and (when toggled) the dev inspector — never a second call per frame
   const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags });
-  updateHud(economy, wc.calendar);
+  updateHud(economy, wc.calendar, wc.weather);
   updateDebugPanel(wc);
   updateBackpack();
   if (scene === "world") updateMinimap(player);   // inside, the dot would be room coords
