@@ -1009,7 +1009,7 @@ survive a save/reload showing the correct restored values.
 ---
 
 ## Dev tool — World Context inspector (optional, developer-only)
-- [ ] not started
+- [x] built, verified in-browser (backtick toggles a live full-snapshot dump), committed — 2026-07-04 (autorun branch)
 
 A small toggle-able debug overlay that dumps the full `getWorldContext()`
 snapshot as readable text on screen — useful now and increasingly useful

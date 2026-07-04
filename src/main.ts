@@ -31,6 +31,7 @@ import { loadGarden, resetGarden, saveGarden, updateGarden } from "./systems/gar
 import { loadCollections, resetCollections, discover, discoveredName } from "./systems/collections";
 import { loadMemories, resetMemories, addMemory } from "./systems/memories";
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
+import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
@@ -106,6 +107,7 @@ initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
 initMemoryBook(collections, memories);
+initDebugPanel();
 
 /** Writes a once-only life event into the Memory Book (+ a quiet toast). */
 function remember(key: string, text: string) {
@@ -415,8 +417,10 @@ function tick(now: number) {
   for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i]!.a <= 0) smoke.splice(i, 1);
 
   // one World Context snapshot per frame, feeding the always-visible HUD
+  // and (when toggled) the dev inspector — never a second call per frame
   const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags });
   updateHud(economy, wc.calendar);
+  updateDebugPanel(wc);
   updateBackpack();
   if (scene === "world") updateMinimap(player);   // inside, the dot would be room coords
   updateSkillsUI();

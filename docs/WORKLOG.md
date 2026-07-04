@@ -42,6 +42,28 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Dev tool — World Context inspector
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Dev tool — World
+  Context inspector") A toggle-able debug overlay dumping the full
+  `getWorldContext()` snapshot as readable text — backtick key (confirmed
+  free in `engine/input.ts`), monospace on a translucent box, refreshed every
+  frame while visible, never player-reachable.
+- **Done:** `src/ui/debugpanel.ts` (NEW) — a fixed `<pre>` created in code
+  (no player-facing markup), Backquote toggles; `updateDebugPanel(wc)` is fed
+  the SAME per-frame snapshot the HUD uses (never a second
+  `getWorldContext()` call, honoring the weather-block rule). Two lines in
+  `main.ts`.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 5/5: hidden by default;
+  backtick shows a dump carrying the real seeded state (coins 77, fog with
+  daysSinceChange 2, spring dawn, all six slices present); the dump advanced
+  live (375 → 412 in-game minutes over 1.5 real seconds at a 60s day);
+  backtick hides it again. Screenshots on/off reviewed.
+- **Commit:** Dev tool — World Context inspector
+- **Follow-ups:** future slices (relationships, needs) appear automatically —
+  it prints whatever the snapshot carries.
+
 ## Cooking skill, extended
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Cooking skill,
