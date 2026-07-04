@@ -151,7 +151,19 @@ provable in-game. `npm run build` passes.
 - Checkpoint: the full "earn → buy tool → new loop unlocked" arc is now
   provable in-game with real gameplay, not just design docs.
 
-## Step 6 — Busking + Haggling (fourth and fifth livelihoods)
+## Step 6 — Busking + Haggling (fourth and fifth livelihoods) (DONE)
+Done (2026-07-04): a cobbled busking corner with an upturned hat between the
+barn and the field gate (`zones.ts` BUSK_SPOT; clickable UO object).
+`systems/busking.ts` mirrors the other activity state machines: 3s
+performance ("Playing a tune...", floating music notes over the player,
+movement cancels) → a skill-weighted random tip straight to coins (1–3 at
+Busking 0, up to 1–8 at 100; knobs in config) + Busking gain with the popup.
+Haggling: `shop.ts` discountedPrice — a linear discount on stall buy prices
+up to 25% at Haggling 100 (hoe 12→9, seeds 3→2), shown in the trade window
+as "9 (was 12)"; each purchase also trains Haggling (+gain popup). Verified
+in-browser: repeat performances, bigger tips at skill 100, discounted
+purchase, Haggling gain. All five livelihoods now exist and each trains its
+own skill. `npm run build` passes.
 - `src/world/zones.ts`: a small square/plaza spot (doesn't need the full
   town — just a designated busking tile near the farm for MVP).
 - `src/systems/busking.ts`: interact → mini timer/rhythm-lite loop (keep it

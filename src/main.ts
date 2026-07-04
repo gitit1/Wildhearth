@@ -5,8 +5,11 @@ import {
 } from "./engine/input";
 import { applyCamera, screenToWorld } from "./engine/camera";
 import { paintGround } from "./world/ground";
-import { HOUSE, BARN, STALL, TREES } from "./world/zones";
-import { drawTree, drawFence, drawBush, drawTilledTile, drawCropTile, drawWaterShimmer } from "./art/props";
+import { HOUSE, BARN, STALL, TREES, BUSK_SPOT } from "./world/zones";
+import {
+  drawTree, drawFence, drawBush, drawTilledTile, drawCropTile,
+  drawBuskSpot, drawMusicNotes, drawWaterShimmer,
+} from "./art/props";
 import { drawHouse, drawBarn, drawStall } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
@@ -17,6 +20,7 @@ import { createBushes, createForaging, updateForaging, cancelPick } from "./syst
 import {
   createPlots, createFarmWork, updateFarmWork, updatePlots, cancelWork,
 } from "./systems/farming";
+import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
 import { removeItem, countItem } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue } from "./systems/skills";
 import {
@@ -51,13 +55,14 @@ const foraging = createForaging();
 const bushes = createBushes();
 const plots = createPlots();
 const farmwork = createFarmWork();
+const busking = createBusking();
 const skills = loadSkills();
 registerBushes(bushes);
 registerPlots(plots);
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
-initShopWindow(economy, toast);
+initShopWindow(economy, skills, toast);
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -77,11 +82,12 @@ function tick(now: number) {
     if (fishing.casting) { cancelCast(fishing); player.fishing = false; }
     if (foraging.picking) cancelPick(foraging);
     if (farmwork.working) cancelWork(farmwork);
+    if (busking.playing) cancelBusk(busking);
   }
   updateAnimals(cows, hens, dt);
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, skills, player, toast, openShop: openShopWindow };
+  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, player, toast, openShop: openShopWindow };
 
   // walking away from the stall closes the trade window
   if (isShopOpen() && !nearRect(player.x, player.y, STALL)) closeShopWindow();
@@ -95,6 +101,7 @@ function tick(now: number) {
   else if (foraging.picking) setPrompt("Picking berries...");
   else if (farmwork.working)
     setPrompt(farmwork.kind === "till" ? "Tilling the soil..." : farmwork.kind === "plant" ? "Planting seeds..." : "Harvesting...");
+  else if (busking.playing) setPrompt("Playing a tune...");
   else if (near) setPrompt(defaultActionLabel(near, ictx));
   else setPrompt(null);
 
@@ -128,7 +135,7 @@ function tick(now: number) {
   }
 
   // action button / E key: use whatever is in reach
-  if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working)
+  if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working && !busking.playing)
     runDefault(near, ictx);
 
   // a queued action fires once the player arrives in reach
@@ -153,6 +160,14 @@ function tick(now: number) {
     else toast("Backpack full — no room for berries!");
     const gained = gainSkill(skills, "foraging");
     if (gained > 0) skillGainPopup("foraging", gained);
+  }
+  if (updateBusking(busking, dt)) {
+    const tip = rollTip(skillValue(skills, "busking"));
+    economy.coins += tip;
+    saveEconomy(economy);
+    toast(`Earned ${tip} coin${tip === 1 ? "" : "s"} busking! 🎶`);
+    const gained = gainSkill(skills, "busking");
+    if (gained > 0) skillGainPopup("busking", gained);
   }
   updatePlots(plots, dt, skillValue(skills, "farming"));
   const farmDone = updateFarmWork(farmwork, dt);
@@ -209,6 +224,8 @@ function draw() {
     if (c.state === "tilled") drawTilledTile(ctx, c.x, c.y);
     else if (c.state === "growing" || c.state === "ready") drawCropTile(ctx, c.x, c.y, c.growth, time);
   }
+  drawBuskSpot(ctx, BUSK_SPOT[0], BUSK_SPOT[1], time);
+  if (busking.playing) drawMusicNotes(ctx, player.x, player.y - 8, time);
 
   // depth-sorted world objects + entities
   const ents: Array<{ y: number; f: () => void }> = [

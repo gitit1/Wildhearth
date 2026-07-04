@@ -1,9 +1,10 @@
-import { POND, STALL } from "../world/zones";
+import { POND, STALL, BUSK_SPOT } from "../world/zones";
 import { nearPond, nearRect } from "../world/collision";
 import type { Economy } from "./economy";
 import { startCast, type FishingState } from "./fishing";
 import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
+import { startBusk, type BuskingState } from "./busking";
 import { countItem } from "./inventory";
 import { skillValue, type Skills } from "./skills";
 import { glowEllipse, glowRect } from "../art/highlight";
@@ -21,6 +22,7 @@ export interface InteractCtx {
   fishing: FishingState;
   foraging: ForagingState;
   farmwork: FarmWork;
+  busking: BuskingState;
   skills: Skills;
   player: Player;
   toast: (s: string) => void;
@@ -29,7 +31,7 @@ export interface InteractCtx {
 
 /** True while any timed activity is running (they are mutually exclusive). */
 function busy(c: InteractCtx): boolean {
-  return c.fishing.casting || c.foraging.picking || c.farmwork.working;
+  return c.fishing.casting || c.foraging.picking || c.farmwork.working || c.busking.playing;
 }
 
 export interface MenuAction { id: string; label: string; run: (c: InteractCtx) => void; }
@@ -96,7 +98,24 @@ const stall: Interactable = {
   drawHover: (g, t) => glowRect(g, stallBox.x - 2, stallBox.y - 2, stallBox.w + 4, stallBox.h + 4, t),
 };
 
-export const INTERACTABLES: Interactable[] = [pond, stall];
+const buskSpot: Interactable = {
+  id: "busk",
+  name: "Busking spot",
+  anchor: [BUSK_SPOT[0], BUSK_SPOT[1] + 6],
+  defaultActionId: "busk",
+  hit: (wx, wy) => {
+    const dx = (wx - BUSK_SPOT[0]) / 24, dy = (wy - BUSK_SPOT[1]) / 17;
+    return dx * dx + dy * dy <= 1;
+  },
+  inReach: (px, py) => Math.hypot(px - BUSK_SPOT[0], py - BUSK_SPOT[1]) < 42,
+  actions: () => [
+    { id: "busk", label: "Busk", run: (c) => { if (!busy(c)) startBusk(c.busking); } },
+    { id: "look", label: "Look", run: (c) => c.toast("A cobbled corner — a good spot to play for passersby.") },
+  ],
+  drawHover: (g, t) => glowEllipse(g, BUSK_SPOT[0], BUSK_SPOT[1], 26, 19, t),
+};
+
+export const INTERACTABLES: Interactable[] = [pond, stall, buskSpot];
 
 /** Berry bushes are runtime state, so they join the registry at game init. */
 export function registerBushes(bushes: Bush[]) {

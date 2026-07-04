@@ -17,3 +17,5 @@ export const BUSHES: Array<[number, number]> = [
 ];
 /** The whole fenced field is tillable (MVP farming, Step 5). Cells are T x T. */
 export const PLOT = { x: FIELD.x0 * T, y: FIELD.y0 * T, cols: FIELD.x1 - FIELD.x0, rows: FIELD.y1 - FIELD.y0 };
+/** Busking spot: a little plaza corner between the barn and the field gate. */
+export const BUSK_SPOT: [number, number] = [18.3 * T, 10.4 * T];

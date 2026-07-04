@@ -1,8 +1,10 @@
 import { GOOD_PRICES, goodCount, sellGood, sellAllGoods, type Economy } from "../systems/economy";
-import { SHOP_STOCK, tryBuy, owned } from "../systems/shop";
+import { SHOP_STOCK, tryBuy, owned, discountedPrice } from "../systems/shop";
 import { ITEM_NAMES } from "../systems/inventory";
+import { skillValue, gainSkill, type Skills } from "../systems/skills";
 import { drawItemIcon } from "../art/icons";
 import { makePanel } from "./panels";
+import { skillGainPopup } from "./skills";
 
 /**
  * The market trade window (UO vendor gump): opens when you interact with
@@ -19,12 +21,14 @@ let buyList: HTMLElement;
 let coinsEl: HTMLElement;
 let open = false;
 let eco: Economy;
+let sk: Skills;
 let toastFn: (s: string) => void = () => {};
 const sellQty = new Map<string, number>();
 const buyQty = new Map<string, number>();
 
-export function initShopWindow(economy: Economy, toast: (s: string) => void) {
+export function initShopWindow(economy: Economy, skills: Skills, toast: (s: string) => void) {
   eco = economy;
+  sk = skills;
   toastFn = toast;
   panel = document.getElementById("shopWindow")!;
   sellList = document.getElementById("shopSell")!;
@@ -134,12 +138,15 @@ function render() {
     sellList.append(all);
   }
 
-  // ----- buy side -----
+  // ----- buy side (Haggling skill discounts the asking price) -----
   buyList.replaceChildren();
+  const haggling = skillValue(sk, "haggling");
   for (const entry of SHOP_STOCK) {
     if (owned(eco, entry)) continue;
     const q = entry.unique ? 1 : Math.max(1, buyQty.get(entry.id) ?? 1);
     buyQty.set(entry.id, q);
+    const price = discountedPrice(entry.price, haggling);
+    const tag = price < entry.price ? ` (was ${entry.price})` : "";
 
     const row = document.createElement("div");
     row.className = "shop-row";
@@ -148,21 +155,23 @@ function render() {
     name.textContent = ITEM_NAMES[entry.id] ?? entry.id;
     const total = document.createElement("span");
     total.className = "shop-total";
-    total.textContent = entry.unique ? `${entry.price}` : `${entry.price} × ${q} = ${entry.price * q}`;
+    total.textContent = entry.unique ? `${price}${tag}` : `${price} × ${q} = ${price * q}${tag}`;
     const btn = document.createElement("button");
     btn.className = "shop-btn";
     btn.textContent = "Buy";
     btn.addEventListener("click", () => {
-      if (eco.coins < entry.price * q) { toastFn(`Not enough coins — that costs ${entry.price * q}.`); return; }
+      if (eco.coins < price * q) { toastFn(`Not enough coins — that costs ${price * q}.`); return; }
       let bought = 0;
       for (let i = 0; i < q; i++) {
-        const r = tryBuy(eco, entry);
+        const r = tryBuy(eco, entry, haggling);
         if (r !== "ok") { if (r === "bag-full") toastFn("Backpack full — no room for more."); break; }
         bought++;
       }
       if (bought > 0) {
         const n = ITEM_NAMES[entry.id] ?? entry.id;
         toastFn(`Bought ${entry.unique ? `a ${n.toLowerCase()}` : `${bought} ${n.toLowerCase()}`}!`);
+        const gained = gainSkill(sk, "haggling");   // every purchase is practice
+        if (gained > 0) skillGainPopup("haggling", gained);
       }
       buyQty.delete(entry.id);
       render();

@@ -19,6 +19,12 @@ export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds
 export const HOE_PRICE = 12;            // shop: first tool (unlocks farming, Step 5)
 export const SEEDS_PRICE = 3;           // shop: one packet of seeds
 
+export const BUSK_TIME = 3;             // seconds per street performance
+export const BUSK_TIP_MIN = 1;          // tip roll: BUSK_TIP_MIN..BUSK_TIP_BASE_MAX at skill 0
+export const BUSK_TIP_BASE_MAX = 3;
+export const BUSK_TIP_SKILL_BONUS = 5;  // extra random tip range unlocked at Busking 100
+export const HAGGLE_MAX_DISCOUNT = 0.25; // shop discount at Haggling 100
+
 export const CORN_PRICE = 5;            // coins per harvested corn at the stall
 export const TILL_TIME = 1.0;           // seconds to till a plot tile
 export const PLANT_TIME = 0.7;          // seconds to plant seeds

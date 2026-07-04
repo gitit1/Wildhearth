@@ -1,4 +1,4 @@
-import { HOE_PRICE, SEEDS_PRICE } from "../config";
+import { HOE_PRICE, SEEDS_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
 import { addItem, countItem } from "./inventory";
 import { saveEconomy, type Economy } from "./economy";
 
@@ -21,11 +21,17 @@ export function owned(e: Economy, entry: ShopEntry): boolean {
   return !!entry.unique && countItem(e.inv, entry.id) > 0;
 }
 
-export function tryBuy(e: Economy, entry: ShopEntry): BuyResult {
+/** Haggling shaves prices linearly, up to HAGGLE_MAX_DISCOUNT at skill 100. */
+export function discountedPrice(price: number, hagglingSkill: number): number {
+  return Math.max(1, Math.round(price * (1 - HAGGLE_MAX_DISCOUNT * (hagglingSkill / 100))));
+}
+
+export function tryBuy(e: Economy, entry: ShopEntry, hagglingSkill = 0): BuyResult {
   if (owned(e, entry)) return "owned";
-  if (e.coins < entry.price) return "no-coins";
+  const price = discountedPrice(entry.price, hagglingSkill);
+  if (e.coins < price) return "no-coins";
   if (!addItem(e.inv, entry.id, 1)) return "bag-full";
-  e.coins -= entry.price;
+  e.coins -= price;
   saveEconomy(e);
   return "ok";
 }

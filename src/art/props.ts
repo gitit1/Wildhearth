@@ -123,6 +123,45 @@ export function drawBush(g: CanvasRenderingContext2D, x: number, y: number, full
   }
 }
 
+/** Busking spot: a cobbled corner with an upturned hat waiting for coins. */
+export function drawBuskSpot(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  // cobblestones
+  const rnd = mulberry32(x | 0);
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2;
+    const r = 12 + rnd() * 8;
+    g.fillStyle = ["#9a938a", "#8a8378", "#a8a196"][(rnd() * 3) | 0]!;
+    g.beginPath();
+    g.ellipse(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.7, 5 + rnd() * 2, 3.5 + rnd() * 1.5, a, 0, 7);
+    g.fill();
+  }
+  // upturned hat
+  g.fillStyle = "#7a5230";
+  g.beginPath(); g.ellipse(x, y + 2, 9, 5, 0, 0, 7); g.fill();
+  g.fillStyle = "#5d3e22";
+  g.beginPath(); g.ellipse(x, y, 6.5, 3.5, 0, 0, 7); g.fill();
+  // a coin glinting inside
+  g.fillStyle = "#e8c34f";
+  g.beginPath(); g.arc(x + Math.sin(t * 2) * 1.5, y, 1.8, 0, 7); g.fill();
+}
+
+/** Floating music notes above a performer. */
+export function drawMusicNotes(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  g.fillStyle = "#2b2b33";
+  g.strokeStyle = "#2b2b33";
+  g.lineWidth = 1.6;
+  for (let i = 0; i < 3; i++) {
+    const phase = (t * 0.9 + i * 0.33) % 1;
+    const nx = x + Math.sin((t + i * 2.1) * 3) * 7 + (i - 1) * 10;
+    const ny = y - 18 - phase * 22;
+    g.globalAlpha = 1 - phase;
+    g.beginPath(); g.ellipse(nx, ny, 2.6, 2, -0.4, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(nx + 2.4, ny - 0.8); g.lineTo(nx + 2.4, ny - 9); g.stroke();
+    g.beginPath(); g.ellipse(nx + 4.4, ny - 9, 2.4, 1.6, -0.3, 0, 7); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+
 export function drawWaterShimmer(g: CanvasRenderingContext2D, t: number) {
   g.fillStyle = "rgba(255,255,255,.22)";
   for (let i = 0; i < 7; i++) {
