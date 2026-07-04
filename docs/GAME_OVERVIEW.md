@@ -87,15 +87,14 @@ top of a world worth crossing, not a way to skip an empty one.
 
 ## Core systems
 
-### Skills 🟢 (partial) / 🔵 (full)
-UO-style, 0.0-100.0, three-state lock (up/down/locked). 🟢 today: 5 skills
-(Fishing, Foraging, Farming, Busking, Haggling), use-based gain with
-diminishing returns, no overall cap yet. 🔵 not built: the full 21-skill
-list (base 9 + 12 town/expansion skills, see `ROADMAP_EXPANSION.md`'s
-appendix), the overall point cap + full lock enforcement, the UO-style
-Gain Guard pity mechanism, and dynamic decay from neglect. Tools/gear
-requiring a skill floor to pay off (buying ahead of your skill wastes
-money) is a universal rule, 🔵 not yet enforced anywhere.
+### Skills 🟢 (base 9) / 🔵 (town 12)
+UO-style, 0.0-100.0, three-state lock (up/down/locked), total cap 250 with
+down-skill draining. 🟢 today: the full base-9 (Fishing, Foraging, Farming,
+Busking, Haggling, Animal Husbandry, Cooking, Building, Gardening), each
+wired to a real mechanic; chance-based use gains with the UO-style Gain
+Guard pity mechanism. 🟢 skill floors now gate content (fish species, crop
+planting, forage finds, recipes). 🔵 not built: the 12 town/expansion
+skills (see the appendix) and dynamic decay from neglect.
 
 ### Inventory & Economy 🟢
 Slot-based backpack (🟢), dual currency+barter economy (🟢 currency, ⚪

@@ -35,3 +35,8 @@ export const R_REST   = { x: 4.6 * T, y: 4.3 * T, w: 2.4 * T, h: 1.5 * T }; // c
 export const R_DOOR   = { x: 4.3 * T, y: 6.1 * T, w: 1.4 * T, h: 0.9 * T }; // exit mat, south wall
 /** Where the player stands after walking in / before walking out. */
 export const ROOM_ENTRY: [number, number] = [5 * T, 5.7 * T];
+
+/** Ornamental flower beds along the house front (Gardening skill). */
+export const FLOWER_BEDS: Array<[number, number]> = [
+  [8.2 * T, 9.2 * T], [9.1 * T, 9.6 * T], [11.8 * T, 9.2 * T],
+];

@@ -3,6 +3,7 @@ import { FISH } from "../data/fish";
 import { JUNK } from "../data/junk";
 import { CROPS } from "../data/crops";
 import { FORAGE } from "../data/forage";
+import { RECIPES } from "../data/recipes";
 
 /**
  * Slot-based item store. Pure state + operations, no persistence —
@@ -21,11 +22,13 @@ export const ITEM_NAMES: Record<string, string> = {
   lute: "Lute",
   hen: "Hen",       // livestock: named for shop rows/toasts, never a bag item
   cow: "Cow",
+  "flower-seeds": "Flower seeds",
   ...Object.fromEntries(FISH.map((s) => [s.id, s.name])),
   ...Object.fromEntries(JUNK.map((j) => [j.id, j.name])),
   ...Object.fromEntries(CROPS.map((c) => [c.id, c.name])),
   ...Object.fromEntries(CROPS.map((c) => [c.seedId, c.seedName])),
   ...Object.fromEntries(FORAGE.map((f) => [f.id, f.name])),
+  ...Object.fromEntries(RECIPES.map((r) => [r.id, r.name])),
 };
 
 export function createInventory(size = INVENTORY_SLOTS): Inventory {

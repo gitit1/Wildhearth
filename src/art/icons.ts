@@ -4,6 +4,38 @@
 import { FISH } from "../data/fish";
 import { CROPS } from "../data/crops";
 import { FORAGE } from "../data/forage";
+import { RECIPES } from "../data/recipes";
+
+/** A cooked dish: steaming bowl, contents tinted per recipe. */
+function paintDish(g: CanvasRenderingContext2D, s: number, color: string) {
+  g.fillStyle = "#c9b585";                                        // bowl
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.6, s * 0.26, s * 0.18, 0, 0, Math.PI); g.fill();
+  g.fillRect(s * 0.24, s * 0.52, s * 0.52, s * 0.1);
+  g.fillStyle = color;                                            // contents
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.52, s * 0.23, s * 0.08, 0, 0, 7); g.fill();
+  g.strokeStyle = "rgba(240,234,214,.6)"; g.lineWidth = Math.max(1, s * 0.03); g.lineCap = "round";
+  for (const ox of [-0.08, 0.06]) {                               // steam
+    g.beginPath();
+    g.moveTo(s * (0.5 + ox), s * 0.4);
+    g.quadraticCurveTo(s * (0.46 + ox), s * 0.32, s * (0.5 + ox), s * 0.24);
+    g.stroke();
+  }
+}
+
+function paintFlowerSeeds(g: CanvasRenderingContext2D, s: number) {
+  // packet with a little blossom on the label
+  g.fillStyle = "#e0cfa0";
+  g.fillRect(s * 0.3, s * 0.26, s * 0.4, s * 0.5);
+  g.fillStyle = "#c9b585";
+  g.beginPath(); g.moveTo(s * 0.3, s * 0.26); g.lineTo(s * 0.5, s * 0.36); g.lineTo(s * 0.7, s * 0.26); g.closePath(); g.fill();
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    g.fillStyle = "#d16a9a";
+    g.beginPath(); g.arc(s * 0.5 + Math.cos(a) * s * 0.07, s * 0.52 + Math.sin(a) * s * 0.07, s * 0.045, 0, 7); g.fill();
+  }
+  g.fillStyle = "#e8c34f";
+  g.beginPath(); g.arc(s * 0.5, s * 0.52, s * 0.04, 0, 7); g.fill();
+}
 
 /** Wild-forage icons: four silhouettes (berry cluster / mushroom cap /
  *  leafy sprig / nut), tinted per item from data/forage.ts. */
@@ -315,6 +347,9 @@ const PAINTERS: Record<string, IconPainter> = {
   // wild forage shares four tinted silhouettes (berries keep their classic icon)
   ...Object.fromEntries(FORAGE.filter((f) => f.id !== "berries")
     .map((f) => [f.id, ((g, s) => paintForage(g, s, f.icon)) as IconPainter])),
+  // cooked dishes share the steaming-bowl painter
+  ...Object.fromEntries(RECIPES.map((r) => [r.id, ((g, s) => paintDish(g, s, r.icon.color)) as IconPainter])),
+  "flower-seeds": paintFlowerSeeds,
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

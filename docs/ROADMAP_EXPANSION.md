@@ -207,7 +207,7 @@ everything just being available in the shop from day one.
 ---
 
 ## Complete the base skill set
-- [ ] not started
+- [x] built, verified in-browser (9 skills: repairs→Building, hearth→Cooking, feeding→Husbandry, flowers→Gardening; chance-based gains + Gain Guard), committed — 2026-07-04 (autorun branch)
 
 **Complete the base skill set — 4 skills the MVP left out, and add a
 pity counter to the gain algorithm.** VISION's confirmed 9-skill base

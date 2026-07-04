@@ -1,5 +1,5 @@
-import { POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR } from "../world/zones";
-import { REPAIR_COST } from "../config";
+import { POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS } from "../world/zones";
+import { REPAIR_COST, FEED_GAIN_ITEM } from "../config";
 import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
 import { saveFarm, type FarmState, type FarmPart } from "./renovation";
@@ -7,10 +7,13 @@ import { startCast, type FishingState } from "./fishing";
 import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
 import { startBusk, type BuskingState } from "./busking";
-import { countItem, ITEM_NAMES } from "./inventory";
-import { skillValue, type Skills } from "./skills";
+import { startCook, cookableRecipes, type CookingState } from "./cooking";
+import { saveGarden, type Garden } from "./gardening";
+import { countItem, removeItem, ITEM_NAMES } from "./inventory";
+import { skillValue, gainSkill, type Skills } from "./skills";
 import { cropBySeed } from "../data/crops";
 import type { Season } from "./calendar";
+import type { Cow, Hen } from "../entities/animals";
 import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
 
@@ -27,18 +30,21 @@ export interface InteractCtx {
   foraging: ForagingState;
   farmwork: FarmWork;
   busking: BuskingState;
+  cooking: CookingState;
   skills: Skills;
   farm: FarmState;
+  garden: Garden;
   player: Player;
   toast: (s: string) => void;
   openShop: () => void;
   enterHouse: () => void;
   leaveHouse: () => void;
+  skillPopup: (id: string, amount: number) => void;
 }
 
 /** True while any timed activity is running (they are mutually exclusive). */
 function busy(c: InteractCtx): boolean {
-  return c.fishing.casting || c.foraging.picking || c.farmwork.working || c.busking.playing;
+  return c.fishing.casting || c.foraging.picking || c.farmwork.working || c.busking.playing || c.cooking.cooking;
 }
 
 export interface MenuAction { id: string; label: string; run: (c: InteractCtx) => void; }
@@ -147,6 +153,9 @@ function doRepair(c: InteractCtx, part: FarmPart) {
   c.farm[part] = true;
   saveFarm(c.farm);
   c.toast(REPAIRS.find((r) => r.part === part)!.done);
+  // every repair is Building practice (base-skill-set block)
+  const gained = gainSkill(c.skills, "building");
+  if (gained > 0) c.skillPopup("building", gained);
 }
 
 // The drawn house rises above HOUSE.y (the roof) — cover that in the hitbox.
@@ -194,7 +203,10 @@ const houseDoor: Interactable = {
   hit: (wx, wy) =>
     wx >= HOUSE_DOOR.x && wx <= HOUSE_DOOR.x + HOUSE_DOOR.w &&
     wy >= HOUSE_DOOR.y && wy <= HOUSE_DOOR.y + HOUSE_DOOR.h,
-  inReach: (px, py) => nearRect(px, py, HOUSE),
+  // reach only the strip in front of the door — elsewhere around the house
+  // the repair hub keeps its prompt (clicking the door still works anywhere)
+  inReach: (px, py) =>
+    nearRect(px, py, { x: HOUSE_DOOR.x, y: HOUSE.y + HOUSE.h - 8, w: HOUSE_DOOR.w, h: 16 }, 30),
   actions: () => [
     { id: "enter", label: "Go inside", run: (c) => { if (!busy(c)) c.enterHouse(); } },
     { id: "look", label: "Look", run: (c) => c.toast("The front door. It still opens, at least.") },
@@ -219,8 +231,35 @@ function spot(
   };
 }
 
-const hearthSpot = spot("hearth", "Hearth", R_HEARTH,
-  "A soot-blackened hearth and one rusty pot. It could cook a meal — barely.", 26);
+// the hearth cooks (minimal Cooking, base-skill-set block): one action per
+// recipe whose ingredients are in the bag and whose skill floor is met
+const hearthSpot: Interactable = {
+  id: "hearth", name: "Hearth", scene: "interior",
+  anchor: [R_HEARTH.x + R_HEARTH.w / 2, R_HEARTH.y + R_HEARTH.h + 26],
+  defaultActionId: "cook",
+  hit: (wx, wy) => wx >= R_HEARTH.x - 4 && wx <= R_HEARTH.x + R_HEARTH.w + 4 &&
+    wy >= R_HEARTH.y - 12 && wy <= R_HEARTH.y + R_HEARTH.h + 4,
+  inReach: (px, py) => nearRect(px, py, R_HEARTH, 34),
+  actions: (c) => {
+    const list: MenuAction[] = [];
+    const cookable = cookableRecipes(c.economy.inv, skillValue(c.skills, "cooking"));
+    cookable.forEach((r, i) => {
+      list.push({
+        id: i === 0 ? "cook" : `cook-${r.id}`,
+        label: `Cook ${r.name.toLowerCase()}`,
+        run: (c) => { if (!busy(c)) startCook(c.cooking, r.id); },
+      });
+    });
+    list.push({
+      id: "look", label: "Look",
+      run: (c) => c.toast(cookable.length
+        ? "The old pot's ready — something in the bag could become a meal."
+        : "A soot-blackened hearth and one rusty pot. It could cook a meal — with the right ingredients."),
+    });
+    return list;
+  },
+  drawHover: (g, t) => glowRect(g, R_HEARTH.x - 3, R_HEARTH.y - 3, R_HEARTH.w + 6, R_HEARTH.h + 6, t),
+};
 const basinSpot = spot("basin", "Wash basin", R_BASIN,
   "A cracked clay basin on a wobbly stand. Water comes from the well, bucket by bucket.");
 const bedSpot = spot("bed", "Bed", R_BED,
@@ -248,6 +287,91 @@ export const INTERACTABLES: Interactable[] = [
   pond, stall, buskSpot, houseDoor, house,
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];
+
+/**
+ * Owned animals are feedable (Animal Husbandry, base-skill-set block).
+ * They wander, so hit/reach read their live position; membership in the live
+ * array guards against animals cleared by a New Game.
+ */
+export function registerAnimal(kind: "cow" | "hen", a: Cow | Hen, arr: Array<Cow | Hen>) {
+  const rx = kind === "cow" ? 22 : 12, ry = kind === "cow" ? 16 : 10;
+  const label = kind === "cow" ? "the cow" : "the hen";
+  INTERACTABLES.push({
+    id: `${kind}-${Math.random().toString(36).slice(2, 8)}`,
+    name: kind === "cow" ? "Cow" : "Hen",
+    get anchor(): [number, number] { return [a.x, a.y + ry + 12]; },
+    defaultActionId: "feed",
+    hit: (wx, wy) => {
+      if (!arr.includes(a)) return false;
+      const dx = (wx - a.x) / rx, dy = (wy - (a.y - 2)) / ry;
+      return dx * dx + dy * dy <= 1;
+    },
+    inReach: (px, py) => arr.includes(a) && Math.hypot(px - a.x, py - a.y) < 40,
+    actions: () => [
+      {
+        id: "feed", label: "Feed",
+        run: (c) => {
+          if (busy(c)) return;
+          if (countItem(c.economy.inv, FEED_GAIN_ITEM) === 0) {
+            c.toast(`${kind === "cow" ? "She" : "It"} eyes your empty hands. ${ITEM_NAMES[FEED_GAIN_ITEM]} would do.`);
+            return;
+          }
+          removeItem(c.economy.inv, FEED_GAIN_ITEM, 1);
+          saveEconomy(c.economy);
+          c.toast(kind === "cow" ? "The cow munches happily. 🐄" : "The hen pecks it up. 🐔");
+          const gained = gainSkill(c.skills, "husbandry");
+          if (gained > 0) c.skillPopup("husbandry", gained);
+        },
+      },
+      { id: "look", label: "Look", run: (c) => c.toast(`Your own ${label.replace("the ", "")} — bought, not given.`) },
+    ],
+    drawHover: (g, t) => glowEllipse(g, a.x, a.y - 2, rx + 4, ry + 4, t),
+  });
+}
+
+/** Flower beds by the house (Ornamental Gardening, base-skill-set block). */
+export function registerFlowerBeds(garden: Garden) {
+  FLOWER_BEDS.forEach(([bx, by], i) => {
+    INTERACTABLES.push({
+      id: `flowerbed-${i}`,
+      name: "Flower bed",
+      anchor: [bx, by + 20],
+      defaultActionId: "plantflowers",
+      hit: (wx, wy) => Math.abs(wx - bx) <= 15 && Math.abs(wy - by) <= 12,
+      inReach: (px, py) => Math.hypot(px - bx, py - by) < 42,
+      actions: (c) => {
+        const bed = c.garden.beds[i]!;
+        const list: MenuAction[] = [];
+        if (!bed.planted)
+          list.push({
+            id: "plantflowers", label: "Plant flowers",
+            run: (c) => {
+              if (busy(c)) return;
+              if (countItem(c.economy.inv, "flower-seeds") === 0) {
+                c.toast("You need flower seeds — the stall sells them."); return;
+              }
+              removeItem(c.economy.inv, "flower-seeds", 1);
+              saveEconomy(c.economy);
+              bed.planted = true; bed.growth = 0; bed.bloomed = false;
+              saveGarden(c.garden);
+              c.toast("Flowers planted — they'll open soon.");
+              const gained = gainSkill(c.skills, "gardening");
+              if (gained > 0) c.skillPopup("gardening", gained);
+            },
+          });
+        list.push({
+          id: "look", label: "Look",
+          run: (c) => c.toast(
+            !bed.planted ? "A patch of turned earth by the house, waiting for something pretty."
+            : bed.bloomed ? "Wildflowers in full bloom. The house looks less lonely for it."
+            : "Seedlings pushing up — give them a little time."),
+        });
+        return list;
+      },
+      drawHover: (g, t) => glowEllipse(g, bx, by, 18, 14, t),
+    });
+  });
+}
 
 /** Berry bushes are runtime state, so they join the registry at game init. */
 export function registerBushes(bushes: Bush[]) {

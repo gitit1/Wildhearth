@@ -42,6 +42,66 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Complete the base skill set — 4 new skills + the Gain Guard
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Complete the base skill
+  set") Add Animal Husbandry, Cooking, Building/Renovation, and Ornamental
+  Gardening — each wired to a real mechanic — and patch the gain algorithm
+  with a UO-style Gain Guard (consecutive failed gain-rolls force a success
+  past a threshold), applied to all 9 skills uniformly.
+- **Done:**
+  - **Files:**
+    - `src/systems/skills.ts`: SKILL_NAMES grows to 9; `Skill` gains a
+      persisted `fails` counter; **gainSkill is now chance-based** — success
+      chance `1 - value/100`, flat `SKILL_GAIN_BASE` (0.3) on success. The old
+      code always gained a shrinking amount, so "failed gain-rolls" didn't
+      exist; this conversion preserves the expected pace exactly (chance ×
+      flat ≡ old shrinking gain) while giving the Guard something to guard.
+      Past `GAIN_GUARD_FAILS` (4) consecutive misses the next roll is forced.
+      Cap-draining unchanged, applied on success.
+    - **Building**: `doRepair` in `interact.ts` rolls a Building gain per
+      repair (the gap the block names). `InteractCtx` gains `skillPopup` so
+      systems-level actions can float the "+0.3" without importing UI.
+    - **Cooking (minimal)**: `src/data/recipes.ts` (berry compote: 2 berries
+      → dish selling 6 > raw 4) + `src/systems/cooking.ts` (timed activity
+      mirroring fishing; `COOK_TIME` 1.2s) + the interior hearth now offers
+      "Cook X" per cookable recipe; completion consumes ingredients, adds the
+      dish, rolls Cooking. Dish prices/names/icons table-driven (steaming-bowl
+      painter). This unblocks the Keeper path's forage→cook→sell loop.
+    - **Animal Husbandry**: owned cow/hens are interactables now
+      (`registerAnimal` — live-position hit/reach, guarded against New-Game
+      cleared arrays); Feed consumes 1 corn (`FEED_GAIN_ITEM`) and rolls
+      Husbandry.
+    - **Ornamental Gardening**: `src/systems/gardening.ts` (3 flower beds by
+      the house on `wildhearth-garden-v1`, `FLOWER_BEDS` in zones), flower
+      seeds at the stall (3), planting rolls Gardening; beds bloom over
+      `FLOWER_GROW_DAYS` (0.5 day) and stay in bloom; `drawFlowerBed` paints
+      earth → seedlings → swaying wildflowers.
+    - `saves.ts`: `GARDEN_KEY` **and `PLOTS_KEY`** added to `GAME_KEYS`
+      (plots key was missed in the crop unit — caught here).
+    - **Fix found by verification:** the interior unit had left the front
+      door's reach as the whole house rect, so "Go inside" shadowed the repair
+      hub's E-prompt everywhere near the house. Door reach is now only the
+      strip in front of the door; repairs prompt normally elsewhere.
+  - **Behavior:** nine skills, all real: repairs train Building, the hearth
+    cooks (and sells) a first dish, bought animals are fed your own corn for
+    Husbandry, and flower beds bloom by the house for Gardening. Skill gains
+    are rolls now — but a dry streak self-corrects within 5 uses at any level.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 14/14: all nine names in the
+  skills window; a repair took Building 0→0.3 (deterministic at value 0);
+  cooking consumed 2 berries → compote in bag + Cooking 0→0.3; feeding the hen
+  consumed corn + Husbandry 0→0.3; planting flowers Gardening 0→0.3, the bed
+  bloomed in its half-day and the bloom survived reload; and the Gain Guard
+  held — 6 casts at Fishing 99 (1% chance) still gained ≥0.3. The interior
+  suite re-ran green (7/7) after the door-reach fix.
+- **Commit:** Complete the base skill set — 4 new skills + the Gain Guard
+- **Follow-ups:** the gain-model conversion makes near-100 progress faster
+  than the old guaranteed-but-tiny gains (a forced 0.3 every ≤5 uses vs 0.01
+  per use) — flagged for tuning review; the block's spec demanded the Guard,
+  which requires chance-based rolls. Cooking depth continues in "Cooking
+  skill, extended".
+
 ## Foraging variety pass
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Foraging variety pass")

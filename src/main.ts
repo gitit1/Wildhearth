@@ -5,11 +5,11 @@ import {
 } from "./engine/input";
 import { applyCamera, screenToWorld } from "./engine/camera";
 import { paintGround } from "./world/ground";
-import { HOUSE, BARN, STALL, TREES, BUSK_SPOT, HOUSE_DOOR, ROOM, ROOM_ENTRY } from "./world/zones";
+import { HOUSE, BARN, STALL, TREES, BUSK_SPOT, HOUSE_DOOR, ROOM, ROOM_ENTRY, FLOWER_BEDS } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
   drawTree, drawFence, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
-  drawBuskSpot, drawMusicNotes, drawWaterShimmer,
+  drawFlowerBed, drawBuskSpot, drawMusicNotes, drawWaterShimmer,
 } from "./art/props";
 import { drawHouse, drawBarn, drawStall } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen } from "./art/characters";
@@ -25,6 +25,9 @@ import {
 } from "./systems/farming";
 import { cropById, cropBySeed } from "./data/crops";
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
+import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
+import { recipeById } from "./data/recipes";
+import { loadGarden, resetGarden, saveGarden, updateGarden } from "./systems/gardening";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
@@ -36,7 +39,8 @@ import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import { getWorldContext } from "./systems/worldContext";
 import {
-  hitTest, reachable, byId, runAction, runDefault, defaultActionLabel, registerBushes, registerPlots,
+  hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
+  registerBushes, registerPlots, registerAnimal, registerFlowerBeds,
   type Interactable, type InteractCtx,
 } from "./systems/interact";
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
@@ -72,19 +76,27 @@ const bushes = createBushes();
 const plots = loadPlots();     // the field persists: crops, watering, wilt
 const farmwork = createFarmWork();
 const busking = createBusking();
+const cooking = createCooking();
 const skills = loadSkills();
 const farm = loadFarm();
+const garden = loadGarden();
 const calendar = loadCalendar();
 const weather = loadWeather();
 const worldFlags = loadWorldFlags();
 const meta = loadMeta();
 registerBushes(bushes);
 registerPlots(plots, () => currentSeason(calendar));
+registerFlowerBeds(garden);
+for (const c of cows) registerAnimal("cow", c, cows);
+for (const h of hens) registerAnimal("hen", h, hens);
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
 initShopWindow(economy, skills, farm, livestock,
-  (kind) => { if (kind === "cow") cows.push(spawnCow()); else hens.push(spawnHen()); },
+  (kind) => {
+    if (kind === "cow") { const c = spawnCow(); cows.push(c); registerAnimal("cow", c, cows); }
+    else { const h = spawnHen(); hens.push(h); registerAnimal("hen", h, hens); }
+  },
   () => currentSeason(calendar),
   toast);
 
@@ -148,6 +160,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   if (seeded) seeded.value = STARTER_SKILL_SEED;
   saveSkills(skills);
   resetPlots(plots);
+  resetGarden(garden);
   for (const b of bushes) { b.full = true; b.regrow = 0; }
   resetFarm(farm);
   resetCalendar(calendar);
@@ -186,6 +199,7 @@ function tick(now: number) {
     if (foraging.picking) cancelPick(foraging);
     if (farmwork.working) cancelWork(farmwork);
     if (busking.playing) cancelBusk(busking);
+    if (cooking.cooking) cancelCook(cooking);
   }
 
   // world time: the day-length setting sets the pace; a full in-game day takes
@@ -203,7 +217,10 @@ function tick(now: number) {
   }
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, farm, player, toast, openShop: openShopWindow, enterHouse, leaveHouse };
+  const ictx: InteractCtx = {
+    economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, player,
+    toast, openShop: openShopWindow, enterHouse, leaveHouse, skillPopup: skillGainPopup,
+  };
 
   // walking away from the stall closes the trade window
   if (isShopOpen() && !nearRect(player.x, player.y, STALL)) closeShopWindow();
@@ -218,6 +235,7 @@ function tick(now: number) {
   else if (farmwork.working)
     setPrompt(farmwork.kind === "till" ? "Tilling the soil..." : farmwork.kind === "plant" ? "Planting seeds..." : "Harvesting...");
   else if (busking.playing) setPrompt("Playing a tune...");
+  else if (cooking.cooking) setPrompt("Cooking...");
   else if (near) setPrompt(defaultActionLabel(near, ictx));
   else setPrompt(null);
 
@@ -251,7 +269,7 @@ function tick(now: number) {
   }
 
   // action button / E key: use whatever is in reach
-  if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working && !busking.playing)
+  if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working && !busking.playing && !cooking.cooking)
     runDefault(near, ictx);
 
   // a queued action fires once the player arrives in reach
@@ -295,6 +313,22 @@ function tick(now: number) {
     toast(`Earned ${tip} coin${tip === 1 ? "" : "s"} busking! 🎶`);
     const gained = gainSkill(skills, "busking");
     if (gained > 0) skillGainPopup("busking", gained);
+  }
+  const cooked = updateCooking(cooking, dt);
+  if (cooked) {
+    const r = recipeById(cooked);
+    if (r) {
+      // consume the ingredients, serve the dish (worked-in value)
+      for (const [id, n] of Object.entries(r.inputs)) removeItem(economy.inv, id, n);
+      if (gainItem(economy, r.id)) toast(`Cooked ${r.name.toLowerCase()}! 🍲`);
+      else toast("Backpack full — the dish burns while you rummage!");
+      const gained = gainSkill(skills, "cooking");
+      if (gained > 0) skillGainPopup("cooking", gained);
+    }
+  }
+  if (updateGarden(garden, dt, dayLengthSeconds())) {
+    saveGarden(garden);
+    toast("The flower bed is in bloom! 🌸");
   }
   if (updatePlots(plots, dt, skillValue(skills, "farming"), dayLengthSeconds())) savePlots(plots);
   const farmDone = updateFarmWork(farmwork, dt);
@@ -371,6 +405,7 @@ function draw() {
       drawCropTile(ctx, c.x, c.y, c.growth, time, cropById(c.cropId ?? "")?.palette, c.watered);
   }
   drawBuskSpot(ctx, BUSK_SPOT[0], BUSK_SPOT[1], time);
+  FLOWER_BEDS.forEach(([fx, fy], i) => drawFlowerBed(ctx, fx, fy, garden.beds[i]!, time));
   if (busking.playing) drawMusicNotes(ctx, player.x, player.y - 8, time);
 
   // depth-sorted world objects + entities

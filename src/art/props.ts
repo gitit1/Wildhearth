@@ -167,6 +167,45 @@ export function drawBush(g: CanvasRenderingContext2D, x: number, y: number, full
   }
 }
 
+/** Ornamental flower bed by the house: turned earth -> seedlings -> bloom. */
+export function drawFlowerBed(
+  g: CanvasRenderingContext2D, x: number, y: number,
+  bed: { planted: boolean; growth: number; bloomed: boolean }, t: number,
+) {
+  // the bed itself: an oval of turned earth
+  g.fillStyle = "#57402a";
+  g.beginPath(); g.ellipse(x, y, 15, 10, 0, 0, 7); g.fill();
+  g.strokeStyle = "rgba(150,110,70,.5)"; g.lineWidth = 1.5;
+  g.beginPath(); g.ellipse(x, y, 15, 10, 0, 0, 7); g.stroke();
+  if (!bed.planted) return;
+  const rnd = mulberry32((x * 7 + y) | 0);
+  if (!bed.bloomed) {
+    // seedlings
+    g.strokeStyle = "#6fae3e"; g.lineWidth = 1.5;
+    for (let i = 0; i < 5; i++) {
+      const px = x - 10 + rnd() * 20, py = y - 4 + rnd() * 8;
+      g.beginPath(); g.moveTo(px, py); g.lineTo(px - 1.5, py - 3 - bed.growth * 3); g.stroke();
+      g.beginPath(); g.moveTo(px, py); g.lineTo(px + 1.5, py - 3 - bed.growth * 3); g.stroke();
+    }
+  } else {
+    // wildflowers in bloom, gently swaying
+    const colors = ["#d16a9a", "#e8c34f", "#8a7ac2", "#e07830", "#e0e6f0"];
+    for (let i = 0; i < 7; i++) {
+      const px = x - 11 + rnd() * 22, py = y - 5 + rnd() * 10;
+      const sway = Math.sin(t * 1.3 + px * 0.4) * 0.8;
+      g.strokeStyle = "#4a7a2a"; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(px, py + 3); g.lineTo(px + sway, py - 4); g.stroke();
+      g.fillStyle = colors[i % colors.length]!;
+      for (let pt = 0; pt < 5; pt++) {
+        const a = (pt / 5) * Math.PI * 2;
+        g.beginPath(); g.arc(px + sway + Math.cos(a) * 2.2, py - 5 + Math.sin(a) * 2.2, 1.4, 0, 7); g.fill();
+      }
+      g.fillStyle = "#e8c34f";
+      g.beginPath(); g.arc(px + sway, py - 5, 1.2, 0, 7); g.fill();
+    }
+  }
+}
+
 /** Busking spot: a cobbled corner with an upturned hat waiting for coins. */
 export function drawBuskSpot(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
   // cobblestones

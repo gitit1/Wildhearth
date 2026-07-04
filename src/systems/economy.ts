@@ -3,6 +3,7 @@ import { FISH } from "../data/fish";
 import { JUNK } from "../data/junk";
 import { CROPS } from "../data/crops";
 import { FORAGE } from "../data/forage";
+import { RECIPES } from "../data/recipes";
 import {
   Inventory, createInventory, reviveInventory, addItem, removeItem, countItem,
 } from "./inventory";
@@ -18,6 +19,7 @@ export const GOOD_PRICES: Record<string, number> = {
   ...Object.fromEntries(JUNK.map((j) => [j.id, j.price])),
   ...Object.fromEntries(CROPS.map((c) => [c.id, c.price])),
   ...Object.fromEntries(FORAGE.map((f) => [f.id, f.price])),
+  ...Object.fromEntries(RECIPES.map((r) => [r.id, r.price])),   // cooked dishes
 };
 
 /** Player wallet + backpack. Coins are currency (not a slot item). */

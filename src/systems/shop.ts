@@ -1,4 +1,4 @@
-import { HOE_PRICE, ROD_PRICE, HEN_PRICE, COW_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
+import { HOE_PRICE, ROD_PRICE, HEN_PRICE, COW_PRICE, FLOWER_SEEDS_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
 import { CROPS } from "../data/crops";
 import { addItem, countItem } from "./inventory";
 import { saveEconomy, type Economy } from "./economy";
@@ -28,6 +28,7 @@ export const SHOP_STOCK: ShopEntry[] = [
   // one packet per crop, stocked in the seasons it can actually be planted —
   // the stall doesn't sell what would only wilt in the bag
   ...CROPS.map((c): ShopEntry => ({ id: c.seedId, price: c.seedPrice, seasons: c.seasons })),
+  { id: "flower-seeds", price: FLOWER_SEEDS_PRICE },   // ornamental gardening
   { id: "hen", price: HEN_PRICE, livestock: "hen" },
   { id: "cow", price: COW_PRICE, livestock: "cow", unique: true },
 ];
