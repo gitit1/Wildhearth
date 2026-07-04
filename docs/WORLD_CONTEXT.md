@@ -407,7 +407,7 @@ reflects it.
 ---
 
 ## Block 5 — World event flags
-- [ ] not started — **depends on Block 2 only; independent of Blocks 3-4**
+- [x] built, verified (in-browser: set/expire/prune/persist), committed — 2026-07-04
 
 A generic "something just happened" mechanism any future system can use
 (dialogue, quests, NPC reactions) instead of each inventing its own

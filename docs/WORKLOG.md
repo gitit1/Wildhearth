@@ -42,6 +42,62 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## World Context Block 5 — World event flags
+- **Date:** 2026-07-04
+- **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 5 — World event flags)
+  A generic, expiring "something just happened" mechanism. Create
+  `systems/worldFlags.ts` (a versioned *set* of entries), add `WORLD_FLAGS_KEY`
+  to config + `saves.ts`'s `GAME_KEYS`, instantiate/reset it in `main.ts` and
+  `pruneExpired` on the daily rollover, and add a `flags` slice to World
+  Context. Done when setting a flag makes it appear in
+  `getWorldContext(...).flags`, it disappears on its own after the given number
+  of in-game days (via `hasFlag`), and it survives save/reload.
+- **Done:**
+  - **Files:**
+    - `src/systems/worldFlags.ts` (NEW): `WorldFlags { version, entries[] }`
+      with `load/save/resetWorldFlags`, `setFlag` (expiry = currentDay +
+      durationDays), `hasFlag`, `pruneExpired` (drops entries past their day),
+      and `activeFlagsRecord` (→ `Record<string, boolean>` of still-active
+      flags). Exactly the spec's code.
+    - `src/config.ts`: added `WORLD_FLAGS_KEY = "wildhearth-flags-v1"` (matching
+      the existing key convention).
+    - `src/systems/saves.ts`: added `WORLD_FLAGS_KEY` to `GAME_KEYS`.
+    - `src/main.ts`: `const worldFlags = loadWorldFlags()` beside the other
+      stores; `resetWorldFlags(worldFlags)` in `newGameReset()`; and
+      `pruneExpired(worldFlags, calendar.day)` on the daily rollover (same
+      `calendar.hour === 0` call site as Block 4's weather reroll).
+    - `src/systems/worldContext.ts`: imported `activeFlagsRecord`/`WorldFlags`,
+      enabled the `flags?: WorldFlags` source, added a required
+      `flags: Record<string, boolean>` to `WorldContext`, and populated it via
+      `sources.flags ? activeFlagsRecord(sources.flags, sources.calendar?.day ?? 0) : {}`.
+    - `docs/WORLD_CONTEXT.md`: Block 5 ticked `[x]`.
+  - **Systems / functions:** new save key `wildhearth-flags-v1`; a reusable
+    expiring-flag store (`setFlag`/`hasFlag`/`pruneExpired`/`activeFlagsRecord`);
+    World Context now always carries a `flags` record (`{}` when no source).
+    `setFlag`/`hasFlag` are exported for future callers (dialogue, quests, NPC
+    reactions) but have no in-game caller yet.
+  - **Behavior:** no player-facing change — infrastructure. Any future system
+    can mark a transient world fact (e.g. `setFlag(worldFlags, "fixed_bridge",
+    4, calendar.day)`) and read it back through World Context until it expires;
+    the daily prune keeps the saved list from growing forever.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 7/7 (temporary fast cadence + a
+  `window.__wf` hook over the app's live `worldFlags`, both since reverted): a
+  new game had no active flags; setting one made it appear in
+  `getWorldContext().flags` and in localStorage; a 2-day flag (set on day 1)
+  vanished from the slice and reported `hasFlag=false` by day 3 while a
+  100-day flag stayed; `pruneExpired` removed the expired entry from storage;
+  and the live flag survived a reload + Continue.
+- **Commit:** World Context Block 5 — World event flags
+- **Follow-ups:** flag durations use `calendar.day` (day-of-season, 1–10) as
+  the clock, per the spec. Within a season this is exact; a duration that would
+  cross a season boundary is currently imprecise because `day` resets 10→1. Fine
+  for the short-lived, same-season flags this is meant for; if long or
+  season-spanning durations are ever needed, switch the flag clock to an
+  absolute day counter (`seasonIndex * DAYS_PER_SEASON + day`). Also: Block 6 is
+  the reusable "add a data source" recipe (no code of its own), pending your
+  go-ahead.
+
 ## World Context Block 4 — Weather
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 4 — Weather) Create

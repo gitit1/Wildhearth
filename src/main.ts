@@ -27,6 +27,7 @@ import { saveSettings, isGuided } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, advanceHour, currentSeason } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather } from "./systems/weather";
+import { loadWorldFlags, resetWorldFlags, pruneExpired } from "./systems/worldFlags";
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import {
@@ -69,6 +70,7 @@ const skills = loadSkills();
 const farm = loadFarm();
 const calendar = loadCalendar();
 const weather = loadWeather();
+const worldFlags = loadWorldFlags();
 const meta = loadMeta();
 registerBushes(bushes);
 registerPlots(plots);
@@ -119,6 +121,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   resetFarm(farm);
   resetCalendar(calendar);
   resetWeather(weather);
+  resetWorldFlags(worldFlags);
   meta.starterTool = tool;
   saveMeta(meta);
   saveSettings({ guided });         // settings are not game state — kept across a New Game
@@ -158,7 +161,10 @@ function tick(now: number) {
   while (hourAccum >= GAME_HOUR_SECONDS) {
     hourAccum -= GAME_HOUR_SECONDS;
     advanceHour(calendar);
-    if (calendar.hour === 0) rollDailyWeather(weather, currentSeason(calendar));
+    if (calendar.hour === 0) {
+      rollDailyWeather(weather, currentSeason(calendar));
+      pruneExpired(worldFlags, calendar.day);
+    }
   }
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
