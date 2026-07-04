@@ -132,7 +132,7 @@ interfaces above) and nothing else imports it.
 ---
 
 ## Block 2 — `getWorldContext()` — the working-system milestone
-- [ ] not started — **depends on Block 1. This is the "real data" milestone.**
+- [x] built, verified (in-browser: live data updates), committed — 2026-07-04
 
 Add the function itself to the same file, below the types:
 

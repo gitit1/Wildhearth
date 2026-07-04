@@ -42,6 +42,38 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## World Context Block 2 — getWorldContext()
+- **Date:** 2026-07-04
+- **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 2 — `getWorldContext()`,
+  the working-system milestone) Add the function below the Block 1 types; a
+  pure snapshot builder over the live `sources`. Wire a temporary debug log in
+  `main.ts` to confirm real coins/skills/farm flow and update, then remove it.
+  Done when the logged context is real and accurate and updates as you earn
+  coins / gain a skill / pay for a repair.
+- **Done:**
+  - **Files:**
+    - `src/systems/worldContext.ts`: added `getWorldContext(sources, query)`
+      below the Block 1 types — builds a `WorldContext` snapshot (version, coins
+      from `economy.coins`, a `skills` id→value record from `skills.list`, and
+      the four-flag `farm` slice). Pure, no stored state, no caching.
+    - `docs/WORLD_CONTEXT.md`: Block 2 ticked `[x]`.
+  - **Systems / functions:** `getWorldContext()` — the single "what's true
+    right now?" read. The `_query` param (the Block 6 per-NPC hook) is present
+    but unused for now. No permanent call site yet and no save keys; the
+    temporary `main.ts` debug log used to verify it was removed, so `main.ts`
+    is unchanged by this block.
+  - **Behavior:** no player-facing change — infrastructure. The first real
+    consumer will be the dialogue system in `ROADMAP_EXPANSION.md`; until then
+    the function is exported and unused (still tree-shaken from the bundle).
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via a temporary debug log driven by Playwright:
+  baseline snapshot matched seeded state (coins 200, fishing 5, farm all
+  false); after walking to the farmhouse and patching the roof the next
+  snapshot read coins 175 + farm.roof true; 5 snapshots confirmed it recomputes
+  each call. Debug log then removed and the clean build re-confirmed.
+- **Commit:** World Context Block 2 — getWorldContext()
+- **Follow-ups:** none. Next: Block 3 (Calendar & time), pending your go-ahead.
+
 ## World Context Block 1 — shared types
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 1 — Shared types)

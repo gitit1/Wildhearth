@@ -46,3 +46,27 @@ export interface WorldContext {
   skills: Readonly<Record<string, number>>;
   farm: FarmSlice;
 }
+
+/** Builds a read-only snapshot of "what's true right now" from the live state
+ *  objects main.ts already holds. Pure function, no stored state of its own —
+ *  call it fresh whenever a consumer needs it. Recomputing is cheap (a handful
+ *  of small objects); do not add caching pre-emptively (see docs/WORLD_CONTEXT.md). */
+export function getWorldContext(
+  sources: WorldContextSources,
+  _query: WorldContextQuery = {},
+): WorldContext {
+  const skillsSnapshot: Record<string, number> = {};
+  for (const s of sources.skills.list) skillsSnapshot[s.id] = s.value;
+
+  return {
+    version: 1,
+    coins: sources.economy.coins,
+    skills: skillsSnapshot,
+    farm: {
+      roof: sources.farm.roof,
+      window: sources.farm.window,
+      barn: sources.farm.barn,
+      fence: sources.farm.fence,
+    },
+  };
+}
