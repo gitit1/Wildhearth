@@ -109,7 +109,7 @@ project.
   rundown start, all four repairs with correct coin deductions (200 → 120)
   and live visual swaps, the broke-player refusal, Look-only once whole, and
   persistence across reload; New Game reset to rundown.
-- **Commit:** <fill after committing>
+- **Commit:** `c420f8c` — Step 8 — Farm repair (tier-1 renovation)
 - **Follow-ups:** The Building/Renovation *skill* is not yet wired to these
   repair actions — repairing currently trains no skill and applies no
   skill-based discount. Deferred to the "Complete the base skill set" block
