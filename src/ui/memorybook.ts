@@ -34,8 +34,9 @@ export function initMemoryBook(collections: Collections, memories: Memories) {
   tabCol.addEventListener("click", () => { tab = "collections"; render(); });
   tabMem.addEventListener("click", () => { tab = "memories"; render(); });
   bookBtn?.addEventListener("click", () => setOpen(!open));
+  // B for Book — M belongs to the minimap (the two collided before this pass)
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyM") setOpen(!open);
+    if (e.code === "KeyB") setOpen(!open);
     if (e.code === "Escape" && open) setOpen(false);
   });
 

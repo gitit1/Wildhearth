@@ -1,5 +1,6 @@
 import type { Economy } from "../systems/economy";
 import type { CalendarSlice, WeatherSlice } from "../systems/worldContext";
+import { drawClockDial } from "./clockdial";
 
 const coinsEl = document.getElementById("coins")!;
 const calEl = document.getElementById("calendar")!;
@@ -8,15 +9,26 @@ const promptEl = document.getElementById("prompt")!;
 const toastEl = document.getElementById("toast")!;
 let toastT = 0;
 
+// the HUD clock dial: a 64px canvas, dpr-crisp, redrawn each frame
+const DIAL_PX = 64;
+const dialCv = document.getElementById("clockDial") as HTMLCanvasElement;
+dialCv.width = DIAL_PX * devicePixelRatio;
+dialCv.height = DIAL_PX * devicePixelRatio;
+const dialG = dialCv.getContext("2d")!;
+
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const pad = (n: number) => String(n).padStart(2, "0");
 
 // plain text labels for the first pass (visual weather is its own later block)
 const WEATHER_GLYPH: Record<string, string> = { clear: "☀", rain: "🌧", storm: "⛈", fog: "🌫" };
 
 export function updateHud(e: Economy, cal?: CalendarSlice, wx?: WeatherSlice) {
   coinsEl.textContent = String(e.coins);
-  if (cal) calEl.textContent = `${cap(cal.season)} · Day ${cal.day} · ${pad(cal.hour)}:${pad(cal.minute)}`;
+  if (cal) {
+    calEl.textContent = `${cap(cal.season)} · Day ${cal.day}`;   // the time lives on the dial
+    dialG.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    dialG.clearRect(0, 0, DIAL_PX, DIAL_PX);
+    drawClockDial(dialG, DIAL_PX, cal, wx);
+  }
   if (wx) weatherEl.textContent = `${WEATHER_GLYPH[wx.state] ?? ""} ${cap(wx.state)}`;
 }
 

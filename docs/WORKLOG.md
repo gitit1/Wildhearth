@@ -42,6 +42,60 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## UI/HUD exterior design pass
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 2)
+- **Block given:** (batch-2 instruction) A general visual redesign of the UI
+  chrome, consistent across every window: a circular sun/moon clock dial
+  replacing the flat time pill, shared panel chrome (rounded corners, subtle
+  border, drop shadow), on-screen icon buttons as the primary way into
+  windows (VISION Controls — speced, never built), and the same outlined
+  rounded treatment on item cells and toasts.
+- **Done:**
+  - **Files:**
+    - `src/ui/clockdial.ts` (NEW, built by a parallel subagent to spec): a
+      pure canvas painter — hour-blended sky face (night→dawn→day→dusk), a
+      sun with a soft glow traveling a 6:00→19:00 arc / a crescent moon on
+      the night arc, horizon line, HH:MM in the lower half, wood+gold rings
+      with a 60° season-tinted tick, and subtle rain/storm/fog marks. Driven
+      by the same per-frame `getWorldContext()` snapshot (types only).
+    - `src/ui/hud.ts`: a dpr-crisp 64px `#clockDial` canvas redrawn each
+      frame; the date pill drops the time ("Spring · Day 4") — time lives on
+      the dial; weather pill unchanged.
+    - `index.html`: a design-token block (`:root` — ink/gold/wood/panel
+      gradient/hairline/cell tokens, two shadow recipes) with grouped
+      overrides so **all four floating windows + minimap share one chrome**
+      (2px wood border, 14px radius, gold hairline inset, soft drop shadow,
+      gold headers with hairline underlines); pills/prompt/toast get the same
+      outlined treatment; tool/zoom buttons unified with hover/active states;
+      the HUD restructured to dial + info column; skills panel default
+      geometry adjusted (top 470, list 150px) so nine skills clear the tools
+      row.
+    - **Icon-first windows:** a new 🗺 map tool button (the minimap was
+      keyboard-only); all four windows now open primarily by icon with
+      keys as secondary (VISION Controls). **Fixes a real batch-1 bug:** the
+      Memory Book had claimed key M, colliding with the minimap — the book
+      is now B (`ui/memorybook.ts`), the map keeps M (`ui/minimap.ts`, which
+      also gained the button wiring + active state).
+  - **Behavior:** the HUD corner is now a small painted clock — sun arcs
+    across a day-blue face, a crescent moon rides the night, the ring's top
+    tick shows the season, rain/storm/fog mark the face — beside compact
+    coins/date/weather pills. Every window, pill, toast, and button shares
+    one wood-and-gold chrome language with soft shadows under everything
+    that floats.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 6/6 functional: the dial
+  canvas actually paints (3168 opaque px); the date pill dropped the time;
+  all four tool icons toggle their windows; **M toggles only the map and B
+  only the book** (each panel's visibility checked against the other's
+  stability); computed styles confirm identical border/radius/shadow across
+  backpack/skills/book. Eye review of screenshots: noon full-HUD, dawn
+  (peach face, low sun), night (crescent moon), rain marks — all legible at
+  64px.
+- **Commit:** UI/HUD exterior design pass
+- **Follow-ups:** the toast's green success tint was unified into the shared
+  chrome (pale-green text on panel dark) — flag if the old solid green was
+  preferred. Quest-log icon joins the tools row when quests exist.
+
 ## Farm plot expansion — money-gated
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 2)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Farm plot expansion —

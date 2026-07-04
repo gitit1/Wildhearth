@@ -220,13 +220,13 @@ specific-match-wins) are all 🔵 speced, none built.
 
 ---
 
-## Controls 🟡
-Mouse-first (click-to-move, click-to-open-windows) on top of an
-already-built keyboard+touch base. 🟢 built: keyboard/touch base, basic
-interaction system (hover, left-click act-or-walk, right-click context
-menu). 🔵 not yet retrofitted: click-to-move pathing, on-screen window
-icons as the primary way in (keyboard shortcuts stay as secondary), camera
-zoom.
+## Controls 🟢
+Mouse-first, built: click-to-move (straight-line vs. collision),
+hover-marked objects with left-click act-or-walk + right-click context
+menus, camera zoom (wheel + on-screen ±), and on-screen icon buttons as
+the primary way into every window (🗺 map, 📜 skills, 📖 memory book,
+🎒 backpack) with keyboard shortcuts (M/K/B/I) as secondary. Real
+pathfinding remains a later polish item.
 
 ## Art direction 🟢 (established) / 🔵 (fullest version)
 Top-down 2D, everything drawn in code — no image assets, no true 3D ever.

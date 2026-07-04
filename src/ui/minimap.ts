@@ -24,9 +24,12 @@ let visible = true;
 let scale = MINIMAP_SCALE;   // world px -> map px, including user resize
 let W = 0, H = 0;
 
+let mapBtn: HTMLElement | null = null;
+
 export function initMinimap() {
   box = document.getElementById("minimapBox")!;
   canvas = document.getElementById("minimap") as HTMLCanvasElement;
+  mapBtn = document.getElementById("mapBtn");
   g = canvas.getContext("2d")!;
   makePanel(box, box, "map", (userS) => {
     scale = MINIMAP_SCALE * userS;
@@ -39,10 +42,16 @@ export function initMinimap() {
     base = paintBase();
   });
 
-  addEventListener("keydown", (e) => {
-    if (e.code !== "KeyM") return;
-    visible = !visible;
+  // the 🗺 tool icon is the primary way in (mouse-first); M stays as shortcut
+  const setVisible = (v: boolean) => {
+    visible = v;
     box.style.display = visible ? "block" : "none";
+    mapBtn?.classList.toggle("active", visible);
+  };
+  mapBtn?.addEventListener("click", () => setVisible(!visible));
+  mapBtn?.classList.toggle("active", visible);
+  addEventListener("keydown", (e) => {
+    if (e.code === "KeyM") setVisible(!visible);
   });
 }
 

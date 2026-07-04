@@ -71,14 +71,14 @@
       border-radius:8px;padding:calc(4px*var(--s)) calc(7px*var(--s))}
     .book-when{color:#cdb98a;font-size:calc(10px*var(--s));font-weight:700}
     .book-empty{color:#9a8f74;font-style:italic}
-    #skillsPanel{--s:1;position:fixed;top:492px;right:14px;display:none;z-index:5;user-select:none;
+    #skillsPanel{--s:1;position:fixed;top:470px;right:14px;display:none;z-index:5;user-select:none;
       background:rgba(25,32,18,.88);border:2px solid #7a5c34;border-radius:14px;
       padding:calc(10px*var(--s)) calc(12px*var(--s));color:#f0ead6;min-width:calc(210px*var(--s))}
     #skillsPanel h2{margin:0 0 calc(4px*var(--s));font-size:calc(14px*var(--s));text-align:center}
     #skillsTotal{text-align:center;font-size:calc(11px*var(--s));color:#cdb98a;font-weight:700;
       margin-bottom:calc(6px*var(--s));font-variant-numeric:tabular-nums}
     #skillsList{display:flex;flex-direction:column;gap:calc(4px*var(--s));
-      max-height:calc(240px*var(--s));overflow-y:auto}
+      max-height:calc(150px*var(--s));overflow-y:auto}
     .sk-row{position:relative;display:flex;align-items:center;gap:calc(8px*var(--s));
       padding:calc(4px*var(--s)) calc(6px*var(--s));border-radius:8px;background:rgba(240,234,214,.07)}
     .sk-lock{background:transparent;border:1px solid rgba(240,234,214,.25);border-radius:6px;
@@ -130,6 +130,50 @@
       border:2px solid #b8912f;background:rgba(230,190,80,.92);color:#241d0e;font-weight:800;
       font-size:16px;cursor:pointer}
     .menu-btn:hover{background:#f2cf6b}
+    /* ============ UI design pass: one chrome language for everything ============
+       Tokens first, then grouped overrides that win the cascade. Wood border,
+       deep green-black gradient panels, a gold hairline inset, soft drop
+       shadows under everything that floats. */
+    :root{
+      --ink:#f0ead6; --gold:#ffd54f; --gold-soft:#e8c34f; --muted:#cdb98a;
+      --wood:#7a5c34; --wood-dark:#5d4630;
+      --panel-bg:linear-gradient(180deg,rgba(34,42,25,.95),rgba(20,26,14,.95));
+      --hairline:rgba(232,195,79,.28);
+      --cell-bg:rgba(240,234,214,.07); --cell-edge:rgba(240,234,214,.16);
+      --r:14px; --r-s:9px;
+      --float-shadow:0 8px 22px rgba(0,0,0,.55),inset 0 0 0 1px var(--hairline);
+      --pill-shadow:0 3px 10px rgba(0,0,0,.4),inset 0 0 0 1px var(--hairline);
+    }
+    /* floating windows share one chrome */
+    #backpack,#skillsPanel,#memoryPanel,#shopWindow{
+      background:var(--panel-bg);border:2px solid var(--wood);border-radius:var(--r);
+      box-shadow:var(--float-shadow)}
+    #backpack h2,#skillsPanel h2,#memoryPanel h2,#shopWindow h2{
+      color:var(--gold);letter-spacing:.05em;
+      border-bottom:1px solid var(--hairline);padding-bottom:calc(5px*var(--s))}
+    #minimapBox{border:2px solid var(--wood);border-radius:12px;box-shadow:var(--float-shadow)}
+    /* pills, prompt, toast: same outlined rounded treatment */
+    .pill{background:var(--panel-bg);border:1.5px solid var(--wood);box-shadow:var(--pill-shadow)}
+    #prompt{background:var(--panel-bg);border:1.5px solid var(--wood);box-shadow:var(--pill-shadow);color:var(--gold)}
+    #toast{background:var(--panel-bg);border:1.5px solid var(--wood);box-shadow:var(--pill-shadow);color:#cfe8b0}
+    /* buttons: one family */
+    .tool-btn,.zoom-btn{background:var(--panel-bg);border:2px solid var(--wood);
+      border-radius:12px;box-shadow:var(--pill-shadow);transition:border-color .12s,transform .06s}
+    .tool-btn:hover,.zoom-btn:hover{border-color:var(--gold-soft)}
+    .tool-btn:active,.zoom-btn:active{transform:translateY(1px)}
+    .tool-btn.active{background:rgba(230,190,80,.92);border-color:#b8912f;box-shadow:var(--pill-shadow)}
+    #actBtn{border:2px solid #b8912f;box-shadow:0 5px 14px rgba(0,0,0,.45)}
+    /* item cells / rows: consistent outline */
+    .bp-slot,.shop-row,.sk-row,.book-item,.book-mem,.shop-icon,.book-tab{
+      background:var(--cell-bg);border:1px solid var(--cell-edge)}
+    .book-tab.active{background:rgba(230,190,80,.88);border-color:#b8912f}
+    .menu-panel{box-shadow:var(--float-shadow)}
+    /* the HUD: clock dial + info column */
+    #hud{align-items:center;gap:8px;flex-wrap:nowrap;justify-content:flex-start;padding-left:6px}
+    #clockDial{width:64px;height:64px;flex:none;border-radius:50%;
+      border:2px solid var(--wood);box-shadow:var(--pill-shadow);background:#1d2440}
+    #hudInfo{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+    #hudInfo .pill{padding:3px 10px;font-size:12px}
     .choice-row{display:flex;gap:14px;justify-content:center;margin:6px 0 4px}
     .choice-card{width:160px;background:rgba(240,234,214,.07);border:2px solid rgba(240,234,214,.25);
       border-radius:14px;padding:14px 10px;cursor:pointer;text-align:center}
@@ -160,9 +204,12 @@
   </div>
   <div id="sidebar"></div>
   <div id="hud">
-    <div class="pill">🪙 <span id="coins">0</span></div>
-    <div class="pill" id="calendar">—</div>
-    <div class="pill" id="weather">—</div>
+    <canvas id="clockDial"></canvas>
+    <div id="hudInfo">
+      <div class="pill">🪙 <span id="coins">0</span></div>
+      <div class="pill" id="calendar">—</div>
+      <div class="pill" id="weather">—</div>
+    </div>
   </div>
   <div id="minimapBox"><canvas id="minimap"></canvas></div>
   <div id="backpack">
@@ -192,8 +239,9 @@
     <div id="shopBuy"></div>
   </div>
   <div id="tools">
+    <button class="tool-btn" id="mapBtn" title="Map (M)">🗺️</button>
     <button class="tool-btn" id="skillsBtn" title="Skills (K)">📜</button>
-    <button class="tool-btn" id="bookBtn" title="Memory Book (M)">📖</button>
+    <button class="tool-btn" id="bookBtn" title="Memory Book (B)">📖</button>
     <button class="tool-btn" id="bagBtn" title="Backpack (I)">🎒</button>
   </div>
   <div id="opening"></div>
