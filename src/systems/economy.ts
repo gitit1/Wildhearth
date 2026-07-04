@@ -1,21 +1,23 @@
-import { FISH_PRICE, BERRY_PRICE, SAVE_KEY } from "../config";
+import { FISH_PRICE, SAVE_KEY } from "../config";
 import { FISH } from "../data/fish";
 import { JUNK } from "../data/junk";
 import { CROPS } from "../data/crops";
+import { FORAGE } from "../data/forage";
 import {
   Inventory, createInventory, reviveInventory, addItem, removeItem, countItem,
 } from "./inventory";
 
 /** What the market stall pays per unit. Grows as new goods are introduced.
- *  Fish, junk, and crop produce price themselves from their data tables; the
- *  legacy generic "fish" stays priced so pre-variety saves can still sell it.
- *  Seed packets are deliberately absent — the stall doesn't buy seeds back. */
+ *  Fish, junk, crop produce, and wild forage price themselves from their data
+ *  tables (berries included); the legacy generic "fish" stays priced so
+ *  pre-variety saves can still sell it. Seed packets are deliberately absent
+ *  — the stall doesn't buy seeds back. */
 export const GOOD_PRICES: Record<string, number> = {
   fish: FISH_PRICE,
-  berries: BERRY_PRICE,
   ...Object.fromEntries(FISH.map((s) => [s.id, s.price])),
   ...Object.fromEntries(JUNK.map((j) => [j.id, j.price])),
   ...Object.fromEntries(CROPS.map((c) => [c.id, c.price])),
+  ...Object.fromEntries(FORAGE.map((f) => [f.id, f.price])),
 };
 
 /** Player wallet + backpack. Coins are currency (not a slot item). */

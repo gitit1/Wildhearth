@@ -254,7 +254,7 @@ export function registerBushes(bushes: Bush[]) {
   bushes.forEach((b, i) => {
     INTERACTABLES.push({
       id: `bush-${i}`,
-      name: "Berry bush",
+      name: "Forage bush",
       anchor: [b.x, b.y + 22],
       defaultActionId: "pick",
       hit: (wx, wy) => {
@@ -266,13 +266,13 @@ export function registerBushes(bushes: Bush[]) {
         const list: MenuAction[] = [];
         if (b.full)
           list.push({
-            id: "pick", label: "Pick berries",
+            id: "pick", label: "Forage",
             run: (c) => { if (!busy(c)) startPick(c.foraging, b); },
           });
         list.push({
           id: "look", label: "Look",
           run: (c) => c.toast(b.full
-            ? "A bush heavy with ripe berries."
+            ? "Something worth picking hides in the leaves."
             : "Picked clean — give it time to regrow."),
         });
         return list;

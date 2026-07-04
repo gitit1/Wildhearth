@@ -42,6 +42,43 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Foraging variety pass
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Foraging variety pass")
+  Many more wild fruit/vegetable types (not just one generic berry), each with
+  rarity/location/season tags in `data/forage.ts`, following `data/fish.ts`.
+- **Done:**
+  - **Files:**
+    - `src/data/forage.ts` (NEW): 11 finds — berries (legacy id kept, floor-0
+      all-season fallback), wild garlic, brown mushroom, sorrel, hazelnuts,
+      wild strawberries, elderflower, wintergreens, rosehips, chanterelle,
+      truffle (floor 60, weight 2 — the rare prize). Each: price, weight,
+      skill floor, "forest" location tag, season tags, icon descriptor.
+    - `src/systems/foraging.ts`: `resolveForage(skill, season, location)` —
+      weighted roll over the eligible finds.
+    - `src/main.ts`: the pick handler rolls the table (season + skill aware);
+      the Foraging extra-find bonus stays on top; toasts name the find.
+    - `src/systems/economy.ts`/`inventory.ts`: prices/names from the table
+      (`BERRY_PRICE` retired from config).
+    - `src/art/icons.ts`: four tinted forage silhouettes (cluster/cap/sprig/
+      nut) shared across the table; berries keep their classic icon.
+    - `src/systems/interact.ts`: bushes renamed "Forage bush" / action
+      "Forage" with season-neutral flavor.
+  - **Behavior:** every pick is a real find now — spring gives garlic and
+    mushrooms alongside berries, autumn adds hazelnuts/rosehips/chanterelles,
+    winter has wintergreens and (at high skill) truffles, and each sells at
+    its own table price. Skill floors keep the rich finds gated.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 9/9: skill-0 spring picks stay
+  in the floor-0 in-season set; autumn at skill 90 excludes spring/summer/
+  winter-only finds and reaches gated ones (chanterelle observed); winter
+  yields only winter-eligible finds and more than berries; forage sells at
+  table prices in the stall menu (Chanterelle 8, Rosehips 5 verified rows).
+- **Commit:** Foraging variety pass
+- **Follow-ups:** the wild-fruit→farmable-seed bridge belongs to the Riverside
+  Fisherwoman block (skipped this run); the table's location tags are ready
+  for it and for new regions.
+
 ## Crop/farming variety pass — active tending
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Crop/farming variety

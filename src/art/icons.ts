@@ -3,6 +3,45 @@
 
 import { FISH } from "../data/fish";
 import { CROPS } from "../data/crops";
+import { FORAGE } from "../data/forage";
+
+/** Wild-forage icons: four silhouettes (berry cluster / mushroom cap /
+ *  leafy sprig / nut), tinted per item from data/forage.ts. */
+function paintForage(
+  g: CanvasRenderingContext2D, s: number,
+  icon: { color: string; kind: "cluster" | "cap" | "sprig" | "nut" },
+) {
+  if (icon.kind === "cluster") {
+    g.fillStyle = "#528034";
+    g.beginPath(); g.ellipse(s * 0.62, s * 0.32, s * 0.16, s * 0.08, -0.6, 0, 7); g.fill();
+    g.fillStyle = icon.color;
+    const dots: Array<[number, number]> = [[0.38, 0.5], [0.56, 0.44], [0.5, 0.62], [0.66, 0.58]];
+    for (const [ox, oy] of dots) { g.beginPath(); g.arc(s * ox, s * oy, s * 0.11, 0, 7); g.fill(); }
+    g.fillStyle = "rgba(255,255,255,.5)";
+    for (const [ox, oy] of dots) { g.beginPath(); g.arc(s * (ox - 0.03), s * (oy - 0.03), s * 0.032, 0, 7); g.fill(); }
+  } else if (icon.kind === "cap") {
+    g.fillStyle = "#e8e0cc";                                       // stem
+    g.fillRect(s * 0.44, s * 0.48, s * 0.13, s * 0.3);
+    g.fillStyle = icon.color;                                      // cap
+    g.beginPath(); g.ellipse(s * 0.5, s * 0.46, s * 0.26, s * 0.16, 0, Math.PI, 0); g.fill();
+    g.fillStyle = "rgba(255,255,255,.25)";
+    g.beginPath(); g.ellipse(s * 0.42, s * 0.4, s * 0.07, s * 0.04, -0.4, 0, 7); g.fill();
+  } else if (icon.kind === "sprig") {
+    g.strokeStyle = "#4a7a2a"; g.lineWidth = Math.max(1.5, s * 0.04); g.lineCap = "round";
+    g.beginPath(); g.moveTo(s * 0.5, s * 0.78); g.quadraticCurveTo(s * 0.46, s * 0.5, s * 0.52, s * 0.24); g.stroke();
+    g.fillStyle = icon.color;
+    for (const [ox, oy, rot] of [[0.4, 0.42, -0.7], [0.62, 0.36, 0.6], [0.42, 0.6, -0.5], [0.6, 0.56, 0.5]] as const) {
+      g.beginPath(); g.ellipse(s * ox, s * oy, s * 0.13, s * 0.06, rot, 0, 7); g.fill();
+    }
+  } else {                                                          // nut
+    g.fillStyle = icon.color;
+    g.beginPath(); g.ellipse(s * 0.44, s * 0.56, s * 0.15, s * 0.17, -0.2, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(s * 0.62, s * 0.5, s * 0.13, s * 0.15, 0.3, 0, 7); g.fill();
+    g.fillStyle = "rgba(90,60,30,.5)";                              // caps on top
+    g.beginPath(); g.ellipse(s * 0.42, s * 0.44, s * 0.11, s * 0.06, -0.2, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(s * 0.63, s * 0.4, s * 0.1, s * 0.05, 0.3, 0, 7); g.fill();
+  }
+}
 
 type IconPainter = (g: CanvasRenderingContext2D, s: number) => void;
 
@@ -273,6 +312,9 @@ const PAINTERS: Record<string, IconPainter> = {
   ...Object.fromEntries(CROPS.filter((c) => c.id !== "corn")
     .map((c) => [c.id, ((g, s) => paintProduce(g, s, c.palette, c.shape)) as IconPainter])),
   ...Object.fromEntries(CROPS.map((c) => [c.seedId, ((g, s) => paintSeedPacket(g, s, c.palette.fruit)) as IconPainter])),
+  // wild forage shares four tinted silhouettes (berries keep their classic icon)
+  ...Object.fromEntries(FORAGE.filter((f) => f.id !== "berries")
+    .map((f) => [f.id, ((g, s) => paintForage(g, s, f.icon)) as IconPainter])),
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

@@ -18,7 +18,7 @@ import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/ani
 import { loadLivestock, resetLivestock } from "./systems/livestock";
 import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
-import { createBushes, createForaging, updateForaging, cancelPick } from "./systems/foraging";
+import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
 import {
   loadPlots, savePlots, resetPlots, createFarmWork, updateFarmWork, updatePlots,
   rollPlotsDay, cancelWork,
@@ -277,11 +277,14 @@ function tick(now: number) {
     }
   }
   if (updateForaging(foraging, bushes, dt)) {
-    // higher Foraging = a growing chance of an extra berry per pick
+    // what the pick found rolls against the forage table for this season+skill;
+    // higher Foraging keeps its extra-find chance on top
+    const found = resolveForage(skillValue(skills, "foraging"), currentSeason(calendar));
     const bonus = Math.random() < skillValue(skills, "foraging") / 100 ? 1 : 0;
     const n = FORAGE_BASE_YIELD + bonus;
-    if (gainItem(economy, "berries", n)) toast(n > 1 ? `Picked ${n} berries!` : "Picked a berry!");
-    else toast("Backpack full — no room for berries!");
+    const foundName = (ITEM_NAMES[found] ?? found).toLowerCase();
+    if (gainItem(economy, found, n)) toast(n > 1 ? `Picked ${n} ${foundName}!` : `Picked ${foundName}!`);
+    else toast("Backpack full — no room for the find!");
     const gained = gainSkill(skills, "foraging");
     if (gained > 0) skillGainPopup("foraging", gained);
   }

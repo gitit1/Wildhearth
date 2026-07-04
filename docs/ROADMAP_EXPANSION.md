@@ -191,7 +191,7 @@ automatic.** Two changes together:
 ---
 
 ## Foraging variety pass
-- [ ] not started
+- [x] built, verified in-browser (11 finds, season+skill gated, table-driven prices/names/icons), committed — 2026-07-04 (autorun branch)
 
 **Foraging variety pass**, same spirit as the fish/crop tables: many
 more wild fruit and vegetable types to find (not just one generic

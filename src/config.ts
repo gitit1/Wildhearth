@@ -14,8 +14,7 @@ export const ROD_PRICE = 12;            // shop: fishing rod (basic-tool tier, s
 export const JUNK_CHANCE_BASE = 0.35;   // junk-catch odds at Fishing 0...
 export const JUNK_CHANCE_MIN = 0.05;    // ...falling to this at Fishing 100
 
-export const BERRY_PRICE = 2;           // coins per berry at the stall
-export const FORAGE_TIME = 1.2;         // seconds to pick a bush
+export const FORAGE_TIME = 1.2;         // seconds to pick a bush (per-item prices live in data/forage.ts)
 export const BUSH_RESPAWN = 25;         // seconds until a picked bush regrows
 export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds a bonus chance)
 
