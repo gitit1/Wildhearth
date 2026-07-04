@@ -96,7 +96,7 @@ project.
   persistence + tailored tip surviving Continue, New Game wiping
   coins/bag/skills/farm while preserving UI panel layout, and a clean boot
   with every key corrupted (zero page errors).
-- **Commit:** <fill after committing>
+- **Commit:** `3947c66` — Step 9 — save/load hardening
 - **Follow-ups:** none. This is the MVP finish line — every ROADMAP_MVP.md
   checkpoint is now complete; next work is `docs/ROADMAP_EXPANSION.md`.
 
