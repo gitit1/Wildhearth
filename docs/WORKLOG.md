@@ -42,6 +42,47 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## World Context Block 6 — recipe closed; Infrastructure (Blocks 1-6) complete
+- **Date:** 2026-07-04
+- **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 6 — the "add a new data
+  source" recipe) Block 6 has no code of its own; it's the reusable three-edit
+  pattern (`worldContext.ts` + `main.ts` + `saves.ts`, plus the per-NPC
+  `query.npcId` scoping note) that future subsystems follow to join World
+  Context. Close it out: re-check the recipe against what Blocks 3-5 actually
+  did and fix any drift, mark Calendar/Weather/World-event-flags as Built in the
+  data-owner table, and tick Block 6.
+- **Done (docs only — no code change):**
+  - **Files:**
+    - `docs/WORLD_CONTEXT.md`: data-owner table now lists Calendar, Weather, and
+      World event flags as **Built** (with their real files/shapes) instead of
+      "being built in this file"; Block 6 ticked `[x]`; and the recipe text was
+      corrected for drift found against the shipped code (see below).
+    - `docs/WORKLOG.md`: this entry.
+  - **Doc drift fixed:**
+    - Recipe step 2 claimed the new source is passed "at whatever call site
+      currently calls `getWorldContext(...)`" — but there is **no permanent call
+      site**: Blocks 1-5 ship no consumer (the debug calls used to verify each
+      were removed). Reworded to say the first real call will be the dialogue
+      system's, and to add the field to that literal when it exists.
+    - The per-NPC scoping note showed the second parameter as `query`; the
+      shipped signature is `_query` (underscored, unused). Noted that the
+      underscore is dropped when the first consumer reads it.
+    - Recipe step 1 now records that a slice may be optional (as
+      `calendar`/`weather`) or required-with-default (as `flags`, `{}` when no
+      source) — matching what actually shipped.
+    - Recipe step 3 now mentions hooking daily-rollover work (weather reroll,
+      flag prune) into the `calendar.hour === 0` block, which Blocks 4-5 did.
+  - **Behavior:** none — documentation only. `getWorldContext()` and its five
+    live slices (coins, skills, farm, calendar, weather, flags) are unchanged.
+  - **Milestone:** the World Context Infrastructure package (Blocks 1-6) in
+    `docs/WORLD_CONTEXT.md` is now **complete** — every block built, verified,
+    and committed; the doc is closed out. World Context is a working data layer
+    any future system can read via one `getWorldContext(sources)` call.
+- **Build:** `npm run build` — ✅ passing (no source changed).
+- **Commit:** World Context Block 6 — recipe closed; Infrastructure complete
+- **Follow-ups:** none for World Context. Next agreed work is **UI** (not the
+  dialogue system or any ROADMAP_EXPANSION block yet).
+
 ## Block 5 follow-up — absolute day counter for flag expiry
 - **Date:** 2026-07-04
 - **Resolves:** the Follow-up recorded on the "World Context Block 5 — World

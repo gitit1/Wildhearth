@@ -46,9 +46,9 @@ whenever a new state-owning system is added to the game.
 | Inventory | **Built** | `systems/inventory.ts` — `Inventory { slots }` | not surfaced yet — add a slice only when a consumer actually needs "does the player hold X" as world state (dialogue doesn't need this yet) |
 | Farm repair state | **Built** | `systems/renovation.ts` — `FarmState { roof, window, barn, fence }` | `farm: { roof, window, barn, fence }`, read directly |
 | Farm plot expansions | Speced in `ROADMAP_EXPANSION.md`, **not in code yet** | would live in `renovation.ts` or a new file | add a `plotExpansions: number` field to the farm slice once it exists — don't stub it now |
-| Calendar & time | Speced, being built **in this file** (Block 3) | new: `systems/calendar.ts` | `calendar: { season, day, hour, phase }` |
-| Weather | Speced, being built **in this file** (Block 4) | new: `systems/weather.ts` | `weather: { state, daysSinceChange }` |
-| World event flags | Speced, being built **in this file** (Block 5) | new: `systems/worldFlags.ts` | `flags: Record<string, boolean>` |
+| Calendar & time | **Built** | `systems/calendar.ts` — `CalendarState { seasonIndex, day, hour }` | `calendar: { season, day, hour, phase }` |
+| Weather | **Built** | `systems/weather.ts` — `WeatherState { kind, daysSinceChange }` | `weather: { state, daysSinceChange }` |
+| World event flags | **Built** | `systems/worldFlags.ts` — `WorldFlags { entries[] }` | `flags: Record<string, boolean>` (always present, `{}` when none) |
 | Relationships | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/relationships.ts` | `relationship?: { npcId, friendship, romance }`, only when a query names an `npcId` (see Block 6) |
 | Needs | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/needs.ts` | `needs?: Record<string, number>` |
 | Collections & Memories | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/collections.ts`, `systems/memories.ts` | `collections?: {...}` — shape TBD when built |
@@ -499,7 +499,7 @@ via `hasFlag`), and it survives a save/reload.
 ---
 
 ## Block 6 — The "add a new data source" recipe
-- [ ] not started — **this block has no code of its own; it's the pattern every future subsystem follows**
+- [x] closed — no code of its own; the recipe is validated by Blocks 3-5, each of which followed it — 2026-07-04
 
 This is how Relationships, Needs, Collections, Reputation, Transportation,
 and anything else added later plugs into World Context, once its own
@@ -509,23 +509,35 @@ no registry, no ceremony):
 
 1. **`systems/worldContext.ts`** — add the new optional field to
    `WorldContextSources` (e.g. `needs?: NeedsState`) and the matching
-   slice to `WorldContext` (e.g. `needs?: Record<string, number>`), then
-   populate it inside `getWorldContext()`, following the exact pattern
-   Blocks 3-5 already used for calendar/weather/flags.
+   slice to `WorldContext`, then populate it inside `getWorldContext()`,
+   following the exact pattern Blocks 3-5 already used for
+   calendar/weather/flags. The source is always optional; the output slice
+   is optional when it can legitimately be absent (as `calendar`/`weather`
+   are — `weather?: WeatherSlice`) or required-with-a-safe-default when it
+   always makes sense (as `flags` is — `flags: Record<string, boolean>`
+   populated to `{}` when no source is passed).
 2. **`main.ts`** — add the live instance next to the others already there
-   (`const needs = loadNeeds();`), pass it into the `sources` object at
-   whatever call site currently calls `getWorldContext({ economy, skills,
-   farm, calendar, weather, flags })` (extend the object literal by one
-   field), and add its reset call to `newGameReset()`.
+   (`const needs = loadNeeds();`), add its reset call to `newGameReset()`
+   (beside `resetCalendar`/`resetWeather`/`resetWorldFlags`), and include it
+   in the `sources` object literal wherever `getWorldContext(...)` is
+   called. Note: there is **no permanent call site yet** — Blocks 1-5
+   deliberately ship no consumer (the debug calls used to verify them were
+   removed), so the first real `getWorldContext({ economy, skills, farm,
+   calendar, weather, flags, ... })` call will be authored by the dialogue
+   system in `ROADMAP_EXPANSION.md`; add the field to that literal when it
+   exists.
 3. **`saves.ts`** — add its key to `GAME_KEYS`, exactly like every
-   previous store.
+   previous store (and if the subsystem advances on the daily rollover —
+   like weather's reroll or the flag prune — hook that into the same
+   `calendar.hour === 0` block in `tick()`).
 
 **Per-NPC scoping (relationships specifically):** relationships are the
 one data source that isn't global — a dialogue check needs "friendship
 with THIS npc," not every NPC's relationship at once. When
 `relationships.ts` is eventually built, `getWorldContext()`'s signature
-already has a `query: WorldContextQuery` parameter for exactly this
-(unused until now):
+already has a query parameter for exactly this — currently written
+`_query` (underscored because nothing reads it yet); drop the underscore
+to `query` when the first consumer uses it, as shown:
 ```ts
 export function getWorldContext(
   sources: WorldContextSources,
