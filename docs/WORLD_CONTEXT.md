@@ -185,7 +185,7 @@ is where a *real* consumer will call this function.
 ---
 
 ## Block 3 — Calendar & time
-- [ ] not started — **depends on Block 2. Hard prerequisite for Block 4.**
+- [x] built, verified (in-browser: hour/day/season advance + persistence), committed — 2026-07-04
 
 This is "The Season system itself" already named in `ROADMAP_EXPANSION.md`
 — build it now since Weather (Block 4) needs it and World Context should

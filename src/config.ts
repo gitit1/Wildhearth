@@ -34,6 +34,8 @@ export const HARVEST_TIME = 0.8;        // seconds to harvest
 export const CROP_GROW_TIME = 30;       // seconds from planting to ready (at Farming 0)
 export const FARMING_GROW_REDUCTION = 0.4; // grow-time fraction removed at Farming 100
 
+export const GAME_HOUR_SECONDS = 60;    // real seconds per in-game hour (calendar pace; placeholder — tune later)
+
 export const SKILL_GAIN_BASE = 0.3;     // gain per use at skill 0, shrinking toward 100
 export const SKILL_CAP = 250;           // total skill budget (placeholder for MVP's 5 skills)
 export const STARTER_SKILL_SEED = 10;   // starting value of the skill matching the starter tool
@@ -53,4 +55,5 @@ export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";
 export const RENOVATION_KEY = "wildhearth-farm-v1";  // per-part farm repair state (Step 8)
 export const META_KEY = "wildhearth-meta-v1";        // playthrough origin: starter choice (Step 9)
+export const CALENDAR_KEY = "wildhearth-calendar-v1"; // season/day/hour (World Context Block 3)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

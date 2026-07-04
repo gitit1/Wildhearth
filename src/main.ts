@@ -1,4 +1,4 @@
-import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED } from "./config";
+import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, GAME_HOUR_SECONDS } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget, clearMoveTarget,
@@ -25,6 +25,7 @@ import { removeItem, countItem, addItem } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
+import { loadCalendar, resetCalendar, advanceHour } from "./systems/calendar";
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import {
@@ -65,6 +66,7 @@ const farmwork = createFarmWork();
 const busking = createBusking();
 const skills = loadSkills();
 const farm = loadFarm();
+const calendar = loadCalendar();
 const meta = loadMeta();
 registerBushes(bushes);
 registerPlots(plots);
@@ -79,6 +81,7 @@ const smoke: Puff[] = [];
 // ---- opening sequence (title -> intro -> reveal -> choice -> tutorial) ----
 let openingActive = true;
 let hintSellShown = false;
+let hourAccum = 0;   // real seconds banked toward the next in-game hour
 
 // The guided first-tip points at the livelihood the starter tool unlocks, so
 // the very first thing the game suggests matches what the player just chose.
@@ -112,6 +115,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   for (const c of plots) { c.state = "wild"; c.growth = 0; }
   for (const b of bushes) { b.full = true; b.regrow = 0; }
   resetFarm(farm);
+  resetCalendar(calendar);
   meta.starterTool = tool;
   saveMeta(meta);
   saveSettings({ guided });         // settings are not game state — kept across a New Game
@@ -144,6 +148,10 @@ function tick(now: number) {
     if (farmwork.working) cancelWork(farmwork);
     if (busking.playing) cancelBusk(busking);
   }
+
+  // world time: one in-game hour passes per GAME_HOUR_SECONDS of actual play
+  hourAccum += dt;
+  while (hourAccum >= GAME_HOUR_SECONDS) { hourAccum -= GAME_HOUR_SECONDS; advanceHour(calendar); }
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
   const ictx: InteractCtx = { economy, fishing, foraging, farmwork, busking, skills, farm, player, toast, openShop: openShopWindow };

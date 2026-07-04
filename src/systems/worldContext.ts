@@ -1,7 +1,7 @@
 import type { Economy } from "./economy";
 import type { Skills } from "./skills";
 import type { FarmState } from "./renovation";
-// import type { CalendarState } from "./calendar";   // added in Block 3
+import { currentSeason, currentPhase, type CalendarState, type Season, type DayPhase } from "./calendar";
 // import type { WeatherState } from "./weather";      // added in Block 4
 // import type { WorldFlags } from "./worldFlags";     // added in Block 5
 
@@ -21,7 +21,7 @@ export interface WorldContextSources {
   economy: Economy;
   skills: Skills;
   farm: FarmState;
-  // calendar?: CalendarState;   // uncomment when Block 3 lands
+  calendar?: CalendarState;   // Block 3
   // weather?: WeatherState;     // uncomment when Block 4 lands
   // flags?: WorldFlags;         // uncomment when Block 5 lands
 }
@@ -40,11 +40,19 @@ export interface FarmSlice {
   fence: boolean;
 }
 
+export interface CalendarSlice {
+  season: Season;
+  day: number;
+  hour: number;
+  phase: DayPhase;
+}
+
 export interface WorldContext {
   version: 1;
   coins: number;
   skills: Readonly<Record<string, number>>;
   farm: FarmSlice;
+  calendar?: CalendarSlice;
 }
 
 /** Builds a read-only snapshot of "what's true right now" from the live state
@@ -68,5 +76,9 @@ export function getWorldContext(
       barn: sources.farm.barn,
       fence: sources.farm.fence,
     },
+    calendar: sources.calendar
+      ? { season: currentSeason(sources.calendar), day: sources.calendar.day,
+          hour: sources.calendar.hour, phase: currentPhase(sources.calendar) }
+      : undefined,
   };
 }

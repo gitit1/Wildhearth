@@ -42,6 +42,56 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## World Context Block 3 — Calendar & time
+- **Date:** 2026-07-04
+- **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 3 — Calendar & time)
+  Create `systems/calendar.ts` in the same shape as `renovation.ts` (versioned
+  state, `fresh()`, load/save/reset on a new key, tolerant of junk); add
+  `CALENDAR_KEY` to config, add it to `saves.ts`'s `GAME_KEYS`, instantiate +
+  reset it in `main.ts` and advance it once per in-game hour from `tick()`, and
+  expose a `calendar` slice from World Context. Done when hour/day/season
+  advance, survive save/reload, and `getWorldContext(...).calendar` reflects
+  season/day/hour/phase.
+- **Done:**
+  - **Files:**
+    - `src/systems/calendar.ts` (NEW): `CalendarState { version, seasonIndex,
+      day, hour }` with `loadCalendar/saveCalendar/resetCalendar`,
+      `currentSeason`, `currentPhase`, and `advanceHour` (rolls the day at hour
+      0 and the season after `DAYS_PER_SEASON=10`, returning `seasonChanged` for
+      Block 4). Exactly the spec's code.
+    - `src/config.ts`: added `CALENDAR_KEY = "wildhearth-calendar-v1"` (matching
+      the existing key convention) and `GAME_HOUR_SECONDS = 60` (real seconds
+      per in-game hour — the tick cadence; placeholder pace, kept in config per
+      the no-inline-tuning rule).
+    - `src/systems/saves.ts`: added `CALENDAR_KEY` to `GAME_KEYS`, so New Game
+      clears it.
+    - `src/main.ts`: `const calendar = loadCalendar()` next to the other
+      stores; `resetCalendar(calendar)` in `newGameReset()`; a `hourAccum`
+      accumulator in `tick()` calls `advanceHour(calendar)` once per
+      `GAME_HOUR_SECONDS` of actual play (inside the not-opening gate, so time
+      only passes in-game).
+    - `src/systems/worldContext.ts`: imported the calendar accessors/types,
+      enabled the `calendar?: CalendarState` source, added a `CalendarSlice`
+      (`season/day/hour/phase`) to `WorldContext`, and populated it in
+      `getWorldContext()`.
+    - `docs/WORLD_CONTEXT.md`: Block 3 ticked `[x]`.
+  - **Systems / functions:** new save key `wildhearth-calendar-v1`; new
+    `CalendarState` + `Season`/`DayPhase` unions; `advanceHour` day/season
+    rollover; World Context now surfaces a live `calendar` slice.
+  - **Behavior:** in-game time now runs during play — an hour every 60s, a day
+    every 10 days into the next season — persisted and reset on New Game. No
+    visible UI yet (that's a later block); it exists to feed World Context and,
+    next, Weather.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via a temporary fast cadence + calendar debug
+  log driven by Playwright (10/10): a new game started in spring; hour advanced
+  through the day (phase mapping correct on every snapshot); the day rolled and
+  the season changed spring→summer after 10 days; the advanced calendar (457
+  in-game hours) was byte-identical after a reload and Continue was offered.
+  Cadence restored to 60 and the debug log removed; clean build re-confirmed.
+- **Commit:** World Context Block 3 — Calendar & time
+- **Follow-ups:** none. Next: Block 4 (Weather), pending your go-ahead.
+
 ## World Context Block 2 — getWorldContext()
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 2 — `getWorldContext()`,
