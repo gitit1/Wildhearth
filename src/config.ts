@@ -20,7 +20,7 @@ export const BUSH_RESPAWN = 25;         // seconds until a picked bush regrows
 export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds a bonus chance)
 
 export const HOE_PRICE = 12;            // shop: first tool (unlocks farming, Step 5)
-export const SEEDS_PRICE = 3;           // shop: one packet of seeds
+// (per-crop seed prices live in data/crops.ts)
 
 export const BUSK_TIME = 3;             // seconds per street performance
 export const BUSK_TIP_MIN = 1;          // tip roll: BUSK_TIP_MIN..BUSK_TIP_BASE_MAX at skill 0
@@ -33,12 +33,14 @@ export const REPAIR_COST = { roof: 25, window: 15, barn: 30, fence: 10 } as cons
 export const HEN_PRICE = 45;            // livestock (price anchor: first hen 40-50)
 export const COW_PRICE = 175;           // livestock (price anchor: first cow 150-200)
 
-export const CORN_PRICE = 5;            // coins per harvested corn at the stall
 export const TILL_TIME = 1.0;           // seconds to till a plot tile
 export const PLANT_TIME = 0.7;          // seconds to plant seeds
 export const HARVEST_TIME = 0.8;        // seconds to harvest
-export const CROP_GROW_TIME = 30;       // seconds from planting to ready (at Farming 0)
+export const WATER_TIME = 0.6;          // seconds to water a growing tile
+export const CLEAR_TIME = 0.8;          // seconds to clear a wilted crop
+export const WILT_DRY_DAYS = 3;         // consecutive unwatered days before a crop wilts
 export const FARMING_GROW_REDUCTION = 0.4; // grow-time fraction removed at Farming 100
+// (per-crop grow times & prices now live in data/crops.ts)
 
 export const SKILL_GAIN_BASE = 0.3;     // gain per use at skill 0, shrinking toward 100
 export const SKILL_CAP = 250;           // total skill budget (placeholder for MVP's 5 skills)
@@ -63,4 +65,5 @@ export const CALENDAR_KEY = "wildhearth-calendar-v1"; // season/day/hour (World 
 export const WEATHER_KEY = "wildhearth-weather-v1";  // daily weather (World Context Block 4)
 export const WORLD_FLAGS_KEY = "wildhearth-flags-v1"; // expiring event flags (World Context Block 5)
 export const LIVESTOCK_KEY = "wildhearth-livestock-v1"; // owned animals (no-free-animals fix)
+export const PLOTS_KEY = "wildhearth-plots-v1";      // field state incl. crops/watering (crop-variety block)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

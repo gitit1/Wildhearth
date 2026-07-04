@@ -8,7 +8,7 @@ import { paintGround } from "./world/ground";
 import { HOUSE, BARN, STALL, TREES, BUSK_SPOT, HOUSE_DOOR, ROOM, ROOM_ENTRY } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
-  drawTree, drawFence, drawBush, drawTilledTile, drawCropTile,
+  drawTree, drawFence, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
   drawBuskSpot, drawMusicNotes, drawWaterShimmer,
 } from "./art/props";
 import { drawHouse, drawBarn, drawStall } from "./art/buildings";
@@ -20,15 +20,17 @@ import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, cancelPick } from "./systems/foraging";
 import {
-  createPlots, createFarmWork, updateFarmWork, updatePlots, cancelWork,
+  loadPlots, savePlots, resetPlots, createFarmWork, updateFarmWork, updatePlots,
+  rollPlotsDay, cancelWork,
 } from "./systems/farming";
+import { cropById, cropBySeed } from "./data/crops";
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
-import { loadWeather, resetWeather, rollDailyWeather } from "./systems/weather";
+import { loadWeather, resetWeather, rollDailyWeather, isRaining } from "./systems/weather";
 import { loadWorldFlags, resetWorldFlags, pruneExpired } from "./systems/worldFlags";
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
@@ -67,7 +69,7 @@ const economy = loadEconomy();
 const fishing = createFishing();
 const foraging = createForaging();
 const bushes = createBushes();
-const plots = createPlots();
+const plots = loadPlots();     // the field persists: crops, watering, wilt
 const farmwork = createFarmWork();
 const busking = createBusking();
 const skills = loadSkills();
@@ -77,12 +79,13 @@ const weather = loadWeather();
 const worldFlags = loadWorldFlags();
 const meta = loadMeta();
 registerBushes(bushes);
-registerPlots(plots);
+registerPlots(plots, () => currentSeason(calendar));
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
 initShopWindow(economy, skills, farm, livestock,
   (kind) => { if (kind === "cow") cows.push(spawnCow()); else hens.push(spawnHen()); },
+  () => currentSeason(calendar),
   toast);
 
 interface Puff { x: number; y: number; a: number; r: number }
@@ -144,7 +147,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   const seeded = getSkill(skills, tool === "hoe" ? "farming" : tool === "rod" ? "fishing" : "busking");
   if (seeded) seeded.value = STARTER_SKILL_SEED;
   saveSkills(skills);
-  for (const c of plots) { c.state = "wild"; c.growth = 0; }
+  resetPlots(plots);
   for (const b of bushes) { b.full = true; b.regrow = 0; }
   resetFarm(farm);
   resetCalendar(calendar);
@@ -195,6 +198,7 @@ function tick(now: number) {
     if (advanceMinute(calendar)) {
       rollDailyWeather(weather, currentSeason(calendar));
       pruneExpired(worldFlags, absoluteDay(calendar));
+      rollPlotsDay(plots, isRaining(weather));   // rain waters for free; dry crops bank a day toward wilting
     }
   }
 
@@ -289,27 +293,37 @@ function tick(now: number) {
     const gained = gainSkill(skills, "busking");
     if (gained > 0) skillGainPopup("busking", gained);
   }
-  updatePlots(plots, dt, skillValue(skills, "farming"));
+  if (updatePlots(plots, dt, skillValue(skills, "farming"), dayLengthSeconds())) savePlots(plots);
   const farmDone = updateFarmWork(farmwork, dt);
   if (farmDone) {
-    const { cell, kind } = farmDone;
+    const { cell, kind, seedId } = farmDone;
     if (kind === "till") {
       cell.state = "tilled";
       toast("The soil is ready for seeds.");
     } else if (kind === "plant") {
-      if (countItem(economy.inv, "seeds") > 0 && removeItem(economy.inv, "seeds", 1)) {
+      const crop = seedId ? cropBySeed(seedId) : null;
+      if (crop && seedId && countItem(economy.inv, seedId) > 0 && removeItem(economy.inv, seedId, 1)) {
         saveEconomy(economy);
-        cell.state = "growing"; cell.growth = 0;
-        toast("Seeds planted!");
+        cell.state = "growing"; cell.growth = 0; cell.cropId = crop.id; cell.dryDays = 0;
+        cell.watered = isRaining(weather);   // a rainy day waters the fresh planting for free
+        toast(cell.watered ? `${crop.name} planted — the rain's already on it!` : `${crop.name} planted — it'll want water.`);
       }
+    } else if (kind === "water") {
+      cell.watered = true;
+      toast("Watered for today.");
+    } else if (kind === "clear") {
+      cell.state = "tilled"; cell.growth = 0; cell.cropId = null; cell.dryDays = 0; cell.watered = false;
+      toast("Cleared the wilted crop.");
     } else {
-      if (gainItem(economy, "corn")) {
-        cell.state = "tilled"; cell.growth = 0;
-        toast("Harvested corn! 🌽");
+      const crop = cell.cropId ? cropById(cell.cropId) : null;
+      if (crop && gainItem(economy, crop.id)) {
+        cell.state = "tilled"; cell.growth = 0; cell.cropId = null; cell.watered = false; cell.dryDays = 0;
+        toast(`Harvested ${crop.name.toLowerCase()}! 🌽`);
         const gained = gainSkill(skills, "farming");
         if (gained > 0) skillGainPopup("farming", gained);
-      } else toast("Backpack full — no room for the corn!");
+      } else if (crop) toast(`Backpack full — no room for the ${crop.name.toLowerCase()}!`);
     }
+    savePlots(plots);
   }
   } else {
     setPrompt(null);
@@ -349,7 +363,9 @@ function draw() {
   // the farm plot inside the fenced field (ground-level, under entities)
   for (const c of plots) {
     if (c.state === "tilled") drawTilledTile(ctx, c.x, c.y);
-    else if (c.state === "growing" || c.state === "ready") drawCropTile(ctx, c.x, c.y, c.growth, time);
+    else if (c.state === "wilted") drawWiltedTile(ctx, c.x, c.y);
+    else if (c.state === "growing" || c.state === "ready")
+      drawCropTile(ctx, c.x, c.y, c.growth, time, cropById(c.cropId ?? "")?.palette, c.watered);
   }
   drawBuskSpot(ctx, BUSK_SPOT[0], BUSK_SPOT[1], time);
   if (busking.playing) drawMusicNotes(ctx, player.x, player.y - 8, time);

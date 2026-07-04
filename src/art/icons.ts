@@ -2,8 +2,45 @@
  *  table-driven goods (fish species, junk) share parameterized painters. */
 
 import { FISH } from "../data/fish";
+import { CROPS } from "../data/crops";
 
 type IconPainter = (g: CanvasRenderingContext2D, s: number) => void;
+
+/** Seed packet tinted by the crop it grows. */
+function paintSeedPacket(g: CanvasRenderingContext2D, s: number, tint = "#7a5c2e") {
+  g.fillStyle = "#e0cfa0";
+  g.fillRect(s * 0.3, s * 0.26, s * 0.4, s * 0.5);
+  g.fillStyle = "#c9b585";
+  g.beginPath(); g.moveTo(s * 0.3, s * 0.26); g.lineTo(s * 0.5, s * 0.36); g.lineTo(s * 0.7, s * 0.26); g.closePath(); g.fill();
+  // the crop's colour on the label + a few spilling seeds
+  g.fillStyle = tint;
+  g.beginPath(); g.arc(s * 0.5, s * 0.5, s * 0.08, 0, 7); g.fill();
+  g.fillStyle = "#7a5c2e";
+  const dots: Array<[number, number]> = [[0.42, 0.66], [0.52, 0.7], [0.6, 0.64]];
+  for (const [ox, oy] of dots) {
+    g.beginPath(); g.ellipse(s * ox, s * oy, s * 0.045, s * 0.03, 0.6, 0, 7); g.fill();
+  }
+}
+
+/** Generic produce silhouette tinted per crop (corn keeps its own painter). */
+function paintProduce(
+  g: CanvasRenderingContext2D, s: number,
+  pal: { leaf: string; fruit: string }, shape: "round" | "long",
+) {
+  g.fillStyle = pal.fruit;
+  if (shape === "round") {
+    g.beginPath(); g.ellipse(s * 0.5, s * 0.56, s * 0.24, s * 0.22, 0, 0, 7); g.fill();
+    g.fillStyle = "rgba(255,255,255,.25)";
+    g.beginPath(); g.ellipse(s * 0.42, s * 0.48, s * 0.07, s * 0.05, -0.5, 0, 7); g.fill();
+  } else {
+    g.beginPath(); g.ellipse(s * 0.5, s * 0.58, s * 0.13, s * 0.28, 0.25, 0, 7); g.fill();
+    g.fillStyle = "rgba(0,0,0,.12)";
+    g.beginPath(); g.ellipse(s * 0.53, s * 0.62, s * 0.08, s * 0.2, 0.25, 0, 7); g.fill();
+  }
+  g.fillStyle = pal.leaf;   // leafy top
+  g.beginPath(); g.ellipse(s * 0.46, s * 0.3, s * 0.08, s * 0.13, -0.6, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(s * 0.58, s * 0.3, s * 0.07, s * 0.11, 0.5, 0, 7); g.fill();
+}
 
 /** Shared fish silhouette, tinted per species from its data-table palette. */
 function paintFishSpecies(
@@ -232,6 +269,10 @@ const PAINTERS: Record<string, IconPainter> = {
   rope: paintRope,
   // every fish species shares the tinted silhouette painter
   ...Object.fromEntries(FISH.map((sp) => [sp.id, ((g, s) => paintFishSpecies(g, s, sp.palette)) as IconPainter])),
+  // crop produce (corn keeps its bespoke painter below) + tinted seed packets
+  ...Object.fromEntries(CROPS.filter((c) => c.id !== "corn")
+    .map((c) => [c.id, ((g, s) => paintProduce(g, s, c.palette, c.shape)) as IconPainter])),
+  ...Object.fromEntries(CROPS.map((c) => [c.seedId, ((g, s) => paintSeedPacket(g, s, c.palette.fruit)) as IconPainter])),
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

@@ -42,6 +42,68 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Crop/farming variety pass — active tending
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Crop/farming variety
+  pass") Two changes together: crop variety (a good number of types, fruits and
+  vegetables, gated by Farming skill and season) and **active tending replacing
+  passive timer growth** — planted crops need watering to progress; neglected
+  crops grow slower or wilt outright. Also fulfils WORLD_CONTEXT Block 4's
+  standing follow-up: rain now auto-waters outdoor plots.
+- **Done:**
+  - **Files:**
+    - `src/data/crops.ts` (NEW): 9 crops (corn, carrot, potato, wheat, tomato,
+      strawberry, winter root, pumpkin, melon) — each with seed id/name/price,
+      produce price, `growDays` (watered in-game days to ripen), Farming skill
+      floor (0–40), planting seasons, and a field/icon palette. Legacy generic
+      "seeds" resolve to corn via `cropBySeed` (compat shim).
+    - `src/systems/farming.ts` (rewritten): `PlotCell` gains `cropId`,
+      `watered`, `dryDays`; new states incl. `wilted`; new work kinds `water` +
+      `clear`; **the field persists** on `wildhearth-plots-v1`
+      (`loadPlots`/`savePlots`/`resetPlots`, in `GAME_KEYS`) — also closing the
+      MVP gap where crops vanished on reload; `updatePlots` advances **watered
+      cells only** (growth = growDays × dayLengthSeconds, Farming still
+      shortens it); `rollPlotsDay` (once per in-game day, after the weather
+      reroll): hand-water drains, dry days bank, `WILT_DRY_DAYS`=3 wilts the
+      crop, and **rain waters every growing cell for free**.
+    - `src/systems/interact.ts`: plot menus rebuilt — Till; one "Plant X seeds"
+      entry per distinct packet held (skill-floor + season refusals with clear
+      toasts); Water (only when thirsty); Harvest; Clear for wilted; Look shows
+      crop, %, and watered/thirsty.
+    - `src/systems/shop.ts`: generic seed packet replaced by per-crop packets,
+      **stocked only in their planting seasons**; `ShopEntry.seasons` +
+      `initShopWindow` gets a season getter. `SEEDS_PRICE`/`CORN_PRICE`/
+      `CROP_GROW_TIME` retired from config (data-table driven); `WATER_TIME`/
+      `CLEAR_TIME`/`WILT_DRY_DAYS`/`PLOTS_KEY` added.
+    - `src/art/props.ts`: watered soil reads darker/damp; `drawCropTile` tinted
+      per crop palette; new `drawWiltedTile` (grey-brown drooped stalks).
+    - `src/art/icons.ts`: tinted seed packets + a generic produce painter per
+      crop (corn keeps its bespoke icon).
+    - `src/systems/economy.ts`/`inventory.ts`: produce prices/names from the
+      table (seeds deliberately not sellable back).
+    - `src/main.ts`: plots load/persist; the five work completions (till/plant/
+      water/harvest/clear) with rain-aware planting; `rollPlotsDay` on the
+      day rollover; palette/watered/wilted-aware field drawing.
+  - **Behavior:** nine crops with real seasonal identity — the stall stocks
+    only what can be planted now, planting checks your Farming skill and the
+    season, a fresh planting on a rainy day starts watered, hand-watering is a
+    daily chore that visibly darkens the soil, three dry days kill the crop
+    (Clear and start over), and the whole field — crops, watering, wilt —
+    survives a reload.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 19/19 across 7 scenarios: the
+  full till→plant→water→ripen→harvest arc with a mid-growth reload preserving
+  crop+watered state; rainy-day planting auto-watered with no Water action
+  offered; skill-floor refusal (melon at Farming 0); season refusal (pumpkin in
+  spring); 3 consecutive dry days wilting the crop (through random rain days —
+  observed rain-waterings en route, which is the system working) and Clear
+  resetting the tile; spring vs winter stall stock; legacy "seeds" planting
+  corn.
+- **Commit:** Crop/farming variety pass — active tending
+- **Follow-ups:** resolves the WORLD_CONTEXT Block 4 / Weather-block follow-up
+  (rain→watering is now a real mechanical effect). Weeding/fertilizing depth
+  and yield-scaling are future extensions the block names but doesn't require.
+
 ## House interior — first pass, deliberately bare and broken
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "House interior — first
@@ -458,11 +520,10 @@ project.
   3/3): a seeded storm/5 loaded unchanged on Continue, survived a reload, and
   New Game reset it to clear/0.
 - **Commit:** World Context Block 4 — Weather
-- **Follow-ups:** the real mechanical effect is deferred — when the crop
-  active-tending block from `ROADMAP_EXPANSION.md` lands in `farming.ts`, use
-  `isRaining(weather)` to skip the manual watering step for outdoor plots on
-  rainy/stormy days. Not built now because its host system doesn't exist yet.
-  Next: Block 5 (World event flags), pending your go-ahead.
+- **Follow-ups:** ~~the real mechanical effect is deferred — when the crop
+  active-tending block lands, use `isRaining(weather)` to skip manual
+  watering~~ **RESOLVED by "Crop/farming variety pass — active tending"
+  (newer entry): rain now auto-waters growing plots each day.**
 
 ## World Context Block 3 — Calendar & time
 - **Date:** 2026-07-04

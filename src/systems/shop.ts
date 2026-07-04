@@ -1,8 +1,10 @@
-import { HOE_PRICE, SEEDS_PRICE, ROD_PRICE, HEN_PRICE, COW_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
+import { HOE_PRICE, ROD_PRICE, HEN_PRICE, COW_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
+import { CROPS } from "../data/crops";
 import { addItem, countItem } from "./inventory";
 import { saveEconomy, type Economy } from "./economy";
 import { saveLivestock, type Livestock } from "./livestock";
 import type { FarmState } from "./renovation";
+import type { Season } from "./calendar";
 
 /**
  * The stall's buy side: a small fixed price list. Buying removes coins and
@@ -17,12 +19,15 @@ export interface ShopEntry {
   price: number;
   unique?: boolean;
   livestock?: "hen" | "cow";
+  seasons?: Season[];        // stocked only in these seasons (seed packets)
 }
 
 export const SHOP_STOCK: ShopEntry[] = [
   { id: "hoe", price: HOE_PRICE, unique: true },
   { id: "rod", price: ROD_PRICE, unique: true },   // fishing is a hard tool gate — the rod must be buyable
-  { id: "seeds", price: SEEDS_PRICE },
+  // one packet per crop, stocked in the seasons it can actually be planted —
+  // the stall doesn't sell what would only wilt in the bag
+  ...CROPS.map((c): ShopEntry => ({ id: c.seedId, price: c.seedPrice, seasons: c.seasons })),
   { id: "hen", price: HEN_PRICE, livestock: "hen" },
   { id: "cow", price: COW_PRICE, livestock: "cow", unique: true },
 ];

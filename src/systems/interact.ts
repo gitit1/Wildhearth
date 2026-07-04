@@ -7,8 +7,10 @@ import { startCast, type FishingState } from "./fishing";
 import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
 import { startBusk, type BuskingState } from "./busking";
-import { countItem } from "./inventory";
+import { countItem, ITEM_NAMES } from "./inventory";
 import { skillValue, type Skills } from "./skills";
+import { cropBySeed } from "../data/crops";
+import type { Season } from "./calendar";
 import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
 
@@ -280,8 +282,9 @@ export function registerBushes(bushes: Bush[]) {
   });
 }
 
-/** Plot tiles: till (hoe) -> plant (seeds) -> grow -> harvest, per cell. */
-export function registerPlots(cells: PlotCell[]) {
+/** Plot tiles: till (hoe) -> plant (a held, in-season seed) -> water daily ->
+ *  harvest; wilted crops get cleared. Active tending per the crop block. */
+export function registerPlots(cells: PlotCell[], currentSeason: () => Season) {
   cells.forEach((cell, i) => {
     INTERACTABLES.push({
       id: `plot-${i}`,
@@ -301,27 +304,56 @@ export function registerPlots(cells: PlotCell[]) {
               startWork(c.farmwork, cell, "till");
             },
           });
-        else if (cell.state === "tilled")
+        else if (cell.state === "tilled") {
+          // one entry per distinct seed packet in the bag ("Plant corn seeds", ...)
+          const seedIds = [...new Set(
+            c.economy.inv.slots.filter((s) => s && cropBySeed(s.id)).map((s) => s!.id))];
+          for (const seedId of seedIds) {
+            const crop = cropBySeed(seedId)!;
+            list.push({
+              id: seedIds[0] === seedId ? "work" : `plant-${seedId}`,
+              label: `Plant ${(ITEM_NAMES[seedId] ?? seedId).toLowerCase()}`,
+              run: (c) => {
+                if (busy(c)) return;
+                if (skillValue(c.skills, "farming") < crop.skillFloor) {
+                  c.toast(`${crop.name} needs Farming ${crop.skillFloor} — not there yet.`); return;
+                }
+                if (!crop.seasons.includes(currentSeason())) {
+                  c.toast(`${crop.name} won't take in ${currentSeason()} — wrong season.`); return;
+                }
+                startWork(c.farmwork, cell, "plant", seedId);
+              },
+            });
+          }
+          if (seedIds.length === 0)
+            list.push({
+              id: "work", label: "Plant seeds",
+              run: (c) => c.toast("You need seeds — the stall sells what's in season."),
+            });
+        } else if (cell.state === "growing" && !cell.watered)
           list.push({
-            id: "work", label: "Plant seeds",
-            run: (c) => {
-              if (busy(c)) return;
-              if (countItem(c.economy.inv, "seeds") === 0) { c.toast("You need seeds — the stall sells them."); return; }
-              startWork(c.farmwork, cell, "plant");
-            },
+            id: "work", label: "Water",
+            run: (c) => { if (!busy(c)) startWork(c.farmwork, cell, "water"); },
           });
         else if (cell.state === "ready")
           list.push({
             id: "work", label: "Harvest",
             run: (c) => { if (!busy(c)) startWork(c.farmwork, cell, "harvest"); },
           });
+        else if (cell.state === "wilted")
+          list.push({
+            id: "work", label: "Clear",
+            run: (c) => { if (!busy(c)) startWork(c.farmwork, cell, "clear"); },
+          });
+        const cropName = cell.cropId ? (ITEM_NAMES[cell.cropId] ?? cell.cropId) : "";
         list.push({
           id: "look", label: "Look",
           run: (c) => c.toast(
             cell.state === "wild" ? "A patch of ground fit for tilling."
             : cell.state === "tilled" ? "Tilled soil, waiting for seeds."
-            : cell.state === "ready" ? "Ripe corn, ready to harvest!"
-            : `Corn growing — ${Math.round(cell.growth * 100)}% there.`
+            : cell.state === "ready" ? `Ripe ${cropName.toLowerCase()}, ready to harvest!`
+            : cell.state === "wilted" ? `Wilted ${cropName.toLowerCase()} — clear it and start over.`
+            : `${cropName} growing — ${Math.round(cell.growth * 100)}% there, ${cell.watered ? "watered for today" : "thirsty"}.`
           ),
         });
         return list;

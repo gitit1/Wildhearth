@@ -4,6 +4,7 @@ import { ITEM_NAMES } from "../systems/inventory";
 import { skillValue, gainSkill, type Skills } from "../systems/skills";
 import type { FarmState } from "../systems/renovation";
 import type { Livestock } from "../systems/livestock";
+import type { Season } from "../systems/calendar";
 import { drawItemIcon } from "../art/icons";
 import { makePanel } from "./panels";
 import { skillGainPopup } from "./skills";
@@ -27,19 +28,22 @@ let sk: Skills;
 let farmSt: FarmState;
 let stock: Livestock;
 let onAnimal: (kind: "hen" | "cow") => void = () => {};
+let seasonNow: () => Season = () => "spring";
 let toastFn: (s: string) => void = () => {};
 const sellQty = new Map<string, number>();
 const buyQty = new Map<string, number>();
 
 export function initShopWindow(
   economy: Economy, skills: Skills, farm: FarmState, livestock: Livestock,
-  onAnimalBought: (kind: "hen" | "cow") => void, toast: (s: string) => void,
+  onAnimalBought: (kind: "hen" | "cow") => void, currentSeason: () => Season,
+  toast: (s: string) => void,
 ) {
   eco = economy;
   sk = skills;
   farmSt = farm;
   stock = livestock;
   onAnimal = onAnimalBought;
+  seasonNow = currentSeason;
   toastFn = toast;
   panel = document.getElementById("shopWindow")!;
   sellList = document.getElementById("shopSell")!;
@@ -153,6 +157,8 @@ function render() {
   buyList.replaceChildren();
   const haggling = skillValue(sk, "haggling");
   for (const entry of SHOP_STOCK) {
+    // seasonal stock (seed packets) only appears in its planting season
+    if (entry.seasons && !entry.seasons.includes(seasonNow())) continue;
     // livestock rows: barn-gated, never enter the backpack, spawn in the yard
     if (entry.livestock) {
       if (entry.livestock === "cow" && stock.cow) continue;   // one cow, like the hoe

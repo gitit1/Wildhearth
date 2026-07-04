@@ -77,46 +77,69 @@ export function drawCorn(g: CanvasRenderingContext2D, t: number) {
   }
 }
 
-/** A tilled plot tile: freshly-turned soil, darker than the field around it. */
-export function drawTilledTile(g: CanvasRenderingContext2D, cx: number, cy: number) {
+/** A tilled plot tile; watered soil reads visibly darker and damp. */
+export function drawTilledTile(g: CanvasRenderingContext2D, cx: number, cy: number, watered = false) {
   const x = cx - T / 2, y = cy - T / 2;
-  g.fillStyle = "#57402a";
+  g.fillStyle = watered ? "#3f2e1e" : "#57402a";
   g.fillRect(x + 2, y + 2, T - 4, T - 4);
-  g.fillStyle = "rgba(40,26,14,.6)";
+  g.fillStyle = watered ? "rgba(25,16,9,.65)" : "rgba(40,26,14,.6)";
   for (let i = 0; i < 3; i++) g.fillRect(x + 4, y + 6 + i * 9, T - 8, 3);
   g.strokeStyle = "rgba(150,110,70,.45)"; g.lineWidth = 1.5;
   g.strokeRect(x + 2, y + 2, T - 4, T - 4);
+  if (watered) {                                   // damp sheen
+    g.fillStyle = "rgba(140,170,200,.12)";
+    g.fillRect(x + 3, y + 3, T - 6, T - 6);
+  }
 }
+
+const CROP_DEFAULT = { stalk: "#3f6a22", leaf: "#528a2c", fruit: "#e8c85a" };
 
 /**
  * A crop on a tilled tile, drawn by growth stage (0..1): sprout -> young
- * stalk -> tall stalk -> golden ears when ready. Same language as drawCorn.
+ * stalk -> tall stalk -> ripe color when ready. Tinted per crop type from
+ * data/crops.ts so every species reads differently in the field.
  */
-export function drawCropTile(g: CanvasRenderingContext2D, cx: number, cy: number, stage: number, t: number) {
-  drawTilledTile(g, cx, cy);
+export function drawCropTile(
+  g: CanvasRenderingContext2D, cx: number, cy: number, stage: number, t: number,
+  pal: { stalk: string; leaf: string; fruit: string } = CROP_DEFAULT, watered = false,
+) {
+  drawTilledTile(g, cx, cy, watered);
   const sway = Math.sin(t * 1.6 + cx * 0.13) * 1.6;
   for (const ox of [-8, 0, 8]) {
     const x = cx + ox, y = cy + 10;
     if (stage < 0.25) {
       // sprout
-      g.strokeStyle = "#6fae3e"; g.lineWidth = 2;
+      g.strokeStyle = pal.leaf; g.lineWidth = 2;
       g.beginPath(); g.moveTo(x, y); g.lineTo(x - 2, y - 4); g.stroke();
       g.beginPath(); g.moveTo(x, y); g.lineTo(x + 2, y - 4); g.stroke();
     } else {
       const h = 8 + stage * 16;                    // stalk height grows with stage
-      g.strokeStyle = "#3f6a22"; g.lineWidth = 2.5;
+      g.strokeStyle = pal.stalk; g.lineWidth = 2.5;
       g.beginPath(); g.moveTo(x, y);
       g.quadraticCurveTo(x + sway * 0.5, y - h * 0.5, x + sway, y - h); g.stroke();
-      g.strokeStyle = "#528a2c"; g.lineWidth = 2;
+      g.strokeStyle = pal.leaf; g.lineWidth = 2;
       g.beginPath(); g.moveTo(x, y - h * 0.4); g.lineTo(x - 4 + sway * 0.4, y - h * 0.6); g.stroke();
       if (stage > 0.6) {
         g.beginPath(); g.moveTo(x, y - h * 0.6); g.lineTo(x + 4 + sway * 0.6, y - h * 0.8); g.stroke();
       }
       if (stage >= 1) {
-        g.fillStyle = "#e8c85a";
+        g.fillStyle = pal.fruit;
         g.beginPath(); g.ellipse(x + sway * 0.8, y - h + 2, 2.6, 5, sway * 0.05, 0, 7); g.fill();
       }
     }
+  }
+}
+
+/** A wilted crop: grey-brown, drooped over dry soil — clear it and replant. */
+export function drawWiltedTile(g: CanvasRenderingContext2D, cx: number, cy: number) {
+  drawTilledTile(g, cx, cy, false);
+  for (const ox of [-8, 0, 8]) {
+    const x = cx + ox, y = cy + 10;
+    g.strokeStyle = "#7a6a4a"; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(x, y);
+    g.quadraticCurveTo(x + 3, y - 9, x + 8, y - 6); g.stroke();   // stalk bent over
+    g.strokeStyle = "#8a795a"; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(x + 4, y - 8); g.lineTo(x + 8, y - 3); g.stroke();
   }
 }
 

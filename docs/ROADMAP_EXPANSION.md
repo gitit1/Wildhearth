@@ -143,7 +143,7 @@ else — no game over, no lost save.
 ---
 
 ## Crop/farming variety pass
-- [ ] not started
+- [x] built, verified in-browser (9 crops skill+season gated, active watering/wilt, rain auto-water, field persistence), committed — 2026-07-04 (autorun branch)
 
 **Crop/farming variety pass, and farming becomes active, not
 automatic.** Two changes together:

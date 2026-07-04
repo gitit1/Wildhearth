@@ -130,14 +130,14 @@ events fire independently per axis and log straight into the Memory Book.
 Marriage, cohabitation, children, and pets are all in scope at maturity.
 Nothing here is built yet.
 
-### Seasons & Weather 🟢 (infrastructure) / 🔵 (gameplay effects)
-🟢 **Built**, as of the World Context Infrastructure work: a real
-`calendar.ts` (four seasons, advancing day/hour, day-phase) and a real
-`weather.ts` (season-weighted daily rolls, persisted, `isRaining()`
-exposed). 🔵 **Not yet wired to gameplay**: rain auto-watering crops
-(waiting on the active-tending farming block), festivals, NPC mood/routine
-shifts by season, and crop/fish availability gated by season. Day length
-is a player-chosen setting — 🔵 speced, not built.
+### Seasons & Weather 🟢 (infrastructure + first gameplay effects)
+🟢 **Built**: a real `calendar.ts` (four seasons, advancing day/hour/minute,
+day-phase) and a real `weather.ts` (season-weighted daily rolls, persisted).
+🟢 **Wired to gameplay now**: rain auto-waters growing crops (active-tending
+farming), fish availability is gated by season AND weather, crop planting +
+the stall's seed stock are gated by season. Day length is a real player
+setting (`dayLengthSeconds`, no UI screen yet). 🔵 still to come: festivals
+and NPC mood/routine shifts by season (need NPCs).
 
 ### Housing & Building 🟡
 Tiered, player-directed depth: tier-1 is the MVP's static rundown/repaired
