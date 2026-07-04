@@ -20,6 +20,19 @@ habit.) When the user does ask to push, include any pending design-doc edits
 (VISION.md, ROADMAP_*.md) in the same commit as the code change they belong
 with, rather than leaving them uncommitted or splitting them off.
 
+## Commit & push workflow (MANDATORY)
+Updating docs/WORKLOG.md is PART of committing. A commit that changes game
+behavior without a matching WORKLOG entry is incomplete. Every time a commit
+or push is requested, in this order:
+1. Finish the work for the current block only.
+2. Run `npm run build` and confirm it passes.
+3. Add/update the docs/WORKLOG.md entry for this block (see WORKLOG.md for the
+   required detail level).
+4. `git add -A`
+5. `git commit` — message matches the WORKLOG entry title.
+6. `git push`
+Never split the code change and the WORKLOG update into separate commits.
+
 ## Naming
 
 - If the work corresponds to a numbered step in `docs/ROADMAP_MVP.md` or
