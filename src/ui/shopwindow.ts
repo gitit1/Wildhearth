@@ -1,7 +1,9 @@
 import { GOOD_PRICES, goodCount, sellGood, sellAllGoods, type Economy } from "../systems/economy";
-import { SHOP_STOCK, tryBuy, owned, discountedPrice } from "../systems/shop";
+import { SHOP_STOCK, tryBuy, tryBuyLivestock, owned, discountedPrice } from "../systems/shop";
 import { ITEM_NAMES } from "../systems/inventory";
 import { skillValue, gainSkill, type Skills } from "../systems/skills";
+import type { FarmState } from "../systems/renovation";
+import type { Livestock } from "../systems/livestock";
 import { drawItemIcon } from "../art/icons";
 import { makePanel } from "./panels";
 import { skillGainPopup } from "./skills";
@@ -22,13 +24,22 @@ let coinsEl: HTMLElement;
 let open = false;
 let eco: Economy;
 let sk: Skills;
+let farmSt: FarmState;
+let stock: Livestock;
+let onAnimal: (kind: "hen" | "cow") => void = () => {};
 let toastFn: (s: string) => void = () => {};
 const sellQty = new Map<string, number>();
 const buyQty = new Map<string, number>();
 
-export function initShopWindow(economy: Economy, skills: Skills, toast: (s: string) => void) {
+export function initShopWindow(
+  economy: Economy, skills: Skills, farm: FarmState, livestock: Livestock,
+  onAnimalBought: (kind: "hen" | "cow") => void, toast: (s: string) => void,
+) {
   eco = economy;
   sk = skills;
+  farmSt = farm;
+  stock = livestock;
+  onAnimal = onAnimalBought;
   toastFn = toast;
   panel = document.getElementById("shopWindow")!;
   sellList = document.getElementById("shopSell")!;
@@ -142,6 +153,39 @@ function render() {
   buyList.replaceChildren();
   const haggling = skillValue(sk, "haggling");
   for (const entry of SHOP_STOCK) {
+    // livestock rows: barn-gated, never enter the backpack, spawn in the yard
+    if (entry.livestock) {
+      if (entry.livestock === "cow" && stock.cow) continue;   // one cow, like the hoe
+      const price = discountedPrice(entry.price, haggling);
+      const tag = price < entry.price ? ` (was ${entry.price})` : "";
+      const row = document.createElement("div");
+      row.className = "shop-row";
+      const name = document.createElement("span");
+      name.className = "shop-name";
+      name.textContent = entry.livestock === "hen" && stock.hens > 0
+        ? `${ITEM_NAMES[entry.id]} (have ${stock.hens})` : ITEM_NAMES[entry.id]!;
+      const total = document.createElement("span");
+      total.className = "shop-total";
+      total.textContent = `${price}${tag}`;
+      const btn = document.createElement("button");
+      btn.className = "shop-btn";
+      btn.textContent = "Buy";
+      btn.addEventListener("click", () => {
+        const kind = entry.livestock!;
+        const r = tryBuyLivestock(eco, entry, farmSt, stock, haggling);
+        if (r === "no-barn") { toastFn("Mend the barn first — animals need a sound home."); return; }
+        if (r === "no-coins") { toastFn(`Not enough coins — that costs ${price}.`); return; }
+        if (r === "owned") { render(); return; }
+        onAnimal(kind);
+        toastFn(kind === "cow" ? "A cow of your own! She heads for the barn." : "A new hen joins the yard!");
+        const gained = gainSkill(sk, "haggling");   // every purchase is practice
+        if (gained > 0) skillGainPopup("haggling", gained);
+        render();
+      });
+      row.append(iconCanvas(entry.id), name, total, btn);
+      buyList.append(row);
+      continue;
+    }
     if (owned(eco, entry)) continue;
     const q = entry.unique ? 1 : Math.max(1, buyQty.get(entry.id) ?? 1);
     buyQty.set(entry.id, q);

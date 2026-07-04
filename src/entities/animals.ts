@@ -1,14 +1,24 @@
 import { T, COW_SPEED, HEN_SPEED } from "../config";
+import type { Livestock } from "../systems/livestock";
 
 export interface Cow { x: number; y: number; tx: number; ty: number; t: number; flip: boolean }
 export interface Hen { x: number; y: number; tx: number; ty: number; t: number; peck: number }
 
-export function createAnimals() {
-  const cows: Cow[] = [{ x: 16 * T, y: 14 * T, tx: 16 * T, ty: 14 * T, t: 0, flip: false }];
-  const hens: Hen[] = [
-    { x: 9 * T, y: 12 * T, tx: 9 * T, ty: 12 * T, t: 0, peck: 0 },
-    { x: 10.5 * T, y: 13.2 * T, tx: 10.5 * T, ty: 13.2 * T, t: 1.2, peck: 0 },
-  ];
+/** One cow, wandering its barn-side patch of the yard. */
+export function spawnCow(): Cow {
+  return { x: 16 * T, y: 14 * T, tx: 16 * T, ty: 14 * T, t: 0, flip: false };
+}
+
+/** One hen; a slight jitter so a flock doesn't stack on one tile. */
+export function spawnHen(): Hen {
+  const jx = (Math.random() - 0.5) * 2 * T, jy = (Math.random() - 0.5) * 1.5 * T;
+  return { x: 9.5 * T + jx, y: 12.5 * T + jy, tx: 9.5 * T + jx, ty: 12.5 * T + jy, t: Math.random() * 2, peck: 0 };
+}
+
+/** Animals exist only once purchased (no free animals — earned-economy rule). */
+export function createAnimals(owned: Livestock) {
+  const cows: Cow[] = owned.cow ? [spawnCow()] : [];
+  const hens: Hen[] = Array.from({ length: owned.hens }, () => spawnHen());
   return { cows, hens };
 }
 

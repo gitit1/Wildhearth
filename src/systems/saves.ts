@@ -1,4 +1,4 @@
-import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY } from "../config";
+import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY } from "../config";
 
 /**
  * Persistence hub (Step 9 save hardening). Each store keeps its own versioned
@@ -12,7 +12,7 @@ import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_K
  */
 
 // The keys that together make up one saved game.
-const GAME_KEYS = [SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY];
+const GAME_KEYS = [SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY];
 
 /**
  * True when there's a continuable game. Anchored on the economy save (the

@@ -1,18 +1,29 @@
-import { HOE_PRICE, SEEDS_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
+import { HOE_PRICE, SEEDS_PRICE, HEN_PRICE, COW_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
 import { addItem, countItem } from "./inventory";
 import { saveEconomy, type Economy } from "./economy";
+import { saveLivestock, type Livestock } from "./livestock";
+import type { FarmState } from "./renovation";
 
 /**
- * The stall's buy side: a small fixed price list, just enough for Step 5
- * (farming needs a hoe + seeds). Buying removes coins and adds an inventory
- * item; tools are unique (you own one hoe, not a stack).
+ * The stall's buy side: a small fixed price list. Buying removes coins and
+ * adds an inventory item; tools are unique (you own one hoe, not a stack).
+ * Livestock entries are special: they don't enter the backpack — a purchased
+ * animal joins the farmyard — and they require the barn mended first
+ * (animals need a sound home; the no-free-animals fix).
  */
 
-export interface ShopEntry { id: string; price: number; unique?: boolean }
+export interface ShopEntry {
+  id: string;
+  price: number;
+  unique?: boolean;
+  livestock?: "hen" | "cow";
+}
 
 export const SHOP_STOCK: ShopEntry[] = [
   { id: "hoe", price: HOE_PRICE, unique: true },
   { id: "seeds", price: SEEDS_PRICE },
+  { id: "hen", price: HEN_PRICE, livestock: "hen" },
+  { id: "cow", price: COW_PRICE, livestock: "cow", unique: true },
 ];
 
 export type BuyResult = "ok" | "no-coins" | "owned" | "bag-full";
@@ -33,5 +44,23 @@ export function tryBuy(e: Economy, entry: ShopEntry, hagglingSkill = 0): BuyResu
   if (!addItem(e.inv, entry.id, 1)) return "bag-full";
   e.coins -= price;
   saveEconomy(e);
+  return "ok";
+}
+
+export type LivestockBuyResult = "ok" | "no-coins" | "no-barn" | "owned";
+
+/** Buys an animal: needs the barn mended, doesn't touch the backpack. */
+export function tryBuyLivestock(
+  e: Economy, entry: ShopEntry, farm: FarmState, ls: Livestock, hagglingSkill = 0,
+): LivestockBuyResult {
+  if (entry.livestock === "cow" && ls.cow) return "owned";
+  if (!farm.barn) return "no-barn";
+  const price = discountedPrice(entry.price, hagglingSkill);
+  if (e.coins < price) return "no-coins";
+  e.coins -= price;
+  saveEconomy(e);
+  if (entry.livestock === "cow") ls.cow = true;
+  else ls.hens += 1;
+  saveLivestock(ls);
   return "ok";
 }

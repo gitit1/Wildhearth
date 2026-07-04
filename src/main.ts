@@ -13,7 +13,8 @@ import {
 import { drawHouse, drawBarn, drawStall } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
-import { createAnimals, updateAnimals } from "./entities/animals";
+import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/animals";
+import { loadLivestock, resetLivestock } from "./systems/livestock";
 import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, cancelPick } from "./systems/foraging";
@@ -59,7 +60,8 @@ addEventListener("resize", fit); fit();
 initInput(cv, document.getElementById("actBtn")!);
 const ground = paintGround();
 const player = createPlayer();
-const { cows, hens } = createAnimals();
+const livestock = loadLivestock();
+const { cows, hens } = createAnimals(livestock);   // only what's been bought — no free animals
 const economy = loadEconomy();
 const fishing = createFishing();
 const foraging = createForaging();
@@ -78,7 +80,9 @@ registerPlots(plots);
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
-initShopWindow(economy, skills, toast);
+initShopWindow(economy, skills, farm, livestock,
+  (kind) => { if (kind === "cow") cows.push(spawnCow()); else hens.push(spawnHen()); },
+  toast);
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -123,6 +127,8 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   resetCalendar(calendar);
   resetWeather(weather);
   resetWorldFlags(worldFlags);
+  resetLivestock(livestock);
+  cows.length = 0; hens.length = 0;   // the yard empties with the new life
   meta.starterTool = tool;
   saveMeta(meta);
   saveSettings({ guided });         // settings are not game state — kept across a New Game

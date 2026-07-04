@@ -16,6 +16,8 @@ export const ITEM_NAMES: Record<string, string> = {
   corn: "Corn",
   rod: "Fishing rod",
   lute: "Lute",
+  hen: "Hen",       // livestock: named for shop rows/toasts, never a bag item
+  cow: "Cow",
 };
 
 export function createInventory(size = INVENTORY_SLOTS): Inventory {

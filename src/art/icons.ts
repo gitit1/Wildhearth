@@ -126,6 +126,49 @@ function paintLute(g: CanvasRenderingContext2D, s: number) {
   g.beginPath(); g.moveTo(s * 0.42, s * 0.72); g.lineTo(s * 0.8, s * 0.26); g.stroke();
 }
 
+function paintHen(g: CanvasRenderingContext2D, s: number) {
+  // plump white body
+  g.fillStyle = "#f2ede2";
+  g.beginPath(); g.ellipse(s * 0.48, s * 0.56, s * 0.24, s * 0.2, 0, 0, 7); g.fill();
+  // head + comb + beak
+  g.beginPath(); g.arc(s * 0.68, s * 0.38, s * 0.11, 0, 7); g.fill();
+  g.fillStyle = "#c94b3e";
+  g.beginPath(); g.arc(s * 0.68, s * 0.27, s * 0.045, 0, 7); g.fill();
+  g.fillStyle = "#e0a33a";
+  g.beginPath(); g.moveTo(s * 0.78, s * 0.38); g.lineTo(s * 0.88, s * 0.41); g.lineTo(s * 0.78, s * 0.44); g.closePath(); g.fill();
+  // eye + wing + legs
+  g.fillStyle = "#22303a";
+  g.beginPath(); g.arc(s * 0.7, s * 0.36, s * 0.02, 0, 7); g.fill();
+  g.fillStyle = "#ddd4c2";
+  g.beginPath(); g.ellipse(s * 0.44, s * 0.56, s * 0.13, s * 0.1, 0.2, 0, 7); g.fill();
+  g.strokeStyle = "#e0a33a"; g.lineWidth = Math.max(1, s * 0.03);
+  g.beginPath(); g.moveTo(s * 0.42, s * 0.74); g.lineTo(s * 0.42, s * 0.84); g.stroke();
+  g.beginPath(); g.moveTo(s * 0.54, s * 0.74); g.lineTo(s * 0.54, s * 0.84); g.stroke();
+}
+
+function paintCow(g: CanvasRenderingContext2D, s: number) {
+  // body with patches
+  g.fillStyle = "#f2ede2";
+  g.beginPath(); g.ellipse(s * 0.46, s * 0.54, s * 0.28, s * 0.19, 0, 0, 7); g.fill();
+  g.fillStyle = "#3a3a40";
+  g.beginPath(); g.ellipse(s * 0.36, s * 0.5, s * 0.09, s * 0.07, 0.4, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(s * 0.56, s * 0.6, s * 0.08, s * 0.06, -0.3, 0, 7); g.fill();
+  // head + muzzle + horns
+  g.fillStyle = "#f2ede2";
+  g.beginPath(); g.arc(s * 0.74, s * 0.42, s * 0.12, 0, 7); g.fill();
+  g.fillStyle = "#e2b8a8";
+  g.beginPath(); g.ellipse(s * 0.78, s * 0.48, s * 0.08, s * 0.05, 0, 0, 7); g.fill();
+  g.strokeStyle = "#d8d2c0"; g.lineWidth = Math.max(1, s * 0.035); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.68, s * 0.32); g.lineTo(s * 0.63, s * 0.26); g.stroke();
+  g.beginPath(); g.moveTo(s * 0.8, s * 0.32); g.lineTo(s * 0.85, s * 0.26); g.stroke();
+  // eye + legs
+  g.fillStyle = "#22303a";
+  g.beginPath(); g.arc(s * 0.72, s * 0.4, s * 0.02, 0, 7); g.fill();
+  g.fillStyle = "#e8e2d2";
+  g.fillRect(s * 0.3, s * 0.68, s * 0.05, s * 0.14);
+  g.fillRect(s * 0.56, s * 0.68, s * 0.05, s * 0.14);
+}
+
 const PAINTERS: Record<string, IconPainter> = {
   fish: paintFish,
   coins: paintCoinPouch,
@@ -135,6 +178,8 @@ const PAINTERS: Record<string, IconPainter> = {
   corn: paintCorn,
   rod: paintRod,
   lute: paintLute,
+  hen: paintHen,
+  cow: paintCow,
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

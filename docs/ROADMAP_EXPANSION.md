@@ -22,7 +22,7 @@ town" — mark it TODO if that's wrong, and resolve before starting it.
 ---
 
 ## Fix: no free animals
-- [ ] not started
+- [x] built, verified in-browser (empty yard on new game; barn-gated hen/cow purchases spawn + persist), committed — 2026-07-04 (autorun branch)
 
 > Context (was Phase 0 intro): Before building anything new (town, NPCs), fix and enrich what the MVP already has. Two of these are **bug fixes against our own pillar** — the current prototype has a cow and hens roaming for free, which contradicts "nothing is free" — everything below either corrects that or takes a single-note system (one fish, one crop) and gives it the texture a real game needs.
 

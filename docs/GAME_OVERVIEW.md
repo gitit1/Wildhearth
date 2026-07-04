@@ -76,8 +76,9 @@ top of a world worth crossing, not a way to skip an empty one.
    husbandry+cooking). Each seeds 2 skills + a 2-item kit.
 3. **Nothing is free, ever** — absolute rule. Every tool, animal, seed, and
    upgrade is bought with money earned in-game. 🟢 enforced for the MVP's
-   five livelihoods; 🔵 the "no free animals" correction is speced but the
-   cow/hens fix is not yet built.
+   five livelihoods; 🟢 the "no free animals" correction is built — the yard
+   starts empty, hens (45) and the cow (175) are stall purchases gated on the
+   mended barn, persisted in their own store.
 4. Concrete first-quest content (tutorial 4-step skeleton + path-specific
    aspiration chains, including the Keeper's forage→cook→sell bridge since
    no animal is free on day one) — 🔵 fully written, not built.

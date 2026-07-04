@@ -42,6 +42,50 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Fix: no free animals
+- **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
+- **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Fix: no free animals")
+  The demo cow/hens contradict "nothing is free" — remove the default spawn;
+  wire them into the MVP shop as buyable, with their own price and a coop/
+  barn-repair prerequisite.
+- **Done:**
+  - **Files:**
+    - `src/systems/livestock.ts` (NEW): `Livestock { version, cow, hens }`,
+      load/save/reset on `wildhearth-livestock-v1` (added to config + `saves.ts`
+      `GAME_KEYS`). New Game empties the yard.
+    - `src/entities/animals.ts`: `createAnimals(owned)` spawns only purchased
+      animals; new `spawnCow()`/`spawnHen()` (hens jitter so a flock spreads).
+    - `src/systems/shop.ts`: `ShopEntry.livestock` kind; SHOP_STOCK adds Hen 45
+      / Cow 175 (`HEN_PRICE`/`COW_PRICE` in config, per the price anchor table:
+      first hen 40-50, first cow 150-200); new `tryBuyLivestock` — barn-gated
+      ("no-barn"), coins-checked, never touches the backpack, one cow max
+      (unique like the hoe), hens repeatable.
+    - `src/ui/shopwindow.ts`: livestock buy rows (hen shows "(have N)"),
+      barn-broken refusal toast ("Mend the barn first — animals need a sound
+      home."), haggling discount + Haggling practice on success;
+      `initShopWindow` now takes farm/livestock/onAnimalBought.
+    - `src/main.ts`: loads livestock, spawns owned animals at boot, pushes a
+      new cow/hen into the live arrays on purchase, clears both on New Game.
+    - `src/art/icons.ts`: hen + cow shop icons. `ITEM_NAMES`: Hen/Cow.
+  - **Behavior:** a new life starts with an empty yard. The stall sells hens
+    (45) and one cow (175) — refused until the barn is mended; a purchase
+    deducts coins, the animal appears in the yard immediately, and the flock
+    survives reload. Prerequisite note: the block says "coop/barn-repair";
+    no coop exists in the world yet (it arrives with the rundown detail pass,
+    currently skipped for its missing WORLD_MAP.md source), so the mended barn
+    — the named alternative — is the gate for both animals.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright, 10/10: new game has an empty
+  livestock store and visibly empty yard (screenshot); shop lists Hen 45 / Cow
+  175; barn-broken purchase refused with the right toast and no coin/store
+  change; after barn repair a hen purchase deducts 45 and spawns (screenshot),
+  a second hen grows the flock, the cow deducts 175 and leaves the shop row
+  (unique); all of it persists across reload + Continue.
+- **Commit:** Fix: no free animals
+- **Follow-ups:** Animal Husbandry skill wiring (feeding) belongs to the
+  "Complete the base skill set" block; eggs/milk production belongs to the
+  animal-husbandry-expansion block (needs crafting).
+
 ## docs — reconcile stale ROADMAP_EXPANSION blocks with built work
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1)
 - **Block given:** autorun instruction — small corrections traceable to the docs.

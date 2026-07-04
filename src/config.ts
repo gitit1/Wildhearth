@@ -27,6 +27,9 @@ export const HAGGLE_MAX_DISCOUNT = 0.25; // shop discount at Haggling 100
 
 export const REPAIR_COST = { roof: 25, window: 15, barn: 30, fence: 10 } as const; // farm renovation, Step 8
 
+export const HEN_PRICE = 45;            // livestock (price anchor: first hen 40-50)
+export const COW_PRICE = 175;           // livestock (price anchor: first cow 150-200)
+
 export const CORN_PRICE = 5;            // coins per harvested corn at the stall
 export const TILL_TIME = 1.0;           // seconds to till a plot tile
 export const PLANT_TIME = 0.7;          // seconds to plant seeds
@@ -56,4 +59,5 @@ export const META_KEY = "wildhearth-meta-v1";        // playthrough origin: star
 export const CALENDAR_KEY = "wildhearth-calendar-v1"; // season/day/hour (World Context Block 3)
 export const WEATHER_KEY = "wildhearth-weather-v1";  // daily weather (World Context Block 4)
 export const WORLD_FLAGS_KEY = "wildhearth-flags-v1"; // expiring event flags (World Context Block 5)
+export const LIVESTOCK_KEY = "wildhearth-livestock-v1"; // owned animals (no-free-animals fix)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)
