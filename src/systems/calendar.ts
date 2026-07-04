@@ -49,6 +49,13 @@ export function currentSeason(c: CalendarState): Season {
   return SEASON_ORDER[c.seasonIndex]!;
 }
 
+/** A monotonic day count across seasons (unlike `day`, which resets 10→1 each
+ *  season). Use this as the clock for anything measuring a span of days, e.g.
+ *  world-flag expiry, so durations that cross a season boundary stay correct. */
+export function absoluteDay(c: CalendarState): number {
+  return c.seasonIndex * DAYS_PER_SEASON + c.day;
+}
+
 export function currentPhase(c: CalendarState): DayPhase {
   if (c.hour < 6) return "night";
   if (c.hour < 8) return "dawn";

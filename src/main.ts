@@ -25,7 +25,7 @@ import { removeItem, countItem, addItem } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
-import { loadCalendar, resetCalendar, advanceHour, currentSeason } from "./systems/calendar";
+import { loadCalendar, resetCalendar, advanceHour, currentSeason, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather } from "./systems/weather";
 import { loadWorldFlags, resetWorldFlags, pruneExpired } from "./systems/worldFlags";
 import { loadMeta, saveMeta } from "./systems/meta";
@@ -163,7 +163,7 @@ function tick(now: number) {
     advanceHour(calendar);
     if (calendar.hour === 0) {
       rollDailyWeather(weather, currentSeason(calendar));
-      pruneExpired(worldFlags, calendar.day);
+      pruneExpired(worldFlags, absoluteDay(calendar));
     }
   }
 

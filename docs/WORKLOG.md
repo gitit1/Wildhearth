@@ -42,6 +42,49 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Block 5 follow-up — absolute day counter for flag expiry
+- **Date:** 2026-07-04
+- **Resolves:** the Follow-up recorded on the "World Context Block 5 — World
+  event flags" entry (flag durations were keyed on `calendar.day`, the
+  day-of-season 1–10 counter, so a duration crossing a season boundary was
+  imprecise — a flag could effectively never expire because `day` resets 10→1).
+- **Block given:** (product-owner instruction) Add `absoluteDay(c)` to
+  `calendar.ts` returning `seasonIndex * DAYS_PER_SEASON + day`, and pass it
+  instead of `calendar.day` at the world-flags call sites in `main.ts` and
+  `worldContext.ts`. `worldFlags.ts` internals (a plain-number `expiresOnDay`)
+  don't change. Verify a season-spanning duration expires at the right absolute
+  day.
+- **Done:**
+  - **Files:**
+    - `src/systems/calendar.ts`: added `absoluteDay(c: CalendarState): number`
+      (`seasonIndex * DAYS_PER_SEASON + day`) — a monotonic day count across
+      seasons.
+    - `src/main.ts`: the daily-rollover prune now passes
+      `pruneExpired(worldFlags, absoluteDay(calendar))`; imports `absoluteDay`.
+    - `src/systems/worldContext.ts`: the `flags` slice now uses
+      `activeFlagsRecord(sources.flags, absoluteDay(sources.calendar))` (0 when
+      no calendar); imports `absoluteDay`.
+    - `docs/WORKLOG.md`: marked the Block 5 follow-up resolved.
+  - **Systems / functions:** new `absoluteDay` accessor; no change to
+    `worldFlags.ts` (its `expiresOnDay`/comparisons stay plain numbers — they're
+    just now fed an absolute day). No save-shape change; existing flag saves
+    remain readable (numbers compare fine, only the reference frame widened).
+  - **Behavior:** world-flag expiry is now measured on a continuous day count,
+    so a flag set late in a season with a multi-day duration stays active across
+    the season boundary and expires on the correct day instead of lingering
+    forever.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** in-browser via Playwright (5/5, temporary fast cadence + a
+  `window.__wf` hook keyed on `absoluteDay`, both since reverted): a flag set on
+  spring day 8 (absolute day 8) with a 5-day duration was active exactly while
+  absoluteDay < 13 (hasFlag and the World Context slice agreeing on every
+  sample), stayed active into summer after the season rolled over (absolute days
+  11–12), was sampled across the spring→summer boundary, and expired precisely
+  at absolute day 13 (summer day 3) — not early, not never.
+- **Commit:** Block 5 follow-up — absolute day counter for flag expiry
+- **Follow-ups:** none. Next: Block 6 (the "add a data source" recipe — no code
+  of its own), pending your go-ahead.
+
 ## World Context Block 5 — World event flags
 - **Date:** 2026-07-04
 - **Block given:** (from `docs/WORLD_CONTEXT.md`, Block 5 — World event flags)
@@ -89,14 +132,11 @@ project.
   100-day flag stayed; `pruneExpired` removed the expired entry from storage;
   and the live flag survived a reload + Continue.
 - **Commit:** World Context Block 5 — World event flags
-- **Follow-ups:** flag durations use `calendar.day` (day-of-season, 1–10) as
-  the clock, per the spec. Within a season this is exact; a duration that would
-  cross a season boundary is currently imprecise because `day` resets 10→1. Fine
-  for the short-lived, same-season flags this is meant for; if long or
-  season-spanning durations are ever needed, switch the flag clock to an
-  absolute day counter (`seasonIndex * DAYS_PER_SEASON + day`). Also: Block 6 is
-  the reusable "add a data source" recipe (no code of its own), pending your
-  go-ahead.
+- **Follow-ups:** ~~flag durations use `calendar.day` (day-of-season, 1–10) as
+  the clock, so a duration crossing a season boundary is imprecise~~ **RESOLVED
+  by "Block 5 follow-up — absolute day counter for flag expiry" (below/newer).**
+  Also: Block 6 is the reusable "add a data source" recipe (no code of its
+  own), pending your go-ahead.
 
 ## World Context Block 4 — Weather
 - **Date:** 2026-07-04

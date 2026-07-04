@@ -1,7 +1,7 @@
 import type { Economy } from "./economy";
 import type { Skills } from "./skills";
 import type { FarmState } from "./renovation";
-import { currentSeason, currentPhase, type CalendarState, type Season, type DayPhase } from "./calendar";
+import { currentSeason, currentPhase, absoluteDay, type CalendarState, type Season, type DayPhase } from "./calendar";
 import type { WeatherState, WeatherKind } from "./weather";
 import { activeFlagsRecord, type WorldFlags } from "./worldFlags";
 
@@ -90,6 +90,6 @@ export function getWorldContext(
     weather: sources.weather
       ? { state: sources.weather.kind, daysSinceChange: sources.weather.daysSinceChange }
       : undefined,
-    flags: sources.flags ? activeFlagsRecord(sources.flags, sources.calendar?.day ?? 0) : {},
+    flags: sources.flags ? activeFlagsRecord(sources.flags, sources.calendar ? absoluteDay(sources.calendar) : 0) : {},
   };
 }
