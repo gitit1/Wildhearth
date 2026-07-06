@@ -120,7 +120,7 @@ project.
   well Tue); talked to 3 NPCs (Liora/Henrik/Bram — 3 distinct lines, each turns
   to the talking pose); Sunday 10:00 = all 10 socializing at the well; reload →
   Continue loads the existing save. No page errors. Screenshots reviewed.
-- **Commit:** <hash> — "NPC engine — 10 townsfolk with weekly schedules on the shared rig"
+- **Commit:** bb70e96 — "NPC engine — 10 townsfolk with weekly schedules on the shared rig"
 - **Follow-ups:**
   - No persistence needed (schedules are deterministic from the clock) — noted
     per the block; nothing to save/load for NPCs.
