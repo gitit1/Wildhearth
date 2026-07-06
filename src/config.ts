@@ -150,6 +150,14 @@ export const RELATIONSHIP_THRESHOLDS = [25, 50, 75] as const;
 // SAME category with the SAME NPC today (2nd ~half, 3rd ~a trickle, 4th+ nothing).
 export const INTERACT_DIMINISH = [1, 0.5, 0.15] as const;
 
+// ===========================================================================
+//  Dialogue engine (Part A #4, mechanical layer) — condition-keyed opening
+//  lines + shallow choice trees, shown in the bottom-box. Every magnitude a knob.
+// ===========================================================================
+export const DIALOGUE_MAX_CHOICES = 3;       // choices shown per turn (DECISIONS: 2-3)
+export const DIALOGUE_FRIENDSHIP_BUMP = 2;   // a warm choice nudges Friendship by this (small)
+export const DIALOGUE_TOPIC_FLAG_DAYS = 3;   // how long a "we talked about X" topic flag stays fresh
+
 export const CLICK_ARRIVE = 5;          // px: close enough to a click-to-move target
 export const DRAG_THRESHOLD = 10;       // px of travel before a press is a joystick drag, not a tap
 

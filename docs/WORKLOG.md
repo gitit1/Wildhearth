@@ -42,6 +42,92 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Dialogue engine — condition-keyed lines, choice turns, bottom-box
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (Part A #4, mechanical layer) The Dialogue engine. Condition-
+  keyed opening lines with MOST-SPECIFIC-MATCH-WINS (season / weather / dayOfWeek /
+  phase / region / friendship-tier / romance-tier / flag / farm-repaired);
+  specificity = matched-field count; ties → deterministic pick that VARIES between
+  conversations via a per-NPC rotation counter (anti-repetition). Unconditional
+  fallbacks so nothing is silent. Choice-based turns (2-3 choices, DECISIONS),
+  shallow trees (1-3 turns), Farewell always last. Reads ONE
+  `getWorldContext(sources,{npcId})` snapshot per turn. Bottom-box UI (wood/gold
+  chrome), NPC name header + line + numbered choice buttons (click + keys 1-3, Esc).
+  Auto-pause: game-time + NPC movement freeze while the window is open. AI seam:
+  every displayed line routes through `renderNpcLine(req)` (v1 verbatim). Talk
+  action opens the window instead of the canned toast; markContact + Social-need
+  bump on conversation END. Tuning in config.
+- **Done:**
+  - **Files:**
+    - `src/systems/dialogue.ts` (NEW): the engine. Types `LineConditions` /
+      `LineEntry` / `LineSet` / `DialogueChoice` / `DialogueNode` / `NpcDialogue` /
+      `ChoiceEffect`. `tierOf()` (0-3, >= semantics), `pickLine()` (most-specific by
+      matched-field count, ties broken by a caller-supplied rotation index),
+      `presentedChoices()` (caps to 2-3 + guarantees `FAREWELL`), `matchSpecificity`
+      (per-field match incl. `farmRepaired` reading the farm slice), and the AI seam
+      `renderNpcLine(req)` — the single choke-point Part-D §D2 wraps later.
+    - `src/data/dialogue/shared.ts` (NEW): `genericOpenings(personality)` folds the
+      existing `PERSONALITY_LINES` into unconditional `{}` fallbacks (old toast lines
+      KEPT, not deleted); `smallTalkBranch(personality)` = the shared 2-turn tree
+      (per-personality reply pool); `shopBranch(pitch)` for merchants; compact
+      line-builders (`season`/`rainy`/`weatherLine`/`atPhase`/`warm`/`warmAny`/`here`/
+      `farmWhole`/`topic`).
+    - `src/data/dialogue/{maren,tobin,sera,henrik,petra,liora,bram,ada,finn,jonas}.ts`
+      (NEW, 10): per-NPC opening tables (4 seasonal + ≥2 weather + friendship-warmer +
+      region/work line + generics) and a personality small-talk tree. Maren/Tobin/Sera
+      add a "What do you buy here?" shop branch. Maren + Henrik carry farm-repaired
+      reactions (read the farm slice). Jonas demonstrates the world-topic-flag loop
+      ("Heard any news?" sets `market_buzz`, then opens on it). Finn's lines are
+      kid-appropriate (romance is structurally impossible on a kid).
+    - `src/data/dialogue/index.ts` (NEW): id→dialogue registry + a personality
+      skeleton fallback for any file-less NPC.
+    - `src/ui/dialoguebox.ts` (NEW): the bottom-box turn state machine. `initDialogue`
+      (hooks: `worldFor` / `applyEffect` / `onOpen` / `onClose`), `openDialogue(def)`,
+      `closeDialogue()`, `isDialogueOpen()`. Per-NPC session rotation Map; capture-
+      phase keys (1-3 pick, Esc closes) that beat other panels' handlers.
+    - `index.html`: `#dialogueBox` (+ `#dlgName`/`#dlgText`/`#dlgChoices`) inside
+      `#gameArea`, styled with the shared chrome tokens (wood border, gold header,
+      cell-edge choice buttons with a gold key chip).
+    - `src/systems/worldContext.ts`: `CalendarSlice.dayOfWeek` added (0-6, from
+      `absoluteDay`) so the day-of-week condition reads the one snapshot.
+    - `src/systems/relationships.ts`: `dialogueBump()` — a tiny Friendship nudge from a
+      warm choice (no per-category diminishing), returns crossed thresholds, marks
+      contact.
+    - `src/entities/npc.ts`: `startTalking(n, px?, py?)` now optionally faces the
+      player + holds the talking pose (kept synced to the open window). Retired
+      `npcGreeting` + the unused `lineIdx` field (superseded by the engine).
+    - `src/main.ts`: `onTalk` opens the dialogue window (was: canned toast); wired
+      `initDialogue` hooks (one npc-scoped snapshot per turn, `playerRegion()` as the
+      location slice); `applyDialogueEffect` (friendship bump / topic flag / contact +
+      fires heart events); tick auto-pause (`isDialogueOpen()` freezes time + NPC
+      updates + drains queued world input); dev bridge `talk`/`endTalk`/`dlgOpen`/
+      `setFriendship`/`flag`/`repairFarm`.
+    - `src/config.ts`: `DIALOGUE_MAX_CHOICES` (3), `DIALOGUE_FRIENDSHIP_BUMP` (2),
+      `DIALOGUE_TOPIC_FLAG_DAYS` (3).
+  - **Systems / functions:** condition-keyed line selection (specificity = matched
+    fields, rotation tie-break), shallow choice trees, `renderNpcLine` AI seam,
+    dialogue-open auto-pause gate. No new save key (rotation is session-scoped;
+    topic flags persist via the existing `worldFlags` key).
+  - **Behavior:** talking to any townsperson now opens a bottom-box conversation: an
+    opening line chosen for the moment (season/weather/time/region/relationship/farm
+    state), 2-3 choices by click OR keys 1-3, replies over 1-3 turns, Farewell/Esc to
+    close. Repeat talks in the same conditions surface different generics. The clock
+    and the townsfolk freeze while the window is open. Merchants explain their stall;
+    Maren/Henrik react once your farm is fully mended.
+- **Build:** `npm run build` — ✅ passing.
+- **Verify:** Playwright (fresh game, dev bridge) — 16/16: opening line + 3 choices
+  in the box; click AND number-key selection; clean close; anti-repeat (3 distinct
+  openings of 4); rain line beats generic; friendship≥50 warmer wins; farm-repaired
+  wins as most-specific; clock frozen while open (360→360) then resumes (→363); NPC
+  holds the talking pose; Finn (kid) talks with age-appropriate lines and no romance
+  interactions; zero page/console errors; existing save loads via Continue.
+- **Commit:** <hash> — Dialogue engine — condition-keyed lines, choice turns, bottom-box
+- **Follow-ups:** Rotation is in-memory (session-scoped) by design — persisting a
+  per-NPC said-history is the Part-D anti-repetition store (AI_ARCHITECTURE §D7), not
+  needed here. Trees are intentionally shallow personality skeletons + 3 shop
+  branches; richer per-NPC bespoke trees can grow incrementally. `renderNpcLine` is
+  the sole hook the AI dialogue-variation layer wraps.
+
 ## Relationship engine — two axes, trait-derived gifts, depth-based decay
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (Part A #3) The Relationship engine. Per-NPC record

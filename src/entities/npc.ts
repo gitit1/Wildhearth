@@ -18,7 +18,7 @@ import type { Facing, PoseName } from "../art/rig";
 import type { CalendarState } from "../systems/calendar";
 import type { WeatherState } from "../systems/weather";
 import { WELL } from "../world/zones";
-import { NPCS, PERSONALITY_LINES, JONAS_ROUTE, type NpcDef, type Personality } from "../data/npcs";
+import { NPCS, JONAS_ROUTE, type NpcDef, type Personality } from "../data/npcs";
 import {
   dayOfWeek, resolveState, placeFor, scheduleWeatherTweak, type NpcState,
 } from "../systems/schedule";
@@ -35,7 +35,6 @@ export interface Npc {
   indoors: boolean;                // at home/asleep & arrived -> not rendered, not interactable
   route: Array<[number, number]>;  // remaining waypoints to the target
   talkTimer: number;               // >0 while facing the player & holding "talking"
-  lineIdx: number;                 // rotates canned greetings
   gestureT: number;                // drives occasional socializing gestures
   patrolIdx: number;               // peddler patrol cursor
   patrolDir: 1 | -1;
@@ -47,7 +46,7 @@ export function createNpcs(): Npc[] {
     x: def.home[0], y: def.home[1],
     facing: 2 as Facing, state: "asleep" as NpcState, pose: "idle" as PoseName,
     dist: 0, moving: false, indoors: true, route: [],
-    talkTimer: 0, lineIdx: 0, gestureT: Math.random() * 10,
+    talkTimer: 0, gestureT: Math.random() * 10,
     patrolIdx: 0, patrolDir: 1,
   }));
 }
@@ -205,19 +204,18 @@ function workPose(role: NpcDef["role"]): PoseName {
   }
 }
 
-// ---- talk seam (the real dialogue engine swaps in at the next block) --------
+// ---- talk seam (drives the dialogue engine — ui/dialoguebox.ts) ------------
 
-/** Face the player and hold the talking pose for a few seconds. */
-export function startTalking(n: Npc) {
+/** Hold the talking pose for a few seconds; when the player's position is given
+ *  (opening a conversation), turn to face them at once so the pose reads while
+ *  the dialogue window is up (movement is frozen for the duration). */
+export function startTalking(n: Npc, px?: number, py?: number) {
   n.talkTimer = NPC_TALK_SECONDS;
-}
-
-/** The next canned line for this NPC's personality (rotated). */
-export function npcGreeting(n: Npc): string {
-  const lines = PERSONALITY_LINES[n.def.personality];
-  const line = lines[n.lineIdx % lines.length]!;
-  n.lineIdx++;
-  return line;
+  if (px !== undefined && py !== undefined) {
+    n.facing = facingTo(n.x, n.y, px, py);
+    n.pose = "talking";
+    n.moving = false;
+  }
 }
 
 export function npcById(npcs: Npc[], id: string): Npc | undefined {

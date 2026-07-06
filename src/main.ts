@@ -1,4 +1,7 @@
-import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE } from "./config";
+import {
+  WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE,
+  DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS,
+} from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget, clearMoveTarget,
@@ -19,7 +22,7 @@ import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse } f
 import { drawFarmer, drawCow, drawHen, drawNpc } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/animals";
-import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcGreeting, npcNeedComment, type Npc } from "./entities/npc";
+import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcById, npcNeedComment, type Npc } from "./entities/npc";
 import { loadLivestock, resetLivestock } from "./systems/livestock";
 import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
@@ -44,7 +47,7 @@ import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather, isRaining } from "./systems/weather";
-import { loadWorldFlags, resetWorldFlags, pruneExpired } from "./systems/worldFlags";
+import { loadWorldFlags, resetWorldFlags, pruneExpired, setFlag as setWorldFlag } from "./systems/worldFlags";
 import {
   loadNeeds, resetNeeds, decayNeeds, recomputeMood, moodPerfMult, applyExertion, applyWalk,
   socialContact, collectWarnings, criticalNeed, applyAccident, collapseRecover,
@@ -56,8 +59,11 @@ import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import { getWorldContext } from "./systems/worldContext";
 import {
   loadRelationships, resetRelationships, decayRelationships, giveGift, applyInteraction,
-  markContact, relationshipSummary,
+  markContact, relationshipSummary, dialogueBump,
 } from "./systems/relationships";
+import { initDialogue, openDialogue, isDialogueOpen, closeDialogue } from "./ui/dialoguebox";
+import type { ChoiceEffect } from "./systems/dialogue";
+import type { NpcDef } from "./data/npcs";
 import { heartEvent } from "./systems/heartEvents";
 import { isGiftable } from "./data/traitPreferences";
 import { INTERACTIONS, interactionLine, type InteractionDef } from "./data/interactions";
@@ -146,13 +152,38 @@ const npcs = createNpcs();
 initNpcPositions(npcs, calendar, weather);
 for (const n of npcs) registerNpc(n, npcs, onTalk);
 
-/** Talk seam: for now a canned personality line + a few seconds facing you.
- *  The next block swaps this body for the dialogue engine — nothing else moves. */
+/** Talk seam: opens the dialogue bottom-box (condition-keyed opening line +
+ *  shallow choice turns). The window drives the conversation; the Social-need
+ *  bump + markContact fire once it ENDS (the onClose hook below), so they're not
+ *  double-counted the way the old canned one-liner did per talk. */
 function onTalk(npc: Npc) {
-  toast(`${npc.def.name}: “${npcGreeting(npc)}”`);
-  startTalking(npc);
-  socialContact(needs, npc.def.id, absoluteDay(calendar));   // company feeds the Social need
-  markContact(relationships, npc.def.id, absoluteDay(calendar));   // any contact holds off decay
+  openDialogue(npc.def);
+}
+
+/** The region the player is standing in — the dialogue key system reads this as
+ *  "where the player is right now" (interior counts as the farm). */
+function playerRegion() {
+  return scene === "world" ? regionAt(player.x, player.y) : "farm";
+}
+
+/** Applies a dialogue choice's small effect. Kept in main because it owns the
+ *  relationship / world-flag state and the heart-event presentation. */
+function applyDialogueEffect(def: NpcDef, effect: ChoiceEffect) {
+  const today = absoluteDay(calendar);
+  switch (effect.kind) {
+    case "friendship": {
+      const thresholds = dialogueBump(relationships, def, effect.amount ?? DIALOGUE_FRIENDSHIP_BUMP, calendar);
+      const npc = npcById(npcs, def.id);
+      if (npc) for (const ev of thresholds) fireHeart(npc, ev);
+      break;
+    }
+    case "contact":
+      markContact(relationships, def.id, today);
+      break;
+    case "flag":
+      setWorldFlag(worldFlags, effect.key, effect.days ?? DIALOGUE_TOPIC_FLAG_DAYS, today);
+      break;
+  }
 }
 
 // ---- Relationship engine: gift + interaction flows (main owns economy/memory)
@@ -248,12 +279,38 @@ if (import.meta.env.DEV)
       saveCalendar(calendar);
       decayRelationships(relationships, ended, absoluteDay(calendar));
     },
+    // dialogue verification bridge — open/close the bottom-box + force conditions
+    worldFlags,
+    talk: (npcId: string) => { const n = npcById(npcs, npcId); if (n) onTalk(n); },
+    endTalk: () => closeDialogue(),
+    dlgOpen: () => isDialogueOpen(),
+    setFriendship: (npcId: string, v: number) => {
+      const def = npcs.find((n) => n.def.id === npcId)!.def;
+      const cur = relationshipSummary(def, relationships).friendship;
+      dialogueBump(relationships, def, v - cur, calendar);
+    },
+    flag: (key: string, days = 4) => setWorldFlag(worldFlags, key, days, absoluteDay(calendar)),
+    repairFarm: () => { farm.roof = true; farm.window = true; farm.barn = true; farm.fence = true; },
     begin: () => beginPlay(),                     // skip the title screens into live play
     newGame: () => { newGameReset(meta.starterTool as StarterTool, isGuided()); beginPlay(); },
   };
 
 initBackpack(economy, eatItem);
 initGiftChooser(economy);
+// the dialogue bottom-box: each turn reads ONE npc-scoped world snapshot, routes
+// the line through renderNpcLine (the AI seam), and hands effects/close back here
+initDialogue({
+  worldFor: (npcId) => getWorldContext(
+    { economy, skills, farm, calendar, weather, flags: worldFlags, needs, relationships, location: playerRegion() },
+    { npcId },
+  ),
+  applyEffect: applyDialogueEffect,
+  onOpen: (def) => { const n = npcById(npcs, def.id); if (n) startTalking(n, player.x, player.y); },
+  onClose: (def) => {
+    socialContact(needs, def.id, absoluteDay(calendar));   // company feeds the Social need
+    markContact(relationships, def.id, absoluteDay(calendar));   // any contact holds off decay
+  },
+});
 initMinimap();
 initSkillsUI(skills);
 initMemoryBook(collections, memories);
@@ -514,9 +571,12 @@ function tick(now: number) {
   last = now; time += dt;
 
   updateAnimals(cows, hens, dt);   // ambience runs even behind the opening screens
-  updateNpcs(npcs, calendar, weather, player, dt);   // townsfolk keep their routines too
+  // auto-pause: a conversation freezes game-time AND the townsfolk (they're "in
+  // conversation") — the same gating pattern the title screen uses below.
+  const dialoguePaused = isDialogueOpen();
+  if (!dialoguePaused) updateNpcs(npcs, calendar, weather, player, dt);
 
-  if (!openingActive) {
+  if (!openingActive && !dialoguePaused) {
   const wasMoving = player.moving;
   updatePlayer(player, dt);
   if (player.moving && !wasMoving) {
@@ -716,6 +776,9 @@ function tick(now: number) {
     setPrompt(null);
     hovered = null;
     nearReach = null;
+    // drain any queued world input so a click behind the dialogue box / title
+    // screen doesn't fire the instant play resumes
+    consumeLeftClick(); consumeRightClick(); consumeAction();
   }
 
   // chimney smoke

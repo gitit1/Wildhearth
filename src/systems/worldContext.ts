@@ -52,6 +52,10 @@ export interface CalendarSlice {
   hour: number;
   minute: number;
   phase: DayPhase;
+  /** 0 = Sunday … 6 = Saturday, derived from the monotonic absoluteDay. Exposed
+   *  here so day-of-week-keyed consumers (dialogue, market days) read it from the
+   *  one snapshot instead of re-deriving it locally. */
+  dayOfWeek: number;
 }
 
 export interface WeatherSlice {
@@ -102,7 +106,8 @@ export function getWorldContext(
     calendar: sources.calendar
       ? { season: currentSeason(sources.calendar), day: sources.calendar.day,
           hour: sources.calendar.hour, minute: sources.calendar.minute,
-          phase: currentPhase(sources.calendar) }
+          phase: currentPhase(sources.calendar),
+          dayOfWeek: (absoluteDay(sources.calendar) - 1) % 7 }
       : undefined,
     weather: sources.weather
       ? { state: sources.weather.kind, daysSinceChange: sources.weather.daysSinceChange }

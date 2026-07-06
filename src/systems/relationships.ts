@@ -231,6 +231,18 @@ export function markContact(r: Relationships, id: string, day: number) {
   saveRelationships(r);
 }
 
+/** A small Friendship nudge from a warm dialogue choice (Dialogue engine). Unlike
+ *  a categorized interaction it has no per-category diminishing — the choice trees
+ *  are shallow and a bump is deliberately tiny (config knob) — but it still counts
+ *  as contact and reports any heart threshold crossed upward. */
+export function dialogueBump(r: Relationships, def: NpcDef, amount: number, cal: CalendarState): ThresholdEvent[] {
+  const rel = ensure(r, def.id);
+  const thresholds = applyDelta(rel, "friendship", amount);
+  rel.lastInteractDay = absoluteDay(cal);
+  saveRelationships(r);
+  return thresholds;
+}
+
 // ---- depth-dependent neglect decay -----------------------------------------
 
 function decayAxis(rel: Relationship, axis: Axis): boolean {
