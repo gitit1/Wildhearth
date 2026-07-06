@@ -16,9 +16,10 @@ import {
   drawOpenWaterShimmer, drawDock, drawBuskSign,
 } from "./art/props";
 import { drawHouse, drawBarn, drawStall, drawCottage, drawWell } from "./art/buildings";
-import { drawFarmer, drawCow, drawHen } from "./art/characters";
+import { drawFarmer, drawCow, drawHen, drawNpc } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/animals";
+import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcGreeting, type Npc } from "./entities/npc";
 import { loadLivestock, resetLivestock } from "./systems/livestock";
 import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
@@ -49,7 +50,7 @@ import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import { getWorldContext } from "./systems/worldContext";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
-  registerBushes, registerPlots, registerAnimal, registerFlowerBeds,
+  registerBushes, registerPlots, registerAnimal, registerFlowerBeds, registerNpc,
   type Interactable, type InteractCtx,
 } from "./systems/interact";
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
@@ -118,6 +119,31 @@ function expandFarm() {
 }
 for (const c of cows) registerAnimal("cow", c, cows);
 for (const h of hens) registerAnimal("hen", h, hens);
+
+// The 10 townsfolk: deterministic from the clock (no persistence). Snap them to
+// their scheduled spots for the loaded time, then register each as a "Talk to
+// <name>" interactable routed through the single onTalk seam below.
+const npcs = createNpcs();
+initNpcPositions(npcs, calendar, weather);
+for (const n of npcs) registerNpc(n, npcs, onTalk);
+
+/** Talk seam: for now a canned personality line + a few seconds facing you.
+ *  The next block swaps this body for the dialogue engine — nothing else moves. */
+function onTalk(npc: Npc) {
+  toast(`${npc.def.name}: “${npcGreeting(npc)}”`);
+  startTalking(npc);
+}
+
+// Dev-only test bridge: exposes live state so automated verification can jump
+// the clock, snap the townsfolk, and place the player without a fragile
+// walk-the-whole-map script. `import.meta.env.DEV` is false in production, so
+// this whole block is dead-code-eliminated from the shipped build.
+if (import.meta.env.DEV)
+  (window as unknown as { __wh: unknown }).__wh = {
+    player, npcs, calendar, weather,
+    snap: () => initNpcPositions(npcs, calendar, weather),
+  };
+
 initBackpack(economy);
 initMinimap();
 initSkillsUI(skills);
@@ -213,6 +239,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   resetWorldFlags(worldFlags);
   resetLivestock(livestock);
   cows.length = 0; hens.length = 0;   // the yard empties with the new life
+  initNpcPositions(npcs, calendar, weather);   // re-snap townsfolk to fresh day-1 morning
   meta.starterTool = tool;
   saveMeta(meta);
   saveSettings({ guided });         // settings are not game state — kept across a New Game
@@ -226,6 +253,7 @@ showTitle(
 );
 
 let hovered: Interactable | null = null;              // object under the cursor (for the glow)
+let nearReach: Interactable | null = null;            // object in reach (drives NPC name labels)
 let pending: { objId: string; actionId: string } | null = null;  // action to run once in reach
 
 let last = performance.now(), time = 0;
@@ -235,6 +263,7 @@ function tick(now: number) {
   last = now; time += dt;
 
   updateAnimals(cows, hens, dt);   // ambience runs even behind the opening screens
+  updateNpcs(npcs, calendar, weather, player, dt);   // townsfolk keep their routines too
 
   if (!openingActive) {
   const wasMoving = player.moving;
@@ -277,6 +306,7 @@ function tick(now: number) {
   cv.style.cursor = hovered ? "pointer" : "default";
 
   const near = reachable(player.x, player.y, scene);
+  nearReach = near;
   if (fishing.casting) setPrompt("Waiting for a bite...");
   else if (foraging.picking) setPrompt("Picking berries...");
   else if (farmwork.working)
@@ -424,6 +454,7 @@ function tick(now: number) {
   } else {
     setPrompt(null);
     hovered = null;
+    nearReach = null;
   }
 
   // chimney smoke
@@ -502,6 +533,14 @@ function draw() {
   for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time) });
   for (const c of cows) ents.push({ y: c.y + 14, f: () => drawCow(ctx, c, time) });
   for (const h of hens) ents.push({ y: h.y + 6, f: () => drawHen(ctx, h, time) });
+  // townsfolk, unless indoors (asleep / at home). Name label shows only when
+  // this NPC is hovered or in reach — same "only when relevant" rule as prompts.
+  for (const n of npcs) {
+    if (n.indoors) continue;
+    const tag = `npc-${n.def.id}`;
+    const showLabel = hovered?.id === tag || nearReach?.id === tag;
+    ents.push({ y: n.y + 13, f: () => drawNpc(ctx, n, time, showLabel) });
+  }
   ents.sort((a, b) => a.y - b.y);
   for (const e of ents) e.f();
 

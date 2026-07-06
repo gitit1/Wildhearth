@@ -2,7 +2,7 @@ import {
   POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
   FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OLD_BUSK_SIGN, type Rect, type FishSpot,
 } from "../world/zones";
-import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES } from "../config";
+import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
 import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
 import { saveFarm, repairsLeft, type FarmState, type FarmPart } from "./renovation";
@@ -17,6 +17,7 @@ import { skillValue, gainSkill, type Skills } from "./skills";
 import { cropBySeed } from "../data/crops";
 import type { Season } from "./calendar";
 import type { Cow, Hen } from "../entities/animals";
+import type { Npc } from "../entities/npc";
 import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
 
@@ -430,6 +431,36 @@ export function registerAnimal(kind: "cow" | "hen", a: Cow | Hen, arr: Array<Cow
       { id: "look", label: "Look", run: (c) => c.toast(`Your own ${label.replace("the ", "")} — bought, not given.`) },
     ],
     drawHover: (g, t) => glowEllipse(g, a.x, a.y - 2, rx + 4, ry + 4, t),
+  });
+}
+
+/**
+ * The 10 townsfolk are interactables: a proximity "Talk to <name>" prompt.
+ * hit/reach read the NPC's LIVE position and go inert while the NPC is indoors
+ * (asleep / at home). Talking is the single `onTalk` SEAM — this block shows a
+ * canned personality line; the next block swaps `onTalk` for the real dialogue
+ * engine without touching anything here. main.ts owns the npc list and passes
+ * it in (explicit-passing, no singleton), same as animals/plots.
+ */
+export function registerNpc(npc: Npc, all: Npc[], onTalk: (n: Npc) => void) {
+  const rx = 13, ry = 22;
+  const live = () => all.includes(npc) && !npc.indoors;
+  INTERACTABLES.push({
+    id: `npc-${npc.def.id}`,
+    name: npc.def.name,
+    get anchor(): [number, number] { return [npc.x, npc.y + 24]; },
+    defaultActionId: "talk",
+    hit: (wx, wy) => {
+      if (!live()) return false;
+      const dx = (wx - npc.x) / rx, dy = (wy - (npc.y - 14)) / ry;
+      return dx * dx + dy * dy <= 1;
+    },
+    inReach: (px, py) => live() && Math.hypot(px - npc.x, py - npc.y) < NPC_REACH,
+    actions: () => [
+      { id: "talk", label: `Talk to ${npc.def.name}`, run: () => onTalk(npc) },
+      { id: "look", label: "Look", run: (c) => c.toast(npc.def.blurb) },
+    ],
+    drawHover: (g, t) => glowEllipse(g, npc.x, npc.y - 14, rx + 7, ry + 4, t),
   });
 }
 

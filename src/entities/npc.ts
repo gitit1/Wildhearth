@@ -1,0 +1,225 @@
+/**
+ * The NPC entity: state + movement, no drawing (that's art/characters.ts's
+ * `drawNpc`, which paints the shared rig). Each tick an NPC:
+ *  1. asks schedule.ts for its scheduled state (weather-tweaked),
+ *  2. when that state CHANGES, picks a walk target and a waypoint route,
+ *  3. walks the route by straight-line lerp at NPC_WALK_SPEED,
+ *  4. on arrival, holds the state's pose (work pose / talking gesture / idle).
+ *
+ * Movement is waypoint-only — routes are chosen to keep NPCs on legal ground
+ * (the market plaza & roads are open; the forager routes along the forest
+ * passage spine; the peddler patrols road nodes), so there's no per-tile
+ * collision resolution. An NPC "at home" or "asleep" that has arrived is
+ * `indoors` and simply isn't rendered — the simplest honest way to show them
+ * inside without an interior for every cottage.
+ */
+import { T, NPC_WALK_SPEED, NPC_ARRIVE, NPC_TALK_SECONDS } from "../config";
+import type { Facing, PoseName } from "../art/rig";
+import type { CalendarState } from "../systems/calendar";
+import type { WeatherState } from "../systems/weather";
+import { WELL } from "../world/zones";
+import { NPCS, PERSONALITY_LINES, JONAS_ROUTE, type NpcDef } from "../data/npcs";
+import {
+  dayOfWeek, resolveState, placeFor, scheduleWeatherTweak, type NpcState,
+} from "../systems/schedule";
+
+export interface Npc {
+  def: NpcDef;
+  i: number;                       // roster index (spreads social/market spots)
+  x: number; y: number;
+  facing: Facing;
+  state: NpcState;
+  pose: PoseName;
+  dist: number;                    // travel px — drives the rig's distance-keyed walk cycle
+  moving: boolean;
+  indoors: boolean;                // at home/asleep & arrived -> not rendered, not interactable
+  route: Array<[number, number]>;  // remaining waypoints to the target
+  talkTimer: number;               // >0 while facing the player & holding "talking"
+  lineIdx: number;                 // rotates canned greetings
+  gestureT: number;                // drives occasional socializing gestures
+  patrolIdx: number;               // peddler patrol cursor
+  patrolDir: 1 | -1;
+}
+
+export function createNpcs(): Npc[] {
+  return NPCS.map((def, i) => ({
+    def, i,
+    x: def.home[0], y: def.home[1],
+    facing: 2 as Facing, state: "asleep" as NpcState, pose: "idle" as PoseName,
+    dist: 0, moving: false, indoors: true, route: [],
+    talkTimer: 0, lineIdx: 0, gestureT: Math.random() * 10,
+    patrolIdx: 0, patrolDir: 1,
+  }));
+}
+
+/** Snap every NPC to where its schedule says it should be RIGHT NOW, so a fresh
+ *  load (or a New Game) doesn't start everyone sprinting from their beds. */
+export function initNpcPositions(npcs: Npc[], cal: CalendarState, weather: WeatherState) {
+  const dow = dayOfWeek(cal);
+  for (const n of npcs) {
+    const state = scheduleWeatherTweak(n.def, resolveState(n.def, dow, cal.hour), weather);
+    const place = placeFor(n.def, state, dow, n.i);
+    n.state = state;
+    n.x = place[0]; n.y = place[1];
+    n.route = []; n.moving = false;
+    n.indoors = state === "atHome" || state === "asleep";
+    n.facing = idleFacing(n, state);
+    n.pose = poseFor(n, state);
+  }
+}
+
+export function updateNpcs(
+  npcs: Npc[], cal: CalendarState, weather: WeatherState, player: { x: number; y: number }, dt: number,
+) {
+  const dow = dayOfWeek(cal);
+  for (const n of npcs) {
+    n.gestureT += dt;
+
+    // being talked to: pause the routine, turn to the player, hold the gesture
+    if (n.talkTimer > 0) {
+      n.talkTimer -= dt;
+      n.facing = facingTo(n.x, n.y, player.x, player.y);
+      n.moving = false;
+      n.pose = "talking";
+      continue;
+    }
+
+    // resolve the scheduled state; on a CHANGE, choose a fresh target + route
+    const desired = scheduleWeatherTweak(n.def, resolveState(n.def, dow, cal.hour), weather);
+    if (desired !== n.state) {
+      n.state = desired;
+      n.indoors = false;                       // step out; re-set true only on home arrival
+      if (n.def.role === "peddler" && desired === "atWork") {
+        // patrol direction alternates by day; start from the near end
+        n.patrolDir = dow % 2 === 0 ? 1 : -1;
+        n.patrolIdx = n.patrolDir === 1 ? 0 : JONAS_ROUTE.length - 1;
+        n.route = [];
+      } else {
+        n.route = buildRoute(n.def, n.x, n.y, placeFor(n.def, desired, dow, n.i));
+      }
+    }
+
+    // the peddler keeps the loop topped up while working
+    if (n.def.role === "peddler" && n.state === "atWork" && n.route.length === 0)
+      n.route = [nextPatrol(n)];
+
+    stepAlong(n, dt);
+
+    // arrived home -> go indoors (invisible); otherwise face something sensible
+    if (!n.moving) {
+      if (n.state === "atHome" || n.state === "asleep") n.indoors = true;
+      else n.facing = idleFacing(n, n.state);
+    }
+    n.pose = poseFor(n, n.state);
+  }
+}
+
+/** Walk toward the next waypoint; shift it off on arrival. */
+function stepAlong(n: Npc, dt: number) {
+  if (n.route.length === 0) { n.moving = false; return; }
+  const [tx, ty] = n.route[0]!;
+  const dx = tx - n.x, dy = ty - n.y, d = Math.hypot(dx, dy);
+  if (d <= NPC_ARRIVE) {
+    n.route.shift();
+    if (n.route.length === 0) { n.moving = false; return; }
+    return;
+  }
+  const step = Math.min(NPC_WALK_SPEED * dt, d);
+  n.facing = facingTo(n.x, n.y, tx, ty);
+  n.x += (dx / d) * step;
+  n.y += (dy / d) * step;
+  n.dist += step;
+  n.moving = true;
+}
+
+/** Advance the peddler's patrol cursor, bouncing at either end. */
+function nextPatrol(n: Npc): [number, number] {
+  const p = JONAS_ROUTE[n.patrolIdx]!;
+  const node: [number, number] = [p[0], p[1]];
+  n.patrolIdx += n.patrolDir;
+  if (n.patrolIdx >= JONAS_ROUTE.length) { n.patrolIdx = JONAS_ROUTE.length - 2; n.patrolDir = -1; }
+  else if (n.patrolIdx < 0) { n.patrolIdx = 1; n.patrolDir = 1; }
+  return node;
+}
+
+/** Waypoints to a destination. Straight line for everyone in the open plaza/
+ *  road; the forager skirts the trees by routing along the forest passage spine
+ *  (x≈55) before stepping to a corner (or down to road level to leave). */
+function buildRoute(def: NpcDef, fromX: number, fromY: number, dest: [number, number]): Array<[number, number]> {
+  if (def.role === "forager") {
+    const spineX = 55 * T;
+    const inForest = dest[0] < 64 * T && dest[1] < 20 * T;
+    const wp: Array<[number, number]> = [[spineX, fromY]];
+    wp.push(inForest ? [spineX, dest[1]] : [spineX, 22 * T]);
+    wp.push([dest[0], dest[1]]);
+    return dedupe(wp);
+  }
+  return [[dest[0], dest[1]]];
+}
+
+function dedupe(wp: Array<[number, number]>): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (const p of wp) {
+    const last = out[out.length - 1];
+    if (!last || Math.hypot(last[0] - p[0], last[1] - p[1]) > NPC_ARRIVE) out.push(p);
+  }
+  return out;
+}
+
+function facingTo(fx: number, fy: number, tx: number, ty: number): Facing {
+  const dx = tx - fx, dy = ty - fy;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : (dy >= 0 ? 2 : 0);
+}
+
+/** Which way an idle NPC faces: socializers face the group (the well), workers
+ *  face "outward" (stallkeepers toward customers, Finn out over the lake). */
+function idleFacing(n: Npc, state: NpcState): Facing {
+  if (state === "socializing")
+    return n.def.role === "forager" ? 2 : facingTo(n.x, n.y, WELL.cx, WELL.cy);
+  if (state === "atWork" && n.def.role === "fisher-kid") return 1; // east, over the water
+  return 2;
+}
+
+/** The pose the rig should draw for this NPC right now. */
+function poseFor(n: Npc, state: NpcState): PoseName {
+  if (n.talkTimer > 0) return "talking";
+  if (n.moving) return "walking";
+  switch (state) {
+    case "atWork": return workPose(n.def.role);
+    case "socializing":
+      // occasional talking gesture at each other, otherwise a relaxed idle
+      return Math.sin(n.gestureT * 0.8 + n.i) > 0.62 ? "talking" : "idle";
+    default: return "idle";
+  }
+}
+
+function workPose(role: NpcDef["role"]): PoseName {
+  switch (role) {
+    case "musician": return "busking";
+    case "farmer":
+    case "handyman": return "hoeing";
+    case "forager": return "foraging";
+    case "fisher-kid": return "fishing";
+    case "peddler": return "walking";
+    default: return "idle";           // stallkeepers & baker stand at their post
+  }
+}
+
+// ---- talk seam (the real dialogue engine swaps in at the next block) --------
+
+/** Face the player and hold the talking pose for a few seconds. */
+export function startTalking(n: Npc) {
+  n.talkTimer = NPC_TALK_SECONDS;
+}
+
+/** The next canned line for this NPC's personality (rotated). */
+export function npcGreeting(n: Npc): string {
+  const lines = PERSONALITY_LINES[n.def.personality];
+  const line = lines[n.lineIdx % lines.length]!;
+  n.lineIdx++;
+  return line;
+}
+
+export function npcById(npcs: Npc[], id: string): Npc | undefined {
+  return npcs.find((n) => n.def.id === id);
+}

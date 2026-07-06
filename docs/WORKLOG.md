@@ -42,6 +42,97 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## NPC engine — 10 townsfolk with weekly schedules on the shared rig
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (Part A #1) The NPC engine. 10 distinct NPCs (fixed roster,
+  logged for owner review), each a full entity on the shared humanoid rig with a
+  weekly, day-of-week-varying schedule driving a state machine (atHome / atWork /
+  atMarket / socializing / asleep), waypoint movement, profession poses, a
+  proximity "Talk to <name>" one-liner via a single `onTalk` seam (the real
+  dialogue engine is the next block), a tiny v5-forward weather stub, and
+  v5-forward identity placeholders. No relationships/gifting/dialogue-trees/stall
+  trading (all later). No persistence (deterministic from the clock).
+- **Done:**
+  - **Files:**
+    - `src/data/npcs.ts` (NEW): the roster as pure data. `NpcDef` type +
+      `AgeBand` / `Personality` / `Role` unions; **kid safety is structural** —
+      `NpcDef = NpcCommon & ({ageBand:"kid"} | {ageBand:"adult"|"elder";
+      romantic:boolean})`, so a `romantic` flag on a kid is a compile error, not
+      a convention. `isRomantic(def)`. The 10 `NPCS` (each with distinct
+      `RigParams`, home/work anchors, wake/sleep/work hours, optional
+      `closedDay`, and v5-forward `family?`/`backstory?`/`heartEvents?` typed &
+      undefined). `PERSONALITY_LINES` (2-3 canned lines per personality).
+      NPC route tables: `FOREST_CORNERS`, `ADA_FOREST_REST`, `JONAS_ROUTE`,
+      `BRAM_FARM_SPOT`/`BRAM_MARKET_SPOT`.
+    - `src/systems/schedule.ts` (NEW): the clock-driven engine. `NpcState`;
+      `dayOfWeek(cal)` / `dayName(cal)` (7-day Sun–Sat week from `absoluteDay`);
+      `daySchedule(def, dow)` (computes the per-day `{startHour,state}` table);
+      `resolveState(def, dow, hour)`; `placeFor(def, state, dow, idx)` (resolves
+      the world point per state — stall/forest-corner-by-day/handyman-split/
+      well-ring/plaza-wander/home); `scheduleWeatherTweak(def, state, weather)`
+      (v5-forward stub: a storm sends outdoor NPCs home, nothing else yet).
+    - `src/entities/npc.ts` (NEW): the entity + movement. `Npc` interface,
+      `createNpcs()`, `initNpcPositions()` (snap to the schedule's here-and-now),
+      `updateNpcs(npcs, cal, weather, player, dt)` (resolve state → on change set
+      a waypoint route → straight-line lerp at `NPC_WALK_SPEED` → hold the
+      state's pose), waypoint routing (`buildRoute` skirts forest trees via the
+      passage spine; peddler patrols `JONAS_ROUTE`, direction by day parity),
+      pose/facing derivation, and the talk seam `startTalking` / `npcGreeting` /
+      `npcById`.
+    - `src/art/characters.ts`: added `drawNpc(g, n, t, showLabel)` — the shared
+      rig plus a code-drawn name pill shown only when the player is near/hovering.
+    - `src/systems/interact.ts`: added `registerNpc(npc, all, onTalk)` — each NPC
+      is a live-position "Talk to <name>" interactable, inert while `indoors`,
+      routed through the single `onTalk` seam.
+    - `src/main.ts`: instantiate + snap + register the NPCs; `updateNpcs` each
+      tick (ambient, like animals); depth-sort non-indoor NPCs into the `ents`
+      list with the near/hover-gated label; `onTalk(npc)` seam (canned line +
+      `startTalking`); re-snap NPCs on New Game; a **dev-only** `__wh` test
+      bridge (`import.meta.env.DEV`, tree-shaken from production — bundle size
+      unchanged).
+    - `src/config.ts`: `NPC_WALK_SPEED` (52), `NPC_ARRIVE` (4), `NPC_REACH` (46),
+      `NPC_TALK_SECONDS` (3.4).
+    - `src/vite-env.d.ts` (NEW): `/// <reference types="vite/client" />` so
+      `import.meta.env.DEV` is typed (and literally replaced → tree-shaken).
+  - **Roster (logged for owner review):** 1 Maren (fish stall, brisk-warm, ♥),
+    2 Tobin (produce, cheerful-chatty, ♥), 3 Sera (general goods, precise, —),
+    4 Henrik (elder neighbour farmer, gruff-kind, —), 5 Petra (baker, warm-
+    motherly, —), 6 Liora (musician, dreamy-performer, ♥), 7 Bram (carpenter,
+    quiet-craftsman, ♥), 8 Ada (elder herbalist/forager, shy-naturalist, —),
+    9 Finn (kid fisher apprentice, eager, — never romanceable, enforced by type),
+    10 Jonas (peddler, gossipy-connector, —). 4 romantic candidates per
+    DECISIONS "Romantic NPCs v1: 3-4". Closed days: Maren Tue, Tobin Thu,
+    Sera Sat.
+  - **Behavior:** the town is alive with AI off — stallkeepers stand their
+    stalls in work hours (each with a different closed day), Liora busks near the
+    square (never on the player's busk spot), Ada forages a different forest
+    corner each day, Finn fishes off the lake dock (after-school on weekdays, all
+    day weekends), Jonas walks the farm↔market road (direction alternates by
+    day), Petra bakes at her cottage and works the square mid-day, Henrik & Bram
+    work the neighbour farm. Everyone gathers at the well on Sunday morning and
+    sleeps at home at night (~22:00–06:00, ±1h). Talking shows a personality
+    one-liner and turns the NPC to face you.
+- **Build:** `npm run build` — ✅ passing.
+- **Verify (Playwright, dayLength temporarily 90s, restored):** market Monday
+  13:00 = 5 townsfolk doing distinct things (3 stalls + Petra browsing + Liora
+  busking); Ada foraging in the forest; Finn fishing on the dock; night 23:00 =
+  all 10 indoors; a closed day differs (Maren atWork@stall Mon vs socializing@
+  well Tue); talked to 3 NPCs (Liora/Henrik/Bram — 3 distinct lines, each turns
+  to the talking pose); Sunday 10:00 = all 10 socializing at the well; reload →
+  Continue loads the existing save. No page errors. Screenshots reviewed.
+- **Commit:** <hash> — "NPC engine — 10 townsfolk with weekly schedules on the shared rig"
+- **Follow-ups:**
+  - No persistence needed (schedules are deterministic from the clock) — noted
+    per the block; nothing to save/load for NPCs.
+  - The `onTalk` seam is a single canned-line stub; the next block swaps its body
+    for the dialogue engine without touching `registerNpc`/`drawNpc`/movement.
+  - `isRomantic()` and the `family`/`backstory`/`heartEvents` fields exist for
+    v5 but have no consumer yet (the relationships / Heart-Events blocks).
+  - Sped-up verification (dayLength ≤ ~40s) can out-run the longest NPC walk
+    (Bram cottage→neighbour-farm ~17s) between hourly state changes; at the real
+    default pace (1440s) it never happens. Not a bug at shipping settings.
+  - The dev-only `__wh` bridge is compiled out of production; harmless in dev.
+
 ## Segmented rig — jointed player, poseable actions, rigged animals
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (Part B #6) Replace the static player/animal painters with a

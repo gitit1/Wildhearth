@@ -12,6 +12,13 @@ export const PLAYER_SPEED = 150;        // px/sec
 export const STARTING_COINS = 50;       // a new life's purse (VISION price anchor table)
 export const COW_SPEED = 22, HEN_SPEED = 30;
 
+// NPCs (10 townsfolk, weekly schedules — NPC-engine block). Deterministic from
+// the clock, so no persistence; these are pure feel/tuning knobs.
+export const NPC_WALK_SPEED = 52;       // px/sec — a townsperson's stroll (well under the player's 150)
+export const NPC_ARRIVE = 4;            // px: close enough to a waypoint to advance
+export const NPC_REACH = 46;            // px: close enough to be offered "Talk to <name>"
+export const NPC_TALK_SECONDS = 3.4;    // how long an NPC faces you & holds the talking pose after Talk
+
 export const FISH_PRICE = 3;            // coins per legacy generic fish (old saves)
 export const FISH_TIME_MIN = 1.2;       // seconds until a bite
 export const FISH_TIME_MAX = 3.0;

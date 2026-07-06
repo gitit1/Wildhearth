@@ -7,11 +7,40 @@
  */
 import { drawRig, RIG_STRIDE } from "./rig";
 import { drawQuadruped, drawBird, COW_RIG, HEN_RIG, QUAD_STRIDE, BIRD_STRIDE } from "./animalRig";
+import { roundR, outline } from "./shapes";
 import { DEFAULT_PLAYER_RIG, type Player } from "../entities/player";
 import type { Cow, Hen } from "../entities/animals";
+import type { Npc } from "../entities/npc";
 
 export function drawFarmer(g: CanvasRenderingContext2D, p: Player, t: number) {
   drawRig(g, p.x, p.y, p.dir, DEFAULT_PLAYER_RIG, p.pose, p.dist / RIG_STRIDE, t);
+}
+
+/**
+ * An NPC: the same shared rig as the player, driven by the NPC's own RigParams
+ * + live pose/facing/distance. `showLabel` draws a small name pill above the
+ * head — shown only when the player is near or hovering (matching how the
+ * action prompt only appears in reach), so the world isn't cluttered with tags.
+ */
+export function drawNpc(g: CanvasRenderingContext2D, n: Npc, t: number, showLabel: boolean) {
+  drawRig(g, n.x, n.y, n.facing, n.def.rig, n.pose, n.dist / RIG_STRIDE, t);
+  if (showLabel) drawNameLabel(g, n.x, n.y - 30 * n.def.rig.scale, n.def.name);
+}
+
+function drawNameLabel(g: CanvasRenderingContext2D, x: number, yTop: number, name: string) {
+  g.save();
+  g.font = "600 11px -apple-system, Segoe UI, Roboto, sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  const w = g.measureText(name).width + 12;
+  const h = 15, cy = yTop - h / 2;
+  g.fillStyle = "rgba(25,32,18,.86)";
+  roundR(g, x - w / 2, cy - h / 2, w, h, 6);
+  g.fill();
+  outline(g);
+  g.fillStyle = "#f0ead6";
+  g.fillText(name, x, cy);
+  g.restore();
 }
 
 export function drawCow(g: CanvasRenderingContext2D, c: Cow, t: number) {

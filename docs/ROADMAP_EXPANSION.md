@@ -308,7 +308,7 @@ goods), 5–8 NPC homes.
 ---
 
 ## `src/entities/npc.ts` — NPC entity
-- [ ] not started
+- [x] built, verified in-browser (10 townsfolk on the shared rig; state machine home/work/market/socializing/asleep; waypoint movement; "Talk to <name>" one-liner via the onTalk seam; not-drawn-when-indoors), committed — 2026-07-07 (v1-foundation). Delivered together with the schedule engine below as the "NPC engine" block; roster logged in WORKLOG.
 
 > Context (was Group B note): The Riverside Fisherwoman block is large on its own (rod tiers, bait, teaching, boat, bird-watching, net fishing, diving, sailing, aquarium) — it sits right after the base NPC-entity block because it needs that entity to exist at all.
 
@@ -426,7 +426,7 @@ Phase-1 NPC:
 ---
 
 ## `src/systems/schedule.ts` — the clock-driven schedule engine that moves
-- [ ] not started
+- [x] built, verified in-browser (7-day Sun–Sat week from absoluteDay; per-day {startHour,state} tables that vary by day — stall closed-days, Sunday well-gathering, forager corners by day, peddler direction by day, weekend vs weekday for the kid; place resolution per state; tiny weather stub), committed — 2026-07-07 (v1-foundation). Part of the "NPC engine" block with `entities/npc.ts` above.
 
 `src/systems/schedule.ts` — the clock-driven schedule engine that moves
 NPCs between their fixed points through the day.
