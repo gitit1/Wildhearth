@@ -42,6 +42,31 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## docs — session planning: ROADMAP_TO_V5 + AI_ARCHITECTURE + PROPOSALS
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (from `docs/FABLE_PROMPT.md`, "Docs to produce during this
+  session" #2-4) Three planning docs, each written by a dedicated subagent.
+- **Done (docs only):**
+  - **Files:**
+    - `docs/ROADMAP_TO_V5.md` (NEW): the v1→v5 product arc — per version:
+      theme, every system's state, the gap from the previous version,
+      dependencies, scope estimate, risks. v1/v5 anchored to DECISIONS.md;
+      v2 (town opens) / v3 (crafting+professions+appearance) / v4
+      (family+living economy) interpolated by dependency order.
+    - `docs/AI_ARCHITECTURE.md` (NEW): Part D blueprint — `src/systems/ai/`
+      module tree behind an AICtx facade, BYOK browser-direct Anthropic
+      transport, all 8 use cases with prompts/context/cost/fallbacks,
+      closed NPCAction union + validator, budget/cache/rate limits, mock
+      provider + deterministic testing, v1→v5 evolution.
+    - `docs/PROPOSALS.md` (NEW): 22 proposals across mechanics / features /
+      improvements / content, each with target version + build surface.
+    - `docs/HANDOFF.md`: what-was-built, decisions #4-9, subagent registry.
+  - **Behavior:** none — documentation only.
+- **Build:** `npm run build` — ✅ (no source change).
+- **Commit:** docs — session planning: ROADMAP_TO_V5 + AI_ARCHITECTURE + PROPOSALS
+- **Follow-ups:** owner reviews PROPOSALS.md + the judgment calls logged in
+  HANDOFF decisions #8-9.
+
 ## World expansion v1 — road, market stalls, forest passage, river & lake
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** World expansion v1 (from the supervisor's block prompt):

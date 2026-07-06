@@ -59,7 +59,26 @@ files (`DECISIONS.md`, `FABLE_PROMPT.md`). Resolution:
 
 ## What was built
 
-(Filled in as work lands; grouped by Part.)
+### Part A — logic engines
+- **World expansion v1** (`4e1b397`) — prerequisite for NPCs/festival/stall
+  NPC. The farm is now the west corner of a 108×30-tile open world: dirt
+  road east past an established neighbor farm → market square (4 distinct
+  stalls: fish-buyer / produce / general-goods / empty, a well, 6
+  cottages) → forest passage branching north (foraging works there,
+  location-tagged) → river along the east edge widening into a lake with
+  a dock (fishing spots pass "river"/"lake" into the existing fish-table
+  tags). Busking moved to the market square (DECISIONS: music income only
+  at stall-area). New `regionAt(x,y)` + a `location` slice in
+  WorldContext. Farm layout and all saves untouched.
+
+### Session planning docs
+- **docs/ROADMAP_TO_V5.md** — full v1→v5 product arc (17-system matrix
+  per version, gaps, dependencies, scope estimates, risks).
+- **docs/AI_ARCHITECTURE.md** — the Part-D blueprint: `src/systems/ai/`
+  module tree, BYOK browser-direct transport, closed NPCAction union +
+  validator, budget/cache/rate-limit discipline, mock provider testing,
+  ~$0.04/hr cost envelope.
+- **docs/PROPOSALS.md** — 22 proposals for owner review.
 
 ## Autonomous decisions log
 
@@ -68,6 +87,12 @@ files (`DECISIONS.md`, `FABLE_PROMPT.md`). Resolution:
 | 1 | Start branch = `autorun/wildhearth-batch-1` (game's live branch; contains master) | FABLE_PROMPT setup rule; verified via `git log`/`merge-base` |
 | 2 | VISION starting-coins stays **50** (uploaded 15 rejected as stale) | DECISIONS.md "Starting kit: 50 coins"; commits `8d58520`/`ff95174` |
 | 3 | ROADMAP merge keeps uploaded ticks + restores repo-only built blocks | FABLE_PROMPT "never lose an [x]"; commit log cross-check |
+| 4 | Direction map (open decision): farm WEST hub; road EAST past neighbor farm to market; forest passage NORTH off the road; river/lake EAST/SOUTH-EAST | DECISIONS "World structure: network of roads"; VISION hub-and-spoke |
+| 5 | v1 world size 108×30 tiles (~4x prior area, single pre-rendered ground canvas <4096px); farm→market ~10-13s walk — "hours of walking" stays the v5 aspiration | Performance cap vs DECISIONS "medium-to-large" |
+| 6 | Busk spot relocated farm → market square | DECISIONS "Music income v1: only at stall-area" |
+| 7 | Market stalls decorative until the NPC engine lands; player's own trade stall stays at the farm for now | Dependency order; DECISIONS selling-paths priority |
+| 8 | ROADMAP_TO_V5 arc: town=v2 (not v5), Fisherwoman deep kit=v2, marriage/children=v4, needs=7 per DECISIONS; passive Haggling discount stays v1, active haggling v3+ | DECISIONS v1/v5 anchors, dependency interpolation |
+| 9 | AI layer: BYOK browser-direct (documented CORS header), Haiku-tier default on the cost dial, improvement-observation (D8) defaults OFF since it spends her tokens for dev benefit | VISION §NPC brain; AI_ARCHITECTURE.md |
 
 ## Subagent registry
 
@@ -75,6 +100,10 @@ files (`DECISIONS.md`, `FABLE_PROMPT.md`). Resolution:
 
 | Task | Model | Outcome | Notes |
 |---|---|---|---|
+| World expansion v1 | Opus | ✅ committed `4e1b397` | ~295k tok, ~33 min, verified in-browser (Playwright walkthrough, all 5 regions) |
+| ROADMAP_TO_V5.md | Opus | ✅ delivered | ~135k tok; judgment calls in decision #8 |
+| AI_ARCHITECTURE.md | Opus | ✅ delivered | ~273k tok; judgment calls in decision #9 |
+| PROPOSALS.md | Sonnet | ✅ delivered | ~101k tok; 22 proposals |
 
 ## Files reorganized
 
