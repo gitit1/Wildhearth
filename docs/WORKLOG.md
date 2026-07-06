@@ -138,7 +138,7 @@ project.
   wrote exactly one Memory Book entry; survived reload; New Game emptied the
   store. The gift-chooser DOM was also driven end-to-end (rows exclude the rod +
   seeds; clicking Give applied the gift and consumed one item).
-- **Commit:** <hash + message — fill in after committing>
+- **Commit:** `909ff49` — Relationship engine — two axes, trait-derived gifts, depth-based decay
 - **Follow-ups:** Gifts move only Friendship in v1 (a logged judgment call —
   the Romantic interaction category is what moves Romance); v5 can route gifts
   to Romance for a committed bond. Scripted `data/dialogue/*.ts` and
