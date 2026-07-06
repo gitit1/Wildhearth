@@ -71,6 +71,38 @@ files (`DECISIONS.md`, `FABLE_PROMPT.md`). Resolution:
   at stall-area). New `regionAt(x,y)` + a `location` slice in
   WorldContext. Farm layout and all saves untouched.
 
+- **NPC engine — 10 townsfolk with weekly schedules** (`bb70e96`) —
+  `data/npcs.ts` roster (below), `systems/schedule.ts` (7-day week
+  Sun–Sat from `absoluteDay`, per-day timelines, storm-goes-home weather
+  stub), `entities/npc.ts` (waypoint walking, state machine
+  atHome/atWork/atMarket/socializing/asleep, indoors = not rendered),
+  talk prompt with personality one-liners via the `onTalk` seam the
+  dialogue engine will replace. Kid-safety is structural (a kid NPC
+  cannot carry a romantic flag at the type level).
+
+### Part B — visual foundation
+- **Segmented rig** (`ad18828`) — `art/rig.ts` (RigParams: build, legs,
+  arms, skin, 5 hairstyles, outfit, age proportions; 8 poses: idle,
+  walking, fishing, hoeing, foraging, busking, talking, sleeping;
+  distance-keyed walk cycle) + `art/animalRig.ts` (quadruped + bird —
+  cow/hen presets; pig/sheep/duck/cat/dog/rabbit are param variants).
+  Player + animals fully migrated; painter interface narrow so a future
+  sprite swap stays local.
+
+### The 10-NPC roster (decision #10 — OWNER PLEASE REVIEW)
+| Name | Role | Personality | Romantic |
+|---|---|---|---|
+| Maren | fish-stall keeper | brisk-warm | ✓ |
+| Tobin | produce-stall keeper | cheerful-chatty | ✓ |
+| Sera | general-goods keeper | precise-practical | — |
+| Henrik | neighbor farmer (elder) | gruff-kind | — |
+| Petra | baker/cook | warm-motherly | — |
+| Liora | street musician | dreamy-performer | ✓ |
+| Bram | carpenter/handyman | quiet-craftsman | ✓ |
+| Ada | forager/herbalist (elder) | shy-naturalist | — |
+| Finn | fisher apprentice (kid) | eager-apprentice | never (kid) |
+| Jonas | wandering peddler | gossipy-connector | — |
+
 ### Session planning docs
 - **docs/ROADMAP_TO_V5.md** — full v1→v5 product arc (17-system matrix
   per version, gaps, dependencies, scope estimates, risks).
@@ -101,6 +133,8 @@ files (`DECISIONS.md`, `FABLE_PROMPT.md`). Resolution:
 | Task | Model | Outcome | Notes |
 |---|---|---|---|
 | World expansion v1 | Opus | ✅ committed `4e1b397` | ~295k tok, ~33 min, verified in-browser (Playwright walkthrough, all 5 regions) |
+| Segmented rig (B6) | Opus | ✅ committed `ad18828` | ~175k tok, ~22 min; pose gallery + in-game verification, temp harness removed |
+| NPC engine (A1) | Opus | ✅ committed `bb70e96` | ~288k tok, ~34 min; full-day observation incl. closed days + Sunday gathering |
 | ROADMAP_TO_V5.md | Opus | ✅ delivered | ~135k tok; judgment calls in decision #8 |
 | AI_ARCHITECTURE.md | Opus | ✅ delivered | ~273k tok; judgment calls in decision #9 |
 | PROPOSALS.md | Sonnet | ✅ delivered | ~101k tok; 22 proposals |
