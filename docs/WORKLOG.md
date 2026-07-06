@@ -42,6 +42,35 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## docs — v1-foundation baseline: DECISIONS + FABLE_PROMPT + doc sync + HANDOFF
+- **Date:** 2026-07-06 (v1-foundation, session start)
+- **Block given:** (from `docs/FABLE_PROMPT.md`, "Doc sync — before any code")
+  Commit the product owner's uploaded docs; smart-merge ROADMAP_EXPANSION
+  (never lose an [x] tick); replace VISION if the uploaded copy is newer.
+- **Done (docs only):**
+  - **Files:**
+    - `docs/DECISIONS.md` (NEW to git): the product-decision record from the
+      design sessions — now the tie-breaker source of truth for scope.
+    - `docs/FABLE_PROMPT.md` (NEW to git): this session's work order, kept
+      for the record.
+    - `docs/ROADMAP_EXPANSION.md`: smart merge — kept every accurate `[x]`
+      tick from the uploaded copy (all cross-checked against real commits;
+      the repo's copy had them reset since the batch-3 baseline upload) AND
+      restored the two repo-only chunks describing built work the uploaded
+      copy lacked (the ticked stall-selling block; the HUD block's
+      minutes/day-length amendment). Union of blocks, union of ticks.
+    - `docs/VISION.md`: the uploaded copy's single change (starting coins
+      50 → 15 in the anchor table) was REJECTED as stale — DECISIONS.md
+      says 50, commits `8d58520`/`ff95174` decided and shipped 50. Repo
+      copy kept unchanged. Flagged OWNER PLEASE CONFIRM in HANDOFF.md.
+    - `docs/HANDOFF.md` (NEW): the session's master continuity doc —
+      session context, doc-sync resolutions, autonomous-decision log,
+      subagent registry, how-to-continue. Updated throughout the session.
+  - **Behavior:** none — documentation only.
+- **Build:** `npm run build` — ✅ (no source change).
+- **Commit:** docs — v1-foundation baseline: DECISIONS + FABLE_PROMPT + doc sync + HANDOFF
+- **Follow-ups:** none.
+
 ## Stall selling — driven by the player's chosen path (Fishing)
 - **Date:** 2026-07-04 (autorun/wildhearth-batch-1, batch 3)
 - **Block given:** (from `docs/ROADMAP_EXPANSION.md`, "Stall selling — driven
