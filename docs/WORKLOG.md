@@ -42,6 +42,75 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Segmented rig — jointed player, poseable actions, rigged animals
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (Part B #6) Replace the static player/animal painters with a
+  shared, jointed, poseable rig system, keeping the Cute-Fantasy look (shared
+  dark OUTLINE, elliptical drop shadow, warm palette). Humanoid rig for the
+  player (and, next block, the 10 NPCs) parameterised so distinct characters
+  are cheap; walk cycle keyed to DISTANCE moved (phase = dist/stride); distinct
+  pose functions (idle/walking/fishing/hoeing/foraging/busking/talking/
+  sleeping); animals refactored to parameterised four-legged / bird rigs, built
+  so Part-C animals are variants not new engines; painter interface kept narrow
+  so a future sprite-swap stays local.
+- **Done:**
+  - **Files:**
+    - `src/art/rig.ts` (NEW): the humanoid rig. Exports `RigParams` (scale,
+      build slim/average/round, legLength, armLength, skin, hair style +
+      color, `Outfit` {torso/torsoStyle/legs/legStyle/accent/shoes}, age
+      kid/adult/elder, hatColor), the `PoseName` union, `Facing`, the
+      `drawRig(g,x,y,facing,params,pose,phase,t)` single entry point, and
+      `RIG_STRIDE`. Limbs are capsules anchored at both joints (root→hand /
+      hip→foot) so nothing detaches at any zoom; upper body bobs/leans while
+      legs stay grounded; head/hair (short/ponytail/bun/bald/hat) + face per
+      facing; held-tool shapes (rod/hoe/lute/basket) drawn inline per pose.
+    - `src/art/animalRig.ts` (NEW): `drawQuadruped` + `drawBird` with
+      `QuadrupedParams` / `BirdParams`, `QUAD_STRIDE` / `BIRD_STRIDE`, and
+      ready presets `COW_RIG` / `HEN_RIG`. Cow: 4 legs on a trot gait, body
+      spots, ears/horns/tail/snout params, head graze-bob when idle, tail
+      flick. Hen: two stepping legs, flapping wing on move, comb/beak/eye,
+      peck. Param shapes cover pig/sheep/duck/cat/dog/rabbit as variants.
+    - `src/art/characters.ts` (REWRITTEN): now thin adapters — `drawFarmer`
+      → `drawRig` with `DEFAULT_PLAYER_RIG` and pose/dist from the entity;
+      `drawCow`/`drawHen` → the animal rigs. main.ts's draw/depth-sort is
+      unchanged (same exported names, same feet anchors).
+    - `src/entities/player.ts`: `Player` gains `pose: PoseName` and
+      `dist: number` (accumulated travel for the distance-keyed walk cycle,
+      banked in `updatePlayer`); new exported `DEFAULT_PLAYER_RIG` reproducing
+      the established straw-hat farmer (one place, later fed by Character
+      Creation).
+    - `src/entities/animals.ts`: `Cow`/`Hen` gain `dist` + `moving` (and hen
+      `flip`); `updateAnimals` banks distance and sets `moving` for the rigs.
+    - `src/main.ts`: derives `player.pose` each frame from the live activity
+      flags (fishing.casting → fishing, foraging.picking → foraging,
+      farmwork.working → hoeing, busking.playing → busking, moving → walking,
+      else idle) — no new state machine.
+  - **Systems / functions:** no save keys touched (rig fields are runtime
+    state, not persisted); `RigParams`/`PoseName`/`Outfit`/`QuadrupedParams`/
+    `BirdParams` types; `drawRig`/`drawQuadruped`/`drawBird`; stride constants.
+  - **Behavior:** the player is now a jointed character that walks (legs/arms
+    swing on distance, subtle torso bob), casts with a rod arced over the
+    water, bends and swings a hoe while tilling, crouches with a basket at a
+    bush, and strums a lute at the busk spot; talking + sleeping poses exist
+    for the coming NPC/needs blocks. The cow walks on a gait with a flicking
+    tail and grazing head-bob; the hen steps and flaps. Reads as the same
+    farmer as before, just alive.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** temporary rig gallery (deleted) reviewed via Playwright —
+  all 8 poses distinct/readable, walk limbs swing across phases, left/right
+  mirroring, min (0.84) & max (5.28) zoom with no detached limbs, 6 NPC-variety
+  param sets all distinct, cow + hen animate. In-game (Playwright): idle,
+  mid-walk ×2 phases, fishing at the pond, hoeing on a field cell, foraging at
+  a bush, busking at the market square, cow + hens in the yard, min/max zoom,
+  and a seeded pre-existing save loaded (coins 137, backpack carp×4 + berries
+  ×6, cow + 2 hens spawned) — no page/console errors in any run.
+- **Commit:** <hash + message — fill in after committing>
+- **Follow-ups:** up/down facing reuse the front profile (eyes shift, no
+  dedicated back-of-head walk) — matches the pre-existing single-orientation
+  art; add if a later pass wants true 4-dir. NPCs (next block) call `drawRig`
+  directly with their own `RigParams`. Full standalone tool painters (rod/hoe/
+  lute/etc.) arrive in Part C; the rig currently draws minimal inline shapes.
+
 ## docs — session planning: ROADMAP_TO_V5 + AI_ARCHITECTURE + PROPOSALS
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (from `docs/FABLE_PROMPT.md`, "Docs to produce during this

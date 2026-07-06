@@ -440,6 +440,15 @@ function tick(now: number) {
   // location: the player's current region (interior counts as the farm).
   const region = scene === "world" ? regionAt(player.x, player.y) : "farm";
   const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags, location: region });
+  // the player's action-pose for this frame, derived from the live activity
+  // flags (no separate state machine) — the rig paints whatever it reads here
+  player.pose =
+    fishing.casting  ? "fishing" :
+    foraging.picking ? "foraging" :
+    farmwork.working ? "hoeing" :
+    busking.playing  ? "busking" :
+    player.moving    ? "walking" : "idle";
+
   updateHud(economy, wc.calendar, wc.weather);
   updateDebugPanel(wc);
   updateBackpack();
