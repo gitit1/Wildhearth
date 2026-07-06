@@ -121,7 +121,7 @@ project.
   wins as most-specific; clock frozen while open (360→360) then resumes (→363); NPC
   holds the talking pose; Finn (kid) talks with age-appropriate lines and no romance
   interactions; zero page/console errors; existing save loads via Continue.
-- **Commit:** <hash> — Dialogue engine — condition-keyed lines, choice turns, bottom-box
+- **Commit:** 63140f4 — Dialogue engine — condition-keyed lines, choice turns, bottom-box
 - **Follow-ups:** Rotation is in-memory (session-scoped) by design — persisting a
   per-NPC said-history is the Part-D anti-repetition store (AI_ARCHITECTURE §D7), not
   needed here. Trees are intentionally shallow personality skeletons + 3 shop
