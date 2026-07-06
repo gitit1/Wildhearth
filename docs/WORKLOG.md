@@ -134,7 +134,7 @@ project.
   forced hunger-collapse 20→5 coins & wakes at the bed (interior, ROOM_ENTRY);
   mood mult 0.75 low / 1.1 high; Henrik comments "You look exhausted, dear.";
   needs survive reload; New Game resets to 80; no page errors.
-- **Commit:** <hash filled after commit> — "Needs engine — 7 needs, collapse, warnings, mood hooks"
+- **Commit:** 146f3e4 — "Needs engine — 7 needs, collapse, warnings, mood hooks"
 - **Follow-ups:**
   - Weather visual layer + day/night tint (Part B #8/#9) will make the mood
     weather-drag legible on screen; today it's mechanical only.
