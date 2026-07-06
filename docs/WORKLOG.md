@@ -42,6 +42,108 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Needs engine — 7 needs, collapse, warnings, mood hooks
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (Part A #2) The Needs engine. 7 needs (hunger, thirst,
+  energy, hygiene, bathroom, mood, social), each 0-100, per DECISIONS' 7-need
+  list. Versioned store (New Game = comfortable). Per-in-game-minute decay,
+  modified by action / season / weather; **mood is derived** from the other six
+  + a recent-social-contact bonus. Restoration: eat (edible items), drink (well
+  + basin), sleep (bed, "until morning"/"nap" via the REAL advanceMinute loop
+  with a fade-to-black, never a clock teleport), wash (basin), outhouse (new
+  code-drawn prop behind the farmhouse), social (talk seam), a rest-chair
+  trickle. Escalating threshold warnings (25/10) + an always-visible HUD needs
+  strip that pulses when low. Collapse at zero (physical) = fade, wake at the
+  bed 06:00, coin fee (clamped ≥0), no death; bathroom-zero = an accident (mood/
+  hygiene hit, no fee). Mood scales skill-gain chance + busking payout. NPC
+  comments on a low need via the existing proximity/onTalk seams. World Context
+  `needs?` slice. All tuning in config.ts.
+- **Done:**
+  - **Files:**
+    - `src/systems/needs.ts` (NEW): the engine. `NeedsState` (versioned, tolerant
+      load/save/reset, key `wildhearth-needs-v1`); `NeedId`, `PHYSICAL_NEEDS`,
+      `ALL_NEEDS`, `NEED_LABELS`. `decayNeeds()` (per-minute drain w/ season+
+      weather multiplier table living here, knobs in config; energy RECOVERS
+      while sleeping, others drain at a reduced rate down to a floor);
+      `recomputeMood()` (avg + worst-need weight + social glow − weather drag −
+      accident penalty); `moodPerfMult()` (0.75/1.0/1.1 skill+busk multiplier);
+      `applyExertion()` / `applyWalk()`; `restore()`/`drink`/`wash`/`useOuthouse`/
+      `rest`; edible table (`edibleHunger`/`isEdible` — cooked dishes > crops >
+      forage; raw fish/junk excluded); `socialContact()` (per-NPC per-day
+      diminishing); `collectWarnings()` (hysteresis 25/10); `criticalNeed()`/
+      `applyAccident()`/`collapseRecover()`; `needsRecord()` (World Context slice).
+    - `src/art/needsicons.ts` (NEW): `drawNeedsStrip()` — 7 code-drawn glyphs
+      (apple/droplet/bolt/bubbles/toilet-roll/speech/smiley; the smiley's mouth
+      curves with mood) each with a status fill-bar (green/amber/red) and a
+      pulsing alert plate under any need <25.
+    - `src/ui/fade.ts` (NEW): `initFade()`/`fadeThrough(atBlack, msg, onDone)` —
+      the fade-to-black overlay wrapping a synchronous time skip.
+    - `src/config.ts`: `NEEDS_KEY` + the full needs tuning block (start baseline,
+      per-need decay, sleep floor/recover, season/weather multipliers, mood
+      weights/glow/weather-drag/perf-mult thresholds, exertion table, walk cost,
+      eat/drink/wash/outhouse/rest amounts, social base/diminish, accident hits,
+      `COLLAPSE_FEE`/`COLLAPSE_RECOVER`).
+    - `src/systems/saves.ts`: `NEEDS_KEY` added to `GAME_KEYS` (New Game clears it).
+    - `src/systems/worldContext.ts`: `needs?: NeedsState` source + `needs?:
+      Record<string, number>` slice, populated via `needsRecord()`.
+    - `src/systems/skills.ts`: `gainSkill(s, id, chanceMult = 1)` — mood scales
+      the success chance (clamped to [0.01, 1]); Gain Guard unaffected.
+    - `src/world/zones.ts`: `OUTHOUSE` rect (west of the farmhouse).
+    - `src/art/buildings.ts`: `drawOuthouse()` — weathered planks, mono-pitch
+      roof, crescent-moon door, shadow+outline.
+    - `src/world/collision.ts`: outhouse blocks its lower ~75% (structure rule).
+    - `src/systems/interact.ts`: `InteractCtx` gains `needs`, `sleep`, `nap`;
+      well gets a Drink action; basin → Wash/Drink; bed → Sleep-until-morning/Nap;
+      rest corner → Sit and rest; new `outhouseSpot` (Use the outhouse); the
+      three interior `spot()` stubs replaced with real interactables; building/
+      husbandry/gardening skill gains now pass `moodPerfMult(c.needs)`.
+    - `src/entities/npc.ts`: `npcNeedComment(def, needId)` — the comment hook
+      (2-3 lines per need, motherly-baker flavour), used by main's proximity.
+    - `src/ui/hud.ts`: `updateNeedsStrip(record, time)` — dpr-crisp strip canvas +
+      per-cell tooltip readback.
+    - `src/ui/backpack.ts`: right-click an edible slot → an "Eat <name>" context
+      menu; `initBackpack(economy, eat)` takes the eat callback (explicit-passed).
+    - `index.html`: `#needsStrip` (top-left, wood/gold chrome) + `#fade` overlay
+      + their CSS.
+    - `src/main.ts`: `const needs = loadNeeds()`; `resetNeeds` in `newGameReset`;
+      `stepGameMinute()` (single source of truth for a minute — used by both the
+      live tick and the sleep/collapse skip); `liveMinute()` (decay+warnings+
+      collapse); `sleepUntilMorning`/`napAnHour`/`wakeAtBed`/`handleCollapse`/
+      `handleAccident`/`maybeNpcComment`; `eatItem`; exertion+mood wired into the
+      fishing/foraging/busking/cooking/farming completion hooks; busking payout
+      ×mood; walk-energy per frame; `onTalk` → `socialContact`; per-frame
+      `recomputeMood`; `needs` added to the World Context source; outhouse drawn
+      + depth-sorted; dev `__wh` bridge extended with needs verification hooks.
+  - **Systems / functions:** save key `wildhearth-needs-v1`; `NeedsState` +
+    ~25 exported functions in `needs.ts`; `gainSkill` gained a `chanceMult`
+    param; World Context `needs` slice; `OUTHOUSE` zone + `drawOuthouse` painter.
+  - **Behavior:** all 7 needs are always visible on the HUD strip and drain over
+    time (faster in winter/summer/storm per need). The player can eat edibles
+    from the bag, drink at the well or basin, wash at the basin, use a new
+    outhouse, sit to rest, and sleep the night away in bed (fade to black, wakes
+    at 06:00 a day later). Escalating "you're getting hungry / you feel faint"
+    warnings fire at 25 then 10. Ignoring a physical need to zero collapses the
+    player — a fade, a helper's fee (15 coins, never negative), and waking at the
+    bed — while a zeroed bathroom is a mortifying accident instead. Low mood makes
+    skills gain slower and busking pay less; high mood the reverse. Nearby NPCs
+    remark on a low need ("You look exhausted, dear.").
+- **Build:** `npm run build` — ✅ passing.
+- **Verify:** Playwright against the dev bridge — 21/21 checks: New Game
+  comfortable → drain → eat/drink/wash/outhouse/sleep each restore; sleep →
+  06:00 + day roll + weather reroll (clear→rain) + energy 100; warnings at 25/10;
+  forced hunger-collapse 20→5 coins & wakes at the bed (interior, ROOM_ENTRY);
+  mood mult 0.75 low / 1.1 high; Henrik comments "You look exhausted, dear.";
+  needs survive reload; New Game resets to 80; no page errors.
+- **Commit:** <hash filled after commit> — "Needs engine — 7 needs, collapse, warnings, mood hooks"
+- **Follow-ups:**
+  - Weather visual layer + day/night tint (Part B #8/#9) will make the mood
+    weather-drag legible on screen; today it's mechanical only.
+  - Dedicated needs *icons in the sidebar side-panel* (DECISIONS' configurable
+    panel) could later mirror the always-on strip — not needed for v1.
+  - Busking-payout mood scaling is verified via the shared `moodPerfMult` (the
+    same multiplier the skill-gain check exercised), not a separate live-busk
+    Playwright run (busk completion isn't reachable from the dev bridge).
+
 ## NPC engine — 10 townsfolk with weekly schedules on the shared rig
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (Part A #1) The NPC engine. 10 distinct NPCs (fixed roster,

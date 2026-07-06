@@ -47,6 +47,10 @@ export const HOUSE_DOOR = {
   w: HOUSE.w * 0.13, h: HOUSE.h * 0.45,
 };
 
+/** A rickety little outhouse just west of the farmhouse (Needs engine): the
+ *  bathroom need's restore spot. Small, charming, code-drawn, collidable. */
+export const OUTHOUSE = { x: 5.2 * T, y: 5.5 * T, w: 1.1 * T, h: 1.7 * T };
+
 /** House interior (tier-1, bare/broken): its own small coordinate space. */
 export const ROOM = { w: 10 * T, h: 7 * T };
 export const R_HEARTH = { x: 3.2 * T, y: 0.5 * T, w: 2.0 * T, h: 1.5 * T }; // north wall: hearth + pot + shelf

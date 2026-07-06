@@ -189,6 +189,14 @@
     .ctx-item{background:transparent;border:none;color:#f0ead6;font:inherit;font-size:14px;
       text-align:left;padding:7px 12px;border-radius:6px;cursor:pointer;white-space:nowrap}
     .ctx-item:hover{background:rgba(230,190,80,.9);color:#241d0e}
+    /* the always-visible needs strip: top-left of the play window, wood/gold chrome */
+    #needsStrip{position:fixed;top:10px;left:10px;z-index:5;border-radius:12px;
+      background:var(--panel-bg);border:1.5px solid var(--wood);box-shadow:var(--pill-shadow);
+      padding:2px}
+    /* fade-to-black overlay for sleep / collapse time skips */
+    #fade{position:fixed;inset:0;z-index:20;background:#000;opacity:0;pointer-events:none;
+      display:flex;align-items:center;justify-content:center;color:var(--gold);
+      font-size:20px;font-weight:800;letter-spacing:.04em;text-shadow:0 2px 8px rgba(0,0,0,.7)}
   </style>
 </head>
 <body>
@@ -244,6 +252,8 @@
     <button class="tool-btn" id="bookBtn" title="Memory Book (B)">📖</button>
     <button class="tool-btn" id="bagBtn" title="Backpack (I)">🎒</button>
   </div>
+  <canvas id="needsStrip"></canvas>
+  <div id="fade"></div>
   <div id="opening"></div>
   <script type="module" src="/src/main.ts"></script>
 </body>

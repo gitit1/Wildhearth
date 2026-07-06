@@ -4,6 +4,7 @@ import type { FarmState } from "./renovation";
 import { currentSeason, currentPhase, absoluteDay, type CalendarState, type Season, type DayPhase } from "./calendar";
 import type { WeatherState, WeatherKind } from "./weather";
 import { activeFlagsRecord, type WorldFlags } from "./worldFlags";
+import { needsRecord, type NeedsState } from "./needs";
 import type { Region } from "../world/zones";
 
 /**
@@ -25,6 +26,7 @@ export interface WorldContextSources {
   calendar?: CalendarState;   // Block 3
   weather?: WeatherState;     // Block 4
   flags?: WorldFlags;         // Block 5
+  needs?: NeedsState;         // Needs engine (Part A #2)
   location?: Region;          // World expansion v1: player's current region
 }
 
@@ -63,6 +65,7 @@ export interface WorldContext {
   calendar?: CalendarSlice;
   weather?: WeatherSlice;
   flags: Record<string, boolean>;
+  needs?: Record<string, number>;
   location?: Region;
 }
 
@@ -96,6 +99,7 @@ export function getWorldContext(
       ? { state: sources.weather.kind, daysSinceChange: sources.weather.daysSinceChange }
       : undefined,
     flags: sources.flags ? activeFlagsRecord(sources.flags, sources.calendar ? absoluteDay(sources.calendar) : 0) : {},
+    needs: sources.needs ? needsRecord(sources.needs) : undefined,
     location: sources.location,
   };
 }

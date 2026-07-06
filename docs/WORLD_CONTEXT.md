@@ -50,7 +50,7 @@ whenever a new state-owning system is added to the game.
 | Weather | **Built** | `systems/weather.ts` — `WeatherState { kind, daysSinceChange }` | `weather: { state, daysSinceChange }` |
 | World event flags | **Built** | `systems/worldFlags.ts` — `WorldFlags { entries[] }` | `flags: Record<string, boolean>` (always present, `{}` when none) |
 | Relationships | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/relationships.ts` | `relationship?: { npcId, friendship, romance }`, only when a query names an `npcId` (see Block 6) |
-| Needs | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/needs.ts` | `needs?: Record<string, number>` |
+| Needs | **Built** | `systems/needs.ts` — `NeedsState` (7 needs 0-100: hunger/thirst/energy/hygiene/bathroom/mood/social; mood derived) | `needs?: Record<string, number>`, via `needsRecord()` |
 | Collections & Memories | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/collections.ts`, `systems/memories.ts` | `collections?: {...}` — shape TBD when built |
 | Town Reputation/Fame | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/reputation.ts` | `reputation: number` |
 | Transportation | Speced in `ROADMAP_EXPANSION.md`, not built | future (part of fast-travel work) | `transportation?: {...}` — shape TBD when built |

@@ -18,7 +18,7 @@ import type { Facing, PoseName } from "../art/rig";
 import type { CalendarState } from "../systems/calendar";
 import type { WeatherState } from "../systems/weather";
 import { WELL } from "../world/zones";
-import { NPCS, PERSONALITY_LINES, JONAS_ROUTE, type NpcDef } from "../data/npcs";
+import { NPCS, PERSONALITY_LINES, JONAS_ROUTE, type NpcDef, type Personality } from "../data/npcs";
 import {
   dayOfWeek, resolveState, placeFor, scheduleWeatherTweak, type NpcState,
 } from "../systems/schedule";
@@ -222,4 +222,31 @@ export function npcGreeting(n: Npc): string {
 
 export function npcById(npcs: Npc[], id: string): Npc | undefined {
   return npcs.find((n) => n.def.id === id);
+}
+
+// ---- needs comment hook (Needs engine) -------------------------------------
+// When the player stands near an NPC with a need running low, the NPC can pass
+// a short remark ("You look exhausted, dear."). main.ts owns the proximity +
+// once-per-need-per-day cooldown; this just supplies the LINE, flavoured by
+// personality where it's cheap to do so.
+
+const NEED_COMMENTS: Record<string, string[]> = {
+  hunger: ["You look famished, friend.", "When did you last eat, hm?", "You've the pale look of an empty stomach."],
+  thirst: ["You look parched.", "Get yourself a drink — you look dry as a bone."],
+  energy: ["You look exhausted, dear.", "You're dead on your feet — get some rest.", "Long day? You look worn right through."],
+  hygiene: ["Rough morning? You look a fright.", "A wash wouldn't go amiss, friend."],
+  bathroom: ["You look a touch uncomfortable...", "You seem in a hurry — don't let me keep you!"],
+  social: ["You look like you could use the company.", "Good to see a face — you seemed a little lonely."],
+};
+
+/** A short remark an NPC makes about the player's low need. Cheap personality
+ *  flavour: the motherly baker always frets over food and rest. */
+export function npcNeedComment(def: NpcDef, needId: string): string {
+  const personality: Personality = def.personality;
+  if (personality === "warm-motherly" && (needId === "hunger" || needId === "energy"))
+    return needId === "hunger"
+      ? "Eat something, would you? All skin and worry, you are."
+      : "You're worn through — sit down, rest a while, dear.";
+  const lines = NEED_COMMENTS[needId] ?? ["You alright there?"];
+  return lines[Math.floor(Math.random() * lines.length)]!;
 }

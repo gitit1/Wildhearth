@@ -1,7 +1,7 @@
 import { T, WORLD_W, WORLD_H } from "../config";
 import {
   HOUSE, BARN, STALL, POND, WORLD_TREES, ROOM, R_BED, R_BASIN, R_REST,
-  STRUCTURES, HEDGES, WELL, inWater,
+  STRUCTURES, HEDGES, WELL, OUTHOUSE, inWater,
 } from "./zones";
 
 /** Which collision map is active (world vs. the house interior). Module-level
@@ -30,7 +30,7 @@ export function blocked(x: number, y: number): boolean {
   if (x < T * 0.6 || y < T * 0.6 || x > WORLD_W - T * 0.6 || y > WORLD_H - T * 0.6) return true;
   // house-like structures block their lower ~75% (3/4-view rule): farm buildings,
   // the neighbour farm, cottages, and market stall counters all share it
-  for (const b of [HOUSE, BARN, STALL, ...STRUCTURES]) {
+  for (const b of [HOUSE, BARN, STALL, OUTHOUSE, ...STRUCTURES]) {
     if (x > b.x - 8 && x < b.x + b.w + 8 && y > b.y + b.h * 0.25 && y < b.y + b.h + 6) return true;
   }
   // hedges block their whole footprint (a full wall of leaves)

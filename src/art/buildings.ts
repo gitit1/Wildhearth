@@ -216,6 +216,40 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number) 
   oRect(g, x + w * 0.68, y - h * 0.1, w * 0.1, h * 0.28, "#8c8c94");
 }
 
+/** A rickety wooden outhouse (Needs engine): weathered planks, a mono-pitch
+ *  shingle roof, and a door with the classic crescent-moon cutout. Tasteful
+ *  and small — the farm's bathroom spot before any plumbing exists. */
+export function drawOuthouse(g: CanvasRenderingContext2D, r: Rect) {
+  const { x, y, w, h } = r;
+  shadow(g, x + w / 2 + 4, y + h + 5, w * 0.5, 7);
+  // slightly leaning body (it IS rickety)
+  g.save();
+  g.translate(x + w / 2, y + h);
+  g.rotate(0.015);
+  g.translate(-(x + w / 2), -(y + h));
+  drawPlankWall(g, x, y + h * 0.16, w, h * 0.84, "#8a6a42", 515);
+  // door: a darker recessed panel with the crescent moon
+  oRect(g, x + w * 0.22, y + h * 0.3, w * 0.56, h * 0.62, "#6b4e30");
+  g.fillStyle = "#e9dcb0";
+  g.beginPath(); g.arc(x + w * 0.5, y + h * 0.44, w * 0.13, 0.4, Math.PI * 1.6); g.fill();
+  g.fillStyle = "#6b4e30";
+  g.beginPath(); g.arc(x + w * 0.56, y + h * 0.44, w * 0.11, 0.4, Math.PI * 1.6); g.fill();
+  // door latch
+  g.fillStyle = "#3d2c18";
+  g.beginPath(); g.arc(x + w * 0.7, y + h * 0.64, 1.6, 0, 7); g.fill();
+  g.restore();
+  // mono-pitch roof, a plank tilted over the top (drawn upright, over the lean)
+  g.save();
+  g.fillStyle = "#5d4630";
+  g.beginPath();
+  g.moveTo(x - 3, y + h * 0.2);
+  g.lineTo(x + w + 3, y + h * 0.08);
+  g.lineTo(x + w + 3, y + h * 0.2);
+  g.lineTo(x - 3, y + h * 0.32);
+  g.closePath(); g.fill(); outline(g);
+  g.restore();
+}
+
 /** The market square's stone well: a round wall, a little peaked roof on posts,
  *  a rope and bucket. Purely decorative. */
 export function drawWell(g: CanvasRenderingContext2D, cx: number, cy: number, r: number) {

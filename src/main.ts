@@ -1,4 +1,4 @@
-import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS } from "./config";
+import { WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget, clearMoveTarget,
@@ -7,7 +7,7 @@ import { applyCamera, screenToWorld, adjustZoom } from "./engine/camera";
 import { paintGround } from "./world/ground";
 import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
-  FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, regionAt,
+  FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
@@ -15,11 +15,11 @@ import {
   drawFlowerBed, drawBuskSpot, drawMusicNotes, drawWaterShimmer,
   drawOpenWaterShimmer, drawDock, drawBuskSign,
 } from "./art/props";
-import { drawHouse, drawBarn, drawStall, drawCottage, drawWell } from "./art/buildings";
+import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen, drawNpc } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/animals";
-import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcGreeting, type Npc } from "./entities/npc";
+import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcGreeting, npcNeedComment, type Npc } from "./entities/npc";
 import { loadLivestock, resetLivestock } from "./systems/livestock";
 import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
@@ -45,6 +45,12 @@ import { loadFarm, resetFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather, isRaining } from "./systems/weather";
 import { loadWorldFlags, resetWorldFlags, pruneExpired } from "./systems/worldFlags";
+import {
+  loadNeeds, resetNeeds, decayNeeds, recomputeMood, moodPerfMult, applyExertion, applyWalk,
+  socialContact, collectWarnings, criticalNeed, applyAccident, collapseRecover,
+  restore, edibleHunger, needsRecord, drink, wash, useOuthouse, rest,
+  PHYSICAL_NEEDS, type NeedId,
+} from "./systems/needs";
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import { getWorldContext } from "./systems/worldContext";
@@ -54,7 +60,8 @@ import {
   type Interactable, type InteractCtx,
 } from "./systems/interact";
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
-import { updateHud, setPrompt, toast, updateToast } from "./ui/hud";
+import { updateHud, updateNeedsStrip, setPrompt, toast, updateToast } from "./ui/hud";
+import { initFade, fadeThrough } from "./ui/fade";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initMinimap, updateMinimap, setMinimapField } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
@@ -103,6 +110,7 @@ const memories = loadMemories();
 const calendar = loadCalendar();
 const weather = loadWeather();
 const worldFlags = loadWorldFlags();
+const needs = loadNeeds();
 const meta = loadMeta();
 registerBushes(bushes);
 registerPlots(plots, plots, () => currentSeason(calendar));
@@ -132,6 +140,7 @@ for (const n of npcs) registerNpc(n, npcs, onTalk);
 function onTalk(npc: Npc) {
   toast(`${npc.def.name}: “${npcGreeting(npc)}”`);
   startTalking(npc);
+  socialContact(needs, npc.def.id, absoluteDay(calendar));   // company feeds the Social need
 }
 
 // Dev-only test bridge: exposes live state so automated verification can jump
@@ -140,15 +149,42 @@ function onTalk(npc: Npc) {
 // this whole block is dead-code-eliminated from the shipped build.
 if (import.meta.env.DEV)
   (window as unknown as { __wh: unknown }).__wh = {
-    player, npcs, calendar, weather,
+    player, npcs, calendar, weather, needs, economy,
     snap: () => initNpcPositions(npcs, calendar, weather),
+    // needs verification bridge — deterministic hooks so automated tests don't
+    // have to wait on real time or synthesize canvas clicks:
+    liveMinute,                                   // one live minute: decay + warnings + collapse
+    warnings: () => collectWarnings(needs),       // newly-fired warning lines
+    moodMult: () => moodPerfMult(needs),          // the skill/busk mood multiplier
+    record: () => needsRecord(needs),
+    eat: eatItem, drink: () => drink(needs), wash: () => wash(needs),
+    outhouse: () => useOuthouse(needs), sitRest: () => rest(needs),
+    sleep: sleepUntilMorning, nap: napAnHour,
+    scene: () => scene, leave: () => leaveHouse(),
+    give: (id: string, n = 1) => { addItem(economy.inv, id, n); saveEconomy(economy); },
+    begin: () => beginPlay(),                     // skip the title screens into live play
+    newGame: () => { newGameReset(meta.starterTool as StarterTool, isGuided()); beginPlay(); },
   };
 
-initBackpack(economy);
+initBackpack(economy, eatItem);
 initMinimap();
 initSkillsUI(skills);
 initMemoryBook(collections, memories);
 initDebugPanel();
+initFade();
+
+/** Eat one edible item from the bag: consume it, restore hunger (Needs engine).
+ *  Cooked dishes restore most, then crop produce, then wild forage; raw fish
+ *  and junk aren't food. Returns false if the item isn't edible / not held. */
+function eatItem(id: string): boolean {
+  const amt = edibleHunger(id);
+  if (amt <= 0 || countItem(economy.inv, id) === 0) return false;
+  removeItem(economy.inv, id, 1);
+  saveEconomy(economy);
+  const gained = Math.round(restore(needs, "hunger", amt));
+  toast(`You eat the ${(ITEM_NAMES[id] ?? id).toLowerCase()}. (+${gained} hunger) 🍽`);
+  return true;
+}
 
 /** Writes a once-only life event into the Memory Book (+ a quiet toast). */
 function remember(key: string, text: string) {
@@ -197,6 +233,128 @@ function leaveHouse() {
 let openingActive = true;
 let hintSellShown = false;
 let minuteAccum = 0;   // real seconds banked toward the next in-game minute
+let timeSkipping = false;   // true during a sleep/collapse fade — world time PAUSES (never teleports)
+let lastDist = player.dist; // player travel last frame, for charging walking energy
+const npcCommentDay: Record<string, number> = {};   // needId -> absoluteDay an NPC last remarked on it
+
+/** One in-game minute: roll the clock, fire the daily hooks on a new day, drain
+ *  needs. The single source of truth for time passing — both the live tick and
+ *  the sleep/collapse skip call it, so a skipped night fires every daily hook
+ *  exactly as a played-out one would (weather reroll, flag prune, crop aging). */
+function stepGameMinute(sleeping: boolean) {
+  if (advanceMinute(calendar)) {
+    rollDailyWeather(weather, currentSeason(calendar));
+    pruneExpired(worldFlags, absoluteDay(calendar));
+    rollPlotsDay(plots, isRaining(weather));   // rain waters for free; dry crops bank a day toward wilting
+  }
+  decayNeeds(needs, { season: currentSeason(calendar), weather: weather.kind, sleeping });
+}
+
+/** One LIVE in-game minute (awake): advance time + needs, fire escalating
+ *  warnings, and trigger a collapse/accident if a need bottomed out. Returns
+ *  true if a collapse started (the caller stops advancing time for the fade). */
+function liveMinute(): boolean {
+  stepGameMinute(false);
+  for (const line of collectWarnings(needs)) toast(line);   // escalating 25/10 warnings
+  const crit = criticalNeed(needs);
+  if (crit) {
+    if (crit.kind === "collapse") { handleCollapse(crit.need); return true; }
+    handleAccident();
+  }
+  return false;
+}
+
+/** In-game minutes from now until the next 06:00. */
+function minutesUntilMorning(): number {
+  const now = calendar.hour * 60 + calendar.minute;
+  const target = 6 * 60;
+  const d = now < target ? target - now : (24 * 60 - now) + target;
+  return d <= 0 ? 24 * 60 : d;
+}
+
+/** Sleep in the bed until morning: fade to black, drive the REAL minute loop
+ *  (energy recovers, other needs drain slowly), fade back at 06:00. */
+function sleepUntilMorning() {
+  if (timeSkipping) return;
+  timeSkipping = true;
+  const mins = minutesUntilMorning();
+  fadeThrough(
+    () => { for (let i = 0; i < mins; i++) stepGameMinute(true); },
+    "You sleep until morning…",
+    () => { timeSkipping = false; toast("A new day. You wake rested. ☀"); },
+  );
+}
+
+/** A one-hour nap: the same skip, an hour long. */
+function napAnHour() {
+  if (timeSkipping) return;
+  timeSkipping = true;
+  fadeThrough(
+    () => { for (let i = 0; i < 60; i++) stepGameMinute(true); },
+    "You nap for an hour…",
+    () => { timeSkipping = false; },
+  );
+}
+
+/** Wake in the farmhouse (used by collapse — pulls the player home to the bed). */
+function wakeAtBed() {
+  if (scene !== "interior") enterHouse();
+  else { player.moving = false; clearMoveTarget(); }
+}
+
+/** Collapse (hunger/thirst/energy hit 0): no death — fade out, skip to 06:00 via
+ *  the same sleep path, restore some, charge a helper's fee, wake at the bed. */
+function handleCollapse(need: NeedId) {
+  if (timeSkipping) return;
+  timeSkipping = true;
+  const label = need === "energy" ? "exhaustion" : need === "hunger" ? "hunger" : "thirst";
+  const mins = minutesUntilMorning();
+  let fee = 0;
+  fadeThrough(
+    () => {
+      for (let i = 0; i < mins; i++) stepGameMinute(true);
+      collapseRecover(needs);
+      fee = Math.min(COLLAPSE_FEE, Math.max(0, economy.coins));   // never go negative
+      economy.coins -= fee;
+      saveEconomy(economy);
+      wakeAtBed();
+    },
+    "You collapse…",
+    () => {
+      timeSkipping = false;
+      toast(fee > 0
+        ? `You collapsed from ${label}. A neighbour found you and helped you home. (−${fee} coins)`
+        : `You collapsed from ${label}. A neighbour helped you home — you'll owe them a favour.`);
+    },
+  );
+}
+
+/** Bathroom hit 0: an embarrassing accident — a small hygiene/mood hit, no
+ *  faint, no coin cost (DECISIONS). */
+function handleAccident() {
+  applyAccident(needs);
+  toast("Oh no — an accident. Mortifying. You'll want to clean up.");
+}
+
+/** When the player lingers by an NPC with a low need, the NPC may remark on it
+ *  (once per need per day, occasional). Reuses the proximity from the tick. */
+function maybeNpcComment(npcTagId: string) {
+  const id = npcTagId.slice("npc-".length);
+  const npc = npcs.find((n) => n.def.id === id);
+  if (!npc) return;
+  const rec = needsRecord(needs);
+  let target: NeedId | null = null, low = 25;
+  for (const nid of PHYSICAL_NEEDS) {
+    const v = rec[nid] ?? 100;
+    if (v < low) { low = v; target = nid; }
+  }
+  if (!target) return;
+  const day = absoluteDay(calendar);
+  if (npcCommentDay[target] === day) return;   // already remarked on this need today
+  if (Math.random() > 0.005) return;           // occasional, not every frame
+  npcCommentDay[target] = day;
+  toast(`${npc.def.name}: “${npcNeedComment(npc.def, target)}”`);
+}
 
 // The guided first-tip points at the livelihood the starter tool unlocks, so
 // the very first thing the game suggests matches what the player just chose.
@@ -237,6 +395,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   resetCalendar(calendar);
   resetWeather(weather);
   resetWorldFlags(worldFlags);
+  resetNeeds(needs);                  // a new life starts rested, fed, content
   resetLivestock(livestock);
   cows.length = 0; hens.length = 0;   // the yard empties with the new life
   initNpcPositions(npcs, calendar, weather);   // re-snap townsfolk to fresh day-1 morning
@@ -277,23 +436,26 @@ function tick(now: number) {
   }
 
   // world time: the day-length setting sets the pace; a full in-game day takes
-  // dayLengthSeconds of actual play, so one minute is that over 24*60. Each new
-  // day (advanceMinute returns true) rerolls the weather and prunes flags once.
-  const minuteSeconds = dayLengthSeconds() / (24 * 60);
-  minuteAccum += dt;
-  while (minuteAccum >= minuteSeconds) {
-    minuteAccum -= minuteSeconds;
-    if (advanceMinute(calendar)) {
-      rollDailyWeather(weather, currentSeason(calendar));
-      pruneExpired(worldFlags, absoluteDay(calendar));
-      rollPlotsDay(plots, isRaining(weather));   // rain waters for free; dry crops bank a day toward wilting
+  // dayLengthSeconds of actual play, so one minute is that over 24*60. Each
+  // minute drains needs (stepGameMinute); warnings + collapse are checked per
+  // minute. Paused while a sleep/collapse fade drives the same loop itself.
+  if (!timeSkipping) {
+    const minuteSeconds = dayLengthSeconds() / (24 * 60);
+    minuteAccum += dt;
+    while (minuteAccum >= minuteSeconds) {
+      minuteAccum -= minuteSeconds;
+      if (liveMinute()) break;   // a collapse pauses time while the fade takes over
     }
+    applyWalk(needs, Math.max(0, player.dist - lastDist));   // a little energy for the ground covered
   }
+  lastDist = player.dist;
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
   const ictx: InteractCtx = {
-    economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, player,
-    toast, openShop: openShopWindow, enterHouse, leaveHouse, skillPopup: skillGainPopup,
+    economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, needs, player,
+    toast, openShop: openShopWindow, enterHouse, leaveHouse,
+    sleep: sleepUntilMorning, nap: napAnHour,
+    skillPopup: skillGainPopup,
     memory: remember,
     expandFarm,
   };
@@ -307,6 +469,7 @@ function tick(now: number) {
 
   const near = reachable(player.x, player.y, scene);
   nearReach = near;
+  if (near && near.id.startsWith("npc-")) maybeNpcComment(near.id);   // "you look tired"
   if (fishing.casting) setPrompt("Waiting for a bite...");
   else if (foraging.picking) setPrompt("Picking berries...");
   else if (farmwork.working)
@@ -369,7 +532,8 @@ function tick(now: number) {
         remember("first_catch", "Your first catch — the water gave something back.");
       }
     } else toast("Backpack full — the catch slips away!");
-    const gained = gainSkill(skills, "fishing");
+    applyExertion(needs, "fishing");
+    const gained = gainSkill(skills, "fishing", moodPerfMult(needs));
     if (gained > 0) skillGainPopup("fishing", gained);
     if (isGuided() && !hintSellShown) {
       hintSellShown = true;
@@ -388,16 +552,19 @@ function tick(now: number) {
       record("forage", found);
       remember("first_forage", "The forest fed you today — first wild pickings.");
     } else toast("Backpack full — no room for the find!");
-    const gained = gainSkill(skills, "foraging");
+    applyExertion(needs, "foraging");
+    const gained = gainSkill(skills, "foraging", moodPerfMult(needs));
     if (gained > 0) skillGainPopup("foraging", gained);
   }
   if (updateBusking(busking, dt)) {
-    const tip = rollTip(skillValue(skills, "busking"));
+    // mood colours a performance: a low spirit plays flat, a high one shines
+    const tip = Math.max(1, Math.round(rollTip(skillValue(skills, "busking")) * moodPerfMult(needs)));
     economy.coins += tip;
     saveEconomy(economy);
     toast(`Earned ${tip} coin${tip === 1 ? "" : "s"} busking! 🎶`);
     remember("first_busk", "You played for strangers, and they paid — first tips.");
-    const gained = gainSkill(skills, "busking");
+    applyExertion(needs, "busking");
+    const gained = gainSkill(skills, "busking", moodPerfMult(needs));
     if (gained > 0) skillGainPopup("busking", gained);
   }
   const cooked = updateCooking(cooking, dt);
@@ -410,7 +577,7 @@ function tick(now: number) {
         toast(`Cooked ${r.name.toLowerCase()}! 🍲`);
         remember("first_cook", "A warm meal from your own hearth — first dish.");
       } else toast("Backpack full — the dish burns while you rummage!");
-      const gained = gainSkill(skills, "cooking");
+      const gained = gainSkill(skills, "cooking", moodPerfMult(needs));
       if (gained > 0) skillGainPopup("cooking", gained);
     }
   }
@@ -421,6 +588,7 @@ function tick(now: number) {
   if (updatePlots(plots, dt, skillValue(skills, "farming"), dayLengthSeconds())) savePlots(plots);
   const farmDone = updateFarmWork(farmwork, dt);
   if (farmDone) {
+    applyExertion(needs, "farmwork");   // field work is tiring, grubby work
     const { cell, kind, seedId } = farmDone;
     if (kind === "till") {
       cell.state = "tilled";
@@ -445,7 +613,7 @@ function tick(now: number) {
         cell.state = "tilled"; cell.growth = 0; cell.cropId = null; cell.watered = false; cell.dryDays = 0;
         toast(`Harvested ${crop.name.toLowerCase()}! 🌽`);
         remember("first_harvest", "The first harvest from your own soil.");
-        const gained = gainSkill(skills, "farming");
+        const gained = gainSkill(skills, "farming", moodPerfMult(needs));
         if (gained > 0) skillGainPopup("farming", gained);
       } else if (crop) toast(`Backpack full — no room for the ${crop.name.toLowerCase()}!`);
     }
@@ -466,11 +634,15 @@ function tick(now: number) {
   }
   for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i]!.a <= 0) smoke.splice(i, 1);
 
+  // mood is DERIVED — recompute it every frame (cheap) so the HUD stays snappy
+  // as needs are restored, independent of the per-minute decay tick.
+  recomputeMood(needs, weather.kind);
+
   // one World Context snapshot per frame, feeding the always-visible HUD
   // and (when toggled) the dev inspector — never a second call per frame.
   // location: the player's current region (interior counts as the farm).
   const region = scene === "world" ? regionAt(player.x, player.y) : "farm";
-  const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags, location: region });
+  const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags, needs, location: region });
   // the player's action-pose for this frame, derived from the live activity
   // flags (no separate state machine) — the rig paints whatever it reads here
   player.pose =
@@ -481,6 +653,7 @@ function tick(now: number) {
     player.moving    ? "walking" : "idle";
 
   updateHud(economy, wc.calendar, wc.weather);
+  updateNeedsStrip(wc.needs, time);
   updateDebugPanel(wc);
   updateBackpack();
   if (scene === "world") updateMinimap(player);   // inside, the dot would be room coords
@@ -518,6 +691,7 @@ function draw() {
   // depth-sorted world objects + entities
   const ents: Array<{ y: number; f: () => void }> = [
     { y: HOUSE.y + HOUSE.h, f: () => drawHouse(ctx, farm.roof, farm.window) },
+    { y: OUTHOUSE.y + OUTHOUSE.h, f: () => drawOuthouse(ctx, OUTHOUSE) },
     { y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
     { y: player.y + 13, f: () => drawFarmer(ctx, player, time) },

@@ -1,6 +1,6 @@
 import {
   POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
-  FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OLD_BUSK_SIGN, type Rect, type FishSpot,
+  FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot,
 } from "../world/zones";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
 import { nearPond, nearRect } from "../world/collision";
@@ -14,6 +14,9 @@ import { startCook, cookableRecipes, type CookingState } from "./cooking";
 import { saveGarden, type Garden } from "./gardening";
 import { countItem, removeItem, ITEM_NAMES } from "./inventory";
 import { skillValue, gainSkill, type Skills } from "./skills";
+import {
+  drink, wash, useOuthouse, rest, moodPerfMult, type NeedsState,
+} from "./needs";
 import { cropBySeed } from "../data/crops";
 import type { Season } from "./calendar";
 import type { Cow, Hen } from "../entities/animals";
@@ -38,11 +41,14 @@ export interface InteractCtx {
   skills: Skills;
   farm: FarmState;
   garden: Garden;
+  needs: NeedsState;
   player: Player;
   toast: (s: string) => void;
   openShop: () => void;
   enterHouse: () => void;
   leaveHouse: () => void;
+  sleep: () => void;                             // "Sleep until morning" (main owns the fade + time skip)
+  nap: () => void;                               // "Nap an hour"
   skillPopup: (id: string, amount: number) => void;
   memory: (key: string, text: string) => void;   // once-only Memory Book events
   expandFarm: () => void;                        // materialize a just-bought plot tier
@@ -158,10 +164,13 @@ const cottages: Interactable[] = COTTAGES.map((c, i) =>
 const wellProp: Interactable = {
   id: "well", name: "Well",
   anchor: [WELL.cx, WELL.cy + WELL.r + 26],
-  defaultActionId: "look",
+  defaultActionId: "drink",
   hit: (wx, wy) => Math.hypot(wx - WELL.cx, (wy - WELL.cy) * 1.3) < WELL.r * 2,
   inReach: (px, py) => Math.hypot(px - WELL.cx, py - WELL.cy) < WELL.r + 40,
-  actions: () => [{ id: "look", label: "Look", run: (c) => c.toast("A stone well at the square's heart. The bucket still draws cold water.") }],
+  actions: () => [
+    { id: "drink", label: "Drink", run: (c) => { if (busy(c)) return; drink(c.needs); c.toast("Cold, clean water from the well. 💧"); } },
+    { id: "look", label: "Look", run: (c) => c.toast("A stone well at the square's heart. The bucket still draws cold water.") },
+  ],
   drawHover: (g, t) => glowEllipse(g, WELL.cx, WELL.cy, WELL.r + 6, WELL.r * 0.8 + 6, t),
 };
 const buskSign: Interactable = lookProp(
@@ -237,7 +246,7 @@ function doRepair(c: InteractCtx, part: FarmPart) {
   saveFarm(c.farm);
   c.toast(REPAIRS.find((r) => r.part === part)!.done);
   // every repair is Building practice (base-skill-set block)
-  const gained = gainSkill(c.skills, "building");
+  const gained = gainSkill(c.skills, "building", moodPerfMult(c.needs));
   if (gained > 0) c.skillPopup("building", gained);
   c.memory("first_repair", "The farm is a little less broken — first repair.");
   if (repairsLeft(c.farm) === 0)
@@ -318,23 +327,7 @@ const houseDoor: Interactable = {
   drawHover: (g, t) => glowRect(g, HOUSE_DOOR.x - 2, HOUSE_DOOR.y - 2, HOUSE_DOOR.w + 4, HOUSE_DOOR.h + 4, t),
 };
 
-// ---- the interior's spots (tier-1: present and honest about their state;
-// cooking/sleeping mechanics arrive with their own systems) ----
-function spot(
-  id: string, name: string, r: { x: number; y: number; w: number; h: number },
-  look: string, anchorDy = 20, reachPad = 34,
-): Interactable {
-  return {
-    id, name, scene: "interior",
-    anchor: [r.x + r.w / 2, r.y + r.h + anchorDy],
-    defaultActionId: "look",
-    hit: (wx, wy) => wx >= r.x - 4 && wx <= r.x + r.w + 4 && wy >= r.y - 12 && wy <= r.y + r.h + 4,
-    inReach: (px, py) => nearRect(px, py, r, reachPad),
-    actions: () => [{ id: "look", label: "Look", run: (c) => c.toast(look) }],
-    drawHover: (g, t) => glowRect(g, r.x - 3, r.y - 3, r.w + 6, r.h + 6, t),
-  };
-}
-
+// ---- the interior's spots (tier-1: present and honest about their state) ----
 // the hearth cooks (minimal Cooking, base-skill-set block): one action per
 // recipe whose ingredients are in the bag and whose skill floor is met
 const hearthSpot: Interactable = {
@@ -364,13 +357,64 @@ const hearthSpot: Interactable = {
   },
   drawHover: (g, t) => glowRect(g, R_HEARTH.x - 3, R_HEARTH.y - 3, R_HEARTH.w + 6, R_HEARTH.h + 6, t),
 };
-const basinSpot = spot("basin", "Wash basin", R_BASIN,
-  "A cracked clay basin on a wobbly stand. Water comes from the well, bucket by bucket.");
-const bedSpot = spot("bed", "Bed", R_BED,
-  "A straw mattress, a creaky frame, one threadbare blanket. No pillow.");
+// the basin (Needs engine): wash (hygiene) + drink from its bucket (thirst)
+const basinSpot: Interactable = {
+  id: "basin", name: "Wash basin", scene: "interior",
+  anchor: [R_BASIN.x + R_BASIN.w / 2, R_BASIN.y + R_BASIN.h + 20],
+  defaultActionId: "wash",
+  hit: (wx, wy) => wx >= R_BASIN.x - 4 && wx <= R_BASIN.x + R_BASIN.w + 4 && wy >= R_BASIN.y - 12 && wy <= R_BASIN.y + R_BASIN.h + 4,
+  inReach: (px, py) => nearRect(px, py, R_BASIN, 34),
+  actions: () => [
+    { id: "wash", label: "Wash", run: (c) => { if (busy(c)) return; wash(c.needs); c.toast("You scrub up in cold basin water. Better. 🫧"); } },
+    { id: "drink", label: "Drink from the bucket", run: (c) => { if (busy(c)) return; drink(c.needs); c.toast("You drink from the well-bucket. 💧"); } },
+    { id: "look", label: "Look", run: (c) => c.toast("A cracked clay basin on a wobbly stand. Water comes from the well, bucket by bucket.") },
+  ],
+  drawHover: (g, t) => glowRect(g, R_BASIN.x - 3, R_BASIN.y - 3, R_BASIN.w + 6, R_BASIN.h + 6, t),
+};
+// the bed (Needs engine): sleep until morning / nap — main runs the fade + the
+// REAL advanceMinute loop so the clock never teleports (daily hooks all fire)
+const bedSpot: Interactable = {
+  id: "bed", name: "Bed", scene: "interior",
+  anchor: [R_BED.x + R_BED.w / 2, R_BED.y + R_BED.h + 20],
+  defaultActionId: "sleep",
+  hit: (wx, wy) => wx >= R_BED.x - 4 && wx <= R_BED.x + R_BED.w + 4 && wy >= R_BED.y - 12 && wy <= R_BED.y + R_BED.h + 4,
+  inReach: (px, py) => nearRect(px, py, R_BED, 34),
+  actions: () => [
+    { id: "sleep", label: "Sleep until morning", run: (c) => { if (!busy(c)) c.sleep(); } },
+    { id: "nap", label: "Nap an hour", run: (c) => { if (!busy(c)) c.nap(); } },
+    { id: "look", label: "Look", run: (c) => c.toast("A straw mattress, a creaky frame, one threadbare blanket. No pillow.") },
+  ],
+  drawHover: (g, t) => glowRect(g, R_BED.x - 3, R_BED.y - 3, R_BED.w + 6, R_BED.h + 6, t),
+};
 // tight reach: the rest corner sits beside the door mat and must not swallow it
-const restSpot = spot("rest", "Rest corner", R_REST,
-  "A chair with one short leg and a crate standing in for a table.", 20, 18);
+const restSpot: Interactable = {
+  id: "rest", name: "Rest corner", scene: "interior",
+  anchor: [R_REST.x + R_REST.w / 2, R_REST.y + R_REST.h + 20],
+  defaultActionId: "sit",
+  hit: (wx, wy) => wx >= R_REST.x - 4 && wx <= R_REST.x + R_REST.w + 4 && wy >= R_REST.y - 12 && wy <= R_REST.y + R_REST.h + 4,
+  inReach: (px, py) => nearRect(px, py, R_REST, 18),
+  actions: () => [
+    { id: "sit", label: "Sit and rest", run: (c) => { if (busy(c)) return; rest(c.needs); c.toast("You sink into the wobbly chair a while. A small comfort."); } },
+    { id: "look", label: "Look", run: (c) => c.toast("A chair with one short leg and a crate standing in for a table.") },
+  ],
+  drawHover: (g, t) => glowRect(g, R_REST.x - 3, R_REST.y - 3, R_REST.w + 6, R_REST.h + 6, t),
+};
+
+// the outhouse behind the farmhouse (Needs engine): the bathroom need's spot
+const outhouseSpot: Interactable = {
+  id: "outhouse", name: "Outhouse",
+  anchor: [OUTHOUSE.x + OUTHOUSE.w / 2, OUTHOUSE.y + OUTHOUSE.h + 18],
+  defaultActionId: "use",
+  hit: (wx, wy) =>
+    wx >= OUTHOUSE.x - 4 && wx <= OUTHOUSE.x + OUTHOUSE.w + 4 &&
+    wy >= OUTHOUSE.y - OUTHOUSE.h * 0.2 && wy <= OUTHOUSE.y + OUTHOUSE.h + 4,
+  inReach: (px, py) => nearRect(px, py, OUTHOUSE, 30),
+  actions: () => [
+    { id: "use", label: "Use the outhouse", run: (c) => { if (busy(c)) return; useOuthouse(c.needs); c.toast("Ah. Much better."); } },
+    { id: "look", label: "Look", run: (c) => c.toast("A rickety wooden privy, crescent moon on the door. It does the job.") },
+  ],
+  drawHover: (g, t) => glowRect(g, OUTHOUSE.x - 3, OUTHOUSE.y - 3, OUTHOUSE.w + 6, OUTHOUSE.h + 6, t),
+};
 
 const doorMat: Interactable = {
   id: "room-door",
@@ -388,7 +432,7 @@ const doorMat: Interactable = {
 };
 
 export const INTERACTABLES: Interactable[] = [
-  pond, stall, buskSpot, houseDoor, house,
+  pond, stall, buskSpot, houseDoor, house, outhouseSpot,
   ...fishSpots, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];
@@ -424,7 +468,7 @@ export function registerAnimal(kind: "cow" | "hen", a: Cow | Hen, arr: Array<Cow
           removeItem(c.economy.inv, FEED_GAIN_ITEM, 1);
           saveEconomy(c.economy);
           c.toast(kind === "cow" ? "The cow munches happily. 🐄" : "The hen pecks it up. 🐔");
-          const gained = gainSkill(c.skills, "husbandry");
+          const gained = gainSkill(c.skills, "husbandry", moodPerfMult(c.needs));
           if (gained > 0) c.skillPopup("husbandry", gained);
         },
       },
@@ -491,7 +535,7 @@ export function registerFlowerBeds(garden: Garden) {
               saveGarden(c.garden);
               c.toast("Flowers planted — they'll open soon.");
               c.memory("first_flowers", "You planted something just because it's pretty.");
-              const gained = gainSkill(c.skills, "gardening");
+              const gained = gainSkill(c.skills, "gardening", moodPerfMult(c.needs));
               if (gained > 0) c.skillPopup("gardening", gained);
             },
           });

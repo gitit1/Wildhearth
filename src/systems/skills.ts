@@ -78,13 +78,17 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
  * Under the total cap: only "up" skills gain; at the cap, gains are paid for
  * by draining "down"-marked skills — with nothing marked down, nothing gains.
  * Locked skills never move. Returns the amount actually gained (0 if none).
+ *
+ * `chanceMult` scales the success chance — the Needs engine passes a mood
+ * multiplier (VISION #13: "mood affects work performance / skill gain rate").
+ * A poor mood makes gains rarer; a great one, slightly more common.
  */
-export function gainSkill(s: Skills, id: string): number {
+export function gainSkill(s: Skills, id: string, chanceMult = 1): number {
   const sk = getSkill(s, id);
   if (!sk || sk.lock !== "up" || sk.value >= 100) return 0;
 
   // the gain-chance roll, with the Gain Guard pity counter
-  const chance = Math.max(0.01, 1 - sk.value / 100);
+  const chance = Math.max(0.01, Math.min(1, (1 - sk.value / 100) * chanceMult));
   const forced = sk.fails >= GAIN_GUARD_FAILS;
   if (!forced && Math.random() >= chance) {
     sk.fails += 1;

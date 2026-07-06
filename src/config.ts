@@ -69,6 +69,62 @@ export const STARTER_SKILL_SEED = 10;   // starting value of the skill matching 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
 export const MINIMAP_SCALE = 0.11;      // minimap px per world px (scaled up for the wider v1 world)
 
+// ===========================================================================
+//  Needs engine (Part A #2) — 7 needs, each 0-100. All tuning lives here; the
+//  season/weather/exertion TABLES (which condition touches which need) live in
+//  systems/needs.ts, but every magnitude below is a knob.
+// ===========================================================================
+export const NEED_START = 80;           // New Game / "comfortable" baseline for every need
+// base drain per IN-GAME MINUTE for the six tracked needs (mood is DERIVED, not decayed).
+// A full day is 1440 min; at these rates a comfortable need reaches its 25 warning
+// in roughly 0.6-1 in-game day, and 0 in a bit over a day — noticeable, not oppressive.
+export const NEED_DECAY = {
+  hunger: 0.05, thirst: 0.07, energy: 0.045,
+  hygiene: 0.03, bathroom: 0.08, social: 0.025,
+} as const;
+export const NEED_SLEEP_DECAY_MULT = 0.35; // needs still drain while asleep, but slower (DECISIONS)
+export const NEED_SLEEP_FLOOR = 5;         // sleep never drains a need below this (you don't faint in your sleep)
+export const ENERGY_SLEEP_RECOVER = 0.22;  // energy regained per in-game minute asleep (~a full night = a full bar)
+// season / weather decay multipliers (stacked multiplicatively onto the base rate)
+export const NEED_WINTER_ENERGY_MULT = 1.35; // winter tires you faster...
+export const NEED_WINTER_HUNGER_MULT = 1.25; // ...and burns more fuel
+export const NEED_SUMMER_THIRST_MULT = 1.4;  // summer heat = thirstier
+export const NEED_STORM_ENERGY_MULT = 1.3;   // a storm is exhausting...
+export const NEED_STORM_HUNGER_MULT = 1.2;   // ...and hungry work
+// mood is DERIVED from the other six + a recent-good-moment bonus + a weather drag
+export const MOOD_WORST_WEIGHT = 0.4;      // how hard the single lowest need drags mood down
+export const MOOD_SOCIAL_BONUS = 12;       // max mood lift from a recent chat / rest (fades)
+export const MOOD_GLOW_MINUTES = 180;      // in-game minutes the good-moment glow takes to fade
+export const MOOD_WEATHER_DRAG = { clear: 0, rain: 4, storm: 8, fog: 6 } as const; // fog/rain mild drag
+export const MOOD_PENALTY_DECAY = 0.3;     // a one-off mood dip (an accident) fades this much per minute
+export const REST_GLOW = 0.5;              // a sit-down tops the good-moment glow to at most this
+// mood performance multipliers — wired into skill-gain CHANCE and busking PAYOUT
+export const MOOD_LOW_THRESH = 25, MOOD_HIGH_THRESH = 75;
+export const MOOD_LOW_MULT = 0.75, MOOD_HIGH_MULT = 1.1;
+// exertion: extra drain applied the moment an action finishes (energy + hygiene)
+export const EXERTION = {
+  fishing:  { energy: 2, hygiene: 1 },
+  farmwork: { energy: 3, hygiene: 3 },
+  busking:  { energy: 2, hygiene: 1 },
+  foraging: { energy: 2, hygiene: 2 },
+} as const;
+export const WALK_ENERGY_PER_1000PX = 1.2; // slight energy cost of covering distance on foot
+// restoration
+export const EAT_DISH = 40, EAT_CROP = 18, EAT_FORAGE = 10; // hunger restored by cooked / crop / wild edibles
+export const DRINK_RESTORE = 100;          // the well / basin bucket — free, fills thirst
+export const WASH_RESTORE = 100;           // a wash at the basin fills hygiene
+export const OUTHOUSE_RESTORE = 100;       // relief at the outhouse
+export const REST_ENERGY = 8;              // a short sit in the rest corner
+export const SOCIAL_TALK_BASE = 14;        // social gained from a chat...
+export const SOCIAL_TALK_DIMINISH = 0.5;   // ...halved for each further chat with the SAME NPC that day
+// accident (bathroom hits 0): embarrassing, not a collapse — small hits, no coin cost
+export const ACCIDENT_HYGIENE_HIT = 22;
+export const ACCIDENT_MOOD_HIT = 16;
+export const ACCIDENT_BATHROOM_RESET = 55;
+// collapse (hunger / thirst / energy hits 0): temporary, coin cost, wake at the bed 06:00
+export const COLLAPSE_FEE = 15;            // helper's fee (VISION anchor-table scale); clamped to coins held
+export const COLLAPSE_RECOVER = 30;        // every physical need bumped to at least this on waking
+
 export const CLICK_ARRIVE = 5;          // px: close enough to a click-to-move target
 export const DRAG_THRESHOLD = 10;       // px of travel before a press is a joystick drag, not a tap
 
@@ -92,4 +148,5 @@ export const PLOTS_KEY = "wildhearth-plots-v1";      // field state incl. crops/
 export const GARDEN_KEY = "wildhearth-garden-v1";    // ornamental flower beds (base-skill-set block)
 export const COLLECTIONS_KEY = "wildhearth-collections-v1"; // Memory Book: discoveries
 export const MEMORIES_KEY = "wildhearth-memories-v1";       // Memory Book: life events
+export const NEEDS_KEY = "wildhearth-needs-v1";             // 7 needs (hunger/thirst/energy/hygiene/bathroom/mood/social)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)
