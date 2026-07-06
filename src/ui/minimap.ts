@@ -1,5 +1,8 @@
 import { T, WORLD_W, WORLD_H, MINIMAP_SCALE } from "../config";
-import { FIELD, YARD, HOUSE, BARN, STALL, POND, TREES } from "../world/zones";
+import {
+  FIELD, YARD, HOUSE, BARN, STALL, POND, WORLD_TREES,
+  ROAD_SEGMENTS, RIVER, LAKE, DOCK, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES,
+} from "../world/zones";
 
 /** The field can grow (plot expansions) — main keeps this current. */
 let fieldBounds = { x0: FIELD.x0, y0: FIELD.y0, x1: FIELD.x1, y1: FIELD.y1 };
@@ -67,31 +70,49 @@ export function updateMinimap(player: Player) {
   g.beginPath(); g.arc(px, py, r * 0.6, 0, 7); g.fill();
 }
 
-/** Scaled-down echo of world/ground.ts + the buildings, painted once per resize. */
+/** Scaled-down echo of the whole world (regions, road, water, buildings),
+ *  painted once per resize. Player dot is drawn live on top each frame. */
 function paintBase(): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = W; c.height = H;
   const b = c.getContext("2d")!;
   const s = scale;
+  const rectFill = (r: { x: number; y: number; w: number; h: number }, col: string, rr = 2) => {
+    roundR(b, r.x * s, r.y * s, r.w * s, r.h * s, rr); b.fillStyle = col; b.fill();
+  };
 
   b.fillStyle = "#5d8a3c"; b.fillRect(0, 0, W, H);
+  // forest region — a darker patch north-central
+  rectFill({ x: 46 * T, y: 0, w: 18 * T, h: 17.5 * T }, "#456a2c", 6);
+  // market square apron
+  rectFill({ x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T }, "#b19670", 6);
+  // dirt road strips
+  for (const seg of ROAD_SEGMENTS) rectFill(seg, "#9c7c50", 2);
   // dirt yard
-  roundR(b, YARD.x0 * T * s, YARD.y0 * T * s, (YARD.x1 - YARD.x0) * T * s, (YARD.y1 - YARD.y0) * T * s, 4);
-  b.fillStyle = "#a58254"; b.fill();
+  rectFill({ x: YARD.x0 * T, y: YARD.y0 * T, w: (YARD.x1 - YARD.x0) * T, h: (YARD.y1 - YARD.y0) * T }, "#a58254", 4);
   // tilled field (live bounds — plot expansions grow it)
-  roundR(b, fieldBounds.x0 * T * s, fieldBounds.y0 * T * s,
-    (fieldBounds.x1 - fieldBounds.x0) * T * s, (fieldBounds.y1 - fieldBounds.y0) * T * s, 3);
-  b.fillStyle = "#6e4f33"; b.fill();
-  // pond
+  rectFill({ x: fieldBounds.x0 * T, y: fieldBounds.y0 * T,
+    w: (fieldBounds.x1 - fieldBounds.x0) * T, h: (fieldBounds.y1 - fieldBounds.y0) * T }, "#6e4f33", 3);
+  // water: pond, river, lake
   b.fillStyle = "#3d6f8e";
   b.beginPath(); b.ellipse(POND.cx * s, POND.cy * s, POND.rx * s, POND.ry * s, 0, 0, 7); b.fill();
-  // buildings as roof-colored blocks
+  rectFill(RIVER, "#3d6f8e", 4);
+  rectFill(LAKE, "#3d6f8e", 6);
+  rectFill(DOCK, "#a5814f", 1);
+  // hedges (farm's east bound)
+  for (const h of HEDGES) rectFill(h, "#37591f", 1);
+  // buildings as coloured blocks
   b.fillStyle = "#b5453c"; b.fillRect(HOUSE.x * s, HOUSE.y * s, HOUSE.w * s, HOUSE.h * s);
   b.fillStyle = "#9c3d34"; b.fillRect(BARN.x * s, BARN.y * s, BARN.w * s, BARN.h * s);
   b.fillStyle = "#d9d3c0"; b.fillRect(STALL.x * s, STALL.y * s, STALL.w * s, STALL.h * s);
+  b.fillStyle = "#c56a4a"; b.fillRect(NEIGHBOR.house.x * s, NEIGHBOR.house.y * s, NEIGHBOR.house.w * s, NEIGHBOR.house.h * s);
+  b.fillStyle = "#9c3d34"; b.fillRect(NEIGHBOR.barn.x * s, NEIGHBOR.barn.y * s, NEIGHBOR.barn.w * s, NEIGHBOR.barn.h * s);
+  b.fillStyle = "#d9c9a0"; for (const st of MARKET_STALLS) b.fillRect(st.x * s, st.y * s, st.w * s, st.h * s);
+  b.fillStyle = "#cbb489"; for (const ct of COTTAGES) b.fillRect(ct.x * s, ct.y * s, ct.w * s, ct.h * s);
+  b.fillStyle = "#8a8378"; b.beginPath(); b.arc(WELL.cx * s, WELL.cy * s, Math.max(1.5, WELL.r * s), 0, 7); b.fill();
   // trees
   b.fillStyle = "#3f6b2c";
-  const tr = Math.max(2, 2.4 * (s / MINIMAP_SCALE));
-  for (const [tx, ty] of TREES) { b.beginPath(); b.arc(tx * s, ty * s, tr, 0, 7); b.fill(); }
+  const tr = Math.max(1.6, 2.2 * (s / MINIMAP_SCALE));
+  for (const [tx, ty] of WORLD_TREES) { b.beginPath(); b.arc(tx * s, ty * s, tr, 0, 7); b.fill(); }
   return c;
 }

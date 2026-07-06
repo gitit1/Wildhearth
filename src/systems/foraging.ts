@@ -1,5 +1,5 @@
 import { FORAGE_TIME, BUSH_RESPAWN } from "../config";
-import { BUSHES } from "../world/zones";
+import { BUSHES, FOREST_BUSHES } from "../world/zones";
 import { FORAGE, type ForageLocation } from "../data/forage";
 import type { Season } from "./calendar";
 
@@ -13,7 +13,8 @@ export interface Bush { x: number; y: number; full: boolean; regrow: number }
 export interface ForagingState { picking: boolean; timer: number; bush: Bush | null }
 
 export function createBushes(): Bush[] {
-  return BUSHES.map(([x, y]) => ({ x, y, full: true, regrow: 0 }));
+  // farm-edge cluster + the forest-passage bushes — both forage as "forest"
+  return [...BUSHES, ...FOREST_BUSHES].map(([x, y]) => ({ x, y, full: true, regrow: 0 }));
 }
 
 export function createForaging(): ForagingState {

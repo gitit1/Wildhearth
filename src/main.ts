@@ -5,13 +5,17 @@ import {
 } from "./engine/input";
 import { applyCamera, screenToWorld, adjustZoom } from "./engine/camera";
 import { paintGround } from "./world/ground";
-import { HOUSE, BARN, STALL, TREES, BUSK_SPOT, HOUSE_DOOR, ROOM, ROOM_ENTRY, FLOWER_BEDS, fieldBounds } from "./world/zones";
+import {
+  HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
+  FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, regionAt,
+} from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
-  drawTree, drawFence, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
+  drawTree, drawFence, drawHedge, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
   drawFlowerBed, drawBuskSpot, drawMusicNotes, drawWaterShimmer,
+  drawOpenWaterShimmer, drawDock, drawBuskSign,
 } from "./art/props";
-import { drawHouse, drawBarn, drawStall } from "./art/buildings";
+import { drawHouse, drawBarn, drawStall, drawCottage, drawWell } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/animals";
@@ -324,14 +328,15 @@ function tick(now: number) {
 
   if (updateFishing(fishing, dt)) {
     player.fishing = false;
-    // what actually bit: species/junk table roll against skill, season, weather
-    const haul = resolveCatch(skillValue(skills, "fishing"), currentSeason(calendar), weather.kind);
+    // what actually bit: species/junk table roll against skill, season, weather,
+    // and WHERE the line was cast (pond / river / lake — set by the fishing spot)
+    const haul = resolveCatch(skillValue(skills, "fishing"), currentSeason(calendar), weather.kind, fishing.location);
     const haulName = ITEM_NAMES[haul.id] ?? haul.id;
     if (gainItem(economy, haul.id)) {
       toast(haul.kind === "junk" ? `You fished up... ${haulName.toLowerCase()}.` : `Caught a ${haulName}! 🐟`);
       if (haul.kind === "fish") {
         record("fish", haul.id);
-        remember("first_catch", "Your first catch — the pond gave something back.");
+        remember("first_catch", "Your first catch — the water gave something back.");
       }
     } else toast("Backpack full — the catch slips away!");
     const gained = gainSkill(skills, "fishing");
@@ -431,8 +436,10 @@ function tick(now: number) {
   for (let i = smoke.length - 1; i >= 0; i--) if (smoke[i]!.a <= 0) smoke.splice(i, 1);
 
   // one World Context snapshot per frame, feeding the always-visible HUD
-  // and (when toggled) the dev inspector — never a second call per frame
-  const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags });
+  // and (when toggled) the dev inspector — never a second call per frame.
+  // location: the player's current region (interior counts as the farm).
+  const region = scene === "world" ? regionAt(player.x, player.y) : "farm";
+  const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags, location: region });
   updateHud(economy, wc.calendar, wc.weather);
   updateDebugPanel(wc);
   updateBackpack();
@@ -452,7 +459,10 @@ function draw() {
   ctx.clearRect(camx, camy, vw, vh);
   ctx.drawImage(ground, 0, 0);
   drawWaterShimmer(ctx, time);
+  drawOpenWaterShimmer(ctx, time);       // river + lake surface + fishing-spot ripples
+  drawDock(ctx, time);                    // walkable, drawn at ground level under entities
   drawFence(ctx, farm.fence, fieldBounds(farm.plotTiers));
+  for (const h of HEDGES) drawHedge(ctx, h, time);   // farm's east natural bound
 
   // the farm plot inside the fenced field (ground-level, under entities)
   for (const c of plots) {
@@ -471,8 +481,15 @@ function draw() {
     { y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
     { y: player.y + 13, f: () => drawFarmer(ctx, player, time) },
+    // the neighbour farm (cared-for: repaired roof/window/barn) — decorative
+    { y: NEIGHBOR.house.y + NEIGHBOR.house.h, f: () => drawHouse(ctx, true, true, NEIGHBOR.house) },
+    { y: NEIGHBOR.barn.y + NEIGHBOR.barn.h, f: () => drawBarn(ctx, true, NEIGHBOR.barn) },
+    { y: WELL.cy + WELL.r, f: () => drawWell(ctx, WELL.cx, WELL.cy, WELL.r) },
+    { y: OLD_BUSK_SIGN[1], f: () => drawBuskSign(ctx, OLD_BUSK_SIGN[0], OLD_BUSK_SIGN[1]) },
   ];
-  for (const [tx, ty] of TREES) ents.push({ y: ty + 6, f: () => drawTree(ctx, tx, ty, time) });
+  MARKET_STALLS.forEach((s) => ents.push({ y: s.y + s.h, f: () => drawStall(ctx, time, s, s.awning, s.accent, s.sign) }));
+  COTTAGES.forEach((c, i) => ents.push({ y: c.y + c.h, f: () => drawCottage(ctx, c, 700 + i * 37) }));
+  for (const [tx, ty] of WORLD_TREES) ents.push({ y: ty + 6, f: () => drawTree(ctx, tx, ty, time) });
   for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time) });
   for (const c of cows) ents.push({ y: c.y + 14, f: () => drawCow(ctx, c, time) });
   for (const h of hens) ents.push({ y: h.y + 6, f: () => drawHen(ctx, h, time) });

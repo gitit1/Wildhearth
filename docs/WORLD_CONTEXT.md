@@ -55,7 +55,7 @@ whenever a new state-owning system is added to the game.
 | Town Reputation/Fame | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/reputation.ts` | `reputation: number` |
 | Transportation | Speced in `ROADMAP_EXPANSION.md`, not built | future (part of fast-travel work) | `transportation?: {...}` — shape TBD when built |
 | NPC location/schedule | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/schedule.ts`, `entities/npc.ts` | not modeled yet — see note below |
-| Location / region | **Does not exist as a concept at all today** — the whole game is one scene | n/a until Phase 1's world-expansion work | do not build this now; add only once regions are real |
+| Location / region | **Built** | `world/zones.ts` — `Region = "farm"｜"road"｜"market"｜"forest"｜"river"`, `regionAt(x,y)` (World expansion v1) | `location?: Region`, computed by `main.ts` via `regionAt(player.x, player.y)` and passed in as a source |
 | Character creation choices | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/startingPath.ts` | `startingPath?: string` — low priority, rarely queried |
 
 This list will grow. See Block 6 for the exact 3-edit recipe every future

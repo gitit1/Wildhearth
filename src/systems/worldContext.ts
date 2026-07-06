@@ -4,6 +4,7 @@ import type { FarmState } from "./renovation";
 import { currentSeason, currentPhase, absoluteDay, type CalendarState, type Season, type DayPhase } from "./calendar";
 import type { WeatherState, WeatherKind } from "./weather";
 import { activeFlagsRecord, type WorldFlags } from "./worldFlags";
+import type { Region } from "../world/zones";
 
 /**
  * World Context — the one place any future system asks "what's true right
@@ -24,6 +25,7 @@ export interface WorldContextSources {
   calendar?: CalendarState;   // Block 3
   weather?: WeatherState;     // Block 4
   flags?: WorldFlags;         // Block 5
+  location?: Region;          // World expansion v1: player's current region
 }
 
 /** Optional narrowing for a specific question, e.g. "for this NPC". Only
@@ -61,6 +63,7 @@ export interface WorldContext {
   calendar?: CalendarSlice;
   weather?: WeatherSlice;
   flags: Record<string, boolean>;
+  location?: Region;
 }
 
 /** Builds a read-only snapshot of "what's true right now" from the live state
@@ -93,5 +96,6 @@ export function getWorldContext(
       ? { state: sources.weather.kind, daysSinceChange: sources.weather.daysSinceChange }
       : undefined,
     flags: sources.flags ? activeFlagsRecord(sources.flags, sources.calendar ? absoluteDay(sources.calendar) : 0) : {},
+    location: sources.location,
   };
 }

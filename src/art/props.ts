@@ -1,5 +1,5 @@
 import { T } from "../config";
-import { FIELD, POND } from "../world/zones";
+import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
 import { shadow, outline, oRect } from "./shapes";
 
@@ -37,6 +37,26 @@ export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: n
   }
   g.fillStyle = "rgba(255,255,220,.16)";
   g.beginPath(); g.arc(sx - 5, y - 42, 6, 0, 7); g.fill();
+}
+
+/** A leafy hedge wall — the "natural bound" sealing the farm's east side. Drawn
+ *  as a run of overlapping green mounds with a shadowed base. */
+export function drawHedge(g: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }, t: number) {
+  const rnd = mulberry32((r.x * 7 + r.y) | 0);
+  g.fillStyle = "rgba(20,30,12,.25)";
+  g.fillRect(r.x - 2, r.y + r.h - 4, r.w + 8, 6);
+  // stacked leafy mounds down the length
+  const step = 16;
+  for (let yy = r.y; yy < r.y + r.h; yy += step) {
+    const sway = Math.sin(t * 0.7 + yy * 0.05) * 0.8;
+    for (const [dx, rr, c] of [[0, 11, "#3d6626"], [r.w, 10, "#37591f"], [r.w / 2, 12, "#47732c"]] as const) {
+      g.fillStyle = c;
+      g.beginPath(); g.arc(r.x + dx + sway, yy + step / 2, rr, 0, 7); g.fill(); outline(g);
+    }
+    // a few lighter leaf clusters on top
+    g.fillStyle = "#5a8a38";
+    g.beginPath(); g.arc(r.x + r.w / 2 + sway, yy + step * 0.3, 5 + rnd() * 2, 0, 7); g.fill();
+  }
 }
 
 export function drawFence(
@@ -299,4 +319,66 @@ export function drawWaterShimmer(g: CanvasRenderingContext2D, t: number) {
     const py = POND.cy + Math.cos(t * 0.7 + i * 1.7) * POND.ry * 0.5;
     g.beginPath(); g.ellipse(px, py, 7, 1.7, 0, 0, 7); g.fill();
   }
+}
+
+/** Drifting highlights across the river + lake surface (same technique as the
+ *  pond), plus persistent ripple markers at the designated fishing spots. */
+export function drawOpenWaterShimmer(g: CanvasRenderingContext2D, t: number) {
+  g.fillStyle = "rgba(255,255,255,.16)";
+  for (const wtr of [RIVER, LAKE]) {
+    const n = wtr === LAKE ? 14 : 8;
+    for (let i = 0; i < n; i++) {
+      const px = wtr.x + wtr.w * (0.5 + Math.sin(t * 0.6 + i * 1.9) * 0.42);
+      const py = wtr.y + wtr.h * (0.5 + Math.cos(t * 0.5 + i * 1.3) * 0.42);
+      g.beginPath(); g.ellipse(px, py, 8, 1.8, 0, 0, 7); g.fill();
+    }
+  }
+  // fishing-spot ripples: gentle expanding rings so the spots read as "fishable"
+  for (const s of FISH_SPOTS) {
+    const phase = (t * 0.6 + (s.wx + s.wy) * 0.01) % 1;
+    g.strokeStyle = `rgba(230,240,255,${0.35 * (1 - phase)})`;
+    g.lineWidth = 1.4;
+    g.beginPath(); g.ellipse(s.wx, s.wy, 4 + phase * 12, 2 + phase * 5, 0, 0, 7); g.stroke();
+  }
+}
+
+/** The wooden dock/jetty reaching into the lake — the one walkable spot on the
+ *  water. Planks across two rails, with shadowed gaps between boards. */
+export function drawDock(g: CanvasRenderingContext2D, t: number) {
+  const { x, y, w, h } = DOCK;
+  // soft reflection/shadow on the water
+  g.fillStyle = "rgba(15,30,40,.28)";
+  g.fillRect(x + 3, y + 6, w, h);
+  // deck
+  oRect(g, x, y, w, h, "#a5814f");
+  // planks (running across, north-south dock -> horizontal boards)
+  g.strokeStyle = "rgba(60,40,22,.5)"; g.lineWidth = 1.4;
+  for (let py = y + 6; py < y + h; py += 8) {
+    g.beginPath(); g.moveTo(x + 1, py); g.lineTo(x + w - 1, py); g.stroke();
+  }
+  g.strokeStyle = "rgba(255,235,200,.12)"; g.lineWidth = 1;
+  for (let py = y + 5; py < y + h; py += 8) {
+    g.beginPath(); g.moveTo(x + 1, py); g.lineTo(x + w - 1, py); g.stroke();
+  }
+  // two mooring posts at the far (south) end
+  const bob = Math.sin(t * 1.5) * 0.8;
+  oRect(g, x + 2, y + h - 4 + bob, 5, 10, "#6f5334");
+  oRect(g, x + w - 7, y + h - 4 - bob, 5, 10, "#6f5334");
+}
+
+/** A little wooden signpost where buskers used to play on the farm, now
+ *  pointing them to the market square. */
+export function drawBuskSign(g: CanvasRenderingContext2D, x: number, y: number) {
+  shadow(g, x + 2, y + 6, 9, 4);
+  oRect(g, x - 2, y - 18, 4, 22, "#7a5230");           // post
+  oRect(g, x - 12, y - 26, 24, 11, "#a5814f");         // board
+  // a tiny musical note glyph
+  g.fillStyle = "#3a2a1c";
+  g.beginPath(); g.ellipse(x - 4, y - 19, 2.2, 1.7, -0.4, 0, 7); g.fill();
+  g.strokeStyle = "#3a2a1c"; g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(x - 2, y - 20); g.lineTo(x - 2, y - 25); g.stroke();
+  // a little arrow east (toward the market)
+  g.strokeStyle = "#3a2a1c"; g.lineWidth = 1.6; g.lineCap = "round";
+  g.beginPath(); g.moveTo(x + 2, y - 20.5); g.lineTo(x + 9, y - 20.5); g.stroke();
+  g.beginPath(); g.moveTo(x + 6, y - 22.5); g.lineTo(x + 9, y - 20.5); g.lineTo(x + 6, y - 18.5); g.stroke();
 }

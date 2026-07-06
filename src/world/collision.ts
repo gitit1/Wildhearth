@@ -1,5 +1,8 @@
 import { T, WORLD_W, WORLD_H } from "../config";
-import { HOUSE, BARN, STALL, POND, TREES, ROOM, R_BED, R_BASIN, R_REST } from "./zones";
+import {
+  HOUSE, BARN, STALL, POND, WORLD_TREES, ROOM, R_BED, R_BASIN, R_REST,
+  STRUCTURES, HEDGES, WELL, inWater,
+} from "./zones";
 
 /** Which collision map is active (world vs. the house interior). Module-level
  *  like camera.ts's lastCam — main.ts sets it on every scene switch. */
@@ -25,12 +28,18 @@ function blockedInterior(x: number, y: number): boolean {
 export function blocked(x: number, y: number): boolean {
   if (activeScene === "interior") return blockedInterior(x, y);
   if (x < T * 0.6 || y < T * 0.6 || x > WORLD_W - T * 0.6 || y > WORLD_H - T * 0.6) return true;
-  for (const b of [HOUSE, BARN, STALL]) {
+  // house-like structures block their lower ~75% (3/4-view rule): farm buildings,
+  // the neighbour farm, cottages, and market stall counters all share it
+  for (const b of [HOUSE, BARN, STALL, ...STRUCTURES]) {
     if (x > b.x - 8 && x < b.x + b.w + 8 && y > b.y + b.h * 0.25 && y < b.y + b.h + 6) return true;
   }
+  // hedges block their whole footprint (a full wall of leaves)
+  for (const h of HEDGES) if (x > h.x && x < h.x + h.w && y > h.y && y < h.y + h.h) return true;
   const dx = (x - POND.cx) / (POND.rx + 8), dy = (y - POND.cy) / (POND.ry + 8);
   if (dx * dx + dy * dy < 1) return true;
-  for (const [tx, ty] of TREES) if ((x - tx) ** 2 + (y - ty) ** 2 < 400) return true;
+  if ((x - WELL.cx) ** 2 + (y - WELL.cy) ** 2 < (WELL.r + 8) ** 2) return true;
+  if (inWater(x, y)) return true;   // river + lake are impassable, except the dock
+  for (const [tx, ty] of WORLD_TREES) if ((x - tx) ** 2 + (y - ty) ** 2 < 400) return true;
   return false;
 }
 

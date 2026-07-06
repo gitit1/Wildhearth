@@ -1,7 +1,11 @@
 /** Global tuning knobs. Change values here, not inside systems. */
 export const T = 32;                    // tile size in px
-export const MW = 34, MH = 24;          // map size in tiles
+// World expansion v1: the farm is the west corner of a much larger open scene
+// (farm -> road -> market -> forest -> river/lake). 108x30 tiles = 3456x960 px
+// — ~4x the old 34x24 area, still one canvas (both sides well under 4096).
+export const MW = 108, MH = 30;         // map size in tiles
 export const WORLD_W = MW * T, WORLD_H = MH * T;
+export const ROAD_W = 2.4;              // dirt road width in tiles
 
 export const PLAYER_SPEED = 150;        // px/sec
 
@@ -56,7 +60,7 @@ export const SKILL_CAP = 250;           // total skill budget (placeholder for M
 export const STARTER_SKILL_SEED = 10;   // starting value of the skill matching the starter tool
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
-export const MINIMAP_SCALE = 0.14;      // minimap px per world px
+export const MINIMAP_SCALE = 0.11;      // minimap px per world px (scaled up for the wider v1 world)
 
 export const CLICK_ARRIVE = 5;          // px: close enough to a click-to-move target
 export const DRAG_THRESHOLD = 10;       // px of travel before a press is a joystick drag, not a tap

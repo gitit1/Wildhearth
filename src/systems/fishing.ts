@@ -4,18 +4,20 @@ import { JUNK } from "../data/junk";
 import type { Season } from "./calendar";
 import type { WeatherKind } from "./weather";
 
-/** Fishing: start near the pond, wait for a bite, land a catch. */
-export interface FishingState { casting: boolean; timer: number }
+/** Fishing: start near a fishing spot, wait for a bite, land a catch. The spot
+ *  remembers WHERE it is (pond/river/lake) so the catch rolls the right table. */
+export interface FishingState { casting: boolean; timer: number; location: FishLocation }
 
 export interface Catch { kind: "fish" | "junk"; id: string }
 
 export function createFishing(): FishingState {
-  return { casting: false, timer: 0 };
+  return { casting: false, timer: 0, location: "pond" };
 }
 
 /** Higher Fishing skill (0-100) shortens the wait for a bite. */
-export function startCast(f: FishingState, fishingSkill = 0) {
+export function startCast(f: FishingState, fishingSkill = 0, location: FishLocation = "pond") {
   f.casting = true;
+  f.location = location;
   const wait = FISH_TIME_MIN + Math.random() * (FISH_TIME_MAX - FISH_TIME_MIN);
   f.timer = wait * (1 - FISHING_BITE_REDUCTION * (fishingSkill / 100));
 }

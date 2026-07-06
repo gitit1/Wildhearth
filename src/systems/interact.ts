@@ -1,4 +1,7 @@
-import { POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS } from "../world/zones";
+import {
+  POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
+  FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OLD_BUSK_SIGN, type Rect, type FishSpot,
+} from "../world/zones";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES } from "../config";
 import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
@@ -82,7 +85,7 @@ const pond: Interactable = {
         if (busy(c)) return;
         // fishing is a hard tool gate (unlike bare-hand foraging) — no rod, no cast
         if (countItem(c.economy.inv, "rod") === 0) { c.toast("You need a fishing rod — the stall sells one."); return; }
-        startCast(c.fishing, skillValue(c.skills, "fishing"));
+        startCast(c.fishing, skillValue(c.skills, "fishing"), "pond");
         c.player.fishing = true;
       },
     },
@@ -90,6 +93,83 @@ const pond: Interactable = {
   ],
   drawHover: (g, t) => glowEllipse(g, POND.cx, POND.cy, POND.rx + 4, POND.ry + 4, t),
 };
+
+/** River/lake fishing spots — like the pond, but the cast carries its water
+ *  body so resolveCatch rolls the river/lake fish tables (data/fish.ts). */
+function makeFishSpot(s: FishSpot): Interactable {
+  const label = s.loc === "river" ? "the river" : "the lake";
+  return {
+    id: `fish-${s.id}`,
+    name: s.loc === "river" ? "River" : "Lake",
+    anchor: [s.ax, s.ay],
+    defaultActionId: "fish",
+    hit: (wx, wy) => Math.hypot(wx - s.wx, wy - s.wy) < 30,
+    inReach: (px, py) => Math.hypot(px - s.ax, py - s.ay) < 48,
+    actions: () => [
+      {
+        id: "fish", label: "Fish",
+        run: (c) => {
+          if (busy(c)) return;
+          if (countItem(c.economy.inv, "rod") === 0) { c.toast("You need a fishing rod — the market sells one."); return; }
+          startCast(c.fishing, skillValue(c.skills, "fishing"), s.loc);
+          c.player.fishing = true;
+        },
+      },
+      { id: "look", label: "Look", run: (c) => c.toast(`A good spot to cast into ${label}.`) },
+    ],
+    drawHover: (g, t) => glowEllipse(g, s.wx, s.wy, 16, 9, t),
+  };
+}
+const fishSpots: Interactable[] = FISH_SPOTS.map(makeFishSpot);
+
+/** A decorative world prop you can only Look at (market stalls, cottages, the
+ *  well, the old busk sign) — no trading/entry yet, those are later blocks. */
+function lookProp(id: string, name: string, box: Rect, anchor: [number, number], reach: Rect, look: string): Interactable {
+  return {
+    id, name, anchor, defaultActionId: "look",
+    hit: (wx, wy) => wx >= box.x && wx <= box.x + box.w && wy >= box.y && wy <= box.y + box.h,
+    inReach: (px, py) => nearRect(px, py, reach, 30),
+    actions: () => [{ id: "look", label: "Look", run: (c) => c.toast(look) }],
+    drawHover: (g, t) => glowRect(g, box.x - 2, box.y - 2, box.w + 4, box.h + 4, t),
+  };
+}
+
+const STALL_LOOK: Record<string, string> = {
+  fish: "A fish-buyer's stall. Nobody's tending it yet.",
+  produce: "A produce stall, heaped with vegetables. Unattended for now.",
+  goods: "A general-goods stall — crates and oddments. No trader here yet.",
+  empty: "An empty stall, awning faded. Available, if anyone wanted it.",
+};
+const marketStalls: Interactable[] = MARKET_STALLS.map((s, i) =>
+  lookProp(
+    `mstall-${i}`, "Market stall",
+    { x: s.x - 6, y: s.y - s.h * 0.4, w: s.w + 12, h: s.h * 1.45 },
+    [s.x + s.w / 2, s.y + s.h + 22], s,
+    STALL_LOOK[s.sign]!,
+  ));
+const cottages: Interactable[] = COTTAGES.map((c, i) =>
+  lookProp(
+    `cottage-${i}`, "Cottage",
+    { x: c.x - 8, y: c.y - c.h * 0.3, w: c.w + 16, h: c.h * 1.3 },
+    [c.x + c.w / 2, c.y + c.h + 18], c,
+    "A snug little cottage. Its door is shut — someone may live here one day.",
+  ));
+const wellProp: Interactable = {
+  id: "well", name: "Well",
+  anchor: [WELL.cx, WELL.cy + WELL.r + 26],
+  defaultActionId: "look",
+  hit: (wx, wy) => Math.hypot(wx - WELL.cx, (wy - WELL.cy) * 1.3) < WELL.r * 2,
+  inReach: (px, py) => Math.hypot(px - WELL.cx, py - WELL.cy) < WELL.r + 40,
+  actions: () => [{ id: "look", label: "Look", run: (c) => c.toast("A stone well at the square's heart. The bucket still draws cold water.") }],
+  drawHover: (g, t) => glowEllipse(g, WELL.cx, WELL.cy, WELL.r + 6, WELL.r * 0.8 + 6, t),
+};
+const buskSign: Interactable = lookProp(
+  "busk-sign", "Signpost",
+  { x: OLD_BUSK_SIGN[0] - 14, y: OLD_BUSK_SIGN[1] - 28, w: 28, h: 32 },
+  [OLD_BUSK_SIGN[0], OLD_BUSK_SIGN[1] + 20],
+  { x: OLD_BUSK_SIGN[0] - 10, y: OLD_BUSK_SIGN[1] - 10, w: 20, h: 20 },
+  "'Buskers play at the market now.' The square is the place to earn coin with a tune.",
+);
 
 // The drawn stall is bigger than the STALL logic rect: the awning rises above
 // it (to y - 0.4h) and the legs drop below it (to ~y + 1.05h). Use those true
@@ -308,6 +388,7 @@ const doorMat: Interactable = {
 
 export const INTERACTABLES: Interactable[] = [
   pond, stall, buskSpot, houseDoor, house,
+  ...fishSpots, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];
 

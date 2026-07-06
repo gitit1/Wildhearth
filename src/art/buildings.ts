@@ -1,5 +1,5 @@
-import { HOUSE, BARN, STALL } from "../world/zones";
-import { shadow, oRect, OUTLINE, OUTLINE_W } from "./shapes";
+import { HOUSE, BARN, STALL, type Rect } from "../world/zones";
+import { shadow, oRect, outline, OUTLINE, OUTLINE_W } from "./shapes";
 import { mulberry32 } from "../engine/rng";
 
 /** Vertical plank striping for wall faces: alternating tones, thin seams,
@@ -66,8 +66,8 @@ function drawShingleRoof(
   g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W; g.stroke();
 }
 
-export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk = true) {
-  const { x, y, w, h } = HOUSE;
+export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk = true, r: Rect = HOUSE) {
+  const { x, y, w, h } = r;
   shadow(g, x + w / 2 + 8, y + h + 8, w * 0.55, 12);
   drawPlankWall(g, x, y + h * 0.35, w, h * 0.65, "#c9a06a", 101);
   oRect(g, x + w * 0.44, y + h * 0.55, w * 0.13, h * 0.45, "#7a5230");
@@ -108,8 +108,8 @@ export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk =
   }
 }
 
-export function drawBarn(g: CanvasRenderingContext2D, barnOk = true) {
-  const { x, y, w, h } = BARN;
+export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = BARN) {
+  const { x, y, w, h } = r;
   shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
   drawPlankWall(g, x, y + h * 0.3, w, h * 0.7, "#b24a3e", 303);
   // the barn roof shares the shingle treatment (weathered until mended)
@@ -132,8 +132,15 @@ export function drawBarn(g: CanvasRenderingContext2D, barnOk = true) {
   }
 }
 
-export function drawStall(g: CanvasRenderingContext2D, t: number) {
-  const { x, y, w, h } = STALL;
+export type StallSign = "fish" | "produce" | "goods" | "empty";
+
+/** The market/farm stall. Awning colour + goods vary by stall so the four
+ *  market stalls read distinct (fish buyer / produce / general / empty). */
+export function drawStall(
+  g: CanvasRenderingContext2D, t: number, r: Rect = STALL,
+  awning = "#c05038", accent = "#7fb0c8", sign: StallSign = "fish",
+) {
+  const { x, y, w, h } = r;
   shadow(g, x + w / 2 + 4, y + h + 6, w * 0.55, 8);
   // counter
   oRect(g, x, y + h * 0.45, w, h * 0.55, "#9a7245");
@@ -146,10 +153,10 @@ export function drawStall(g: CanvasRenderingContext2D, t: number) {
   g.fillRect(x + 1, y - h * 0.35, 4, h * 0.8);
   g.fillRect(x + w - 5, y - h * 0.35, 4, h * 0.8);
   // striped awning with a soft flutter
-  const fl = Math.sin(t * 2.2) * 1.5;
+  const fl = Math.sin(t * 2.2 + x) * 1.5;
   const stripes = 5, sw = (w + 12) / stripes;
   for (let i = 0; i < stripes; i++) {
-    g.fillStyle = i % 2 ? "#e8ddca" : "#c05038";
+    g.fillStyle = i % 2 ? "#e8ddca" : awning;
     g.beginPath();
     g.moveTo(x - 6 + i * sw, y - h * 0.4);
     g.lineTo(x - 6 + (i + 1) * sw, y - h * 0.4);
@@ -160,9 +167,83 @@ export function drawStall(g: CanvasRenderingContext2D, t: number) {
   // the awning's contour as one shape
   g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W;
   g.strokeRect(x - 6, y - h * 0.4, w + 12, h * 0.35 + fl);
-  // goods: little fish crate
-  g.fillStyle = "#b08a58"; g.fillRect(x + w * 0.2, y + h * 0.3, w * 0.28, h * 0.2);
-  g.fillStyle = "#7fb0c8";
-  g.beginPath(); g.ellipse(x + w * 0.34, y + h * 0.38, 6, 2.6, 0.3, 0, 7); g.fill();
-  g.beginPath(); g.ellipse(x + w * 0.28, y + h * 0.36, 6, 2.6, -0.2, 0, 7); g.fill();
+
+  // goods on the counter — a little different per stall type
+  if (sign === "fish") {
+    g.fillStyle = "#b08a58"; g.fillRect(x + w * 0.2, y + h * 0.3, w * 0.28, h * 0.2);
+    g.fillStyle = accent;
+    g.beginPath(); g.ellipse(x + w * 0.34, y + h * 0.38, 6, 2.6, 0.3, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(x + w * 0.28, y + h * 0.36, 6, 2.6, -0.2, 0, 7); g.fill();
+  } else if (sign === "produce") {
+    g.fillStyle = "#8a6a42"; g.fillRect(x + w * 0.18, y + h * 0.34, w * 0.3, h * 0.18);
+    for (const [dx, c] of [[0.24, accent], [0.34, "#c94f3a"], [0.44, "#5f9a38"]] as const) {
+      g.fillStyle = c; g.beginPath(); g.arc(x + w * dx, y + h * 0.36, 3, 0, 7); g.fill();
+    }
+  } else if (sign === "goods") {
+    g.fillStyle = accent; g.fillRect(x + w * 0.2, y + h * 0.28, w * 0.22, h * 0.22);
+    g.strokeStyle = "rgba(60,40,20,.5)"; g.lineWidth = 1.2;
+    g.strokeRect(x + w * 0.2, y + h * 0.28, w * 0.22, h * 0.22);
+    g.fillStyle = "#9a7245"; g.beginPath();
+    g.ellipse(x + w * 0.6, y + h * 0.4, 5, 4, 0, 0, 7); g.fill();
+  } else {
+    // empty / available: a small "vacant" placard, no goods
+    g.fillStyle = "#d9cfb4"; g.fillRect(x + w * 0.36, y + h * 0.26, w * 0.28, h * 0.16);
+    g.strokeStyle = "rgba(60,40,20,.45)"; g.lineWidth = 1;
+    g.strokeRect(x + w * 0.36, y + h * 0.26, w * 0.28, h * 0.16);
+    g.fillStyle = "rgba(90,70,40,.6)";
+    g.fillRect(x + w * 0.4, y + h * 0.32, w * 0.2, 1.6);
+  }
+}
+
+/** A small cottage — a compact house variant for the market's NPC homes.
+ *  Warm plaster wall, shingle gable, a plank door (a would-be entry point). */
+export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number) {
+  const { x, y, w, h } = r;
+  const rnd = mulberry32(seed);
+  const wall = ["#d8b483", "#cca878", "#c9b98f", "#d3a06e"][(rnd() * 4) | 0]!;
+  shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
+  drawPlankWall(g, x, y + h * 0.36, w, h * 0.64, wall, (seed * 7) | 0);
+  // door
+  oRect(g, x + w * 0.4, y + h * 0.58, w * 0.2, h * 0.42, "#7a5230");
+  g.fillStyle = "#e8c46a"; g.beginPath(); g.arc(x + w * 0.55, y + h * 0.8, 2, 0, 7); g.fill();
+  // one small window
+  g.fillStyle = "#8fd0e8"; g.fillRect(x + w * 0.15, y + h * 0.56, w * 0.16, h * 0.2);
+  g.strokeStyle = "#6b4a2b"; g.lineWidth = 2.5; g.strokeRect(x + w * 0.15, y + h * 0.56, w * 0.16, h * 0.2);
+  // roof
+  const roof = ["#8a5a4a", "#7a6a52", "#9a6a54"][(rnd() * 3) | 0]!;
+  drawShingleRoof(g, x + w / 2, y - h * 0.18, x - 7, x + w + 7, y + h * 0.4, roof, false, (seed * 13) | 0);
+  // a little chimney
+  oRect(g, x + w * 0.68, y - h * 0.1, w * 0.1, h * 0.28, "#8c8c94");
+}
+
+/** The market square's stone well: a round wall, a little peaked roof on posts,
+ *  a rope and bucket. Purely decorative. */
+export function drawWell(g: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  shadow(g, cx + 4, cy + r + 4, r * 1.1, r * 0.4);
+  // stone rim
+  g.fillStyle = "#9a938a";
+  g.beginPath(); g.ellipse(cx, cy, r, r * 0.7, 0, 0, 7); g.fill(); outline(g);
+  g.fillStyle = "#7a7268";
+  g.beginPath(); g.ellipse(cx, cy, r * 0.72, r * 0.5, 0, 0, 7); g.fill();
+  g.fillStyle = "#2a3a42";
+  g.beginPath(); g.ellipse(cx, cy, r * 0.5, r * 0.34, 0, 0, 7); g.fill();
+  // stone courses on the rim front
+  g.strokeStyle = "rgba(40,36,30,.4)"; g.lineWidth = 1;
+  for (let a = -0.9; a < 0.9; a += 0.45) {
+    g.beginPath();
+    g.moveTo(cx + Math.cos(a) * r * 0.9, cy + Math.sin(a) * r * 0.6);
+    g.lineTo(cx + Math.cos(a) * r * 0.9, cy + r * 0.5); g.stroke();
+  }
+  // two posts + a peaked roof
+  g.fillStyle = "#6f5334";
+  g.fillRect(cx - r * 0.9, cy - r * 1.7, 4, r * 1.7);
+  g.fillRect(cx + r * 0.9 - 4, cy - r * 1.7, 4, r * 1.7);
+  g.fillStyle = "#8a5a4a";
+  g.beginPath();
+  g.moveTo(cx - r * 1.15, cy - r * 1.5); g.lineTo(cx, cy - r * 2.2);
+  g.lineTo(cx + r * 1.15, cy - r * 1.5); g.closePath(); g.fill(); outline(g);
+  // rope + bucket
+  g.strokeStyle = "#8a7a5a"; g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(cx, cy - r * 1.5); g.lineTo(cx, cy - r * 0.2); g.stroke();
+  oRect(g, cx - 3, cy - r * 0.2, 6, 6, "#7a5230");
 }

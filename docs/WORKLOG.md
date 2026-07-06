@@ -42,6 +42,92 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## World expansion v1 — road, market stalls, forest passage, river & lake
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** World expansion v1 (from the supervisor's block prompt):
+  grow the single farm scene into the v1 world per DECISIONS "Areas in v1" —
+  farm (unchanged, at the west) + a dirt road east past one established
+  neighbour farm + a stall-road market square (4 distinct stalls, a well,
+  5-6 cottages, the relocated busk spot) + a forest passage branching north +
+  a river down the east edge widening into a south-east lake with a dock.
+  Add a `regionAt()` helper + a `location` slice to WorldContext; keep the
+  farm's internal layout and all saves working; NOT the town.
+- **Done:**
+  - **Files:**
+    - `src/config.ts`: world grew to `MW=108, MH=30` (3456x960 px, ~4x the old
+      area, one canvas — both sides < 4096, no chunking needed); added
+      `ROAD_W`; `MINIMAP_SCALE` 0.14 -> 0.11 (readable at the wider aspect).
+    - `src/world/zones.ts`: the whole new layout — `Region` type + `regionAt()`;
+      `ROAD_SEGMENTS` (+`onRoad`), `HEDGES` (farm's east natural bound with a
+      road gap), `NEIGHBOR` (cared-for house+barn), `MARKET_STALLS` (4 typed
+      variants), `WELL`, `COTTAGES` (6), `FOREST_TREES`, `ROADSIDE_TREES`,
+      `WORLD_TREES` (combined), `FOREST_BUSHES`, `RIVER`/`LAKE`/`DOCK`
+      (+`inWater`/`onDock`), `FISH_SPOTS` (river x2 + lake), `STRUCTURES`
+      (lower-75% collidables), `Rect` type/`rect()` helper; relocated
+      `BUSK_SPOT` to the market + `OLD_BUSK_SIGN` at the farm.
+    - `src/world/collision.ts`: blocks the new structures/hedges/well/forest &
+      roadside trees, and river+lake water (dock excepted) via `inWater`.
+    - `src/world/ground.ts`: paints packed-dirt road, darker forest floor +
+      leaf litter, the market apron + well cobbles, river/lake water with sandy
+      banks; ambient-prop scatter scaled by area (`AREA_K`) with rejection
+      zones around every new region's water/road/buildings/props + a per-region
+      palette (forest leaves, waterside pebbles, forest-biased mushrooms).
+    - `src/art/buildings.ts`: `drawHouse`/`drawBarn`/`drawStall` now take an
+      optional rect (farm calls unchanged); `drawStall` takes awning/accent/sign
+      so the 4 market stalls read distinct (fish/produce/goods/empty); new
+      `drawCottage`, `drawWell`.
+    - `src/art/props.ts`: new `drawHedge`, `drawDock`, `drawBuskSign`,
+      `drawOpenWaterShimmer` (river+lake surface + fishing-spot ripples).
+    - `src/systems/fishing.ts`: `FishingState.location` + `startCast(..., loc)`
+      so `resolveCatch` rolls the pond/river/lake table for where you cast.
+    - `src/systems/foraging.ts`: `createBushes()` now includes `FOREST_BUSHES`
+      (foraged as "forest", like the farm-edge cluster).
+    - `src/systems/interact.ts`: river/lake fishing spots (pass location, rod-
+      gated like the pond), decorative Look-only market stalls/cottages/well/
+      old busk sign; pond cast now passes "pond".
+    - `src/systems/worldContext.ts`: `location?: Region` source + slice
+      (Block-6 recipe).
+    - `src/main.ts`: draws river/lake shimmer, the dock (ground level), hedges,
+      neighbour farm, market stalls, cottages, well, busk sign, and all
+      `WORLD_TREES` (depth-sorted); passes `fishing.location` to `resolveCatch`
+      and the player's `regionAt()` region into `getWorldContext`.
+    - `src/ui/minimap.ts`: static layer now renders the whole world (forest/
+      market/road tints, river+lake+dock, farm + neighbour + market buildings,
+      all trees, hedges).
+    - `docs/WORLD_CONTEXT.md`: data-owner table Location row -> **Built**.
+  - **Systems / functions:** `regionAt`, `onRoad`, `inWater`, `onDock`,
+    `WORLD_TREES`, `FISH_SPOTS`; `FishingState.location`; WorldContext
+    `location` slice. No new save keys — no persisted store changed, so every
+    existing save loads unchanged.
+  - **Behavior:** the farm is now the west corner of a large open scene. A dirt
+    road exits east through a hedge gap past a thriving neighbour farm to a
+    market square (4 stalls, a well, 6 cottages, and the busk spot — busking now
+    only works here, per DECISIONS; the farm keeps a signpost pointing here). A
+    forest passage branches north (denser trees, forageable "forest" bushes,
+    darker floor). A river runs the east edge into a south-east lake with a
+    walkable dock; fishing works at designated river and lake spots (correct
+    location table) while the farm pond still fishes as "pond". Water is
+    impassable except the dock. The minimap shows the whole world; the debug
+    panel (backtick) shows the current region.
+- **Build:** `npm run build` — ✅ passing.
+- **Verified (Playwright, in-browser):** walked/teleported the full loop and
+  screenshotted every region (reviewed: road reads as packed dirt, market reads
+  as a plaza with distinct stalls, forest is dense/dark, river+lake+dock read
+  right, farm untouched, no floating props). Debug panel location correct in all
+  5 regions (farm/road/forest/market/river). Forest foraging picked berries;
+  river & lake spots both landed catches while the pond gave a pond-only species
+  (Bluegill) — confirming per-location routing; busking at the market earned
+  coins; walking east into the lake stopped at x≈79.95T (water impassable, lake
+  at 80T); a save reloaded via Continue. Temp teleport/pos hooks used only for
+  screenshots were removed before commit.
+- **Follow-ups:** market stalls/cottages/well are decorative (Look-only) — NPC
+  trading/entry and the "real sell menu at the market" are their own later
+  blocks. Lake fish table has no low-skill species, so early lake catches fall
+  back to carp (expected). Farm→market is a ~10-13s walk, not the block's
+  aspirational 20-40s — capped by staying at ~4x area / one <4096px canvas at
+  the current 150px/s speed (a deliberate trade; "hours of walking" is the v5
+  aim).
+
 ## docs — v1-foundation baseline: DECISIONS + FABLE_PROMPT + doc sync + HANDOFF
 - **Date:** 2026-07-06 (v1-foundation, session start)
 - **Block given:** (from `docs/FABLE_PROMPT.md`, "Doc sync — before any code")
