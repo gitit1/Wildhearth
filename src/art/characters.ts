@@ -16,18 +16,33 @@ export function drawFarmer(g: CanvasRenderingContext2D, p: Player, t: number) {
   drawRig(g, p.x, p.y, p.dir, DEFAULT_PLAYER_RIG, p.pose, p.dist / RIG_STRIDE, t);
 }
 
+/** Live relationship readout for the name pill (Relationship engine). Romance
+ *  is only shown for romantic candidates (never for kids / non-candidates). */
+export interface NpcRelReadout { friendship: number; romance: number; showRomance: boolean }
+
 /**
  * An NPC: the same shared rig as the player, driven by the NPC's own RigParams
  * + live pose/facing/distance. `showLabel` draws a small name pill above the
  * head — shown only when the player is near or hovering (matching how the
  * action prompt only appears in reach), so the world isn't cluttered with tags.
+ * When a bond has started, a subtle second line shows ♥ Friendship (and ⚭
+ * Romance for candidates).
  */
-export function drawNpc(g: CanvasRenderingContext2D, n: Npc, t: number, showLabel: boolean) {
+export function drawNpc(g: CanvasRenderingContext2D, n: Npc, t: number, showLabel: boolean, rel?: NpcRelReadout) {
   drawRig(g, n.x, n.y, n.facing, n.def.rig, n.pose, n.dist / RIG_STRIDE, t);
-  if (showLabel) drawNameLabel(g, n.x, n.y - 30 * n.def.rig.scale, n.def.name);
+  if (showLabel) drawNameLabel(g, n.x, n.y - 30 * n.def.rig.scale, n.def.name, relLine(rel));
 }
 
-function drawNameLabel(g: CanvasRenderingContext2D, x: number, yTop: number, name: string) {
+/** "♥12" or "♥12 · ⚭0" — only once a bond exists, so strangers stay uncluttered. */
+function relLine(rel?: NpcRelReadout): string | undefined {
+  if (!rel) return undefined;
+  const showRomance = rel.showRomance && rel.romance > 0;
+  if (rel.friendship <= 0 && !showRomance) return undefined;
+  const heart = `♥${Math.round(rel.friendship)}`;
+  return rel.showRomance ? `${heart} · ⚭${Math.round(rel.romance)}` : heart;
+}
+
+function drawNameLabel(g: CanvasRenderingContext2D, x: number, yTop: number, name: string, sub?: string) {
   g.save();
   g.font = "600 11px -apple-system, Segoe UI, Roboto, sans-serif";
   g.textAlign = "center";
@@ -40,6 +55,13 @@ function drawNameLabel(g: CanvasRenderingContext2D, x: number, yTop: number, nam
   outline(g);
   g.fillStyle = "#f0ead6";
   g.fillText(name, x, cy);
+  if (sub) {
+    g.font = "700 10px -apple-system, Segoe UI, Roboto, sans-serif";
+    g.fillStyle = "rgba(0,0,0,.55)";
+    g.fillText(sub, x, cy + h - 0.5);       // subtle shadow
+    g.fillStyle = "#f2cf6b";
+    g.fillText(sub, x, cy + h - 1.5);
+  }
   g.restore();
 }
 

@@ -48,6 +48,9 @@ interface NpcCommon {
   workStart: number;
   workEnd: number;
   closedDay?: number;            // day-of-week (0=Sunday) this stall/trade is shut
+  // Birthday: a ×2, cap-exempt gift day (Relationship engine). Spread across the
+  // year; any day 1-10 given 10-day seasons (festival is day 15, unreachable here).
+  birthday: { seasonIndex: number; day: number };
   // ---- v5-forward identity placeholders: typed, undefined for all 10 -------
   family?: string[];
   backstory?: string;
@@ -67,6 +70,11 @@ export type NpcDef = NpcCommon &
 /** Safe read of the romance flag (kids narrow to `false`). */
 export function isRomantic(def: NpcDef): boolean {
   return def.ageBand !== "kid" && def.romantic;
+}
+
+/** True when a given season-index + day-of-season is this NPC's birthday. */
+export function isBirthday(def: NpcDef, seasonIndex: number, day: number): boolean {
+  return def.birthday.seasonIndex === seasonIndex && def.birthday.day === day;
 }
 
 const P = (xT: number, yT: number): readonly [number, number] => [xT * T, yT * T];
@@ -164,6 +172,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Maren, the fish-buyer — brisk hands, warm word, always faintly of the sea.",
     home: P(62.4, 22.35), work: P(63.7, 18.35),
     wake: 6, sleep: 22, workStart: 8, workEnd: 17, closedDay: 2, // Tuesday off
+    birthday: { seasonIndex: 0, day: 3 },   // spring d3
     rig: {
       scale: 1, build: "average", legLength: 1, armLength: 1, skin: "#e3ac83",
       hair: "ponytail", hairColor: "#3a2a1a", age: "adult",
@@ -176,6 +185,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Tobin, the produce-seller — never met a stranger, never short of a story.",
     home: P(65.9, 28.35), work: P(67.7, 18.35),
     wake: 6, sleep: 23, workStart: 8, workEnd: 18, closedDay: 4, // Thursday off
+    birthday: { seasonIndex: 0, day: 7 },   // spring d7
     rig: {
       scale: 1, build: "round", legLength: 1, armLength: 1, skin: "#e8b48a",
       hair: "short", hairColor: "#3a2a1a", age: "adult",
@@ -188,6 +198,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Sera, the general-goods keeper — everything squared away, nothing out of place.",
     home: P(77.4, 21.85), work: P(71.7, 18.35),
     wake: 6, sleep: 22, workStart: 9, workEnd: 18, closedDay: 6, // Saturday off
+    birthday: { seasonIndex: 1, day: 2 },   // summer d2
     rig: {
       scale: 1, build: "slim", legLength: 1, armLength: 1, skin: "#d9a878",
       hair: "bun", hairColor: "#4a3520", age: "adult",
@@ -200,6 +211,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Henrik, the neighbouring farmer — gruff as old bark, kind underneath.",
     home: P(41.5, 19.05), work: P(43.5, 20.4),
     wake: 5, sleep: 21, workStart: 7, workEnd: 17,
+    birthday: { seasonIndex: 1, day: 8 },   // summer d8
     rig: {
       scale: 1, build: "average", legLength: 1, armLength: 1, skin: "#cf9f74",
       hair: "hat", hairColor: "#8a8172", hatColor: "#b59a5a", age: "elder",
@@ -212,6 +224,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Petra, the baker — the square smells of her bread by mid-morning.",
     home: P(70.4, 28.65), work: P(70.4, 28.0),
     wake: 5, sleep: 22, workStart: 7, workEnd: 17,
+    birthday: { seasonIndex: 2, day: 4 },   // autumn d4
     rig: {
       scale: 1, build: "round", legLength: 1, armLength: 1, skin: "#e8b48a",
       hair: "bun", hairColor: "#5b3b22", age: "adult",
@@ -224,6 +237,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Liora, the street musician — half here, half in whatever tune she's chasing.",
     home: P(61.9, 26.85), work: P(66.5, 22.2), // near the busk spot, never ON it
     wake: 8, sleep: 23, workStart: 12, workEnd: 20,
+    birthday: { seasonIndex: 2, day: 9 },   // autumn d9
     rig: {
       scale: 1, build: "slim", legLength: 1.04, armLength: 1, skin: "#e3ac83",
       hair: "ponytail", hairColor: "#9c4a2a", age: "adult",
@@ -236,6 +250,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Bram, the carpenter — says little, mends everything.",
     home: P(74.9, 28.15), work: P(75.7, 18.35),
     wake: 6, sleep: 22, workStart: 8, workEnd: 17,
+    birthday: { seasonIndex: 3, day: 3 },   // winter d3
     rig: {
       scale: 1, build: "average", legLength: 1, armLength: 1.05, skin: "#c98a5a",
       hair: "short", hairColor: "#2a2018", age: "adult",
@@ -248,6 +263,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Ada, the herbalist — shy of the square, at home among the trees.",
     home: P(55, 3), work: P(55.5, 11.4),
     wake: 6, sleep: 21, workStart: 8, workEnd: 16,
+    birthday: { seasonIndex: 3, day: 7 },   // winter d7
     rig: {
       scale: 0.97, build: "slim", legLength: 0.98, armLength: 1, skin: "#d9b48a",
       hair: "bun", hairColor: "#b8b0a0", age: "elder",
@@ -260,6 +276,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Finn, Maren's fishing apprentice — all elbows and eagerness.",
     home: P(79, 22), work: P(83.5, 23.4), // out on the dock
     wake: 7, sleep: 21, workStart: 14, workEnd: 18, // weekdays after "school"; weekends handled in schedule.ts
+    birthday: { seasonIndex: 0, day: 5 },   // spring d5
     rig: {
       scale: 0.82, build: "slim", legLength: 1, armLength: 1, skin: "#e8b48a",
       hair: "short", hairColor: "#6b4a2b", age: "kid",
@@ -272,6 +289,7 @@ export const NPCS: NpcDef[] = [
     blurb: "Jonas, the peddler — walks every road and carries every rumour.",
     home: P(57.5, 25), work: P(40, 22.5), // fallback; his real "work" is the JONAS_ROUTE patrol
     wake: 6, sleep: 23, workStart: 8, workEnd: 19,
+    birthday: { seasonIndex: 1, day: 6 },   // summer d6
     rig: {
       scale: 1, build: "average", legLength: 1, armLength: 1, skin: "#d9a878",
       hair: "hat", hairColor: "#3a2a1a", hatColor: "#7a4e20", age: "adult",

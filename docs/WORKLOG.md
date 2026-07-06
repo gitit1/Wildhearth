@@ -42,6 +42,109 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Relationship engine — two axes, trait-derived gifts, depth-based decay
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (Part A #3) The Relationship engine. Per-NPC record
+  `{ friendship 0-100, romance 0-100, giftsThisWeek, lastInteractDay, … }`,
+  versioned store, explicit-passing, kid romance structurally impossible.
+  Trait-DERIVED gift preferences (not hand-authored per NPC) → 5-tier rating at
+  runtime. Gift deltas loved +35 / liked +20 / neutral +8 / disliked −10 /
+  hated −20; weekly cap 2 (refuse before consuming); birthday ×2 + cap-exempt,
+  with a `birthday` on every NPC. Categorized interactions (Friendly / Funny /
+  Romantic / Blunt) with per-personality lines and per-day diminishing returns;
+  Romantic only for candidate adults at Friendship ≥ 20. Give-a-gift chooser.
+  Depth-dependent neglect decay. Heart-event thresholds (25/50/75) → toast +
+  Memory Book, once each, via a forward-compat seam. World Context relationship
+  slice (drop the `_query` underscore). Subtle ♥/⚭ readout on the NPC pill.
+  Tuning in config.ts.
+- **Done:**
+  - **Files:**
+    - `src/systems/relationships.ts` (NEW): the engine. `Relationships { byId }`
+      + `Relationship` record; versioned/tolerant load/save/reset on key
+      `wildhearth-relationships-v1`. `giveGift()` (refusal BEFORE consume;
+      Friendship-only in v1; birthday ×2 + cap-exempt), `applyInteraction()`
+      (axis + per-day diminishing per category), `markContact()`,
+      `decayRelationships()` (depth-based, year-wrap-safe via a captured
+      ended-day), `readRelationship()`/`relationshipSummary()` (non-mutating
+      reads), `ThresholdEvent`/`Axis` types.
+    - `src/systems/heartEvents.ts` (NEW): the v1 heart-event seam —
+      `heartEvent(def, ev)` → `{ memoryKey, memoryText, toast }`. v5 grows this
+      into scripted `data/heartEvents/*.ts` scenes without touching callers.
+    - `src/data/traitPreferences.ts` (NEW): item→category/price classifier built
+      from the live fish/junk/crops/forage/recipe tables; `giftTier(def, itemId)`
+      derives the 5-tier rating from the NPC's role + personality trait rules
+      (fish-trade loves rare fish / likes common; naturalist loves forage, hates
+      junk; performer loves dishes & shiny; grower loves crops; merchant likes
+      high-value; everyone dislikes junk). `giftInfo`/`isGiftable`.
+    - `src/data/interactions.ts` (NEW): 8 interactions across 4 categories with
+      per-interaction axis/delta, and `interactionLine(category, personality)`
+      scripted responses (per-personality with a generic fallback).
+    - `src/data/npcs.ts`: added a required `birthday { seasonIndex, day }` to
+      every NPC (spread across the 4 seasons, days 1-10), plus `isBirthday()`.
+    - `src/ui/giftchooser.ts` (NEW) + `index.html`: a small `#giftChooser` panel
+      (shop chrome) listing held giftable goods with icons; `openGiftChooser`/
+      `closeGiftChooser`/`isGiftChooserOpen`. Tools/seeds never listed.
+    - `src/systems/interact.ts`: `InteractCtx` gains `relationships`, `calendar`,
+      `openGiftFor`, `doInteraction`; `registerNpc` now builds Talk / Give a gift
+      / the categorized interactions (Romantic gated), Look. Left-click/E stays
+      Talk.
+    - `src/systems/worldContext.ts`: `relationships?` source + `relationship?`
+      slice; `_query` → `query` (first real consumer of the scoping parameter).
+    - `src/art/characters.ts`: `drawNpc` takes an optional `NpcRelReadout`; the
+      name pill shows a subtle `♥{friendship}` (· `⚭{romance}` for candidates)
+      line once a bond exists.
+    - `src/config.ts`: `GIFT_DELTAS`, `BIRTHDAY_GIFT_MULT`, `GIFTS_PER_WEEK`,
+      `RARE_FISH_PRICE`, `ROMANCE_UNLOCK_FRIENDSHIP`, `RELATIONSHIP_DECAY_*`,
+      `RELATIONSHIP_THRESHOLDS`, `INTERACT_DIMINISH`, and `RELATIONSHIPS_KEY`.
+    - `src/systems/saves.ts`: `RELATIONSHIPS_KEY` added to `GAME_KEYS` (New Game
+      clears it).
+    - `src/main.ts`: load relationships; `onTalk` marks contact; `giveGiftFlow`
+      (consume + tiered reaction toast + first-gift memory + heart events),
+      `openGiftFor`, `doInteraction`, `fireHeart`; daily decay hooked into
+      `stepGameMinute` with the ended-day captured before the clock advances;
+      reset on New Game; relationship source + nearby-NPC query into the
+      per-frame World Context; pill readout wired; dev bridge hooks
+      (`relOf`/`giftTo`/`openGift`/`interactWith`/`npcActions`/`rollDay`).
+    - `docs/WORLD_CONTEXT.md`: Relationships row → **Built**.
+    - `docs/ROADMAP_EXPANSION.md`: the relationships block + the gift/decay
+      tuning-anchor block marked `[x]`.
+  - **Systems / functions:** new save key `wildhearth-relationships-v1`; two
+    independent axes per NPC; trait-derived tiers computed at runtime (no
+    per-NPC gift lists); gift deltas + weekly cap + birthday ×2; categorized
+    interactions with per-category-per-day diminishing returns; depth-based
+    neglect decay (−2 below 30, −1 at 30-60, −0.25 above 60, never < 0); heart
+    thresholds fired once per NPC/axis (persisted `fired` ledger); relationship
+    slice in World Context.
+  - **Behavior:** Right-click an NPC → Talk / Give a gift / Chat / Ask about
+    their day / Tell a joke / Playful jest / Tease / Grumble together (+ Compliment
+    / Flirt for romantic candidates once you're friends) / Look. Gifts move
+    Friendship by how well they suit that person's trade and temperament — a rare
+    fish thrills Maren, a truffle delights the herbalist, junk offends her; the
+    3rd gift in a week is gently refused (item kept); a birthday gift lands
+    double. Interactions nudge the right axis and taper off if you repeat the
+    same kind that day. Ignoring someone lets the bond drift down, slower the
+    deeper it runs. Crossing 25/50/75 pops a heart moment into the Memory Book,
+    once. A subtle ♥ (· ⚭) readout sits under the name of anyone you've begun to
+    know. All persists across reload; New Game forgets everyone.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright drove the real game via the dev bridge
+  (18/18 core checks + 5 supplemental, 0 page errors): carp→Maren liked +20,
+  koi→Maren loved +35, off-trait dish→Maren neutral +8, truffle→Ada loved +35,
+  junk→Ada hated (clamped 0); 3rd weekly gift refused without consuming;
+  birthday ×2 (+40) then a normal +20 same day; Chat +3 → +1.5 → +0.5 → 0
+  diminishing; Compliment moves Romance not Friendship; Romantic hidden on Sera
+  (non-candidate), Finn (kid, romance never shown), and Maren below Friendship
+  20 (shown at 20); decay held on the contact day then −2 the next; threshold 25
+  wrote exactly one Memory Book entry; survived reload; New Game emptied the
+  store. The gift-chooser DOM was also driven end-to-end (rows exclude the rod +
+  seeds; clicking Give applied the gift and consumed one item).
+- **Commit:** <hash + message — fill in after committing>
+- **Follow-ups:** Gifts move only Friendship in v1 (a logged judgment call —
+  the Romantic interaction category is what moves Romance); v5 can route gifts
+  to Romance for a committed bond. Scripted `data/dialogue/*.ts` and
+  `data/heartEvents/*.ts` scenes remain their own later blocks (this ships the
+  toast+memory seam they grow from).
+
 ## Needs engine — 7 needs, collapse, warnings, mood hooks
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (Part A #2) The Needs engine. 7 needs (hunger, thirst,

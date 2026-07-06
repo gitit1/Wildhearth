@@ -49,7 +49,7 @@ whenever a new state-owning system is added to the game.
 | Calendar & time | **Built** | `systems/calendar.ts` — `CalendarState { seasonIndex, day, hour }` | `calendar: { season, day, hour, phase }` |
 | Weather | **Built** | `systems/weather.ts` — `WeatherState { kind, daysSinceChange }` | `weather: { state, daysSinceChange }` |
 | World event flags | **Built** | `systems/worldFlags.ts` — `WorldFlags { entries[] }` | `flags: Record<string, boolean>` (always present, `{}` when none) |
-| Relationships | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/relationships.ts` | `relationship?: { npcId, friendship, romance }`, only when a query names an `npcId` (see Block 6) |
+| Relationships | **Built** | `systems/relationships.ts` — `Relationships { byId: Record<string, Relationship> }`, `Relationship { friendship, romance, … }` | `relationship?: { npcId, friendship, romance }`, only when a query names an `npcId` (see Block 6). `_query` is now `query` — the underscore was dropped when this became the first consumer. |
 | Needs | **Built** | `systems/needs.ts` — `NeedsState` (7 needs 0-100: hunger/thirst/energy/hygiene/bathroom/mood/social; mood derived) | `needs?: Record<string, number>`, via `needsRecord()` |
 | Collections & Memories | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/collections.ts`, `systems/memories.ts` | `collections?: {...}` — shape TBD when built |
 | Town Reputation/Fame | Speced in `ROADMAP_EXPANSION.md`, not built | future: `systems/reputation.ts` | `reputation: number` |

@@ -434,7 +434,7 @@ NPCs between their fixed points through the day.
 ---
 
 ## `src/systems/relationships.ts` — **two independent numbers per NPC**
-- [ ] not started
+- [x] built, verified in-browser (trait-derived gift tiers move Friendship by the right delta; weekly cap refuses the 3rd gift without consuming; birthday ×2; categorized interactions move the right axis with diminishing repeats; Romantic hidden on kids/non-candidates/below friendship 20; depth-based decay; threshold 25 fires toast+memory once; survives reload; New Game resets), committed — 2026-07-07 (v1-foundation). Delivered together with the tuning-anchor block below. Heart events ship as the toast+memory seam (`systems/heartEvents.ts`); scripted `data/heartEvents/*.ts` scenes are the v5 growth of that seam. Scripted dialogue trees remain a later block.
 
 `src/systems/relationships.ts` — **two independent numbers per NPC**
 (Friendship, Romance — per VISION #6), not one combined score.
@@ -790,7 +790,7 @@ subtle screen shake on big moments.
 ---
 
 ## Gift point values & dynamic relationship decay — tuning anchor
-- [ ] not started
+- [x] built, verified in-browser, committed — 2026-07-07 (v1-foundation). The tuned numbers (gift deltas +35/+20/+8/−10/−20, birthday ×2, weekly cap 2, depth-based decay −2/−1/−0.25 per no-contact day) live in `src/config.ts` and drive `src/systems/relationships.ts`. Delivered together with the Relationships block above.
 
 Fills the "exact point values TBD" gap in VISION #6's five-tier gifting. Our
 relationship axes run **0-100 each** (not Stardew's 2500), so gift deltas are

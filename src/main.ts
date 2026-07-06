@@ -42,7 +42,7 @@ import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory"
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
 import { loadFarm, resetFarm } from "./systems/renovation";
-import { loadCalendar, resetCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
+import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather, isRaining } from "./systems/weather";
 import { loadWorldFlags, resetWorldFlags, pruneExpired } from "./systems/worldFlags";
 import {
@@ -54,6 +54,16 @@ import {
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import { getWorldContext } from "./systems/worldContext";
+import {
+  loadRelationships, resetRelationships, decayRelationships, giveGift, applyInteraction,
+  markContact, relationshipSummary,
+} from "./systems/relationships";
+import { heartEvent } from "./systems/heartEvents";
+import { isGiftable } from "./data/traitPreferences";
+import { INTERACTIONS, interactionLine, type InteractionDef } from "./data/interactions";
+import { initGiftChooser, openGiftChooser, closeGiftChooser } from "./ui/giftchooser";
+import type { GiftRating } from "./data/traitPreferences";
+import type { ThresholdEvent } from "./systems/relationships";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
   registerBushes, registerPlots, registerAnimal, registerFlowerBeds, registerNpc,
@@ -111,6 +121,7 @@ const calendar = loadCalendar();
 const weather = loadWeather();
 const worldFlags = loadWorldFlags();
 const needs = loadNeeds();
+const relationships = loadRelationships();
 const meta = loadMeta();
 registerBushes(bushes);
 registerPlots(plots, plots, () => currentSeason(calendar));
@@ -141,6 +152,59 @@ function onTalk(npc: Npc) {
   toast(`${npc.def.name}: “${npcGreeting(npc)}”`);
   startTalking(npc);
   socialContact(needs, npc.def.id, absoluteDay(calendar));   // company feeds the Social need
+  markContact(relationships, npc.def.id, absoluteDay(calendar));   // any contact holds off decay
+}
+
+// ---- Relationship engine: gift + interaction flows (main owns economy/memory)
+
+const GIFT_REACTIONS: Record<GiftRating, (name: string) => string> = {
+  loved: (n) => `${n}'s eyes light up! ♥`,
+  liked: (n) => `${n} smiles warmly. A good gift.`,
+  neutral: (n) => `${n} accepts it politely.`,
+  disliked: (n) => `${n} seems unimpressed.`,
+  hated: (n) => `${n} grimaces — bad idea.`,
+};
+
+/** Plays a crossed heart threshold: a toast + a once-only Memory Book entry. */
+function fireHeart(npc: Npc, ev: ThresholdEvent) {
+  const h = heartEvent(npc.def, ev);
+  addMemory(memories, h.memoryKey, h.memoryText, calendar);   // once per (npc,axis,threshold)
+  toast(h.toast);
+}
+
+/** Give one held item to an NPC: refusal (weekly cap) never consumes; an
+ *  accepted gift consumes, moves Friendship by the tiered delta, reacts, and
+ *  writes the first-gift memory + any heart events. */
+function giveGiftFlow(npc: Npc, itemId: string) {
+  if (countItem(economy.inv, itemId) === 0) return;
+  const out = giveGift(relationships, npc.def, itemId, calendar);
+  if (out.kind === "refused") { toast(out.line); return; }
+  removeItem(economy.inv, itemId, 1);
+  saveEconomy(economy);
+  startTalking(npc);
+  const line = GIFT_REACTIONS[out.rating](npc.def.name);
+  toast(out.birthday ? `🎂 A birthday gift! ${line}` : line);
+  if (out.firstEver) remember("first_gift", "You gave your first gift — a small kindness offered.");
+  for (const ev of out.thresholds) fireHeart(npc, ev);
+}
+
+/** Open the gift chooser for an NPC, listing the giftable goods in the bag. */
+function openGiftFor(npc: Npc) {
+  const ids = [...new Set(
+    economy.inv.slots.filter((s) => s && isGiftable(s.id)).map((s) => s!.id))];
+  openGiftChooser(npc.def.name, ids, (id) => giveGiftFlow(npc, id));
+}
+
+/** Run a categorized social interaction: move the right axis (with per-day
+ *  diminishing returns handled in relationships.ts), face the player, and pass
+ *  a scripted line flavoured by personality. */
+function doInteraction(npc: Npc, it: InteractionDef) {
+  const res = applyInteraction(relationships, npc.def, it, calendar);
+  if (res.kind === "blocked") { toast(res.line); return; }
+  startTalking(npc);
+  socialContact(needs, npc.def.id, absoluteDay(calendar));
+  toast(`${npc.def.name}: ${interactionLine(it.category, npc.def.personality)}`);
+  for (const ev of res.thresholds) fireHeart(npc, ev);
 }
 
 // Dev-only test bridge: exposes live state so automated verification can jump
@@ -162,11 +226,34 @@ if (import.meta.env.DEV)
     sleep: sleepUntilMorning, nap: napAnHour,
     scene: () => scene, leave: () => leaveHouse(),
     give: (id: string, n = 1) => { addItem(economy.inv, id, n); saveEconomy(economy); },
+    // relationship verification bridge — drive gifts/interactions/decay without UI
+    relationships,
+    relOf: (npcId: string) => relationshipSummary(npcs.find((n) => n.def.id === npcId)!.def, relationships),
+    giftTo: (npcId: string, itemId: string) => giveGiftFlow(npcs.find((n) => n.def.id === npcId)!, itemId),
+    openGift: (npcId: string) => openGiftFor(npcs.find((n) => n.def.id === npcId)!),
+    interactWith: (npcId: string, interactionId: string) => {
+      const npc = npcs.find((n) => n.def.id === npcId)!;
+      const it = INTERACTIONS.find((i) => i.id === interactionId)!;
+      doInteraction(npc, it);
+    },
+    // the NPC's menu action ids right now (only reads c.relationships) — lets a
+    // test confirm Romantic options are hidden/shown without synthesizing clicks
+    npcActions: (npcId: string) =>
+      byId(`npc-${npcId}`)?.actions({ relationships } as unknown as InteractCtx).map((a) => a.id),
+    // fast-forward one in-game day and run the neglect-decay hook (test helper)
+    rollDay: () => {
+      const ended = absoluteDay(calendar);
+      calendar.day += 1;
+      if (calendar.day > 10) { calendar.day = 1; calendar.seasonIndex = (calendar.seasonIndex + 1) % 4; }
+      saveCalendar(calendar);
+      decayRelationships(relationships, ended, absoluteDay(calendar));
+    },
     begin: () => beginPlay(),                     // skip the title screens into live play
     newGame: () => { newGameReset(meta.starterTool as StarterTool, isGuided()); beginPlay(); },
   };
 
 initBackpack(economy, eatItem);
+initGiftChooser(economy);
 initMinimap();
 initSkillsUI(skills);
 initMemoryBook(collections, memories);
@@ -215,7 +302,7 @@ function enterHouse() {
   setCollisionScene(scene);
   player.x = ROOM_ENTRY[0]; player.y = ROOM_ENTRY[1];
   player.moving = false; player.dir = 0;     // stepping in, facing the room
-  clearMoveTarget(); closeContextMenu();
+  clearMoveTarget(); closeContextMenu(); closeGiftChooser();
   pending = null;
 }
 
@@ -225,7 +312,7 @@ function leaveHouse() {
   player.x = HOUSE_DOOR.x + HOUSE_DOOR.w / 2;
   player.y = HOUSE.y + HOUSE.h + 16;
   player.moving = false; player.dir = 2;     // stepping out, facing the yard
-  clearMoveTarget(); closeContextMenu();
+  clearMoveTarget(); closeContextMenu(); closeGiftChooser();
   pending = null;
 }
 
@@ -242,10 +329,14 @@ const npcCommentDay: Record<string, number> = {};   // needId -> absoluteDay an 
  *  the sleep/collapse skip call it, so a skipped night fires every daily hook
  *  exactly as a played-out one would (weather reroll, flag prune, crop aging). */
 function stepGameMinute(sleeping: boolean) {
+  const endedDay = absoluteDay(calendar);   // captured BEFORE the clock advances (year-wrap safe)
   if (advanceMinute(calendar)) {
     rollDailyWeather(weather, currentSeason(calendar));
     pruneExpired(worldFlags, absoluteDay(calendar));
     rollPlotsDay(plots, isRaining(weather));   // rain waters for free; dry crops bank a day toward wilting
+    // neglect decay: any NPC not contacted during the day that just ended drifts
+    // down (faster the shallower the bond); also expires a stale birthday flag
+    decayRelationships(relationships, endedDay, absoluteDay(calendar));
   }
   decayNeeds(needs, { season: currentSeason(calendar), weather: weather.kind, sleeping });
 }
@@ -396,6 +487,7 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   resetWeather(weather);
   resetWorldFlags(worldFlags);
   resetNeeds(needs);                  // a new life starts rested, fed, content
+  resetRelationships(relationships);  // a new life knows no one yet
   resetLivestock(livestock);
   cows.length = 0; hens.length = 0;   // the yard empties with the new life
   initNpcPositions(npcs, calendar, weather);   // re-snap townsfolk to fresh day-1 morning
@@ -452,12 +544,13 @@ function tick(now: number) {
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
   const ictx: InteractCtx = {
-    economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, needs, player,
+    economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, needs,
+    relationships, calendar, player,
     toast, openShop: openShopWindow, enterHouse, leaveHouse,
     sleep: sleepUntilMorning, nap: napAnHour,
     skillPopup: skillGainPopup,
     memory: remember,
-    expandFarm,
+    expandFarm, openGiftFor, doInteraction,
   };
 
   // walking away from the stall closes the trade window
@@ -642,7 +735,13 @@ function tick(now: number) {
   // and (when toggled) the dev inspector — never a second call per frame.
   // location: the player's current region (interior counts as the farm).
   const region = scene === "world" ? regionAt(player.x, player.y) : "farm";
-  const wc = getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags, needs, location: region });
+  // scope the relationship slice to the NPC in reach (if any), so the dev
+  // inspector shows "this bond, right now" the way a dialogue check would ask
+  const nearNpcId = nearReach?.id.startsWith("npc-") ? nearReach.id.slice("npc-".length) : undefined;
+  const wc = getWorldContext(
+    { economy, skills, farm, calendar, weather, flags: worldFlags, needs, relationships, location: region },
+    { npcId: nearNpcId },
+  );
   // the player's action-pose for this frame, derived from the live activity
   // flags (no separate state machine) — the rig paints whatever it reads here
   player.pose =
@@ -713,7 +812,9 @@ function draw() {
     if (n.indoors) continue;
     const tag = `npc-${n.def.id}`;
     const showLabel = hovered?.id === tag || nearReach?.id === tag;
-    ents.push({ y: n.y + 13, f: () => drawNpc(ctx, n, time, showLabel) });
+    // subtle ♥ Friendship / ⚭ Romance readout on the pill, only when labelled
+    const rel = showLabel ? relationshipSummary(n.def, relationships) : undefined;
+    ents.push({ y: n.y + 13, f: () => drawNpc(ctx, n, time, showLabel, rel) });
   }
   ents.sort((a, b) => a.y - b.y);
   for (const e of ents) e.f();

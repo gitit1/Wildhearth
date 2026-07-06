@@ -125,6 +125,31 @@ export const ACCIDENT_BATHROOM_RESET = 55;
 export const COLLAPSE_FEE = 15;            // helper's fee (VISION anchor-table scale); clamped to coins held
 export const COLLAPSE_RECOVER = 30;        // every physical need bumped to at least this on waking
 
+// ===========================================================================
+//  Relationship engine (Part A #3) — two independent axes per NPC (Friendship
+//  0-100, Romance 0-100). Every magnitude below is a tuning knob; the tuned
+//  numbers are the anchors from ROADMAP_EXPANSION's "Gift point values &
+//  dynamic relationship decay — tuning anchor" block.
+// ===========================================================================
+// 5-tier gift deltas (per gift, on a 0-100 axis).
+export const GIFT_DELTAS = { loved: 35, liked: 20, neutral: 8, disliked: -10, hated: -20 } as const;
+export const BIRTHDAY_GIFT_MULT = 2;         // a birthday gift's tier delta is doubled...
+export const GIFTS_PER_WEEK = 2;             // ...and one birthday gift is exempt from this Sun-Sat weekly cap
+export const RARE_FISH_PRICE = 8;            // a fish selling at/above this reads as a "rare" gift (trait prefs)
+export const ROMANCE_UNLOCK_FRIENDSHIP = 20; // Romantic interactions stay hidden below this Friendship
+// Depth-dependent neglect decay: per no-contact in-game day, an axis drifts down
+// FASTER when shallow, barely at all when deep (a spouse never needs "feeding").
+export const RELATIONSHIP_DECAY_LOW = 2;     // axis < 30 → -2/day
+export const RELATIONSHIP_DECAY_MID = 1;     // 30-60   → -1/day
+export const RELATIONSHIP_DECAY_HIGH = 0.25; // > 60    → -0.25/day
+export const RELATIONSHIP_DECAY_MID_FLOOR = 30;
+export const RELATIONSHIP_DECAY_HIGH_FLOOR = 60;
+// Heart-event tiers: crossing one UPWARD on either axis fires once per NPC per axis.
+export const RELATIONSHIP_THRESHOLDS = [25, 50, 75] as const;
+// Categorized-interaction diminishing returns: multiplier by prior uses of the
+// SAME category with the SAME NPC today (2nd ~half, 3rd ~a trickle, 4th+ nothing).
+export const INTERACT_DIMINISH = [1, 0.5, 0.15] as const;
+
 export const CLICK_ARRIVE = 5;          // px: close enough to a click-to-move target
 export const DRAG_THRESHOLD = 10;       // px of travel before a press is a joystick drag, not a tap
 
@@ -149,4 +174,5 @@ export const GARDEN_KEY = "wildhearth-garden-v1";    // ornamental flower beds (
 export const COLLECTIONS_KEY = "wildhearth-collections-v1"; // Memory Book: discoveries
 export const MEMORIES_KEY = "wildhearth-memories-v1";       // Memory Book: life events
 export const NEEDS_KEY = "wildhearth-needs-v1";             // 7 needs (hunger/thirst/energy/hygiene/bathroom/mood/social)
+export const RELATIONSHIPS_KEY = "wildhearth-relationships-v1"; // per-NPC Friendship/Romance (Relationship engine)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

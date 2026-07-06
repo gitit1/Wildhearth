@@ -18,7 +18,11 @@ import {
   drink, wash, useOuthouse, rest, moodPerfMult, type NeedsState,
 } from "./needs";
 import { cropBySeed } from "../data/crops";
-import type { Season } from "./calendar";
+import type { Season, CalendarState } from "./calendar";
+import { readRelationship, type Relationships } from "./relationships";
+import { INTERACTIONS, type InteractionDef } from "../data/interactions";
+import { isRomantic } from "../data/npcs";
+import { ROMANCE_UNLOCK_FRIENDSHIP } from "../config";
 import type { Cow, Hen } from "../entities/animals";
 import type { Npc } from "../entities/npc";
 import { glowEllipse, glowRect } from "../art/highlight";
@@ -42,6 +46,8 @@ export interface InteractCtx {
   farm: FarmState;
   garden: Garden;
   needs: NeedsState;
+  relationships: Relationships;
+  calendar: CalendarState;
   player: Player;
   toast: (s: string) => void;
   openShop: () => void;
@@ -52,6 +58,8 @@ export interface InteractCtx {
   skillPopup: (id: string, amount: number) => void;
   memory: (key: string, text: string) => void;   // once-only Memory Book events
   expandFarm: () => void;                        // materialize a just-bought plot tier
+  openGiftFor: (n: Npc) => void;                 // open the gift chooser for an NPC (Relationship engine)
+  doInteraction: (n: Npc, it: InteractionDef) => void;  // run a categorized social interaction
 }
 
 /** True while any timed activity is running (they are mutually exclusive). */
@@ -479,12 +487,14 @@ export function registerAnimal(kind: "cow" | "hen", a: Cow | Hen, arr: Array<Cow
 }
 
 /**
- * The 10 townsfolk are interactables: a proximity "Talk to <name>" prompt.
- * hit/reach read the NPC's LIVE position and go inert while the NPC is indoors
- * (asleep / at home). Talking is the single `onTalk` SEAM — this block shows a
- * canned personality line; the next block swaps `onTalk` for the real dialogue
- * engine without touching anything here. main.ts owns the npc list and passes
- * it in (explicit-passing, no singleton), same as animals/plots.
+ * The 10 townsfolk are interactables. Left-click / E stays "Talk" (the default
+ * action); right-click opens the full menu — Talk, Give a gift, and the
+ * categorized social interactions (Relationship engine). Romantic interactions
+ * appear only for romantic-candidate adults once Friendship >= the unlock (kids
+ * narrow `isRomantic` to false, so they never see them). hit/reach read the
+ * NPC's LIVE position and go inert while indoors. Talking is the single `onTalk`
+ * SEAM the dialogue engine will later swap in; main.ts owns the npc list and the
+ * gift/interaction callbacks (explicit-passing, no singleton).
  */
 export function registerNpc(npc: Npc, all: Npc[], onTalk: (n: Npc) => void) {
   const rx = 13, ry = 22;
@@ -500,10 +510,20 @@ export function registerNpc(npc: Npc, all: Npc[], onTalk: (n: Npc) => void) {
       return dx * dx + dy * dy <= 1;
     },
     inReach: (px, py) => live() && Math.hypot(px - npc.x, py - npc.y) < NPC_REACH,
-    actions: () => [
-      { id: "talk", label: `Talk to ${npc.def.name}`, run: () => onTalk(npc) },
-      { id: "look", label: "Look", run: (c) => c.toast(npc.def.blurb) },
-    ],
+    actions: (c) => {
+      const list: MenuAction[] = [
+        { id: "talk", label: `Talk to ${npc.def.name}`, run: () => onTalk(npc) },
+        { id: "gift", label: "Give a gift", run: (c) => c.openGiftFor(npc) },
+      ];
+      const rel = readRelationship(c.relationships, npc.def.id);
+      const romanceOk = isRomantic(npc.def) && rel.friendship >= ROMANCE_UNLOCK_FRIENDSHIP;
+      for (const it of INTERACTIONS) {
+        if (it.category === "romantic" && !romanceOk) continue;   // hidden on kids / non-candidates / below the friendship gate
+        list.push({ id: `act-${it.id}`, label: it.label, run: (c) => c.doInteraction(npc, it) });
+      }
+      list.push({ id: "look", label: "Look", run: (c) => c.toast(npc.def.blurb) });
+      return list;
+    },
     drawHover: (g, t) => glowEllipse(g, npc.x, npc.y - 14, rx + 7, ry + 4, t),
   });
 }

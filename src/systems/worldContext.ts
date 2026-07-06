@@ -5,6 +5,7 @@ import { currentSeason, currentPhase, absoluteDay, type CalendarState, type Seas
 import type { WeatherState, WeatherKind } from "./weather";
 import { activeFlagsRecord, type WorldFlags } from "./worldFlags";
 import { needsRecord, type NeedsState } from "./needs";
+import { readRelationship, type Relationships } from "./relationships";
 import type { Region } from "../world/zones";
 
 /**
@@ -27,6 +28,7 @@ export interface WorldContextSources {
   weather?: WeatherState;     // Block 4
   flags?: WorldFlags;         // Block 5
   needs?: NeedsState;         // Needs engine (Part A #2)
+  relationships?: Relationships;   // Relationship engine (Part A #3) — scoped by query.npcId
   location?: Region;          // World expansion v1: player's current region
 }
 
@@ -66,6 +68,9 @@ export interface WorldContext {
   weather?: WeatherSlice;
   flags: Record<string, boolean>;
   needs?: Record<string, number>;
+  /** Only present when the query names an npcId and a relationships source is
+   *  passed — a dialogue check wants "this NPC", not every bond at once. */
+  relationship?: { npcId: string; friendship: number; romance: number };
   location?: Region;
 }
 
@@ -75,10 +80,14 @@ export interface WorldContext {
  *  of small objects); do not add caching pre-emptively (see docs/WORLD_CONTEXT.md). */
 export function getWorldContext(
   sources: WorldContextSources,
-  _query: WorldContextQuery = {},
+  query: WorldContextQuery = {},
 ): WorldContext {
   const skillsSnapshot: Record<string, number> = {};
   for (const s of sources.skills.list) skillsSnapshot[s.id] = s.value;
+
+  const relationship = query.npcId && sources.relationships
+    ? { npcId: query.npcId, ...readRelationship(sources.relationships, query.npcId) }
+    : undefined;
 
   return {
     version: 1,
@@ -100,6 +109,7 @@ export function getWorldContext(
       : undefined,
     flags: sources.flags ? activeFlagsRecord(sources.flags, sources.calendar ? absoluteDay(sources.calendar) : 0) : {},
     needs: sources.needs ? needsRecord(sources.needs) : undefined,
+    relationship,
     location: sources.location,
   };
 }

@@ -97,6 +97,15 @@
     #shopWindow h2{margin:0 0 calc(6px*var(--s));font-size:calc(15px*var(--s));text-align:center}
     #shopClose{position:absolute;top:6px;right:8px;background:transparent;border:none;color:#f0ead6;
       font-size:calc(15px*var(--s));cursor:pointer;padding:2px 6px}
+    /* gift chooser: a small item picker reusing the shop's row/button chrome */
+    #giftChooser{--s:1;position:fixed;top:150px;left:260px;display:none;z-index:7;user-select:none;
+      background:rgba(25,32,18,.94);border:2px solid #7a5c34;border-radius:14px;
+      padding:calc(10px*var(--s)) calc(14px*var(--s));color:#f0ead6;min-width:calc(280px*var(--s))}
+    #giftChooser h2{margin:0 0 calc(6px*var(--s));font-size:calc(15px*var(--s));text-align:center}
+    #giftClose{position:absolute;top:6px;right:8px;background:transparent;border:none;color:#f0ead6;
+      font-size:calc(15px*var(--s));cursor:pointer;padding:2px 6px}
+    #giftList{display:flex;flex-direction:column;gap:calc(4px*var(--s));
+      max-height:calc(300px*var(--s));overflow-y:auto}
     .shop-head{display:flex;justify-content:center;gap:6px;font-size:calc(13px*var(--s));
       margin-bottom:calc(8px*var(--s));color:#ffd54f;font-weight:700}
     .shop-section{font-size:calc(12px*var(--s));font-weight:700;color:#cdb98a;text-transform:uppercase;
@@ -145,10 +154,10 @@
       --pill-shadow:0 3px 10px rgba(0,0,0,.4),inset 0 0 0 1px var(--hairline);
     }
     /* floating windows share one chrome */
-    #backpack,#skillsPanel,#memoryPanel,#shopWindow{
+    #backpack,#skillsPanel,#memoryPanel,#shopWindow,#giftChooser{
       background:var(--panel-bg);border:2px solid var(--wood);border-radius:var(--r);
       box-shadow:var(--float-shadow)}
-    #backpack h2,#skillsPanel h2,#memoryPanel h2,#shopWindow h2{
+    #backpack h2,#skillsPanel h2,#memoryPanel h2,#shopWindow h2,#giftChooser h2{
       color:var(--gold);letter-spacing:.05em;
       border-bottom:1px solid var(--hairline);padding-bottom:calc(5px*var(--s))}
     #minimapBox{border:2px solid var(--wood);border-radius:12px;box-shadow:var(--float-shadow)}
@@ -245,6 +254,11 @@
     <div id="shopSell"></div>
     <div class="shop-section">Buy</div>
     <div id="shopBuy"></div>
+  </div>
+  <div id="giftChooser">
+    <h2>🎁 <span id="giftTitle">Give a gift</span></h2>
+    <button id="giftClose" title="Close (Esc)">✕</button>
+    <div id="giftList"></div>
   </div>
   <div id="tools">
     <button class="tool-btn" id="mapBtn" title="Map (M)">🗺️</button>
