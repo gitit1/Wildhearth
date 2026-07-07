@@ -32,7 +32,7 @@
       background:rgba(25,32,18,.85);color:#f0ead6;font-size:22px;font-weight:700;line-height:1;
       display:flex;align-items:center;justify-content:center;padding:0}
     #tools{position:fixed;bottom:14px;right:10px;width:284px;display:flex;flex-direction:row;
-      justify-content:center;gap:10px;z-index:6}
+      flex-wrap:wrap;justify-content:center;gap:10px;z-index:6}
     .tool-btn{width:52px;height:52px;border-radius:14px;border:2px solid #7a5c34;cursor:pointer;
       background:rgba(25,32,18,.85);color:#f0ead6;font-size:24px;line-height:1;
       display:flex;align-items:center;justify-content:center;padding:0}
@@ -395,6 +395,76 @@
     .credits-head{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
       color:var(--gold);margin-bottom:2px}
     .credits-line{font-size:15px;line-height:1.5;margin:0;opacity:.94}
+    /* ============ Settings screen (Part E #3) ============ */
+    .set-section{margin-bottom:18px}
+    .set-section-title{font-size:15px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+      color:var(--gold);border-bottom:1px solid var(--hairline);padding-bottom:6px;margin-bottom:8px}
+    .set-note{font-size:12px;color:var(--muted);font-style:italic;margin-bottom:8px}
+    .set-row{display:flex;align-items:flex-start;gap:14px;padding:7px 0}
+    .set-row-block{flex-direction:column;align-items:stretch;gap:6px}
+    .set-row-check{padding:5px 0}
+    .set-label{flex:0 0 190px;font-size:14px;font-weight:700;padding-top:3px}
+    .set-row-block>.set-label{flex:none;padding-top:0;margin-bottom:2px}
+    .set-control{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+    .set-rownote,.set-checknote{font-size:11.5px;color:var(--muted)}
+    .set-seg{display:inline-flex;gap:4px;flex-wrap:wrap}
+    .set-seg-btn{background:var(--cell-bg);border:1px solid var(--cell-edge);border-radius:8px;
+      color:var(--ink);font:inherit;font-size:13px;font-weight:700;padding:6px 14px;cursor:pointer}
+    .set-seg-btn:hover:not(:disabled){border-color:var(--gold-soft)}
+    .set-seg-btn.sel{background:rgba(230,190,80,.9);color:#241d0e;border-color:#b8912f}
+    .set-seg-btn:disabled{opacity:.4;cursor:not-allowed}
+    .set-check{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:14px;font-weight:700}
+    .set-check input{width:18px;height:18px;accent-color:#e8c34f;cursor:pointer;flex:none}
+    .set-check .set-checknote{margin-left:6px;font-weight:400}
+    .set-check.set-disabled{opacity:.45;cursor:default}
+    .set-slider-wrap{display:flex;align-items:center;gap:12px}
+    .set-slider{flex:1;min-width:120px;max-width:280px;accent-color:#e8c34f;cursor:pointer}
+    .set-value{font-size:13px;font-weight:800;color:var(--gold);min-width:78px;
+      font-variant-numeric:tabular-nums}
+    .set-input{background:var(--cell-bg);border:1px solid var(--cell-edge);border-radius:8px;
+      color:var(--ink);font:inherit;font-size:14px;padding:8px 10px}
+    .set-input:focus{outline:none;border-color:var(--gold-soft)}
+    .set-key-wrap{display:flex;gap:6px;align-items:center}
+    .set-key{flex:1;min-width:160px}
+    .set-budget{width:150px}
+    .set-eye{flex:none;background:var(--cell-bg);border:1px solid var(--cell-edge);border-radius:8px;
+      color:var(--ink);font-size:15px;padding:7px 11px;cursor:pointer;line-height:1}
+    .set-eye:hover{border-color:var(--gold-soft)}
+    .set-ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 18px}
+    .set-btn{background:rgba(230,190,80,.92);border:2px solid #b8912f;border-radius:9px;color:#241d0e;
+      font:inherit;font-size:13px;font-weight:800;padding:7px 16px;cursor:pointer}
+    .set-btn:hover:not(:disabled){background:#f2cf6b}
+    .set-btn:disabled{opacity:.42;cursor:not-allowed;filter:grayscale(.3)}
+    .set-btn-danger{background:rgba(180,64,50,.9);border-color:#7a2b22;color:#ffe6e0}
+    .set-btn-danger:hover:not(:disabled){background:#c94f3a}
+    .set-feedback{margin-left:12px;font-size:13px;font-weight:800;color:#9fe36a}
+    .set-inline{display:flex;align-items:center}
+    .set-slot{font-size:13px;color:var(--ink);opacity:.92}
+    .set-select{background:var(--cell-bg);border:1px solid var(--cell-edge);border-radius:8px;
+      color:var(--ink);font:inherit;font-size:14px;padding:7px 10px;cursor:pointer}
+    .set-select:disabled{opacity:.55;cursor:not-allowed}
+    /* ============ Accessibility: font scale + high contrast (Part E #3) ======= */
+    :root{--ui-fs:1}
+    :root.font-large{--ui-fs:1.18}
+    .menu-btn{font-size:calc(var(--ui-fs,1)*16px)}
+    .menu-text{font-size:calc(var(--ui-fs,1)*15px)}
+    .screen-title{font-size:calc(var(--ui-fs,1)*26px)}
+    .wn-title{font-size:calc(var(--ui-fs,1)*16px)}
+    .wn-sum{font-size:calc(var(--ui-fs,1)*14px)}
+    .help-intro{font-size:calc(var(--ui-fs,1)*15px)}
+    .help-points li{font-size:calc(var(--ui-fs,1)*14px)}
+    #dlgText{font-size:calc(var(--ui-fs,1)*15px)}
+    .set-label,.set-check{font-size:calc(var(--ui-fs,1)*14px)}
+    .set-section-title{font-size:calc(var(--ui-fs,1)*15px)}
+    .set-seg-btn{font-size:calc(var(--ui-fs,1)*13px)}
+    :root.high-contrast{
+      --ink:#ffffff; --gold:#ffe27a; --gold-soft:#ffd75a; --muted:#efe4c8;
+      --wood:#caa25e; --hairline:rgba(255,226,122,.65);
+      --cell-bg:rgba(255,255,255,.16); --cell-edge:rgba(255,255,255,.6);
+      --panel-bg:linear-gradient(180deg,#1c2413,#0d1207);
+    }
+    :root.high-contrast .menu-btn,:root.high-contrast .set-btn,:root.high-contrast .screen-back{border-width:2.5px}
+    :root.high-contrast .set-note,:root.high-contrast .wn-meta,:root.high-contrast .menu-sub{opacity:1}
   </style>
 </head>
 <body>
@@ -486,6 +556,7 @@
     <button class="tool-btn" id="bookBtn" title="Memory Book (B)">📖</button>
     <button class="tool-btn" id="bagBtn" title="Backpack (I)">🎒</button>
     <button class="tool-btn" id="saveBtn" title="Save game">💾</button>
+    <button class="tool-btn" id="settingsBtn" title="Settings">⚙️</button>
   </div>
   <canvas id="needsStrip"></canvas>
   <div id="fade"></div>

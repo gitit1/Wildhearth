@@ -17,6 +17,10 @@ export type EndOfDaySummary = "none" | "quick" | "full";
 /** Guidance Mode (Part A #5). */
 export type Guidance = "tutorial" | "aspiration" | "none";
 
+/** Interface accessibility knobs (Settings screen, Part E #3). */
+export type FontSize = "normal" | "large";
+export type Colorblind = "default" | "deuteranopia" | "protanopia";
+
 export interface Settings {
   version: number; guidance: Guidance; dayLengthSeconds: number;
   endOfDaySummary: EndOfDaySummary;
@@ -24,6 +28,17 @@ export interface Settings {
    *  newer entries can be tagged NEW and the menu can badge unseen updates.
    *  0 (or absent) = nothing seen yet. */
   lastSeenChangelogId: number;
+  // ---- Interface (Settings screen) ----
+  hudNeeds: boolean;        // show the always-on needs strip
+  hudMinimap: boolean;      // show the minimap
+  hudClock: boolean;        // show the HUD clock dial
+  fontSize: FontSize;       // UI text scale (a CSS :root class)
+  highContrast: boolean;    // stronger text/border contrast (a CSS :root class)
+  colorblind: Colorblind;   // stored only in v1 — palette hook (see ui/uiPrefs.ts)
+  // ---- Audio (stored but inert until the game has sound) ----
+  volMusic: number;         // 0-100
+  volSfx: number;           // 0-100
+  volAmbient: number;       // 0-100
 }
 
 function isEodMode(v: unknown): v is EndOfDaySummary {
@@ -32,12 +47,23 @@ function isEodMode(v: unknown): v is EndOfDaySummary {
 function isGuidance(v: unknown): v is Guidance {
   return v === "tutorial" || v === "aspiration" || v === "none";
 }
+function isFontSize(v: unknown): v is FontSize { return v === "normal" || v === "large"; }
+function isColorblind(v: unknown): v is Colorblind {
+  return v === "default" || v === "deuteranopia" || v === "protanopia";
+}
+const vol = (v: unknown, d: number): number =>
+  typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : d;
+
+const SETTINGS_VERSION = 2;
 
 // dayLengthSeconds = real seconds for one full in-game day. Default 1440
 // (24 real minutes/day) matches the pace before the setting existed.
 const DEFAULTS: Settings = {
-  version: 1, guidance: "none", dayLengthSeconds: 1440, endOfDaySummary: "quick",
+  version: SETTINGS_VERSION, guidance: "none", dayLengthSeconds: 1440, endOfDaySummary: "quick",
   lastSeenChangelogId: 0,
+  hudNeeds: true, hudMinimap: true, hudClock: true,
+  fontSize: "normal", highContrast: false, colorblind: "default",
+  volMusic: 70, volSfx: 70, volAmbient: 60,
 };
 let cached: Settings | null = null;
 
@@ -48,10 +74,21 @@ export function loadSettings(): Settings {
     const parsed: unknown = raw ? JSON.parse(raw) : null;
     // tolerate junk / a bare value: only merge a real object over the defaults
     const p = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-    const merged: Settings = { ...DEFAULTS, ...(p as Partial<Settings>), version: 1 };
+    // v1 → v2 migration is additive: the merge fills every new field from
+    // DEFAULTS, and each enum/number field below is re-validated against junk.
+    const merged: Settings = { ...DEFAULTS, ...(p as Partial<Settings>), version: SETTINGS_VERSION };
     if (!isEodMode(merged.endOfDaySummary)) merged.endOfDaySummary = DEFAULTS.endOfDaySummary;
     if (typeof merged.lastSeenChangelogId !== "number" || !Number.isFinite(merged.lastSeenChangelogId))
       merged.lastSeenChangelogId = 0;
+    if (!isFontSize(merged.fontSize)) merged.fontSize = DEFAULTS.fontSize;
+    if (!isColorblind(merged.colorblind)) merged.colorblind = DEFAULTS.colorblind;
+    merged.hudNeeds = merged.hudNeeds !== false;
+    merged.hudMinimap = merged.hudMinimap !== false;
+    merged.hudClock = merged.hudClock !== false;
+    merged.highContrast = merged.highContrast === true;
+    merged.volMusic = vol(merged.volMusic, DEFAULTS.volMusic);
+    merged.volSfx = vol(merged.volSfx, DEFAULTS.volSfx);
+    merged.volAmbient = vol(merged.volAmbient, DEFAULTS.volAmbient);
     if (!isGuidance(merged.guidance)) {
       // migrate the legacy boolean `guided`: guided → gentle Aspiration (safe to
       // enable on an existing save — non-modal), open → None. Never revives a

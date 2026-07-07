@@ -103,7 +103,8 @@ import {
 } from "./ui/shopwindow";
 import { hideOpening } from "./ui/titlescreen";
 import { showMainMenu, showFarewell } from "./ui/mainmenu";
-import { screenShell } from "./ui/screen";
+import { showSettings } from "./ui/settingsscreen";
+import { applyGlobalPrefs, applyHudPrefs } from "./ui/uiPrefs";
 import { showIntro, showReveal } from "./ui/intro";
 import { showPathAndGoal } from "./ui/newgame";
 import { showCharacterCreation } from "./ui/charcreation";
@@ -111,7 +112,7 @@ import { STARTER_FOOD, pathById } from "./data/paths";
 import { lifeGoalAspirationLine } from "./data/guidance";
 import {
   loadGuidance, saveGuidance, resetGuidance, startTutorial, startAspiration, markLeftTutorial,
-  tutorialInProgress, notifyGuidance, tickGuidanceCoins, currentTutorialStep, currentAspiration,
+  tutorialInProgress, tutorialAvailable, notifyGuidance, tickGuidanceCoins, currentTutorialStep, currentAspiration,
   type GuidanceEvent, type GuidanceResult,
 } from "./systems/guidance";
 import {
@@ -526,6 +527,7 @@ function onNpcSale(npcId: string) {
 
 // ---- opening sequence (title -> creation -> intro -> reveal -> path -> guidance) ----
 let openingActive = true;
+let menuOpen = false;  // an in-game top-level menu (Settings/Pause/Exit) is open — pauses time
 let minuteAccum = 0;   // real seconds banked toward the next in-game minute
 let timeSkipping = false;   // true during a sleep/collapse fade — world time PAUSES (never teleports)
 let lastDist = player.dist; // player travel last frame, for charging walking energy
@@ -916,15 +918,46 @@ function startNewGameFlow() {
       }))));
 }
 
-/** Placeholder Settings screen (Commit 1). Commit 2 replaces this with the real
- *  settingsscreen.ts wiring. */
-function openSettingsFromMenu() {
-  const { body } = screenShell("Settings", openMainMenu);
-  const p = document.createElement("p");
-  p.className = "menu-text";
-  p.textContent = "Settings are arriving in the next update.";
-  body.append(p);
+/** Wipe the saved game and return to a fresh title screen. A reload guarantees
+ *  a clean teardown of the in-memory play session (no dangling stores/loops). */
+function deleteSaveToTitle() {
+  clearSavedGame();
+  location.reload();
 }
+
+/** Settings from the title menu — returns to the menu, no play session to pause. */
+function openSettingsFromMenu() {
+  showSettings({
+    onBack: openMainMenu,
+    onSaveNow: manualSave,
+    onDeleteSave: deleteSaveToTitle,
+    slot: loadSlot(),
+    hasSave: hasSavedGame(),
+    tutorialAvailable: tutorialAvailable(guidance),
+    inGame: false,
+  });
+}
+
+/** Settings from the ⚙ HUD button in-game — pauses game-time (like dialogue)
+ *  while it's open, and drains any queued world input on close. */
+function openSettingsInGame() {
+  if (openingActive) return;      // the menu/creation overlays own their own flow
+  menuOpen = true;
+  showSettings({
+    onBack: () => {
+      menuOpen = false;
+      hideOpening();
+      consumeAction(); consumeLeftClick(); consumeRightClick();
+    },
+    onSaveNow: manualSave,
+    onDeleteSave: deleteSaveToTitle,
+    slot: loadSlot(),
+    hasSave: hasSavedGame(),
+    tutorialAvailable: tutorialAvailable(guidance),
+    inGame: true,
+  });
+}
+document.getElementById("settingsBtn")!.addEventListener("click", openSettingsInGame);
 
 /** The boot title screen (and the screen returned to from its sub-screens). */
 function openMainMenu() {
@@ -933,10 +966,16 @@ function openMainMenu() {
     slot: loadSlot(),
     onContinue: continueGame,
     onNewGame: startNewGameFlow,
-    onSettings: openSettingsFromMenu,   // Commit 2 → real Settings screen
+    onSettings: openSettingsFromMenu,
     onExit: showFarewell,               // Commit 3 → the exit dialog first
   });
 }
+
+// apply the persisted Interface preferences (font scale / contrast / colorblind
+// hook, and which HUD widgets show) once at boot; the Settings screen re-applies
+// them live on change.
+applyGlobalPrefs();
+applyHudPrefs();
 
 openMainMenu();
 
@@ -956,7 +995,7 @@ function tick(now: number) {
   // auto-pause: a conversation OR the full end-of-day panel freezes game-time
   // AND the townsfolk (they're "in conversation" / the day is officially over)
   // — the same gating pattern the title screen uses below.
-  const timePaused = isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen();
+  const timePaused = isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen() || menuOpen;
   if (!timePaused) updateNpcs(npcs, calendar, weather, player, dt);
 
   if (!openingActive && !timePaused) {

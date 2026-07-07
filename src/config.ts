@@ -178,6 +178,16 @@ export const CAM_USER_ZOOM_STEP = 0.15; // ...changed by this much per wheel not
 // ===========================================================================
 export const AUTOSAVE_SECONDS = 600;    // 10 real minutes between autosaves (DECISIONS: "Save")
 
+// Settings screen (Part E #3) — the Day-length slider maps real MINUTES/day in
+// this range onto dayLengthSeconds (minutes × 60). Default 24 min = 1440s.
+export const DAY_LENGTH_MIN_MIN = 8;
+export const DAY_LENGTH_MAX_MIN = 48;
+// AI companion settings (Part E #3 / AI_ARCHITECTURE) — its OWN versioned key,
+// deliberately NOT in saves.ts's GAME_KEYS: the AI config (BYOK, budget,
+// per-feature toggles) is a durable preference that survives a New Game.
+export const AI_SETTINGS_KEY = "wildhearth-ai-v1";
+export const AI_TOKEN_BUDGET_DEFAULT = 200000;   // monthly token cap default
+
 // ===========================================================================
 //  Guidance Mode engine (Part A #5) — Tutorial / Aspiration / None. Tutorial
 //  freezes the in-game clock while a step bubble is up (DECISIONS). All content

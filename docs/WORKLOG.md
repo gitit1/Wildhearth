@@ -42,6 +42,87 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Settings screen — time, gameplay, interface, audio, AI, saves
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part E #3, second of three commits. A full Settings screen
+  reachable from the title AND in-game (⚙ HUD button, pausing time like
+  dialogue): Time (day-length slider), Gameplay (end-of-day summary + guidance,
+  respecting the one-way tutorial rule), Interface (HUD widget toggles, font
+  size, high contrast, colorblind hook), Audio (stored-but-inert sliders), AI
+  companion (the settings surface for the coming AI layer — master toggle, BYOK
+  key, budget, 8 per-feature toggles, disabled Test connection), and Save
+  management (save now / double-confirm delete / slot glance / locked language).
+  Everything persists immediately; live-applying where possible.
+- **Done:**
+  - **Files:**
+    - `src/ui/settingsscreen.ts` (NEW): `showSettings(ctx)` on the shared
+      `screenShell`. Builders for slider/segmented/checkbox/select/volume rows.
+      Day-length slider maps 8-48 real min/day → `dayLengthSeconds`; EOD +
+      guidance segmented (Tutorial disabled + tooltipped when
+      `tutorialAvailable` is false); Interface toggles call `applyHudPrefs()` /
+      `applyGlobalPrefs()` live; Audio sliders write inert volumes under an
+      honest "(no sound yet)" note; the AI block reads/writes `aiSettings.ts`
+      (masked key + show/hide eye, number budget, 8 checkboxes greyed until the
+      master is on, disabled Test connection tooltip "arrives with the AI
+      layer"); Save block shows the slot manifest, Save now (with a "Saved ✓"
+      flash), a two-modal `menuConfirm` double-confirm Delete, and a locked
+      English `<select>`.
+    - `src/systems/aiSettings.ts` (NEW): its OWN versioned key
+      `wildhearth-ai-v1`, deliberately NOT in saves.ts's GAME_KEYS (survives New
+      Game). `AiSettings` { enabled(false), apiKey(""), monthlyTokenBudget,
+      features:Record<8,boolean> }, `AI_FEATURES` (the eight Part-D use cases),
+      tolerant `loadAiSettings`/`saveAiSettings`/`setAiFeature`.
+    - `src/ui/uiPrefs.ts` (NEW): `applyGlobalPrefs()` (stamps <html> with
+      `font-large` / `high-contrast` classes + a `data-cb` colorblind attribute
+      — the single future palette attachment point) and `applyHudPrefs()`
+      (shows/hides #needsStrip / #minimapBox / #clockDial). Both read settings.ts.
+    - `src/systems/settings.ts` (EXTENDED, v1→v2): new `hudNeeds`/`hudMinimap`/
+      `hudClock`, `fontSize`, `highContrast`, `colorblind`, `volMusic`/`volSfx`/
+      `volAmbient` fields with validators; additive migration (merge fills
+      defaults). `FontSize`/`Colorblind` types.
+    - `src/config.ts`: `DAY_LENGTH_MIN_MIN`(8)/`DAY_LENGTH_MAX_MIN`(48),
+      `AI_SETTINGS_KEY`, `AI_TOKEN_BUDGET_DEFAULT`(200000).
+    - `src/main.ts`: real `openSettingsFromMenu` (replaces the commit-1
+      placeholder — `screenShell` import dropped) and `openSettingsInGame`
+      (sets a new `menuOpen` flag → included in `timePaused`, drains queued
+      input on close); `deleteSaveToTitle` (clearSavedGame + `location.reload()`
+      for a guaranteed-clean teardown); the ⚙ `#settingsBtn` wired;
+      `applyGlobalPrefs()` + `applyHudPrefs()` run once at boot.
+    - `index.html`: the ⚙ `#settingsBtn` in the tools row (now `flex-wrap`);
+      a Settings-screen CSS block (sections/rows/segmented/checkbox/slider/AI
+      grid/danger button) + the accessibility block (`:root{--ui-fs}` font
+      scale on key text, `:root.high-contrast` token overrides).
+  - **Systems / functions:** new persistent key `wildhearth-ai-v1` (NOT game
+    state); settings key bumped to v2 (additive). Live gate: `menuOpen` joins
+    the `timePaused` set so in-game Settings freezes the clock + townsfolk.
+  - **Behavior:** the ⚙ button (and the title menu's Settings) opens the screen;
+    in-game it pauses time until closed. Day length changes the clock's pace on
+    the spot; the summary/guidance choices apply live (Tutorial can't be picked
+    once left); HUD toggles hide/show their widgets immediately; Large font and
+    High contrast visibly restyle the UI and survive reloads; the AI key is
+    masked with a reveal eye and stored only locally; Delete asks twice, then
+    wipes the save and boots to a fresh title with Continue disabled. Every
+    control persists the instant it changes and comes back after a reload.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright (26/26): Settings opens from the title;
+  a spread of changes (needs-strip off, Large font, High contrast, Full summary,
+  Aspiration, day length → 8, AI key + budget) all persist to localStorage and
+  come back after a reload; `font-large`/`high-contrast` classes apply live and
+  re-apply at boot; the AI key is `password` then `text` after the eye; in play
+  the needs strip is hidden, the clock advances ~7 in-game min in 2.2s at 8
+  min/day (proving the slider changes clock speed), and opening in-game Settings
+  freezes the clock (368→368) then resumes; Delete double-confirms then reloads
+  to a title with Continue disabled and the save key gone; zero page/console
+  errors. Reviewed screenshots confirm clean section layout (incl. a fixed
+  flex-basis bug that had ballooned the "AI features" label height).
+- **Commit:** `<fill>` — Settings screen — time, gameplay, interface, audio, AI, saves
+- **Follow-ups:** Audio + colorblind are honestly inert in v1 (stored, labeled
+  "coming soon"/"no sound yet"); the AI Test-connection + feature calls light up
+  with the AI layer (next block) reading `aiSettings.ts`. Font scale is applied
+  to the menu/screen/dialogue/settings text surfaces (the readable UI), not
+  every px in the in-world HUD. Pause + the Exit dialog + Return-to-menu are
+  commit 3.
+
 ## Main menu — painted vista, logo, What's New, Help, Credits
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part E #1-5, first of three commits. Replace the plain title
