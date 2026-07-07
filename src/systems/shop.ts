@@ -5,6 +5,7 @@ import { saveEconomy, type Economy } from "./economy";
 import { saveLivestock, type Livestock } from "./livestock";
 import type { FarmState } from "./renovation";
 import type { Season } from "./calendar";
+import type { StallDef } from "../world/zones";
 
 /**
  * The stall's buy side: a small fixed price list. Buying removes coins and
@@ -53,6 +54,26 @@ export function tryBuy(e: Economy, entry: ShopEntry, hagglingSkill = 0): BuyResu
   saveEconomy(e);
   return "ok";
 }
+
+/**
+ * NPC stalls of matching specialty (DECISIONS "Selling paths" #2) — a small,
+ * data-driven table of {stall, npc, category} rows. Maren's fish stall is the
+ * only ACTIVE row in v1; adding Tobin's produce stall later (once a `farming`
+ * SellCategory exists) is one more row here, not new dispatch code.
+ */
+export interface NpcStallTrade {
+  npcId: string;              // whose presence (schedule.ts's "atWork") gates the window
+  stallSign: StallDef["sign"];// which MARKET_STALLS entry the trade sits on
+  categoryId: string;         // the SellCategory (sellCategories.ts) this stall buys
+  closedLine: string;         // shown (as prompt + toast) when the npc isn't manning the stall
+}
+
+export const NPC_STALL_TRADES: NpcStallTrade[] = [
+  {
+    npcId: "maren", stallSign: "fish", categoryId: "fishing",
+    closedLine: "Maren's off today — the market square misses her.",
+  },
+];
 
 export type LivestockBuyResult = "ok" | "no-coins" | "no-barn" | "owned";
 

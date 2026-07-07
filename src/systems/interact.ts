@@ -1,6 +1,6 @@
 import {
   POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
-  FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot,
+  FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot, type StallDef,
 } from "../world/zones";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
 import { nearPond, nearRect } from "../world/collision";
@@ -27,6 +27,8 @@ import type { Cow, Hen } from "../entities/animals";
 import type { Npc } from "../entities/npc";
 import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
+import { NPC_STALL_TRADES, type NpcStallTrade } from "./shop";
+import { categoryById } from "./sellCategories";
 
 /**
  * Registry of clickable world objects (UO-style). Each knows how to be
@@ -60,6 +62,7 @@ export interface InteractCtx {
   expandFarm: () => void;                        // materialize a just-bought plot tier
   openGiftFor: (n: Npc) => void;                 // open the gift chooser for an NPC (Relationship engine)
   doInteraction: (n: Npc, it: InteractionDef) => void;  // run a categorized social interaction
+  openNpcTrade: (trade: NpcStallTrade) => void;   // opens the sell-only window for an NPC-specialty stall
 }
 
 /** True while any timed activity is running (they are mutually exclusive). */
@@ -155,13 +158,18 @@ const STALL_LOOK: Record<string, string> = {
   goods: "A general-goods stall — crates and oddments. No trader here yet.",
   empty: "An empty stall, awning faded. Available, if anyone wanted it.",
 };
-const marketStalls: Interactable[] = MARKET_STALLS.map((s, i) =>
-  lookProp(
-    `mstall-${i}`, "Market stall",
-    { x: s.x - 6, y: s.y - s.h * 0.4, w: s.w + 12, h: s.h * 1.45 },
-    [s.x + s.w / 2, s.y + s.h + 22], s,
-    STALL_LOOK[s.sign]!,
-  ));
+// Stalls with a live NPC-stall trade (Maren's fish stall) get their own
+// interactive registration below instead of this decorative Look-only prop.
+const npcTradeSigns = new Set(NPC_STALL_TRADES.map((t) => t.stallSign));
+const marketStalls: Interactable[] = MARKET_STALLS
+  .filter((s) => !npcTradeSigns.has(s.sign))
+  .map((s, i) =>
+    lookProp(
+      `mstall-${i}`, "Market stall",
+      { x: s.x - 6, y: s.y - s.h * 0.4, w: s.w + 12, h: s.h * 1.45 },
+      [s.x + s.w / 2, s.y + s.h + 22], s,
+      STALL_LOOK[s.sign]!,
+    ));
 const cottages: Interactable[] = COTTAGES.map((c, i) =>
   lookProp(
     `cottage-${i}`, "Cottage",
@@ -525,6 +533,42 @@ export function registerNpc(npc: Npc, all: Npc[], onTalk: (n: Npc) => void) {
       return list;
     },
     drawHover: (g, t) => glowEllipse(g, npc.x, npc.y - 14, rx + 7, ry + 4, t),
+  });
+}
+
+/**
+ * An NPC-specialty stall (Maren's fish stall, and future produce/etc. rows in
+ * `NPC_STALL_TRADES`) — the counter is the interactable (works whether the
+ * player clicks the stall or the NPC standing at it), gated live on the NPC's
+ * schedule state: manning it ("atWork") opens the sell-only window, anything
+ * else (closed day, off hours, festival) shows the trade's closed line as
+ * both the reach prompt and the click's toast, and no window opens.
+ */
+export function registerNpcStall(trade: NpcStallTrade, npc: Npc, stallDef: StallDef) {
+  const box = { x: stallDef.x - 6, y: stallDef.y - stallDef.h * 0.4, w: stallDef.w + 12, h: stallDef.h * 1.45 };
+  const label = categoryById(trade.categoryId)?.label ?? "goods";
+  INTERACTABLES.push({
+    id: `npc-stall-${trade.npcId}`,
+    name: `${npc.def.name}'s stall`,
+    anchor: [stallDef.x + stallDef.w / 2, stallDef.y + stallDef.h + 22],
+    defaultActionId: "trade",
+    hit: (wx, wy) => wx >= box.x && wx <= box.x + box.w && wy >= box.y && wy <= box.y + box.h,
+    inReach: (px, py) => nearRect(px, py, stallDef),
+    actions: () => {
+      const present = npc.state === "atWork";
+      return [
+        present
+          ? { id: "trade", label: `Trade with ${npc.def.name}`, run: (c) => c.openNpcTrade(trade) }
+          : { id: "trade", label: trade.closedLine, run: (c) => c.toast(trade.closedLine) },
+        {
+          id: "look", label: "Look",
+          run: (c) => c.toast(present
+            ? `${npc.def.name}'s stall — buys ${label} here, table prices.`
+            : `${npc.def.name}'s stall. Quiet — not tended right now.`),
+        },
+      ];
+    },
+    drawHover: (g, t) => glowRect(g, box.x - 2, box.y - 2, box.w + 4, box.h + 4, t),
   });
 }
 

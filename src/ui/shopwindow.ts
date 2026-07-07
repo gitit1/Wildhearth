@@ -8,6 +8,7 @@ import type { Season } from "../systems/calendar";
 import { drawItemIcon } from "../art/icons";
 import { makePanel } from "./panels";
 import { skillGainPopup } from "./skills";
+import { categoryItemIds, categoryById } from "../systems/sellCategories";
 
 /**
  * The market trade window (UO vendor gump): opens when you interact with
@@ -19,10 +20,18 @@ import { skillGainPopup } from "./skills";
 const ICON_PX = 26;
 
 let panel: HTMLElement;
+let titleEl: HTMLElement;
 let sellList: HTMLElement;
 let buyList: HTMLElement;
+let buyLabelEl: HTMLElement;
 let coinsEl: HTMLElement;
 let open = false;
+
+/** "player" = the farm stall (sell everything + buy stock). "npc" = a single
+ *  NPC-specialty stall (Maren's fish stall, and future produce/etc. stalls):
+ *  one sell category, no buy side, its own title. */
+type SellMode = { kind: "player" } | { kind: "npc"; npcName: string; categoryId: string; onSale: () => void };
+let mode: SellMode = { kind: "player" };
 let eco: Economy;
 let sk: Skills;
 let farmSt: FarmState;
@@ -57,8 +66,10 @@ export function initShopWindow(
   logSaleFn = logSale;
   logPurchaseFn = logPurchase;
   panel = document.getElementById("shopWindow")!;
+  titleEl = document.getElementById("shopTitle")!;
   sellList = document.getElementById("shopSell")!;
   buyList = document.getElementById("shopBuy")!;
+  buyLabelEl = document.getElementById("shopBuyLabel")!;
   coinsEl = document.getElementById("shopCoins")!;
   document.getElementById("shopClose")!.addEventListener("click", closeShopWindow);
 
@@ -78,6 +89,23 @@ export function initShopWindow(
 export function isShopOpen(): boolean { return open; }
 
 export function openShopWindow() {
+  mode = { kind: "player" };
+  open = true;
+  render();
+  panel.style.display = "block";
+}
+
+/**
+ * Opens the same trade window in sell-only mode for an NPC-specialty stall
+ * (Maren's fish stall, and future produce/etc. stalls) — parameterizes the
+ * existing machinery rather than forking it: one sell category (no buy side),
+ * its own title. `onSale` fires after every successful sell (a single item or
+ * "Sell all <category>"); the caller decides whether that's a "first sale"
+ * worth a reaction, mirroring how the player-stall path always calls its own
+ * first-sale memory hook regardless of whether it's actually the first time.
+ */
+export function openNpcStallWindow(npcName: string, categoryId: string, onSale: () => void) {
+  mode = { kind: "npc", npcName, categoryId, onSale };
   open = true;
   render();
   panel.style.display = "block";
@@ -115,14 +143,23 @@ function stepper(get: () => number, set: (n: number) => void, max: () => number)
 
 function render() {
   coinsEl.textContent = String(eco.coins);
+  const npc = mode.kind === "npc" ? mode : null;
+  titleEl.textContent = npc ? `🐟 ${npc.npcName}'s stall` : "🛒 Market stall";
+  buyLabelEl.style.display = npc ? "none" : "";
+  buyList.style.display = npc ? "none" : "";
 
-  // ----- sell side (path/category-aware: only goods this player can sell) -----
+  // ----- sell side -----
+  // player mode: path/category-aware union of everything this player can sell.
+  // npc mode: ONLY the one category this stall buys, regardless of the
+  // player's own capability gate (Maren buys fish whether or not you're a
+  // "fishing path" player) — looked up straight from sellCategories.ts, never
+  // a hand-listed id set.
   sellList.replaceChildren();
-  const goods = sellableIds().filter((id) => goodCount(eco, id) > 0);
+  const goods = (npc ? categoryItemIds(npc.categoryId) : sellableIds()).filter((id) => goodCount(eco, id) > 0);
   if (goods.length === 0) {
     const empty = document.createElement("div");
     empty.className = "shop-empty";
-    empty.textContent = "Nothing in your bag the stall wants.";
+    empty.textContent = npc ? `Nothing in your bag ${npc.npcName} wants.` : "Nothing in your bag the stall wants.";
     sellList.append(empty);
   }
   for (const id of goods) {
@@ -146,8 +183,8 @@ function render() {
       const earned = sellGood(eco, id, q);
       if (earned > 0) {
         toastFn(`Sold ${q} ${(ITEM_NAMES[id] ?? id).toLowerCase()} for ${earned} coins!`);
-        memoryFn("first_sale", "Your first sale at the stall.");
         logSaleFn(earned, q);
+        if (npc) npc.onSale(); else memoryFn("first_sale", "Your first sale at the stall.");
       }
       sellQty.delete(id);
       render();
@@ -158,7 +195,7 @@ function render() {
   if (goods.length > 1) {
     const all = document.createElement("button");
     all.className = "shop-btn shop-sellall";
-    all.textContent = "Sell everything";
+    all.textContent = npc ? `Sell all ${categoryById(npc.categoryId)?.label ?? "goods"}` : "Sell everything";
     all.addEventListener("click", () => {
       // sell everything THE STALL SHOWS — hidden-category goods stay in the bag
       let earned = 0, units = 0;
@@ -170,8 +207,8 @@ function render() {
       }
       if (earned > 0) {
         toastFn(`Sold everything for ${earned} coins!`);
-        memoryFn("first_sale", "Your first sale at the stall.");
         logSaleFn(earned, units);
+        if (npc) npc.onSale(); else memoryFn("first_sale", "Your first sale at the stall.");
       }
       sellQty.clear();
       render();
@@ -179,8 +216,11 @@ function render() {
     sellList.append(all);
   }
 
-  // ----- buy side (Haggling skill discounts the asking price) -----
+  // ----- buy side (Haggling skill discounts the asking price). NPC-specialty
+  // stalls never sell anything back (Maren buys fish, she doesn't stock
+  // tools/seeds) — the section is hidden above, and there's nothing to build. -----
   buyList.replaceChildren();
+  if (npc) return;
   const haggling = skillValue(sk, "haggling");
   for (const entry of SHOP_STOCK) {
     // seasonal stock (seed packets) only appears in its planting season

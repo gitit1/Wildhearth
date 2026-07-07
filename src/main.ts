@@ -1,6 +1,6 @@
 import {
   WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE,
-  DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS, AUTOSAVE_SECONDS,
+  DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS, AUTOSAVE_SECONDS, NPC_SALE_FRIENDSHIP_BUMP,
 } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
@@ -11,7 +11,7 @@ import { paintGround } from "./world/ground";
 import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
-  FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS,
+  FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, type Rect,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
@@ -42,6 +42,7 @@ import { recipeById } from "./data/recipes";
 import { loadGarden, resetGarden, saveGarden, updateGarden } from "./systems/gardening";
 import { loadCollections, resetCollections, discover, discoveredName, saveCollections } from "./systems/collections";
 import { sellableGoodIds } from "./systems/sellCategories";
+import { NPC_STALL_TRADES, type NpcStallTrade } from "./systems/shop";
 import { loadMemories, resetMemories, addMemory, saveMemories } from "./systems/memories";
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
@@ -86,7 +87,7 @@ import type { GiftRating } from "./data/traitPreferences";
 import type { ThresholdEvent } from "./systems/relationships";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
-  registerBushes, registerPlots, registerAnimal, registerFlowerBeds, registerNpc,
+  registerBushes, registerPlots, registerAnimal, registerFlowerBeds, registerNpc, registerNpcStall,
   type Interactable, type InteractCtx,
 } from "./systems/interact";
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
@@ -95,7 +96,9 @@ import { initFade, fadeThrough } from "./ui/fade";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initMinimap, updateMinimap, setMinimapField } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
-import { initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow } from "./ui/shopwindow";
+import {
+  initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow,
+} from "./ui/shopwindow";
 import { showTitle, hideOpening } from "./ui/titlescreen";
 import { showIntro, showReveal } from "./ui/intro";
 import { showStarterChoice, showTutorialToggle, type StarterTool } from "./ui/newgame";
@@ -166,6 +169,15 @@ for (const h of hens) registerAnimal("hen", h, hens);
 const npcs = createNpcs();
 initNpcPositions(npcs, calendar, weather);
 for (const n of npcs) registerNpc(n, npcs, onTalk);
+
+// NPC stalls of matching specialty (Selling paths #2): Maren's fish stall is
+// the only ACTIVE row in `NPC_STALL_TRADES` — a future produce/etc. stall is
+// one more row there, not new code here.
+for (const trade of NPC_STALL_TRADES) {
+  const tradeNpc = npcById(npcs, trade.npcId);
+  const stallDef = MARKET_STALLS.find((s) => s.sign === trade.stallSign);
+  if (tradeNpc && stallDef) registerNpcStall(trade, tradeNpc, stallDef);
+}
 
 /** Talk seam: opens the dialogue bottom-box (condition-keyed opening line +
  *  shallow choice turns). The window drives the conversation; the Social-need
@@ -341,6 +353,16 @@ if (import.meta.env.DEV)
       initNpcPositions(npcs, calendar, weather);
     },
     isFestivalNow: () => !!activeFestival(calendar),
+    // fish-stall NPC trade verification bridge — read the stall's current
+    // action label (open "Trade with X" vs. the closed line) without a click,
+    // and jump straight into the sell-only window the same way a real click
+    // would (goes through the same closed-day/off-hours guard either way)
+    stallActions: (npcId: string) =>
+      byId(`npc-stall-${npcId}`)?.actions({} as unknown as InteractCtx).map((a) => ({ id: a.id, label: a.label })),
+    tradeWith: (npcId: string) => {
+      const t = NPC_STALL_TRADES.find((x) => x.npcId === npcId);
+      if (t) openNpcStallTrade(t);
+    },
   };
 
 initBackpack(economy, eatItem);
@@ -426,6 +448,43 @@ function leaveHouse() {
   player.moving = false; player.dir = 2;     // stepping out, facing the yard
   clearMoveTarget(); closeContextMenu(); closeGiftChooser();
   pending = null;
+}
+
+// ---- stall trade windows: which rect the player must stay near to keep the
+// window open (the farm stall, or whichever NPC-specialty stall is open) ----
+let openStallRect: Rect | null = null;
+
+function openPlayerStall() {
+  openStallRect = STALL;
+  openShopWindow();
+}
+
+/** Fish-stall NPC buying (Selling paths #2): opens Maren's sell-only window
+ *  while she's manning the stall; otherwise just repeats the closed line (the
+ *  stall's own action already gates this, this is belt-and-braces). */
+function openNpcStallTrade(trade: NpcStallTrade) {
+  const tradeNpc = npcById(npcs, trade.npcId);
+  if (!tradeNpc || tradeNpc.state !== "atWork") { toast(trade.closedLine); return; }
+  const stallDef = MARKET_STALLS.find((s) => s.sign === trade.stallSign);
+  openStallRect = stallDef ?? STALL;
+  openNpcStallWindow(tradeNpc.def.name, trade.categoryId, () => onNpcSale(trade.npcId));
+}
+
+/** First sale to an NPC-specialty stall: a small Friendship bump (dialogueBump
+ *  marks contact too) + a toast reaction, gated by the Memory Book entry's
+ *  once-only semantics — safe to call on every sale, like the farm stall's
+ *  own "first_sale" memory call. */
+function onNpcSale(npcId: string) {
+  const seller = npcById(npcs, npcId);
+  if (!seller) return;
+  const text = `Your first sale to ${seller.def.name}, at the stall.`;
+  if (addMemory(memories, `first_sale_${npcId}`, text, calendar)) {
+    logMemory(dayLog, text);
+    const thresholds = dialogueBump(relationships, seller.def, NPC_SALE_FRIENDSHIP_BUMP, calendar);
+    logRelationshipChange(dayLog, npcId, "friendship", NPC_SALE_FRIENDSHIP_BUMP);
+    toast(`${seller.def.name} gives a small approving nod. (+${NPC_SALE_FRIENDSHIP_BUMP} ♥)`);
+    for (const ev of thresholds) fireHeart(seller, ev);
+  }
 }
 
 // ---- opening sequence (title -> intro -> reveal -> choice -> tutorial) ----
@@ -745,15 +804,16 @@ function tick(now: number) {
   const ictx: InteractCtx = {
     economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, needs,
     relationships, calendar, player,
-    toast, openShop: openShopWindow, enterHouse, leaveHouse,
+    toast, openShop: openPlayerStall, enterHouse, leaveHouse,
     sleep: sleepUntilMorning, nap: napAnHour,
     skillPopup: skillGainPopup,
     memory: remember,
     expandFarm, openGiftFor, doInteraction,
+    openNpcTrade: openNpcStallTrade,
   };
 
-  // walking away from the stall closes the trade window
-  if (isShopOpen() && !nearRect(player.x, player.y, STALL)) closeShopWindow();
+  // walking away from whichever stall is open closes the trade window
+  if (isShopOpen() && openStallRect && !nearRect(player.x, player.y, openStallRect)) closeShopWindow();
 
   const ps = getPointerScreen();
   hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1]), scene) : null;

@@ -149,6 +149,10 @@ export const RELATIONSHIP_THRESHOLDS = [25, 50, 75] as const;
 // Categorized-interaction diminishing returns: multiplier by prior uses of the
 // SAME category with the SAME NPC today (2nd ~half, 3rd ~a trickle, 4th+ nothing).
 export const INTERACT_DIMINISH = [1, 0.5, 0.15] as const;
+// First sale to an NPC-specialty stall (fish-buyer, and future produce/etc.
+// stalls) — a small, contact-marking Friendship bump via dialogueBump(), same
+// mechanism a warm dialogue choice uses (see DIALOGUE_FRIENDSHIP_BUMP above).
+export const NPC_SALE_FRIENDSHIP_BUMP = 3;
 
 // ===========================================================================
 //  Dialogue engine (Part A #4, mechanical layer) — condition-keyed opening
@@ -186,6 +190,22 @@ export const EOD_QUICK_SHOW_SECONDS = 5;   // how long the "quick" pill stays up
 // ===========================================================================
 export const FESTIVAL_START_HOUR = 9;    // festival is "on" 09:00-21:00 the day it falls
 export const FESTIVAL_END_HOUR = 21;
+
+// ===========================================================================
+//  Seasonal wildlife (ambient, non-interactive-except-fleeing) — ROADMAP's
+//  "Wild animals along the road/river" block. WHEN/WHERE each species can
+//  appear (season/region/weather) is data, living in data/wildlife.ts; the
+//  numeric knobs below (population, speed, flee/despawn feel) live here.
+// ===========================================================================
+export const WILDLIFE_MAX_COUNT = { butterfly: 6, songbird: 4, rabbit: 4, deer: 3, duck: 4, hare: 4 } as const;
+export const WILDLIFE_SPEED     = { butterfly: 34, songbird: 26, rabbit: 46, deer: 50, duck: 22, hare: 48 } as const;
+export const WILDLIFE_RAIN_BIRD_MULT = 0.4;   // "fewer birds" in rain — scales songbird/duck caps down
+export const WILDLIFE_SPAWN_CHANCE = 0.05;    // odds/second an empty slot tries to (re)populate — gradual, not a burst
+export const WILDLIFE_FLEE_RADIUS = 85;       // px: player distance that triggers flee/fly-off (rabbit/hare/deer/songbird)
+export const WILDLIFE_DESPAWN_RANGE = 240;    // px fled from its spawn point before a fleeing critter vanishes
+export const WILDLIFE_FLEE_SPEED_MULT = 2.4;  // fleeing speed = the species' base speed * this
+export const WILDLIFE_WANDER_RADIUS = 60;     // px: how far ambient wander picks a new target from home
+export const WILDLIFE_DESPAWN_SECONDS = 0.5;  // fly-off/fade-out duration before removal
 
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";

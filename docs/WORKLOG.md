@@ -42,6 +42,100 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Fish-stall NPC — Maren buys fish at the market
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** DECISIONS' "Selling paths" #2 (NPC stalls of matching
+  specialty) — build the FIRST one: Maren's fish stall at the market buys
+  fish. Structure the wiring so a second path (Tobin/produce) is additive.
+- **Done:**
+  - **Files:**
+    - `src/systems/shop.ts` — new `NpcStallTrade` interface `{ npcId,
+      stallSign, categoryId, closedLine }` + `NPC_STALL_TRADES` table, one
+      ACTIVE row: `{ npcId: "maren", stallSign: "fish", categoryId:
+      "fishing", closedLine: "Maren's off today — the market square misses
+      her." }`. This IS the "per-stall {stallId, npcId, buysCategory} table"
+      the block asked for — a produce-stall row later is one more entry here.
+    - `src/systems/sellCategories.ts` — `SellCategory` gains a `label` field
+      (plural noun for stall UI, e.g. "fish"; `fishing`'s is `"fish"`); new
+      `categoryById(id)` and `categoryItemIds(id)` exports — the latter is
+      what Maren's window reads (the category's raw item list), independent
+      of `sellableGoodIds`'s player-capability gate, since Maren buys fish
+      whether or not the player is on a "fishing path".
+    - `src/systems/interact.ts` — `MARKET_STALLS` entries covered by
+      `NPC_STALL_TRADES` are excluded from the old decorative Look-only
+      `marketStalls` array; new `registerNpcStall(trade, npc, stallDef)`
+      registers the stall as a live interactable: `hit`/`inReach` on the
+      stall's rect (same box math the old lookProp used), `actions()` reads
+      `npc.state` LIVE each call — `"atWork"` → `{id:"trade", label:"Trade
+      with <Name>", run: c.openNpcTrade(trade)}`; anything else (closed day,
+      off hours, festival) → `{id:"trade", label: trade.closedLine, run: c.toast(...)}`
+      — so the HUD prompt itself reads as the closed line when she's off, no
+      separate UI path needed. `InteractCtx` gains `openNpcTrade(trade)`.
+    - `src/ui/shopwindow.ts` — parameterized rather than forked: a module
+      `mode: {kind:"player"} | {kind:"npc", npcName, categoryId, onSale}`.
+      New `openNpcStallWindow(npcName, categoryId, onSale)` sets npc mode;
+      `render()` branches on it — title becomes "🐟 <Name>'s stall", the Buy
+      section (`#shopBuyLabel`/`#shopBuy`) hides entirely, the sell list
+      reads `categoryItemIds(categoryId)` instead of the union
+      `sellableIds()`, the empty-bag message and the bulk-sell button's label
+      ("Sell all fish" vs "Sell everything") are mode-aware. The per-row Sell
+      button and "Sell all X" both call `onSale()` in npc mode instead of the
+      farm stall's `memoryFn("first_sale", ...)` — everything else (price
+      lookup via `GOOD_PRICES`, `sellGood()`, daylog logging) is byte-for-byte
+      the same code path as the farm stall.
+    - `index.html` — `#shopWindow`'s `<h2>` gets `id="shopTitle"`; the "Buy"
+      `.shop-section` div gets `id="shopBuyLabel"` (both needed so
+      shopwindow.ts can toggle them).
+    - `src/config.ts` — `NPC_SALE_FRIENDSHIP_BUMP = 3` (Relationship engine
+      section): the first-sale bump, applied via the existing `dialogueBump()`
+      (also marks contact — no separate `markContact` call needed).
+    - `src/main.ts` — registers each `NPC_STALL_TRADES` row after the NPC
+      roster exists; new `openStallRect: Rect | null` generalizes the old
+      "walking away from STALL closes the window" check to whichever stall
+      (farm or NPC) is currently open; `openPlayerStall()` wraps
+      `openShopWindow()` to set `openStallRect = STALL`; `openNpcStallTrade
+      (trade)` re-checks the NPC is `"atWork"` (belt-and-braces — the
+      interactable's own action already gates this) then calls
+      `openNpcStallWindow`; `onNpcSale(npcId)` is the first-sale hook: an
+      `addMemory(..., "first_sale_<npcId>", ...)` guard (once-only, mirrors
+      the farm stall's own idempotent memory call) around a `dialogueBump`
+      Friendship bump + a toast reaction ("<Name> gives a small approving
+      nod. (+3 ♥)") + any heart-event thresholds crossed. Dev bridge:
+      `stallActions(npcId)` (read the stall's current action list without a
+      click) and `tradeWith(npcId)` (opens the trade the same way a real
+      click would, going through the same live gate).
+  - **Behavior:** with fish/junk in the bag during Maren's work hours,
+    interacting with the fish stall (or with Maren herself, since her `Talk`
+    interactable is separate and unaffected) opens a sell-only window listing
+    exactly the `fishing` category's items at table prices, with a "Sell all
+    fish" button; selling pays coins and logs to the day ledger exactly like
+    the farm stall. On her closed day (Tuesday)/off hours/festival, the stall
+    reads "Maren's off today — the market square misses her." as both the
+    reach prompt and the click's toast, and no window opens. The first sale
+    to her ever writes a Memory Book entry, bumps Friendship by 3, and shows
+    a reaction toast.
+- **Verify (Playwright, headless Chromium via a scratch `pwtest` project +
+  the dev `__wh` bridge):** fresh game, calendar forced to a Wednesday
+  10:00 (Maren `atWork`) → `stallActions("maren")` returned `"Trade with
+  Maren"`; gave carp/fish/corn, teleported the player to the stall's anchor,
+  `tradeWith("maren")` opened the window — title "🐟 Maren's stall", sell
+  rows showed ONLY "Common Carp ×3" / "Fish ×2" (corn correctly absent), buy
+  section hidden, bulk button read "Sell all fish"; clicking Sell paid 9
+  coins (3×3) with no console errors; forced Tuesday (Maren's closed day) →
+  `stallActions` returned the exact closed line, `tradeWith` left the window
+  `display:none`. A separate run confirmed Friendship 0→3 and
+  `dayLog().newMemories` containing "Your first sale to Maren, at the
+  stall." on the actual first sale. A real `"e"`-keypress at the farm's OWN
+  stall (not a bridge shortcut) confirmed it is byte-for-byte unchanged:
+  title "🛒 Market stall", buy section visible with 10 stock rows, sell list
+  still shows both remaining fish AND farming goods (the union behavior).
+- **Build:** `npm run build` — ✅ passing
+- **Commit:** (filled in below after committing)
+- **Follow-ups:** none for this block. Tobin's produce stall (`farming`
+  category) is deliberately NOT built — per the block's own scope note, it's
+  meant to be the next additive `NPC_STALL_TRADES` row once a `farming`
+  `SellCategory` exists, not built preemptively here.
+
 ## Festival engine — Harvest Festival at the market square
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (Part A #6) Festival engine. DECISIONS: one festival, day
