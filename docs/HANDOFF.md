@@ -100,6 +100,7 @@ branch `v1-foundation`.
 | Window system core (T1a) | Opus | ✅ `1a27d78`+`d4245c7` | ~341k tok; input-accuracy proof Δ=0.00px |
 | Surface migrations (T1b) | Sonnet | ✅ `766fb35`+`77fcb0a` | ~589k tok; makePanel deleted, Esc cascade |
 | Sprite integration (T2) | Opus | ✅ `ecf98f2`+`92f15a6` | first launch completed pre-interrupt; second run independently verified all checks |
+| Wave-2 integration (T2) | Sonnet | ✅ `1365f06` | interior room+furniture, tinted stall awnings (per-pixel H&S recolor, cached), well; zero-assets fallback re-proven |
 
 ## Session-2 PixelLab asset ledger
 
@@ -109,8 +110,16 @@ branch `v1-foundation`.
 | Farmhouse 192×176 | map object | ✅ PASS (huge upgrade) | `buildings/farmhouse.png` |
 | Barn 208×176 | map object | ✅ in game | `buildings/barn.png` |
 | Hearth 64×80 | map object | ✅ in game | `interior/hearth.png` |
-| Wave 2 (queued): room backdrop 320×240, basin, bed, chair+crate, market stall, well | map objects | baking | — |
-| Wave 3 (queued): Maren, Tobin, Sera, Liora | character v3 | baking | — |
+| Room backdrop 320×240 | map object | ✅ PASS — interior transformed | `interior/room-backdrop.png` |
+| Basin, chair+crate | map objects | ✅ PASS | `interior/…` |
+| Bed | map object ×2 (1st looked like a bench → REJECTED, retry passed) | ✅ PASS | `interior/bed.png` |
+| Market stall (awning recolored per stall) | map object | ✅ PASS | `buildings/market-stall.png` |
+| Well | map object | ✅ PASS | `buildings/well.png` |
+| Cottage 128×128 | map object | ✅ PASS (downloaded, integration pending) | scratchpad → next wave |
+| Maren, Tobin, Sera, Liora | character v3 | ✅ full-size drift gate PASS (S/E/N reviewed each) | animations in progress |
+| Henrik, Petra | character v3 | ✅ preview PASS | drift gate + animations pending |
+| Bram, Ada | character v3 | baking | — |
+| Finn, Jonas | character v3 | queued next | — |
 
 ---
 
