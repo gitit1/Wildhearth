@@ -14,9 +14,16 @@ anything in docs/ROADMAP_EXPANSION.md (town, NPCs, the AI layer, and
 everything after). Do not build ahead of the current phase without asking.
 
 ## Hard rules
-1. **All art is code.** Every visual is drawn procedurally on canvas
-   (see src/art/). Never add image/sprite/asset files, never suggest asset
-   packs. New visuals = new painter functions.
+1. **Art is code-drawn OR PixelLab-generated — nothing else.** (Policy
+   updated 2026-07-08 by the product owner.) Visuals are either drawn
+   procedurally on canvas (src/art/) or pixel-art sprites generated
+   through the game's PixelLab account, stored under
+   src/assets/pixellab/<category>/. Every sprite-backed visual MUST keep
+   its code-drawn painter as a runtime fallback (dual-path: PNG when
+   present and loaded, painter otherwise — the game must run fully with
+   zero sprite files). Never add hand-made or third-party asset files,
+   never suggest asset packs. See docs/PIXELLAB_ASSETS.md for the
+   generation workflow and style anchors.
 2. **The user is the product owner, Claude is the implementer.** She reviews
    results; do not hand her manual work (no "now you tweak X").
 3. Keep gameplay tuning values in src/config.ts, world layout in

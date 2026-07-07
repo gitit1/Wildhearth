@@ -1,8 +1,59 @@
-# HANDOFF — v1-foundation session
+# HANDOFF — v1-foundation session(s)
 
 **The master continuity doc.** Any LLM or human opening this project after
 this session starts HERE. Updated continuously during the session; the
 final version at the session's end is authoritative.
+
+---
+
+# SESSION 2 (2026-07-08) — Visual Polish + Window System
+
+**Work order:** the product owner reviewed the v1 foundation — logic is
+right, but several visuals read "cheap code-drawn" (the house "like a
+child drew it", the interior "a pile of code boxes", the character's
+hair/hat/eyes off) and the UI must become fully draggable/resizable,
+UO-classic style. Three tasks in order: (1) full window system,
+(2) PixelLab sprite generation for all elements with dual-path
+integration, (3) character quality gate. Same autonomy rules; same
+branch `v1-foundation`.
+
+## Session-2 status / environment findings
+
+- Resumed on `v1-foundation` @ `6b7e32e`, tree clean, synced.
+- The interrupted v1 smoke run had left two REAL bug fixes uncommitted —
+  committed as `6b7e32e` (queued-action ordering in main.ts; pause-screen
+  Esc-listener leak). Its temp harness files were deleted.
+- **PixelLab account: ACTIVE (Tier 2 Pixel Artisan), 4,963/5,000 monthly
+  generations remaining, $0.00 extra credits.** Estimated need for full
+  coverage per the work order: ~1,200–1,500 generations (≈20 characters
+  ×20-40 each incl. rotations/animations + ~130 static assets ×1-3 +
+  retries) — **sufficient, not blocked**.
+- **The style-anchor image `zoom-a-char.png` is NOT on disk** (searched
+  repo-wide), and the PixelLab account holds 0 saved characters — the
+  previous tests didn't leave reusable artifacts. Decision S2-1: anchor
+  style via rich prompt descriptors ("Cute Fantasy" look per DECISIONS
+  aesthetic: warm palette, dark outlines, readable straw hat, expressive
+  eyes) and lock consistency via the account's character objects
+  (create once, rotate/animate from the same character). If she still
+  has zoom-a-char.png, dropping it in docs/reference/ lets a future
+  session use it directly.
+- **Decision S2-2: CLAUDE.md hard rule #1 amended** (art policy): art is
+  code-drawn OR PixelLab-generated, dual-path mandatory (PNG when
+  present, painter fallback otherwise), no third-party assets ever.
+  Required so implementing subagents don't refuse sprite work against
+  the old "never add image files" rule.
+- Note: the work order says a sprite loader dual-path "was built in
+  previous session" — it was NOT (only the rig's narrow painter
+  interface was designed swap-ready). The loader gets built in Task 2's
+  integration step.
+
+## Session-2 decisions log
+(S2-1, S2-2 above; numbering continues as they land.)
+
+## Session-2 subagent registry
+
+| Task | Model | Outcome | Notes |
+|---|---|---|---|
 
 ---
 
