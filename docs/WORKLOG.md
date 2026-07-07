@@ -29,6 +29,59 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Sprite buildings & interior — farmhouse, barn, hearth + PIXELLAB_ASSETS.md
+- **Date:** 2026-07-07 (v1-foundation, PixelLab integration commit 2 of 2)
+- **Block given:** Put the generated farmhouse/barn/hearth sprites on the same
+  dual path — the sprite as the repaired base aligned to the existing zone
+  rects, the renovation damage overlays kept working on top of the sprite; plus
+  the docs/PIXELLAB_ASSETS.md pipeline doc.
+- **Done:**
+  - **Assets** — committed `src/assets/pixellab/buildings/farmhouse.png`
+    (192×176), `buildings/barn.png` (208×176), `interior/hearth.png` (64×80).
+    PixelLab map-object ids + prompts recorded in docs/PIXELLAB_ASSETS.md
+    (farmhouse `7eb7dddd…`, barn `2c09a872…`, hearth `f208be6d…`).
+  - **Static-sprite helper** (`src/art/sprites.ts`) — `drawGroundSprite(g,img,
+    groundX,groundY,anchorCol,footRow,scale)` places a loaded sprite base-on-
+    ground, centred on its anchor column (nearest-neighbour), and returns the
+    `SpritePlacement` (`{dx,dy,scale}`) so callers can map sprite-pixels → world
+    for overlays.
+  - **Farmhouse + barn** (`src/art/buildings.ts`) — `drawHouse`/`drawBarn` draw
+    the sprite as the repaired base when loaded (centred on HOUSE/BARN, base on
+    `rect.y+rect.h`, roof overhanging above like the painter does today;
+    collision/door hotspots untouched), keeping `castShadow()` and dropping the
+    painter's own wall/roof strokes (the sprite carries its own outlines). The
+    RENOVATION damage is re-authored to sit on the SPRITE's features (measured
+    sheet coords): `drawHouseRoofDamageSprite` (torn dark hole + mismatched patch
+    plank on the tiles), `drawHouseWindowBoardSprite` (X-boards over the
+    lower-right pane ≈ sprite (133-148,110-131)), `drawBarnDamageSprite` (a loose
+    plank hung across the doors + a missing wall plank). Sheet anchors
+    `FARMHOUSE_SHEET`/`BARN_SHEET`; the whole code painter stays as the fallback
+    branch. `sw()` maps sprite px → world via the placement.
+  - **Hearth** (`src/art/interior.ts`) — the cook spot draws
+    `interior/hearth.png` aligned base-on-floor, centred on `R_HEARTH` (chimney
+    overhanging up the north wall); the code-drawn cold-hearth painter is the
+    else-branch fallback. Cook-fire glow + interaction unchanged (they live in
+    the cooking system, keyed to `R_HEARTH`).
+  - **Config** — `SPRITE_HOUSE_SCALE`/`SPRITE_BARN_SCALE`/`SPRITE_HEARTH_SCALE`
+    (all 1.0 — the sheets were sized to the rects; verified visually).
+  - **Docs** (`docs/PIXELLAB_ASSETS.md`, new) — sprite-sourced vs code-drawn
+    table; the create_character-v3 + template-animation + create_map_object
+    workflow; the recorded prompts + ids (heroine char, 3 map objects); asset/
+    manifest/loader/bridge layout; the alignment recipe (alpha-bbox → scale →
+    base-on-ground); regenerate/extend notes incl. the 8h map-object auto-delete;
+    costs (58/5000 generations used, 4942 left) + per-category estimates.
+- **Verified** (Playwright, screenshots reviewed): repaired farm shows clean
+  sprite farmhouse + barn (base grounded, centred on the rects); rundown shows
+  the roof patch, the X-boarded lower-right window, and the loose plank across
+  the barn doors sitting correctly on the sprites; toggling `repairFarm()` swaps
+  cleanly with no stray overlays; interior hearth renders seated against the
+  north wall with the heroine sprite also drawn indoors; with the manifest
+  emptied the farm + interior fall fully back to the code-drawn house/barn/hearth
+  (painter-path damage overlays intact) with no errors. `npm run build` green.
+- **Follow-ups:** roof-hole is subtle under the patch plank (acceptable — a
+  patched roof); NPC/animal/prop sprites are the natural next categories (all
+  code-drawn today), each a "drop PNGs + wire a fallback" per PIXELLAB_ASSETS.md.
+
 ## Sprite pipeline — loader, manifest, dual-path; the heroine walks Wildhearth
 - **Date:** 2026-07-07 (v1-foundation, PixelLab integration commit 1 of 2)
 - **Block given:** Integrate the PixelLab-generated heroine sprite (8-direction

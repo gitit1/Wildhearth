@@ -1,6 +1,10 @@
-import { T } from "../config";
+import { T, SPRITE_HEARTH_SCALE } from "../config";
 import { ROOM, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR } from "../world/zones";
+import { sprite, drawGroundSprite } from "./sprites";
 import type { DayPhase } from "../systems/calendar";
+
+// hearth sprite sheet anchor (64x80, measured bbox): centre col 32, base row 78
+const HEARTH_SHEET = { cx: 32, foot: 78 };
 
 /**
  * The house interior, tier-1: deliberately bare and broken. Every spot here
@@ -51,9 +55,16 @@ export function drawInterior(g: CanvasRenderingContext2D, time: number, phase: D
     g.closePath(); g.fill();
   }
 
-  // --- cooking spot: soot-blackened hearth, rusty pot, empty shelf ---
+  // --- cooking spot: the hearth. Sprite when present (aligned base-on-floor,
+  // centred on R_HEARTH, chimney overhanging up the north wall); the code
+  // painter below is the fallback. The cook-fire glow + interaction are
+  // unchanged (they live in the cooking system, keyed to R_HEARTH). ---
   {
     const r = R_HEARTH;
+    const hearthImg = sprite("interior/hearth");
+    if (hearthImg) {
+      drawGroundSprite(g, hearthImg, r.x + r.w / 2, r.y + r.h, HEARTH_SHEET.cx, HEARTH_SHEET.foot, SPRITE_HEARTH_SCALE);
+    } else {
     g.fillStyle = "#6f6f78";                                      // stone body
     g.fillRect(r.x, r.y, r.w, r.h);
     g.fillStyle = "#8c8c94";                                      // stones
@@ -75,6 +86,7 @@ export function drawInterior(g: CanvasRenderingContext2D, time: number, phase: D
     g.fillRect(r.x + r.w * 0.1, r.y - T * 0.32, r.w * 0.8, T * 0.14);
     g.fillRect(r.x + r.w * 0.18, r.y - T * 0.18, T * 0.1, T * 0.18);
     g.fillRect(r.x + r.w * 0.72, r.y - T * 0.18, T * 0.1, T * 0.18);
+    }
   }
 
   // --- wash spot: cracked clay basin on a wobbly stand, empty bucket ---

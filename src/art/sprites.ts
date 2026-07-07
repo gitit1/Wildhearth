@@ -49,3 +49,27 @@ export function spritesReady(): boolean {
 export function spriteLoadProgress(): { loaded: number; total: number } {
   return { loaded: loadedCount, total: SPRITE_MANIFEST.length };
 }
+
+/** The sprite->world transform a drawGroundSprite() call used, so a caller can
+ *  place code-drawn overlays (e.g. renovation damage) onto sprite features:
+ *  world = (dx + spriteX*scale, dy + spriteY*scale). */
+export interface SpritePlacement { dx: number; dy: number; scale: number }
+
+/**
+ * Draw a loaded static sprite so its (anchorCol, footRow) sprite-pixel lands on
+ * world (groundX, groundY) at `scale` world-px per sprite-px — i.e. base-on-
+ * ground, centred on the anchor column. Nearest-neighbour (crisp at any zoom).
+ * Returns the transform for overlay placement.
+ */
+export function drawGroundSprite(
+  g: CanvasRenderingContext2D, img: HTMLImageElement,
+  groundX: number, groundY: number, anchorCol: number, footRow: number, scale: number,
+): SpritePlacement {
+  const dx = groundX - anchorCol * scale;
+  const dy = groundY - footRow * scale;
+  const prev = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;
+  g.drawImage(img, dx, dy, img.naturalWidth * scale, img.naturalHeight * scale);
+  g.imageSmoothingEnabled = prev;
+  return { dx, dy, scale };
+}

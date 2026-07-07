@@ -1,6 +1,20 @@
 import { HOUSE, BARN, STALL, type Rect } from "../world/zones";
-import { shadow, oRect, outline, OUTLINE, OUTLINE_W, castShadow } from "./shapes";
+import { shadow, oRect, outline, OUTLINE, OUTLINE_W, castShadow, roundR } from "./shapes";
 import { mulberry32 } from "../engine/rng";
+import { sprite, drawGroundSprite, type SpritePlacement } from "./sprites";
+import { SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE } from "../config";
+
+// ---- static-sprite sheet anchors (measured alpha bbox: horizontal centre col
+// + foot row = the ground-contact base). The sheets were sized to the HOUSE /
+// BARN rects, so at scale 1.0 the walls fill the rect with the roof overhanging
+// above it, exactly as the painter overhangs today. ---
+const FARMHOUSE_SHEET = { cx: 96, foot: 169 };   // 192x176
+const BARN_SHEET = { cx: 104, foot: 170 };        // 208x176
+
+/** sprite-pixel (sx,sy) -> world point, through a drawGroundSprite placement. */
+function sw(p: SpritePlacement, sx: number, sy: number): [number, number] {
+  return [p.dx + sx * p.scale, p.dy + sy * p.scale];
+}
 
 /** Vertical plank striping for wall faces: alternating tones, thin seams,
  *  the odd knot — deterministic per wall so it never shimmers. */
@@ -68,6 +82,19 @@ function drawShingleRoof(
 
 export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk = true, r: Rect = HOUSE) {
   const { x, y, w, h } = r;
+  // ---- sprite path: the repaired farmhouse, base-on-ground, centred on the
+  // rect (collision/door hotspots unchanged); the renovation DAMAGE overlays
+  // draw on top of the sprite when a part is broken. ----
+  const img = sprite("buildings/farmhouse");
+  if (img) {
+    const gx = x + w / 2, gy = y + h;
+    castShadow(g, gx, gy, w * 0.5, h * 1.3);   // keep the cast shadow; the sprite carries its own outline
+    const p = drawGroundSprite(g, img, gx, gy, FARMHOUSE_SHEET.cx, FARMHOUSE_SHEET.foot, SPRITE_HOUSE_SCALE);
+    if (!roofOk) drawHouseRoofDamageSprite(g, p);      // renovation overlays land on the sprite's roof / window
+    if (!windowOk) drawHouseWindowBoardSprite(g, p);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.3);
   shadow(g, x + w / 2 + 8, y + h + 8, w * 0.55, 12);
   drawPlankWall(g, x, y + h * 0.35, w, h * 0.65, "#c9a06a", 101);
@@ -111,6 +138,16 @@ export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk =
 
 export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = BARN) {
   const { x, y, w, h } = r;
+  // ---- sprite path: the repaired barn; damage overlays on top when broken ----
+  const img = sprite("buildings/barn");
+  if (img) {
+    const gx = x + w / 2, gy = y + h;
+    castShadow(g, gx, gy, w * 0.5, h * 1.2);
+    const p = drawGroundSprite(g, img, gx, gy, BARN_SHEET.cx, BARN_SHEET.foot, SPRITE_BARN_SCALE);
+    if (!barnOk) drawBarnDamageSprite(g, p);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.2);
   shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
   drawPlankWall(g, x, y + h * 0.3, w, h * 0.7, "#b24a3e", 303);
@@ -132,6 +169,65 @@ export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = B
     g.fillStyle = "#8a6a42"; g.fillRect(-w * 0.22, -3, w * 0.44, 6);
     g.restore();
   }
+}
+
+// ===========================================================================
+//  Renovation DAMAGE overlays for the SPRITE path — the sprites are the
+//  repaired buildings, so a broken part gets its code-drawn damage painted on
+//  top, positioned in the SPRITE's own pixel space (measured from the sheets;
+//  farmhouse red roof y≈8-89, its lower-right window ≈(133-148, 110-131); barn
+//  doors centre ≈(104,116), right wall). Tuned to sit on the sprite features,
+//  independent of the painter geometry the fallback overlays used. `sw()` maps
+//  sprite pixels -> world through the drawGroundSprite placement.
+// ===========================================================================
+
+/** Broken roof: a torn dark hole in the tiles + a mismatched patch plank. */
+function drawHouseRoofDamageSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
+  const s = p.scale;
+  g.fillStyle = "#241207";
+  const poly: Array<[number, number]> = [[101, 27], [122, 22], [131, 36], [112, 45], [99, 38]];
+  g.beginPath();
+  poly.forEach(([sx, sy], i) => { const [wx, wy] = sw(p, sx, sy); i ? g.lineTo(wx, wy) : g.moveTo(wx, wy); });
+  g.closePath(); g.fill();
+  g.strokeStyle = "rgba(18,9,4,.7)"; g.lineWidth = 1.6; g.stroke();   // the hole's own dark rim
+  // a mismatched patch plank hastily nailed over part of it
+  const [cx, cy] = sw(p, 115, 33);
+  g.save(); g.translate(cx, cy); g.rotate(-0.32);
+  const pw = 30 * s, ph = 8 * s;
+  g.fillStyle = "#a6844f"; roundR(g, -pw / 2, -ph / 2, pw, ph, 1.5 * s); g.fill();
+  g.strokeStyle = "rgba(58,40,18,.65)"; g.lineWidth = 1.4; g.stroke();
+  g.fillStyle = "#3a2c18";   // two nail heads
+  g.beginPath(); g.arc(-pw / 2 + 3 * s, 0, 1.1 * s, 0, 7); g.arc(pw / 2 - 3 * s, 0, 1.1 * s, 0, 7); g.fill();
+  g.restore();
+}
+
+/** Boarded-shut window: brown boards over the lower-right pane + an X of planks. */
+function drawHouseWindowBoardSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
+  const [x0, y0] = sw(p, 130, 107);
+  const [x1, y1] = sw(p, 151, 134);
+  const bw = x1 - x0, bh = y1 - y0;
+  g.fillStyle = "#4a3a26"; g.fillRect(x0, y0, bw, bh);
+  g.strokeStyle = "rgba(28,18,9,.6)"; g.lineWidth = 1.4; g.strokeRect(x0, y0, bw, bh);
+  g.strokeStyle = "#8a6a42"; g.lineWidth = 4.5 * p.scale; g.lineCap = "round";
+  g.beginPath(); g.moveTo(x0 - 2, y0 + 2); g.lineTo(x1 + 2, y1 - 2); g.stroke();
+  g.beginPath(); g.moveTo(x1 + 2, y0 + 2); g.lineTo(x0 - 2, y1 - 2); g.stroke();
+}
+
+/** Broken barn: a loose plank hung across the doors + a missing wall plank. */
+function drawBarnDamageSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
+  const s = p.scale;
+  const [cx, cy] = sw(p, 104, 116);
+  g.save(); g.translate(cx, cy); g.rotate(0.42);
+  const pw = 96 * s, ph = 9 * s;
+  g.fillStyle = "#8a6a42"; roundR(g, -pw / 2, -ph / 2, pw, ph, 1.5 * s); g.fill();
+  g.strokeStyle = "rgba(48,32,15,.62)"; g.lineWidth = 1.4; g.stroke();
+  g.fillStyle = "#3a2c18";
+  g.beginPath(); g.arc(-pw / 2 + 4 * s, 0, 1.2 * s, 0, 7); g.arc(pw / 2 - 4 * s, 0, 1.2 * s, 0, 7); g.fill();
+  g.restore();
+  // a missing wall plank: a dark vertical gap on the right red wall
+  const [gx, gy] = sw(p, 178, 76);
+  g.fillStyle = "#2a1510"; g.fillRect(gx, gy, 11 * s, 54 * s);
+  g.strokeStyle = "rgba(14,7,4,.7)"; g.lineWidth = 1.2; g.strokeRect(gx, gy, 11 * s, 54 * s);
 }
 
 export type StallSign = "fish" | "produce" | "goods" | "empty";
