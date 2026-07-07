@@ -347,6 +347,25 @@ export const GUIDANCE_KEY = "wildhearth-guidance-v1"; // tutorial/aspiration pro
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)
 
 // ===========================================================================
+//  Window system (UO-classic windows) — src/ui/windows/*. Everything on screen
+//  is a draggable/resizable/minimizable/closable window on a desktop surface;
+//  the game viewport itself is one. Every magnitude below is a tuning knob.
+// ===========================================================================
+export const WIN_SNAP_DIST = 12;        // px within a desktop/other-window edge that a drag snaps (hold Alt to bypass)
+export const WIN_TITLEBAR_H = 26;       // px title-bar height (chrome)
+export const WIN_RESIZE_HANDLE = 6;     // px invisible edge/corner grab band
+export const WIN_MIN_VISIBLE = 52;      // px of a window's title bar that must stay on-screen (keep-on-screen rescue)
+export const WIN_MIN_W = 200;           // default min content width for resizable windows
+export const WIN_MIN_H = 120;           // default min content height for resizable windows
+export const WIN_VIEWPORT_MIN_W = 360;  // the game viewport can't shrink below this (content px)
+export const WIN_VIEWPORT_MIN_H = 260;
+export const WIN_VIEWPORT_FILL = 0.88;  // "Classic" default: viewport fills ~88% of the desktop, centred
+export const WIN_COZY_FILL = 0.72;      // "Cozy" preset: a smaller viewport with room to tile HUD windows around it
+export const WIN_DOCK_STRIP_W = 156;    // width of a minimized title-strip in the bottom dock row
+export const WIN_LAYOUT_KEY = "wildhearth-layout-v1"; // per-window rect/state + dock orientation (a preference, NOT game state)
+export const WIN_LAYOUT_SAVE_DEBOUNCE_MS = 400;       // debounce before a layout change is written to disk
+
+// ===========================================================================
 //  Visual foundation (Part B, v1-foundation branch) — day/night, weather fx,
 //  parallax skyline, ambient particles, cast shadows. Every magnitude here is
 //  a knob; art/*.ts only ever receives plain numbers (hour/minute/season/

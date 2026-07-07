@@ -29,6 +29,98 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Window system core — manager, viewport window, HUD windows
+- **Date:** 2026-07-08 (v1-foundation, session 2)
+- **Block given:** Session-2 Task 1 (window system), commit 1 of 2 — make
+  everything on screen a UO-classic window on a desktop surface: draggable
+  by the title bar, resizable from edges+corners, minimizable to a bottom
+  title-strip, closable/reopenable, z-ordered by focus, snapping to edges;
+  and make THE GAME VIEWPORT ITSELF a window. Modal screens (backpack/
+  skills/shop/dialogue/settings) are NOT migrated here — that is the next
+  block; the abstraction is designed so migrating one is mechanical.
+- **Done:**
+  - **New module `src/ui/windows/` (the abstraction):**
+    - `window.ts` — types only: `WindowSpec`, `WindowHandle`, `WindowRect`,
+      `WindowState` (`normal`/`minimized`/`hidden`), `WindowLayout`,
+      `LayoutStore`, `DockOrientation`, `clamp`.
+    - `manager.ts` — the `WindowManager` (singleton `wm`). Builds a
+      `#whDesktop` surface (code-drawn wood/leather CSS gradient) + a
+      `#whDock` row; `createWindow(spec)` builds the wood/gold chrome
+      (title bar: icon+title left, pin ⚲ / minimize — / close ✕ right),
+      drag from the title bar, resize from all 4 edges + 4 corners
+      (invisible ~6px pointer-capture handles, proper cursors),
+      focus-on-pointerdown z-ordering, minimize→docked title-strip
+      (click to restore), close→`display:none` (state `hidden`), pin
+      (locks drag/resize, gold tint). **Snap:** while dragging, within
+      `WIN_SNAP_DIST` of a desktop edge or another window's edge it gently
+      snaps (position assist only); **hold Alt** to bypass. **Keep-on-screen
+      rescue:** `clampRect()` guarantees `WIN_MIN_VISIBLE` px of every title
+      bar stays reachable; `onDesktopResize()` re-clamps all windows (and
+      shrinks a resizable window that now overflows) on browser resize.
+      All interaction is pointer-events + `setPointerCapture` (touch-covered),
+      event-driven (no per-frame work). Also owns layout persistence
+      (`snapshotLayout`/`applyLayout`, debounced save, boot restore).
+    - `layout.ts` — `wildhearth-layout-v1` load/save (debounced + immediate
+      + clear), every field re-validated. **Judgment call:** layout is a
+      PREFERENCE like Settings, deliberately NOT in `saves.ts` GAME_KEYS, so
+      a New Game keeps the arranged desktop (UO keeps your client layout).
+      Per-slot forward-compat: `slot` field + key ready for a `-slotN` suffix.
+    - `setup.ts` — `setupWindows({refitViewport})` turns existing DOM into
+      windows and `isViewportActive()` for the pause gate. Also holds the
+      preset placement (`classicLayout`, used at boot when no save) and the
+      dock's ⇄ orientation toggle + ☰ hidden-windows menu.
+  - **The game viewport is a window** (title "Wildhearth"): its content is
+    the whole `#gameArea` (canvas + prompt/dialogue/actBtn/zoom overlays).
+    Defaults to ~88% of the desktop, centred. Resizing it live-resizes the
+    canvas backing store via the viewport's `onResize`→`fit()` hook (dpr-
+    aware, guarded against a zero box); the camera refits each frame from
+    `cv.width`. Minimizing/closing it **pauses game-time** (folded into
+    `main.ts`'s `timePaused` via `!isViewportActive()`) and skips the world
+    draw. `screenToWorld` already used `getBoundingClientRect`, so mouse→
+    world stays exact after the viewport moves/resizes (verified, below).
+  - **HUD elements → windows** (`index.html` restructured): the old `#hud`
+    split into a **Clock** window (dial + date + weather) and a **Coins**
+    window; the needs strip wrapped into a **Needs** window (all 7 icons);
+    the tool-button row (`#tools`) became the **icon dock** window with a
+    ⇄ horizontal/vertical orientation toggle and a ☰ menu that lists +
+    reopens closed windows. The dock is minimizable but NOT closable, so the
+    ☰ reopen path is always reachable. Defaults echo the old HUD: coins
+    top-left, clock top-right, needs left edge, dock bottom-right.
+  - **`index.html`:** body is now a desktop (flex sidebar removed);
+    `#gameArea` fills its window body (`position:absolute;inset:0`); added
+    the whole `.wh-*` chrome/desktop/dock/menu CSS; neutralized the old
+    fixed positioning on the moved HUD elements.
+  - **`src/config.ts`:** window knobs — `WIN_SNAP_DIST`, `WIN_TITLEBAR_H`,
+    `WIN_RESIZE_HANDLE`, `WIN_MIN_VISIBLE`, `WIN_MIN_W/H`,
+    `WIN_VIEWPORT_MIN_W/H`, `WIN_VIEWPORT_FILL`, `WIN_COZY_FILL`,
+    `WIN_DOCK_STRIP_W`, `WIN_LAYOUT_KEY`, `WIN_LAYOUT_SAVE_DEBOUNCE_MS`.
+  - **`src/main.ts`:** calls `setupWindows` before the first `fit()`; pause
+    gate + draw-skip on `!isViewportActive()`; dev bridge gains `s2w()` and
+    `moveTarget()` for the input-accuracy proof.
+- **Deviations / decisions (logged for the owner):**
+  - The zoom +/- buttons and the tutorial Help (?) stay anchored inside the
+    viewport (camera + tutorial-contextual controls), not the dock — the
+    dock holds the 7 persistent tool icons.
+  - Layout persistence is intrinsic to the manager, so it ships working in
+    this commit; commit 2 adds the Settings presets UI + the doc and the
+    New-Game-keeps-layout verification.
+  - The not-yet-migrated floating panels (backpack/skills/memory/minimap/
+    shop/gift, still on the old `makePanel`) float at z-index 5-7 ABOVE the
+    desktop windows — acceptable until they are migrated next block.
+- **Verify (Playwright, screenshots reviewed):** 20/20 — 5 windows +
+  desktop exist, canvas lives in the viewport window; **input stays exact
+  (Δ=0.00 px) at 3 viewport positions/sizes** (click→game's own `s2w`);
+  viewport resize live-resizes the canvas (1267×766→1027×596); drag/z-order/
+  minimize→dock/restore/close/reopen-via-☰/dock-orientation all work; snap
+  aligns to a desktop edge and Alt bypasses it; minimizing the viewport
+  freezes the clock; restore from the dock; no page errors. `npm run build` ✅.
+- **Follow-ups:** commit 2 — Settings "Windows" presets (Classic/Focus/Cozy/
+  Reset) + `docs/WINDOW_SYSTEM.md` + persistence/preset verification. Later
+  block: migrate the modal screens onto the same abstraction (the
+  WINDOW_SYSTEM.md "add a new window" checklist is that path). Known rough
+  edge: the always-open Backpack panel and the minimap overlap the clock/
+  right-edge HUD windows until they too become managed windows.
+
 ## Integration pass — v1 smoke fixes (queued-action ordering + pause Esc leak)
 - **Date:** 2026-07-08 (v1-foundation, session 2 start)
 - **Block given:** whole-game integration smoke after the v1-foundation

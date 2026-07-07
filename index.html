@@ -5,18 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
   <title>Wildhearth</title>
   <style>
-    html,body{margin:0;height:100%;overflow:hidden;background:#365b28;font-family:-apple-system,Segoe UI,Roboto,sans-serif}
+    html,body{margin:0;height:100%;overflow:hidden;background:#20170d;font-family:-apple-system,Segoe UI,Roboto,sans-serif}
     canvas{display:block;touch-action:none}
-    /* UO-style layout: the play window on the left, a permanent sidebar on the
-       right where the map / bag / skills gumps live by default. */
-    body{display:flex}
-    #gameArea{position:relative;flex:1;height:100%;overflow:hidden}
+    /* Window system: everything on screen is a window on a desktop surface
+       (see src/ui/windows/*). #gameArea IS the game viewport window's body — it
+       fills its .wh-body host (absolute inset:0), and the canvas fills it. */
+    #gameArea{position:absolute;inset:0;overflow:hidden}
     #cv{position:absolute;inset:0;width:100%;height:100%}
-    #sidebar{width:300px;flex:none;height:100%;position:relative;z-index:4;
-      background:repeating-linear-gradient(180deg,rgba(0,0,0,.10) 0 2px,transparent 2px 46px),
-        linear-gradient(90deg,#4e3a24,#5d4630 30%,#56402a);
-      border-left:4px solid #2f2317;box-shadow:-4px 0 14px rgba(0,0,0,.35)}
-    #hud{position:fixed;top:10px;right:10px;width:284px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;z-index:5}
     .pill{background:rgba(25,32,18,.85);color:#f0ead6;padding:7px 14px;border-radius:12px;font-size:15px;font-weight:700}
     #calendar{font-size:13px;white-space:nowrap}
     #weather{font-size:13px;white-space:nowrap}
@@ -31,8 +26,11 @@
     .zoom-btn{width:40px;height:40px;border-radius:12px;border:2px solid #7a5c34;cursor:pointer;
       background:rgba(25,32,18,.85);color:#f0ead6;font-size:22px;font-weight:700;line-height:1;
       display:flex;align-items:center;justify-content:center;padding:0}
-    #tools{position:fixed;bottom:14px;right:10px;width:284px;display:flex;flex-direction:row;
-      flex-wrap:wrap;justify-content:center;gap:10px;z-index:6}
+    /* the icon dock (viewport tool row) is now a window body; it lays out as a
+       flex row, or a column when the dock's ⇄ orientation toggle flips it. */
+    #tools{display:flex;flex-direction:row;flex-wrap:nowrap;justify-content:center;gap:8px;
+      align-items:center}
+    #tools.wh-dock-vertical{flex-direction:column}
     .tool-btn{width:52px;height:52px;border-radius:14px;border:2px solid #7a5c34;cursor:pointer;
       background:rgba(25,32,18,.85);color:#f0ead6;font-size:24px;line-height:1;
       display:flex;align-items:center;justify-content:center;padding:0}
@@ -177,12 +175,18 @@
       background:var(--cell-bg);border:1px solid var(--cell-edge)}
     .book-tab.active{background:rgba(230,190,80,.88);border-color:#b8912f}
     .menu-panel{box-shadow:var(--float-shadow)}
-    /* the HUD: clock dial + info column */
-    #hud{align-items:center;gap:8px;flex-wrap:nowrap;justify-content:flex-start;padding-left:6px}
+    /* HUD window bodies: the clock (dial + date/weather) and the coins pill */
+    #clockWin{display:flex;align-items:center;gap:8px}
+    #coinsWin{display:flex;align-items:center}
+    #needsWin{display:flex;align-items:center}
     #clockDial{width:64px;height:64px;flex:none;border-radius:50%;
       border:2px solid var(--wood);box-shadow:var(--pill-shadow);background:#1d2440}
-    #hudInfo{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
-    #hudInfo .pill{padding:3px 10px;font-size:12px}
+    /* min-width keeps the clock window a stable size from boot: the date/weather
+       pills start as "—" and only widen once updateHud() runs, so reserve the
+       normal-day width up front (right-anchored windows would otherwise overflow). */
+    #hudInfo{display:flex;flex-direction:column;gap:4px;align-items:stretch;min-width:104px}
+    #hudInfo .pill{padding:3px 10px;font-size:12px;text-align:center}
+    #coinsWin .pill{padding:4px 12px;font-size:14px}
     .choice-row{display:flex;gap:14px;justify-content:center;margin:6px 0 4px}
     .choice-card{width:160px;background:rgba(240,234,214,.07);border:2px solid rgba(240,234,214,.25);
       border-radius:14px;padding:14px 10px;cursor:pointer;text-align:center}
@@ -248,10 +252,9 @@
     .ctx-item{background:transparent;border:none;color:#f0ead6;font:inherit;font-size:14px;
       text-align:left;padding:7px 12px;border-radius:6px;cursor:pointer;white-space:nowrap}
     .ctx-item:hover{background:rgba(230,190,80,.9);color:#241d0e}
-    /* the always-visible needs strip: top-left of the play window, wood/gold chrome */
-    #needsStrip{position:fixed;top:10px;left:10px;z-index:5;border-radius:12px;
-      background:var(--panel-bg);border:1.5px solid var(--wood);box-shadow:var(--pill-shadow);
-      padding:2px}
+    /* the always-visible needs strip (7 code-drawn icons) — now the body of the
+       Needs window; the window's own chrome is the wood panel behind it. */
+    #needsStrip{display:block}
     /* fade-to-black overlay for sleep / collapse time skips */
     #fade{position:fixed;inset:0;z-index:20;background:#000;opacity:0;pointer-events:none;
       display:flex;align-items:center;justify-content:center;color:var(--gold);
@@ -474,6 +477,66 @@
     }
     :root.high-contrast .menu-btn,:root.high-contrast .set-btn,:root.high-contrast .screen-back{border-width:2.5px}
     :root.high-contrast .set-note,:root.high-contrast .wn-meta,:root.high-contrast .menu-sub{opacity:1}
+    /* ======================================================================
+       Window system (UO-classic desktop) — src/ui/windows/*. The desktop is a
+       code-drawn wood/leather surface; windows share the game's wood/gold
+       chrome. Everything below z-indexes UNDER the full-screen modal overlays
+       (#opening / #eodPanel / #fade …), which keep their own high z.
+       ====================================================================== */
+    #whDesktop{position:fixed;inset:0;z-index:1;overflow:hidden;
+      background:
+        radial-gradient(ellipse at 50% 38%, rgba(74,54,32,.42), rgba(6,4,2,.6)),
+        repeating-linear-gradient(90deg, rgba(0,0,0,.14) 0 2px, transparent 2px 5px),
+        repeating-linear-gradient(180deg, rgba(0,0,0,.16) 0 39px, rgba(255,220,150,.028) 39px 41px),
+        linear-gradient(180deg,#2b2013,#1c140b)}
+    .wh-window{position:absolute;box-sizing:border-box;display:flex;flex-direction:column;
+      border-radius:10px;color:var(--ink);background:var(--panel-bg);
+      box-shadow:0 8px 22px rgba(0,0,0,.55), inset 0 0 0 2px var(--wood), inset 0 0 0 3px var(--hairline)}
+    .wh-titlebar{flex:none;height:26px;display:flex;align-items:center;gap:6px;padding:0 4px 0 8px;
+      cursor:move;user-select:none;border-radius:8px 8px 0 0;
+      background:linear-gradient(180deg,#6b4f30,#4e3a24);
+      box-shadow:inset 0 -1px 0 rgba(0,0,0,.4), inset 0 1px 0 rgba(255,213,79,.15)}
+    .wh-pinned>.wh-titlebar{cursor:default;background:linear-gradient(180deg,#54452c,#3b2f1e)}
+    .wh-pinned{box-shadow:0 8px 22px rgba(0,0,0,.55), inset 0 0 0 2px #9a7a44, inset 0 0 0 3px rgba(255,213,79,.5)}
+    .wh-title{flex:1;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden}
+    .wh-icon{flex:none;font-size:13px;line-height:1}
+    .wh-title-text{flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--gold);letter-spacing:.03em;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .wh-ctrls{flex:none;display:flex;gap:2px}
+    .wh-btn{width:20px;height:18px;border-radius:5px;border:1px solid rgba(0,0,0,.35);
+      background:rgba(240,234,214,.10);color:var(--ink);font-size:12px;line-height:1;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;padding:0}
+    .wh-btn:hover{background:rgba(230,190,80,.9);color:#241d0e;border-color:#b8912f}
+    .wh-body{flex:1;min-height:0;position:relative;overflow:hidden;border-radius:0 0 8px 8px}
+    /* small HUD windows get inner breathing room; the viewport fills edge-to-edge */
+    .wh-window:not(.wh-resizable)>.wh-body{padding:5px 7px}
+    .wh-fill{position:absolute;inset:0}
+    /* invisible resize grab-bands (edges + corners) */
+    .wh-rz{position:absolute;--hz:6px;touch-action:none;z-index:3}
+    .wh-rz-n{top:calc(var(--hz)*-1);left:6px;right:6px;height:calc(var(--hz)*2);cursor:ns-resize}
+    .wh-rz-s{bottom:calc(var(--hz)*-1);left:6px;right:6px;height:calc(var(--hz)*2);cursor:ns-resize}
+    .wh-rz-e{top:6px;bottom:6px;right:calc(var(--hz)*-1);width:calc(var(--hz)*2);cursor:ew-resize}
+    .wh-rz-w{top:6px;bottom:6px;left:calc(var(--hz)*-1);width:calc(var(--hz)*2);cursor:ew-resize}
+    .wh-rz-ne{top:calc(var(--hz)*-1);right:calc(var(--hz)*-1);width:calc(var(--hz)*2.6);height:calc(var(--hz)*2.6);cursor:nesw-resize}
+    .wh-rz-nw{top:calc(var(--hz)*-1);left:calc(var(--hz)*-1);width:calc(var(--hz)*2.6);height:calc(var(--hz)*2.6);cursor:nwse-resize}
+    .wh-rz-se{bottom:calc(var(--hz)*-1);right:calc(var(--hz)*-1);width:calc(var(--hz)*2.6);height:calc(var(--hz)*2.6);cursor:nwse-resize}
+    .wh-rz-sw{bottom:calc(var(--hz)*-1);left:calc(var(--hz)*-1);width:calc(var(--hz)*2.6);height:calc(var(--hz)*2.6);cursor:nesw-resize}
+    /* the bottom dock of minimized title-strips (UO-ish) */
+    #whDock{position:absolute;left:8px;right:8px;bottom:6px;z-index:9000;
+      display:flex;flex-wrap:wrap-reverse;align-items:flex-end;gap:6px;pointer-events:none}
+    #whDock .wh-window{position:relative;pointer-events:auto;width:156px;
+      box-shadow:0 4px 12px rgba(0,0,0,.5), inset 0 0 0 2px var(--wood)}
+    .wh-window.wh-minimized>.wh-body,.wh-window.wh-minimized>.wh-rz{display:none}
+    .wh-window.wh-minimized>.wh-titlebar{border-radius:8px;cursor:pointer}
+    /* the ☰ hidden-windows menu */
+    .wh-menu{position:absolute;z-index:9500;min-width:152px;background:var(--panel-bg);
+      border:2px solid var(--wood);border-radius:10px;box-shadow:var(--float-shadow);padding:4px;
+      display:flex;flex-direction:column;gap:2px}
+    .wh-menu-item{background:transparent;border:none;color:var(--ink);font:inherit;font-size:13px;
+      text-align:left;padding:7px 12px;border-radius:6px;cursor:pointer;white-space:nowrap}
+    .wh-menu-item:hover{background:rgba(230,190,80,.9);color:#241d0e}
+    .wh-menu-empty{color:var(--muted);font-size:12px;font-style:italic;padding:7px 12px;white-space:nowrap}
+    /* Settings → Windows preset buttons reuse the segmented-button chrome. */
   </style>
 </head>
 <body>
@@ -518,14 +581,16 @@
     <div id="eodBody"></div>
     <div id="eodHint">Click, Enter, or Esc to continue</div>
   </div>
-  <div id="sidebar"></div>
-  <div id="hud">
+  <!-- HUD window bodies (wrapped into windows by src/ui/windows/setup.ts) -->
+  <div id="clockWin">
     <canvas id="clockDial"></canvas>
     <div id="hudInfo">
-      <div class="pill">🪙 <span id="coins">0</span></div>
       <div class="pill" id="calendar">—</div>
       <div class="pill" id="weather">—</div>
     </div>
+  </div>
+  <div id="coinsWin">
+    <div class="pill">🪙 <span id="coins">0</span></div>
   </div>
   <div id="minimapBox"><canvas id="minimap"></canvas></div>
   <div id="backpack">
@@ -568,7 +633,7 @@
     <button class="tool-btn" id="settingsBtn" title="Settings">⚙️</button>
     <button class="tool-btn" id="pauseBtn" title="Pause (Esc)">⏸️</button>
   </div>
-  <canvas id="needsStrip"></canvas>
+  <div id="needsWin"><canvas id="needsStrip"></canvas></div>
   <div id="fade"></div>
   <div id="opening"></div>
   <script type="module" src="/src/main.ts"></script>

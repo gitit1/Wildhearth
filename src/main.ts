@@ -5,7 +5,7 @@ import {
 } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
-  getPointerScreen, setMoveTarget, clearMoveTarget,
+  getPointerScreen, setMoveTarget, clearMoveTarget, getMoveTarget,
 } from "./engine/input";
 import { applyCamera, screenToWorld, adjustZoom, getLastCam } from "./engine/camera";
 import { paintGround } from "./world/ground";
@@ -126,6 +126,7 @@ import { showSettings } from "./ui/settingsscreen";
 import { showPause } from "./ui/pausescreen";
 import { showExitDialog } from "./ui/exitscreen";
 import { applyGlobalPrefs, applyHudPrefs } from "./ui/uiPrefs";
+import { setupWindows, isViewportActive } from "./ui/windows/setup";
 import { showIntro, showReveal } from "./ui/intro";
 import { showPathAndGoal } from "./ui/newgame";
 import { showCharacterCreation } from "./ui/charcreation";
@@ -151,13 +152,22 @@ import { updateParticles, drawParticles, burst, debugParticleCounts } from "./ar
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
-// the canvas fills #gameArea (the UO-style play window), not the whole screen
+// the canvas fills #gameArea, which is now the body of the GAME VIEWPORT WINDOW
+// (src/ui/windows). fit() sizes the backing store to the live viewport-window
+// content box (dpr-aware). It's the viewport window's onResize hook, so moving
+// or resizing that window live-resizes the canvas; the camera refits each frame
+// from cv.width. Guarded against a zero box (a minimized/hidden viewport).
 function fit() {
   const r = cv.getBoundingClientRect();
-  cv.width = Math.round(r.width * devicePixelRatio);
-  cv.height = Math.round(r.height * devicePixelRatio);
+  const w = Math.round(r.width * devicePixelRatio);
+  const h = Math.round(r.height * devicePixelRatio);
+  if (w > 0 && h > 0) { cv.width = w; cv.height = h; }
 }
-addEventListener("resize", fit); fit();
+// Turn the screen into a desktop of windows (viewport + clock/coins/needs/dock)
+// BEFORE the first fit(), so the canvas measures its real window body. The
+// manager owns viewport-resize refits from here on (no separate resize listener).
+setupWindows({ refitViewport: fit });
+fit();
 
 initInput(cv, document.getElementById("actBtn")!);
 
@@ -357,6 +367,11 @@ if (import.meta.env.DEV)
       const { camx, camy, scale } = getLastCam();
       return [(wx - camx) * scale, (wy - camy) * scale];
     },
+    // window-system verification: exact client→world mapping (proves input stays
+    // accurate after the viewport window moves/resizes — screenToWorld reads the
+    // canvas' live getBoundingClientRect) + the walk target a click actually set.
+    s2w: (clientX: number, clientY: number) => screenToWorld(clientX, clientY),
+    moveTarget: () => getMoveTarget(),
     // Part B #10 verification bridge: force plot 0 ripe and harvest it, so the
     // leaf-puff burst can be exercised without a full till/plant/grow cycle.
     harvestPlot0: () => {
@@ -1317,8 +1332,10 @@ function tick(now: number) {
   updateQuickSummary(dt);          // the "quick" end-of-day pill fades on its own, even while paused
   // auto-pause: a conversation OR the full end-of-day panel freezes game-time
   // AND the townsfolk (they're "in conversation" / the day is officially over)
-  // — the same gating pattern the title screen uses below.
-  const timePaused = isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen() || menuOpen;
+  // — the same gating pattern the title screen uses below. A minimized or closed
+  // game-viewport window also pauses time (same gating as Pause): the player
+  // stepped away from the world.
+  const timePaused = isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen() || menuOpen || !isViewportActive();
   if (!timePaused) updateNpcs(npcs, calendar, weather, player, dt);
 
   if (!openingActive && !timePaused) {
@@ -1613,7 +1630,9 @@ function tick(now: number) {
   updateMemoryBook();
   if (!openingActive) tickGuidance();   // keep the tutorial bubble / aspiration pill live
   updateToast(dt);
-  draw(dt);
+  // skip the world render when the viewport window is minimized/closed (its
+  // canvas is hidden) — the game is paused anyway; nothing to show.
+  if (isViewportActive()) draw(dt);
   requestAnimationFrame(tick);
 }
 
