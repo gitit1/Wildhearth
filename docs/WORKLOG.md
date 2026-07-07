@@ -42,6 +42,102 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Guidance Mode — tutorial steps, aspiration chains, none
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Guidance Mode engine (FABLE_PROMPT Part A #5 + Part E #5).
+  Add the three-way picker (Tutorial / Aspiration / None) after the path choice;
+  a Tutorial mode with the 4-step skeleton (wording per path), game-time paused
+  while a step bubble is up, a persistent Help (?) icon, Skip = one-way switch
+  to None (confirm first), progress persisted with a "Continue the tutorial?"
+  load prompt, and completion → silent switch to None + a Memory Book entry +
+  farewell; an Aspiration mode with one 3-step chain per path + a life-goal
+  flavored line shown as a dismissible objective pill; and None = nothing. The
+  mode is a live setting; switching TO Tutorial is blocked once left. Second of
+  two interlocking commits (built on the Character Creation flow).
+- **Done:**
+  - **Files:**
+    - `src/systems/settings.ts` (CHANGED): `guided: boolean` → `guidance:
+      Guidance` ("tutorial"|"aspiration"|"none"), with a migration of the legacy
+      boolean (guided → gentle Aspiration, open → None — never revives a forced
+      tutorial on a mid-game save). New `guidanceMode()` / `setGuidance()`;
+      `isGuided()` removed.
+    - `src/systems/guidance.ts` (NEW): the engine's PROGRESS half — a
+      per-playthrough `GuidanceProgress` store (own versioned `GUIDANCE_KEY`,
+      in GAME_KEYS so New Game wipes it). Pure state + logic returning
+      `GuidanceResult` (toasts / memories / advance / finishedTutorial):
+      `loadGuidance`/`saveGuidance`/`resetGuidance`, `startTutorial`/
+      `startAspiration`, `markLeftTutorial`, `tutorialInProgress`,
+      `tutorialAvailable`, `currentTutorialStep`, `currentAspiration`,
+      `notifyGuidance` (events → step progress), `tickGuidanceCoins`
+      (coins-threshold steps).
+    - `src/data/guidance.ts` (NEW): all content — `tutorialSteps(path)` (the
+      4-step skeleton, step-1 wording per path), `aspirationChain(path)` (3-step
+      chains: Fisher catch 3→sell→save 40; Farmer plant 3→harvest→repair/expand;
+      Musician busk 3→30 from tips→buy; Keeper cook 2→sell→save 45),
+      `aspirationDoneMemory`, and `lifeGoalAspirationLine` (the five life-goal
+      flavor lines).
+    - `src/ui/guidance.ts` (NEW): all DOM — the three-way `showGuidancePicker`,
+      the tutorial step bubble (`setTutorialBubble`, dismiss/Help toggle,
+      `tutorialBubbleShown` for the clock gate), `setHelpVisible`, the dismissible
+      aspiration `setAspirationPill`, and the shared modal
+      `showGuidancePrompt`/`hideGuidancePrompt`/`isGuidancePromptOpen` (used for
+      both the Continue-Tutorial load prompt and the Skip confirm).
+    - `src/ui/newgame.ts`: the interim `showTutorialToggle` removed (the picker
+      replaces it).
+    - `src/systems/saveSlots.ts`: manifest `guided?: boolean` → `guidance?:
+      Guidance` (migrated on read); `stampSave` takes the mode.
+    - `src/systems/interact.ts`: `InteractCtx.guidanceEvent` added; fired on a
+      repair and on a plot expansion (Farmer aspiration "repair or expand").
+    - `src/systems/saves.ts`, `src/config.ts`: `GUIDANCE_KEY` +
+      `TUTORIAL_MOVE_SECONDS` (3).
+    - `src/main.ts`: the guidance orchestration (`refreshGuidanceUI`,
+      `applyGuidanceResult`, `fireGuidance`, `tickGuidance`,
+      `startGuidanceForNewGame`, `skipTutorial`, `continueGame`,
+      `guidanceClockFrozen`); the New-Game flow ends at `showGuidancePicker`;
+      `newGameReset(character, mode)` sets the mode + wipes progress; real action
+      handlers (catch/plant/harvest/busk/cook) + the shop sale/buy callbacks +
+      move fire guidance events; the in-game minute loop is gated by
+      `guidanceClockFrozen()`; `timePaused` includes the guidance prompt; the
+      old `firstTip()`/first-catch hint removed; a factored `makeCtx()`; dev
+      bridge gains `guidance()`, `guidanceMode()`, `fireG`, `castPond`,
+      `openStallDev`, `newGameWith(path, mode)`.
+    - `index.html`: DOM + wood/gold chrome for the tutorial bubble, Help icon,
+      aspiration pill, and the shared guidance modal.
+  - **Systems / functions:** new save key `wildhearth-guidance-v1`; `Guidance`
+    type; the Guidance engine + content; `GuidanceEvent` union
+    (move/catch/plant/harvest/busk/cook/sale/buy/repair). Time-freeze: the
+    in-game clock (needs decay + day rollover) pauses while a tutorial step
+    bubble is shown; movement/actions stay live so steps can complete.
+  - **Behavior:** After choosing a path, the player picks Tutorial, Aspiration,
+    or None. **Tutorial** shows a transparent step bubble (get your bearings →
+    do your path's action → sell → buy), pausing game-time while it's up; a "Got
+    it" hides it (time resumes) and a persistent Help (?) re-shows it; "Skip
+    Tutorial" asks to confirm, then switches to None one-way (never returns);
+    finishing all four steps quietly switches to None with a congratulation, a
+    Memory Book entry, and "The farm is yours. Make of it what you will."
+    Reloading mid-tutorial asks "Continue the tutorial?" (Yes / Aspiration /
+    None). **Aspiration** shows a small dismissible objective pill for a 3-step
+    chain drawn from the path (plus a one-time life-goal line); each step
+    completes on the real action and toasts, and finishing logs a Memory Book
+    entry — no rewards beyond flavor. **None** shows nothing. The mode is a live
+    setting the future Settings screen can write.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright drove the real game (36/36 + a 5-check
+  full-UI smoke): Tutorial (Fisher) — all four steps completed on the REAL
+  action (real WASD walking, a real fishing catch, a real stall sale, a real
+  stall purchase), the in-game clock froze while the bubble was up and resumed
+  on dismiss, Help re-showed it, finishing switched to None + logged the Memory
+  entry + locked the tutorial; Skip confirmed and switched one-way; a
+  mid-tutorial reload showed the "Continue the tutorial?" prompt and resumed;
+  Aspiration showed the objective pill and its first step completed on real
+  catches then advanced; None stayed clean; and the full New-Game UI reached
+  play through the three-way picker. Zero page/console errors.
+- **Commit:** `<fill>` — Guidance Mode — tutorial steps, aspiration chains, none
+- **Follow-ups:** The Settings screen that would let the player switch modes
+  mid-game is a later block — the setting + `tutorialAvailable()` guard are live
+  and ready for it. Aspiration's "sell to Maren" / "buy something nice" steps
+  accept any sale / any purchase (not a specific NPC/item) in v1.
+
 ## Character creation — identity, appearance presets, paths & life goals
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Character Creation flow v1 (FABLE_PROMPT Part A #10 + Part E

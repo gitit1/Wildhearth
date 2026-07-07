@@ -50,7 +50,7 @@ import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
-import { saveSettings, isGuided, dayLengthSeconds, endOfDaySummaryMode } from "./systems/settings";
+import { saveSettings, guidanceMode, setGuidance, dayLengthSeconds, endOfDaySummaryMode, type Guidance } from "./systems/settings";
 import { loadFarm, resetFarm, saveFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather, isRaining, saveWeather } from "./systems/weather";
@@ -103,9 +103,19 @@ import {
 } from "./ui/shopwindow";
 import { showTitle, hideOpening } from "./ui/titlescreen";
 import { showIntro, showReveal } from "./ui/intro";
-import { showPathAndGoal, showTutorialToggle } from "./ui/newgame";
+import { showPathAndGoal } from "./ui/newgame";
 import { showCharacterCreation } from "./ui/charcreation";
 import { STARTER_FOOD, pathById } from "./data/paths";
+import { lifeGoalAspirationLine } from "./data/guidance";
+import {
+  loadGuidance, saveGuidance, resetGuidance, startTutorial, startAspiration, markLeftTutorial,
+  tutorialInProgress, notifyGuidance, tickGuidanceCoins, currentTutorialStep, currentAspiration,
+  type GuidanceEvent, type GuidanceResult,
+} from "./systems/guidance";
+import {
+  initGuidance, setTutorialBubble, setHelpVisible, tutorialBubbleShown, setAspirationPill,
+  showGuidancePrompt, hideGuidancePrompt, isGuidancePromptOpen, showGuidancePicker,
+} from "./ui/guidance";
 import { rigFromCharacter } from "./entities/player";
 import type { RigParams } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
@@ -154,9 +164,12 @@ const worldFlags = loadWorldFlags();
 const needs = loadNeeds();
 const relationships = loadRelationships();
 const meta = loadMeta();
+const guidance = loadGuidance();   // per-playthrough tutorial/aspiration progress
 // the player's drawn look, built from her created Character (rebuilt on New
 // Game). Old / pre-character saves fall back to the default farmer rig.
 let playerRigParams: RigParams = rigFromCharacter(meta.character);
+/** The Starting Path drives which guidance content applies. */
+const curPath = (): Path => meta.character?.path ?? "fisher";
 registerBushes(bushes);
 registerPlots(plots, plots, () => currentSeason(calendar));
 registerFlowerBeds(garden);
@@ -333,12 +346,18 @@ if (import.meta.env.DEV)
     flag: (key: string, days = 4) => setWorldFlag(worldFlags, key, days, absoluteDay(calendar)),
     repairFarm: () => { farm.roof = true; farm.window = true; farm.barn = true; farm.fence = true; },
     begin: () => beginPlay(),                     // skip the title screens into live play
-    newGame: () => { newGameReset(meta.character ?? characterForPath("fisher"), isGuided()); beginPlay(); },
-    // start a fresh life on a chosen path without walking the creation screens
-    newGameWith: (path: Path, guided = false) => { newGameReset(characterForPath(path), guided); beginPlay(); },
+    newGame: () => { newGameReset(meta.character ?? characterForPath("fisher"), guidanceMode()); beginPlay(); startGuidanceForNewGame(guidanceMode()); },
+    // start a fresh life on a chosen path + guidance mode without the creation screens
+    newGameWith: (path: Path, mode: Guidance = "none") => { newGameReset(characterForPath(path), mode); beginPlay(); startGuidanceForNewGame(mode); },
     meta: () => meta,                             // read the live character/path/goal for verification
     skillOf: (id: string) => skillValue(skills, id),
     invOf: (id: string) => countItem(economy.inv, id),
+    // guidance verification bridge — read progress/mode, drive real world spots
+    guidance: () => ({ ...guidance }),
+    guidanceMode: () => guidanceMode(),
+    fireG: (ev: GuidanceEvent) => fireGuidance(ev),
+    castPond: () => { const o = byId("pond"); if (o) { player.x = o.anchor[0]; player.y = o.anchor[1]; player.moving = false; clearMoveTarget(); runDefault(o, makeCtx()); } },
+    openStallDev: () => { player.x = STALL.x + STALL.w / 2; player.y = STALL.y + STALL.h + 10; player.moving = false; clearMoveTarget(); openPlayerStall(); },
     // save-system verification bridge — force the two save paths and shrink
     // the autosave interval instead of waiting 10 real minutes
     saveNow: manualSave,
@@ -402,6 +421,7 @@ initMemoryBook(collections, memories);
 initDebugPanel();
 initFade();
 initDayEndPanel();
+initGuidance({ onSkipTutorial: skipTutorial });
 
 /** Eat one edible item from the bag: consume it, restore hunger (Needs engine).
  *  Cooked dishes restore most, then crop produce, then wild forage; raw fish
@@ -437,8 +457,8 @@ initShopWindow(economy, skills, farm, livestock,
   () => currentSeason(calendar),
   () => sellableGoodIds({ inv: economy.inv, collections }),
   toast, remember,
-  (coins, qty) => { logCoinsEarned(dayLog, coins); logItemsSold(dayLog, qty); },
-  (coins) => logCoinsSpent(dayLog, coins));
+  (coins, qty) => { logCoinsEarned(dayLog, coins); logItemsSold(dayLog, qty); fireGuidance({ kind: "sale" }); },
+  (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); });
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -502,9 +522,8 @@ function onNpcSale(npcId: string) {
   }
 }
 
-// ---- opening sequence (title -> intro -> reveal -> choice -> tutorial) ----
+// ---- opening sequence (title -> creation -> intro -> reveal -> path -> guidance) ----
 let openingActive = true;
-let hintSellShown = false;
 let minuteAccum = 0;   // real seconds banked toward the next in-game minute
 let timeSkipping = false;   // true during a sleep/collapse fade — world time PAUSES (never teleports)
 let lastDist = player.dist; // player travel last frame, for charging walking energy
@@ -670,27 +689,137 @@ function maybeNpcComment(npcTagId: string) {
   toast(`${npc.def.name}: “${npcNeedComment(npc.def, target)}”`);
 }
 
-// The guided first-tip points at the livelihood the starter tool unlocks, so
-// the very first thing the game suggests matches what the player just chose.
-function firstTip(): string {
-  switch (meta.starterTool) {
-    case "rod":  return "Tip: click the pond to cast — your rod's ready. First coins await!";
-    case "lute": return "Tip: click the busking spot and play a tune for your first coins!";
-    case "hoe":  return "Tip: forage a bush or fish the pond for first coins — then buy seeds for your hoe.";
-    case "pot":  return "Tip: forage a bush, then cook at your hearth — a warm dish sells for more than its parts!";
-    default:     return "Tip: click the pond to fish or a bush to forage — first coins!";
-  }
-}
-
 function beginPlay() {
   hideOpening();
   openingActive = false;
   consumeAction(); consumeLeftClick(); consumeRightClick(); clearMoveTarget();
-  if (isGuided())
-    setTimeout(() => toast(firstTip()), 500);
+  refreshGuidanceUI(true);   // show the tutorial bubble / aspiration pill for the loaded mode
 }
 
-function newGameReset(character: Character, guided: boolean) {
+// ---- Guidance Mode orchestration (Part A #5) ------------------------------
+// The engine (systems/guidance.ts) owns progress + logic and returns effects;
+// this layer wires the world's real action handlers to it, drives the bubble/
+// pill/help DOM, and freezes the in-game clock while a tutorial step is up.
+let lastTutStep = -1;
+
+/** True while a tutorial step bubble is showing — the in-game clock pauses. */
+function guidanceClockFrozen(): boolean {
+  return guidanceMode() === "tutorial" && !guidance.tutorialDone && tutorialBubbleShown();
+}
+
+/** Refresh the bubble / pill / help from the live mode + progress. `force`
+ *  re-opens a dismissed bubble (used the frame a step advances). */
+function refreshGuidanceUI(force = false) {
+  const mode = guidanceMode();
+  if (mode === "tutorial" && !guidance.tutorialDone) {
+    const advanced = force || guidance.tutorialStep !== lastTutStep;
+    setTutorialBubble(currentTutorialStep(guidance, curPath()), advanced);
+    setHelpVisible(true);
+    setAspirationPill(null);
+  } else if (mode === "aspiration" && !guidance.aspirationDone) {
+    setTutorialBubble(null, false);
+    setHelpVisible(false);
+    setAspirationPill(currentAspiration(guidance, curPath(), economy.coins));
+  } else {
+    setTutorialBubble(null, false);
+    setHelpVisible(false);
+    setAspirationPill(null);
+  }
+  lastTutStep = guidance.tutorialStep;
+}
+
+/** Apply an engine result: toasts, Memory Book entries, and — on the last
+ *  tutorial step — the silent switch to None + the farewell line (ask nothing). */
+function applyGuidanceResult(res: GuidanceResult) {
+  for (const t of res.toasts) toast(t);
+  for (const [k, txt] of res.memories) remember(k, txt);
+  if (res.finishedTutorial) {
+    setGuidance("none");
+    markLeftTutorial(guidance);
+    toast("The farm is yours. Make of it what you will.");
+  }
+  refreshGuidanceUI(res.advanced);
+}
+
+/** A world event advances guidance — called from the real action handlers. */
+function fireGuidance(ev: GuidanceEvent) {
+  if (guidanceMode() === "none") return;
+  applyGuidanceResult(notifyGuidance(guidance, guidanceMode(), curPath(), ev));
+}
+
+/** Builds the interaction context (used by the tick and the dev bridge). The
+ *  `guidanceEvent` seam lets interactables (repair / expand) advance guidance. */
+function makeCtx(): InteractCtx {
+  return {
+    economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, needs,
+    relationships, calendar, player,
+    toast, openShop: openPlayerStall, enterHouse, leaveHouse,
+    sleep: sleepUntilMorning, nap: napAnHour,
+    skillPopup: skillGainPopup,
+    memory: remember,
+    expandFarm, openGiftFor, doInteraction,
+    openNpcTrade: openNpcStallTrade,
+    guidanceEvent: fireGuidance,
+  };
+}
+
+/** Per-frame: coins-threshold aspiration steps + the pill's live counter. */
+function tickGuidance() {
+  const mode = guidanceMode();
+  if (mode === "aspiration" && !guidance.aspirationDone) {
+    const res = tickGuidanceCoins(guidance, mode, curPath(), economy.coins);
+    if (res.advanced || res.toasts.length) applyGuidanceResult(res);
+  }
+  refreshGuidanceUI(false);
+}
+
+/** New Game: start the chosen mode (progress already reset in newGameReset). */
+function startGuidanceForNewGame(mode: Guidance) {
+  if (mode === "tutorial") startTutorial(guidance);
+  else if (mode === "aspiration") {
+    startAspiration(guidance);
+    if (meta.character) toast(lifeGoalAspirationLine(meta.character.lifeGoal));
+  }
+  refreshGuidanceUI(true);
+}
+
+/** Skip Tutorial: confirm first, then a ONE-WAY switch to None (per DECISIONS —
+ *  can't return to the tutorial afterwards). */
+function skipTutorial() {
+  showGuidancePrompt("Skip the tutorial? You won't be able to return to it.", [
+    { label: "Skip tutorial", id: "gpSkipYes", onClick: () => {
+        hideGuidancePrompt();
+        setGuidance("none");
+        markLeftTutorial(guidance);
+        toast("On your own from here. The farm is yours to make.");
+        refreshGuidanceUI(true);
+      } },
+    { label: "Keep learning", id: "gpSkipNo", onClick: () => hideGuidancePrompt() },
+  ]);
+}
+
+/** Continue: if a tutorial was mid-progress, ask before resuming (DECISIONS —
+ *  "continue Tutorial?" or switch to Aspiration / None). */
+function continueGame() {
+  if (tutorialInProgress(guidanceMode(), guidance)) {
+    showGuidancePrompt("Continue the tutorial where you left off?", [
+      { label: "Continue the tutorial", id: "gpContYes", onClick: () => { hideGuidancePrompt(); beginPlay(); } },
+      { label: "Switch to Aspiration", id: "gpContAsp", onClick: () => {
+          hideGuidancePrompt();
+          setGuidance("aspiration"); markLeftTutorial(guidance); startAspiration(guidance);
+          if (meta.character) toast(lifeGoalAspirationLine(meta.character.lifeGoal));
+          beginPlay();
+        } },
+      { label: "Switch to None", id: "gpContNone", onClick: () => {
+          hideGuidancePrompt();
+          setGuidance("none"); markLeftTutorial(guidance);
+          beginPlay();
+        } },
+    ]);
+  } else beginPlay();
+}
+
+function newGameReset(character: Character, mode: Guidance) {
   clearSavedGame();                 // wipe every game-state key first, then re-seed fresh
   const path = pathById(character.path);
   economy.coins = STARTING_COINS;   // 50 — the anchor-table purse, "enough for one starter choice"
@@ -721,7 +850,8 @@ function newGameReset(character: Character, guided: boolean) {
   meta.starterTool = path.tool;       // kept in sync for the systems that still read it
   saveMeta(meta);
   playerRigParams = rigFromCharacter(character);   // she now looks like the person she made
-  saveSettings({ guided });           // settings are not game state — kept across a New Game
+  setGuidance(mode);                  // the Guidance Mode is a setting (kept across a New Game)
+  resetGuidance(guidance);            // per-playthrough tutorial/aspiration progress starts fresh
 }
 
 // ---- Save system (Part A #11): every store already saves itself on every
@@ -750,7 +880,8 @@ function saveAllStores() {
 
 function manualSave() {
   saveAllStores();
-  stampSave(calendar, economy.coins, isGuided());
+  saveGuidance(guidance);
+  stampSave(calendar, economy.coins, guidanceMode());
   toast("Game saved. 💾");
 }
 
@@ -758,7 +889,8 @@ let autosaveSeconds = AUTOSAVE_SECONDS;
 let autosaveAccum = 0;
 function autosaveTick() {
   saveAllStores();
-  stampSave(calendar, economy.coins, isGuided());
+  saveGuidance(guidance);
+  stampSave(calendar, economy.coins, guidanceMode());
   toast("Autosaved.");
 }
 
@@ -775,9 +907,13 @@ showTitle(
     showIntro(() => showReveal(() =>
       showPathAndGoal((path, lifeGoal) => {
         const character: Character = { ...identity, path, lifeGoal };
-        showTutorialToggle((guided) => { newGameReset(character, guided); beginPlay(); });
+        showGuidancePicker((mode) => {
+          newGameReset(character, mode);
+          beginPlay();
+          startGuidanceForNewGame(mode);
+        });
       })))),
-  beginPlay,
+  continueGame,
 );
 
 let hovered: Interactable | null = null;              // object under the cursor (for the glow)
@@ -796,7 +932,7 @@ function tick(now: number) {
   // auto-pause: a conversation OR the full end-of-day panel freezes game-time
   // AND the townsfolk (they're "in conversation" / the day is officially over)
   // — the same gating pattern the title screen uses below.
-  const timePaused = isDialogueOpen() || isDayEndOpen();
+  const timePaused = isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen();
   if (!timePaused) updateNpcs(npcs, calendar, weather, player, dt);
 
   if (!openingActive && !timePaused) {
@@ -807,6 +943,9 @@ function tick(now: number) {
 
   const wasMoving = player.moving;
   updatePlayer(player, dt);
+  // Guidance (Tutorial step 0 only): clears on ~3s of real walking
+  if (player.moving && guidanceMode() === "tutorial" && !guidance.tutorialDone && guidance.tutorialStep === 0)
+    fireGuidance({ kind: "move", seconds: dt });
   if (player.moving && !wasMoving) {
     if (fishing.casting) { cancelCast(fishing); player.fishing = false; }
     if (foraging.picking) cancelPick(foraging);
@@ -818,8 +957,9 @@ function tick(now: number) {
   // world time: the day-length setting sets the pace; a full in-game day takes
   // dayLengthSeconds of actual play, so one minute is that over 24*60. Each
   // minute drains needs (stepGameMinute); warnings + collapse are checked per
-  // minute. Paused while a sleep/collapse fade drives the same loop itself.
-  if (!timeSkipping) {
+  // minute. Paused while a sleep/collapse fade drives the same loop itself, and
+  // while a Tutorial step bubble is up (DECISIONS: "in Tutorial time pauses per step").
+  if (!timeSkipping && !guidanceClockFrozen()) {
     const minuteSeconds = dayLengthSeconds() / (24 * 60);
     minuteAccum += dt;
     while (minuteAccum >= minuteSeconds) {
@@ -831,16 +971,7 @@ function tick(now: number) {
   lastDist = player.dist;
 
   // interactions (UO-style: hover highlights, left = act/move, right = menu)
-  const ictx: InteractCtx = {
-    economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, needs,
-    relationships, calendar, player,
-    toast, openShop: openPlayerStall, enterHouse, leaveHouse,
-    sleep: sleepUntilMorning, nap: napAnHour,
-    skillPopup: skillGainPopup,
-    memory: remember,
-    expandFarm, openGiftFor, doInteraction,
-    openNpcTrade: openNpcStallTrade,
-  };
+  const ictx: InteractCtx = makeCtx();
 
   // walking away from whichever stall is open closes the trade window
   if (isShopOpen() && openStallRect && !nearRect(player.x, player.y, openStallRect)) closeShopWindow();
@@ -913,15 +1044,12 @@ function tick(now: number) {
         record("fish", haul.id);
         remember("first_catch", "Your first catch — the water gave something back.");
         logCatch(dayLog);
+        fireGuidance({ kind: "catch" });   // Guidance: fisher tutorial/aspiration progress
       }
     } else toast("Backpack full — the catch slips away!");
     applyExertion(needs, "fishing");
     const gained = gainSkill(skills, "fishing", moodPerfMult(needs));
     if (gained > 0) { skillGainPopup("fishing", gained); logSkillGain(dayLog, "fishing", gained); }
-    if (isGuided() && !hintSellShown) {
-      hintSellShown = true;
-      setTimeout(() => toast("Sell your catch: walk to the stall and Trade."), 2400);
-    }
   }
   if (updateForaging(foraging, bushes, dt)) {
     // what the pick found rolls against the forage table for this season+skill;
@@ -948,6 +1076,7 @@ function tick(now: number) {
     toast(`Earned ${tip} coin${tip === 1 ? "" : "s"} busking! 🎶`);
     logCoinsEarned(dayLog, tip);
     remember("first_busk", "You played for strangers, and they paid — first tips.");
+    fireGuidance({ kind: "busk", tip });   // Guidance: musician tutorial/aspiration progress
     applyExertion(needs, "busking");
     const gained = gainSkill(skills, "busking", moodPerfMult(needs));
     if (gained > 0) { skillGainPopup("busking", gained); logSkillGain(dayLog, "busking", gained); }
@@ -962,6 +1091,7 @@ function tick(now: number) {
         toast(`Cooked ${r.name.toLowerCase()}! 🍲`);
         remember("first_cook", "A warm meal from your own hearth — first dish.");
         logDishCooked(dayLog);
+        fireGuidance({ kind: "cook" });   // Guidance: keeper tutorial/aspiration progress
       } else toast("Backpack full — the dish burns while you rummage!");
       const gained = gainSkill(skills, "cooking", moodPerfMult(needs));
       if (gained > 0) { skillGainPopup("cooking", gained); logSkillGain(dayLog, "cooking", gained); }
@@ -986,6 +1116,7 @@ function tick(now: number) {
         cell.state = "growing"; cell.growth = 0; cell.cropId = crop.id; cell.dryDays = 0;
         cell.watered = isRaining(weather);   // a rainy day waters the fresh planting for free
         toast(cell.watered ? `${crop.name} planted — the rain's already on it!` : `${crop.name} planted — it'll want water.`);
+        fireGuidance({ kind: "plant" });   // Guidance: farmer tutorial/aspiration progress
       }
     } else if (kind === "water") {
       cell.watered = true;
@@ -1000,6 +1131,7 @@ function tick(now: number) {
         toast(`Harvested ${crop.name.toLowerCase()}! 🌽`);
         remember("first_harvest", "The first harvest from your own soil.");
         logHarvest(dayLog);
+        fireGuidance({ kind: "harvest" });   // Guidance: farmer aspiration progress
         const gained = gainSkill(skills, "farming", moodPerfMult(needs));
         if (gained > 0) { skillGainPopup("farming", gained); logSkillGain(dayLog, "farming", gained); }
       } else if (crop) toast(`Backpack full — no room for the ${crop.name.toLowerCase()}!`);
@@ -1064,6 +1196,7 @@ function tick(now: number) {
   updateSkillsUI();
   updateShopWindow();
   updateMemoryBook();
+  if (!openingActive) tickGuidance();   // keep the tutorial bubble / aspiration pill live
   updateToast(dt);
   draw();
   requestAnimationFrame(tick);

@@ -179,6 +179,13 @@ export const CAM_USER_ZOOM_STEP = 0.15; // ...changed by this much per wheel not
 export const AUTOSAVE_SECONDS = 600;    // 10 real minutes between autosaves (DECISIONS: "Save")
 
 // ===========================================================================
+//  Guidance Mode engine (Part A #5) — Tutorial / Aspiration / None. Tutorial
+//  freezes the in-game clock while a step bubble is up (DECISIONS). All content
+//  (step wording, aspiration chains) lives in data/guidance.ts; the knobs here.
+// ===========================================================================
+export const TUTORIAL_MOVE_SECONDS = 3;   // real seconds of walking that clears the "get your bearings" step
+
+// ===========================================================================
 //  End-of-day summary engine (Part A #7) — DECISIONS: "End-of-day summary:
 //  player setting — none/quick/full-with-achievements".
 // ===========================================================================
@@ -223,4 +230,5 @@ export const MEMORIES_KEY = "wildhearth-memories-v1";       // Memory Book: life
 export const NEEDS_KEY = "wildhearth-needs-v1";             // 7 needs (hunger/thirst/energy/hygiene/bathroom/mood/social)
 export const RELATIONSHIPS_KEY = "wildhearth-relationships-v1"; // per-NPC Friendship/Romance (Relationship engine)
 export const SLOT_KEY = "wildhearth-slot-v1";        // save-slot manifest (Save system, Part A #11)
+export const GUIDANCE_KEY = "wildhearth-guidance-v1"; // tutorial/aspiration progress (Guidance Mode engine)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

@@ -292,6 +292,44 @@
     .eod-achieve-head{color:var(--gold);font-weight:700;font-size:13px;margin:10px 0 2px;
       border-top:1px solid var(--hairline);padding-top:8px;text-transform:uppercase;letter-spacing:.05em}
     #eodHint{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;font-style:italic}
+    /* ===== Guidance Mode (Part A #5) ===== */
+    /* Tutorial step bubble — a transparent panel, top-centre of the play area,
+       shown while game-time is paused for the step (DECISIONS). */
+    #tutorialBubble{position:absolute;top:96px;left:50%;transform:translateX(-50%);
+      width:min(360px,calc(100% - 40px));display:none;z-index:7;color:var(--ink);
+      background:linear-gradient(180deg,rgba(34,42,25,.82),rgba(20,26,14,.82));
+      border:2px solid var(--wood);border-radius:var(--r);box-shadow:var(--float-shadow);
+      padding:12px 16px;backdrop-filter:blur(1.5px)}
+    #tutTitle{color:var(--gold);font-weight:800;font-size:15px;letter-spacing:.03em;margin-bottom:6px}
+    #tutBody{font-size:14px;line-height:1.5;margin-bottom:10px}
+    #tutBtns{display:flex;gap:8px;justify-content:flex-end}
+    #tutSkip,#tutDismiss{border-radius:8px;font:inherit;font-size:12px;font-weight:700;
+      padding:6px 12px;cursor:pointer;border:1px solid var(--cell-edge);background:var(--cell-bg);color:var(--ink)}
+    #tutDismiss{background:rgba(230,190,80,.9);color:#241d0e;border-color:#b8912f}
+    #tutSkip:hover,#tutDismiss:hover{border-color:var(--gold-soft)}
+    /* persistent Help (?) icon — visible whenever the Tutorial is active */
+    #helpBtn{position:absolute;top:96px;right:14px;width:40px;height:40px;border-radius:50%;
+      display:none;align-items:center;justify-content:center;z-index:7;cursor:pointer;
+      border:2px solid #b8912f;background:rgba(230,190,80,.92);color:#241d0e;
+      font-size:22px;font-weight:800;line-height:1;box-shadow:var(--pill-shadow)}
+    /* Aspiration objective pill — small, dismissible, non-blocking */
+    #aspirationPill{position:absolute;top:98px;left:50%;transform:translateX(-50%);
+      display:none;align-items:center;gap:8px;z-index:6;max-width:min(440px,calc(100% - 40px));
+      background:var(--panel-bg);border:1.5px solid var(--wood);box-shadow:var(--pill-shadow);
+      color:var(--ink);padding:6px 8px 6px 14px;border-radius:12px;font-size:13px;font-weight:700}
+    #aspText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #aspClose{flex:none;background:transparent;border:none;color:var(--muted);font-size:13px;
+      cursor:pointer;padding:2px 4px;line-height:1}
+    #aspClose:hover{color:var(--ink)}
+    /* shared guidance modal (Continue-Tutorial on load / Skip-Tutorial confirm) */
+    #guidanceScrim{position:fixed;inset:0;z-index:12;display:none;background:rgba(10,12,8,.6)}
+    #guidancePrompt{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);display:none;z-index:13;
+      background:var(--panel-bg);border:2px solid var(--wood);border-radius:var(--r);
+      box-shadow:var(--float-shadow);color:var(--ink);padding:22px 28px;text-align:center;
+      max-width:min(420px,calc(100vw - 40px))}
+    #gpTitle{font-size:16px;line-height:1.55;font-weight:700;margin-bottom:8px}
+    #gpBtns{display:flex;flex-direction:column;align-items:center}
+    #gpBtns .menu-btn{width:280px}
   </style>
 </head>
 <body>
@@ -310,6 +348,25 @@
       <div id="dlgChoices"></div>
     </div>
     <div id="eodQuick"></div>
+    <!-- Guidance Mode: tutorial step bubble, persistent Help icon, aspiration pill -->
+    <div id="tutorialBubble">
+      <div id="tutTitle"></div>
+      <div id="tutBody"></div>
+      <div id="tutBtns">
+        <button id="tutSkip">Skip Tutorial</button>
+        <button id="tutDismiss" title="Dismiss (the Help ? re-shows it)">Got it</button>
+      </div>
+    </div>
+    <button id="helpBtn" title="Show the current tutorial hint">?</button>
+    <div id="aspirationPill">
+      <span id="aspText"></span>
+      <button id="aspClose" title="Dismiss">✕</button>
+    </div>
+  </div>
+  <div id="guidanceScrim"></div>
+  <div id="guidancePrompt">
+    <div id="gpTitle"></div>
+    <div id="gpBtns"></div>
   </div>
   <div id="eodScrim"></div>
   <div id="eodPanel">

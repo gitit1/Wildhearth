@@ -29,6 +29,7 @@ import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
 import { NPC_STALL_TRADES, type NpcStallTrade } from "./shop";
 import { categoryById } from "./sellCategories";
+import type { GuidanceEvent } from "./guidance";
 
 /**
  * Registry of clickable world objects (UO-style). Each knows how to be
@@ -63,6 +64,7 @@ export interface InteractCtx {
   openGiftFor: (n: Npc) => void;                 // open the gift chooser for an NPC (Relationship engine)
   doInteraction: (n: Npc, it: InteractionDef) => void;  // run a categorized social interaction
   openNpcTrade: (trade: NpcStallTrade) => void;   // opens the sell-only window for an NPC-specialty stall
+  guidanceEvent: (ev: GuidanceEvent) => void;    // advance Guidance Mode (repair/expand) — main owns the engine
 }
 
 /** True while any timed activity is running (they are mutually exclusive). */
@@ -265,6 +267,7 @@ function doRepair(c: InteractCtx, part: FarmPart) {
   const gained = gainSkill(c.skills, "building", moodPerfMult(c.needs));
   if (gained > 0) c.skillPopup("building", gained);
   c.memory("first_repair", "The farm is a little less broken — first repair.");
+  c.guidanceEvent({ kind: "repair" });   // Guidance: farmer aspiration "repair or expand"
   if (repairsLeft(c.farm) === 0)
     c.memory("farm_whole", "Every board mended — the farm stands whole again.");
 }
@@ -306,6 +309,7 @@ const house: Interactable = {
           c.expandFarm();   // main materializes the new strip of tillable cells
           c.toast("The fence leaps outward — more field to work!");
           c.memory("first_expansion", "The farm grew beyond its first fence.");
+          c.guidanceEvent({ kind: "repair" });   // Guidance: farmer aspiration "repair or expand"
         },
       });
     list.push({

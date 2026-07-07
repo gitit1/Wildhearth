@@ -99,37 +99,3 @@ function sectionHead(text: string): HTMLElement {
   h.textContent = text;
   return h;
 }
-
-/** Interim guidance step (Commit 1) — the guided/open toggle. Commit 2 replaces
- *  this with the three-way Tutorial / Aspiration / None picker + its engine. */
-export function showTutorialToggle(onPick: (guided: boolean) => void) {
-  const o = openingRoot();
-  o.className = "dark";
-  o.style.display = "flex";
-  o.replaceChildren();
-
-  const panel = document.createElement("div");
-  panel.className = "menu-panel";
-  const head = document.createElement("p");
-  head.className = "menu-text";
-  head.textContent = "How would you like to start?";
-
-  const guided = document.createElement("button");
-  guided.className = "menu-btn";
-  guided.id = "btnGuided";
-  guided.textContent = "Guided — short tips as you play";
-  guided.addEventListener("click", () => onPick(true));
-
-  const open = document.createElement("button");
-  open.className = "menu-btn";
-  open.id = "btnOpen";
-  open.textContent = "Open — no hand-holding";
-  open.addEventListener("click", () => onPick(false));
-
-  const note = document.createElement("p");
-  note.className = "menu-sub";
-  note.textContent = "A normal setting — you can change it later.";
-
-  panel.append(head, guided, open, note);
-  o.append(panel);
-}
