@@ -29,6 +29,65 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Sprite sheets — pack per-character frames into atlases (heroine repacked)
+- **Date:** 2026-07-07 (v1-foundation, PixelLab integration — atlas foundation)
+- **Block given:** Before landing 10 NPC sprite sets (56 frames each), fix the
+  bundle-bloat root cause: the heroine's 88 loose sub-4KB frame PNGs were being
+  base64-**inlined** into the JS by Vite (bundle 665KB, past the 500KB
+  chunk-size warning); 10 NPCs would add megabytes. Introduce a per-character
+  **sprite-sheet atlas** so Vite emits ONE hashed PNG per character (fetched,
+  not inlined), and repack the heroine onto it with identical behavior.
+- **Done:**
+  - **Packer** — new `scripts/packsheets.mjs` (Node; added **pngjs** as a
+    devDependency — build tooling). Reads a raw PixelLab character export
+    (its `metadata.json` v3 frame map + `rotations/`+`animations/` PNGs) and
+    emits `<name>.sheet.png` (a deterministic atlas) + `<name>.sheet.json`
+    (frame map + metadata). Grid: **row 0** = the 8 rotations (one per column,
+    in a fixed `dirs` order south→south-west clockwise); **rows 1..N** = each
+    animation's frames (walk 6 rows, then the heroine's idle 4 rows), one row
+    per frame across the 8 direction columns. Each cell is the export's native
+    frame size (84px heroine). Frame keys: `rot_<dir>`, `walk_<dir>_<f>`,
+    `idle_<dir>_<f>`. Also measures the **union alpha bounding box** across all
+    frames → `anchor {cx, footY}` (silhouette centre column + ground row) for
+    the draw bridges. CLI: `--src <rawDir> --name <name> [--out <dir>]` or
+    `--all <stagingRoot>`. Deterministic (same input → same bytes).
+  - **Manifest** (`src/assets/pixellab/manifest.ts`) — added a second eager
+    glob `./**/*.sheet.json` → `SHEET_MANIFEST: {id, data: SheetData}[]` (id =
+    path minus `.sheet.json`, e.g. `characters/heroine`), alongside the
+    existing PNG-URL glob (which now also carries each `<name>.sheet.png` under
+    id `<name>.sheet`). New exported types `SheetData`/`SheetFrameRect`/
+    `SheetEntry`. Loose single PNGs (buildings/interior) are unchanged.
+  - **Loader** (`src/art/sprites.ts`) — builds a `sheetRegistry` from
+    `SHEET_MANIFEST` at module load (synchronous; the JSON is eager-imported).
+    New `spriteFrame(sheetId, frameName) → {img, sx, sy, sw, sh} | null`
+    (the atlas image + the frame's source sub-rect, for the 9-arg drawImage),
+    and `sheetInfo(sheetId) → SheetData | null` (cell size + foot anchor). Both
+    return null until the atlas decodes / if absent — same dual-path fallback
+    contract as `sprite()`. `sprite()`, `drawGroundSprite()`, `recolorSprite()`
+    unchanged.
+  - **Heroine repacked** — packed her verified frames into
+    `src/assets/pixellab/characters/heroine.sheet.png` (672×924, 202KB) +
+    `heroine.sheet.json`, and **deleted her 88 loose PNGs** (+ the now-empty
+    `characters/heroine/` folder). `src/art/spriteChar.ts` now sources frames
+    via `spriteFrame("characters/heroine", …)` and draws them with the 9-arg
+    `drawImage(img, sx,sy,sw,sh, …)` — the anchor constants (SHEET 84, ANCHOR_X
+    42, ANCHOR_Y 62) are unchanged, so the render is **pixel-identical**. (The
+    packer's own measured foot row is 64, the raw silhouette bottom; the
+    verified visual ground-contact row 62 was hand-tuned ~2px above it and is
+    kept.)
+  - **Dist size (before → after `npm run build`):** JS bundle
+    `assets/index-*.js` **665.02KB → 371.19KB** (gzip **341.68 → 128.87KB**),
+    module count 240 → 154; the **500KB chunk-size warning is gone**. The
+    heroine is now one fetched `heroine.sheet-*.png` (202KB) instead of 88
+    inlined base64 blobs.
+- **Verify:** `npm run build` green, no warning. In-browser (Playwright, new
+  game → default heroine): `usesSprite=true`, `spritesReady=true`
+  (10/10 sprites: 9 loose building/interior + 1 heroine atlas), idle + the
+  6-frame walk cycle advance correctly, **0 page/console errors**; screenshots
+  reviewed — hat/apron/dress/boots + leg motion identical to the loose-PNG path.
+- **Follow-ups:** the 10 NPC sheets land next commit (they reuse this packer +
+  `spriteFrame`); PIXELLAB_ASSETS.md §1/§2 get the NPC roster there.
+
 ## Sprite interior & market — room, furniture, stalls, well
 - **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 2)
 - **Block given:** Extend the wave-1 dual-path sprite system to the house

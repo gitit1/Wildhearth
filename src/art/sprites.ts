@@ -14,11 +14,16 @@
  * the pixel art stays crisp at any camera zoom — the drawers set it, but keep
  * this contract in mind when adding new sprite draws.
  */
-import { SPRITE_MANIFEST } from "../assets/pixellab/manifest";
+import { SPRITE_MANIFEST, SHEET_MANIFEST, type SheetData } from "../assets/pixellab/manifest";
 
 const registry = new Map<string, HTMLImageElement>();
 let loadStarted = false;
 let loadedCount = 0;
+
+// Sheet frame maps, keyed by sheet id ("characters/heroine"). Populated
+// synchronously at module load — the JSON is eager-imported, no decode wait.
+const sheetRegistry = new Map<string, SheetData>();
+for (const { id, data } of SHEET_MANIFEST) sheetRegistry.set(id, data);
 
 /** Start decoding every manifest sprite. Idempotent; returns immediately. */
 export function loadSprites(): void {
@@ -38,6 +43,33 @@ export function loadSprites(): void {
 export function sprite(id: string): HTMLImageElement | null {
   const img = registry.get(id);
   return img && img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+// ---- sheet atlas access -------------------------------------------------
+/** One frame's source sub-rect inside a decoded atlas image — feed straight
+ *  into the 9-arg g.drawImage(img, sx,sy,sw,sh, dx,dy,dw,dh). */
+export interface SpriteFrame { img: HTMLImageElement; sx: number; sy: number; sw: number; sh: number }
+
+/**
+ * A named frame from a packed atlas. `sheetId` is the sheet id
+ * ("characters/heroine"), `frameName` a key in its frame map ("walk_south_0").
+ * Returns null until the atlas PNG has decoded, or if the sheet/frame is
+ * absent — callers fall back to the code rig, exactly like sprite()==null.
+ */
+export function spriteFrame(sheetId: string, frameName: string): SpriteFrame | null {
+  const data = sheetRegistry.get(sheetId);
+  if (!data) return null;
+  const fr = data.frames[frameName];
+  if (!fr) return null;
+  const img = sprite(`${sheetId}.sheet`);   // the atlas PNG (manifest id has the .sheet suffix)
+  if (!img) return null;
+  return { img, sx: fr.x, sy: fr.y, sw: fr.w, sh: fr.h };
+}
+
+/** A sheet's placement metadata (cell size + measured foot anchor), or null if
+ *  the sheet isn't present. Used by the character bridges to scale/plant feet. */
+export function sheetInfo(sheetId: string): SheetData | null {
+  return sheetRegistry.get(sheetId) ?? null;
 }
 
 /** True once every manifest sprite has decoded (used only by verification). */

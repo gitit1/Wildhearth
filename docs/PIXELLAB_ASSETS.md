@@ -153,11 +153,9 @@ prompt, so these entries are shorter than wave 1's:
 
 ```
 src/assets/pixellab/
-  manifest.ts                     ← one eager URL glob; adding PNGs needs no edit
-  characters/heroine/
-    rot_<dir>.png                 (8)   e.g. rot_south.png … rot_north-east.png
-    walk_<dir>_0..5.png           (48)
-    idle_<dir>_0..3.png           (32)
+  manifest.ts                     ← two eager globs; adding assets needs no edit
+  characters/heroine.sheet.png    ← ONE packed atlas (was 88 loose PNGs)
+  characters/heroine.sheet.json   ← its frame map + anchor (scripts/packsheets.mjs)
   buildings/farmhouse.png
   buildings/barn.png
   buildings/market-stall.png
@@ -170,18 +168,36 @@ src/assets/pixellab/
 ```
 `<dir>` ∈ `south south-east east north-east north north-west west south-west`.
 
-**Manifest** (`manifest.ts`): `import.meta.glob("./**/*.png", { eager:true,
-query:"?url", import:"default" })` → `SPRITE_MANIFEST: {id,url}[]`, where
-`id` = the path under `pixellab/` minus `.png` (e.g. `characters/heroine/
-walk_south_0`, `buildings/farmhouse`, `interior/hearth`). **Adding a category is
-"drop the PNGs + rebuild"** — the glob picks them up, no code change. An empty
-folder → `[]` → every `sprite()` returns `null` → all painters.
+**Two asset shapes** (both on the dual-path fallback):
+- **Loose single PNGs** (buildings, interior, one-off props) — drawn whole by
+  `sprite(id)` / `drawGroundSprite()`. Adding one is "drop the PNG + rebuild".
+- **Sheet atlases** (characters: the heroine + the 10 NPCs) — every character's
+  8 rotations + walk (+ the heroine's idle) frames are packed by
+  `scripts/packsheets.mjs` into ONE `<name>.sheet.png` with a sibling
+  `<name>.sheet.json` frame map. This exists because Vite base64-**inlines**
+  sub-4KB PNGs into the JS bundle; a character's ~56–88 tiny frame PNGs bloated
+  the bundle past the 500KB warning, whereas ONE atlas is emitted as a single
+  hashed file that's fetched, not inlined (see §4 "Packing a character").
+
+**Manifest** (`manifest.ts`): two eager globs —
+`import.meta.glob("./**/*.png", {query:"?url"})` → `SPRITE_MANIFEST: {id,url}[]`
+(`id` = path minus `.png`; a sheet's atlas lands under `characters/<name>.sheet`)
+and `import.meta.glob("./**/*.sheet.json")` → `SHEET_MANIFEST: {id,data}[]`
+(`id` = path minus `.sheet.json`, e.g. `characters/heroine`; `data` is the
+parsed `SheetData`). **Adding a category is still "drop the files + rebuild"** —
+the globs pick them up, no code change. An empty folder → both `[]` → every
+`sprite()`/`spriteFrame()` returns `null` → all painters.
 
 **Loader** (`art/sprites.ts`): `loadSprites()` runs once at boot, NON-BLOCKING;
 `sprite(id)` returns the decoded `HTMLImageElement` or `null` until ready (or
 forever if absent). `drawGroundSprite(g,img,groundX,groundY,anchorCol,footRow,
 scale)` places a static sprite base-on-ground, centred on its anchor column, and
-returns the sprite→world transform for overlays.
+returns the sprite→world transform for overlays. For atlases:
+`spriteFrame(sheetId, frameName)` → `{img, sx, sy, sw, sh} | null` (the atlas
+image + a frame's source sub-rect, fed to the 9-arg `drawImage`), and
+`sheetInfo(sheetId)` → the `SheetData` (cell size + measured foot anchor). The
+draw bridges (`art/spriteChar.ts` heroine, `art/spriteNpc.ts` NPCs) build frame
+keys `rot_<dir>` / `walk_<dir>_<f>` / `idle_<dir>_<f>` and call `spriteFrame`.
 
 **Player bridge** (`art/spriteChar.ts`): `drawPlayerSprite` picks the frame
 (8-dir facing from the movement vector + hysteresis; walk keyed to `player.dist`,
@@ -238,6 +254,30 @@ have no runtime toggle, only the load-or-not dual path).
 ---
 
 ## 4. How to regenerate / extend
+
+### Packing a character into a sheet (`scripts/packsheets.mjs`)
+Characters are drawn from a packed **atlas**, not loose frame PNGs (see §3 for
+why). The packer (Node, `pngjs` devDep — build tooling only, never shipped)
+turns a raw PixelLab character export into `<name>.sheet.png` + `.sheet.json`:
+
+1. **Download + unzip** the character (`…/characters/<id>/download`) into an
+   **untracked staging folder** (kept OUT of the repo — only the packed sheet is
+   committed). The export is a `metadata.json` (v3) + `<Char>/rotations/<dir>.png`
+   + `<Char>/animations/<anim>/<dir>/frame_00N.png`.
+2. **Pack:** `node scripts/packsheets.mjs --src <stagingDir> --name <name>`
+   (default `--out src/assets/pixellab/characters`; or `--all <stagingRoot>` to
+   pack every subdir, name = subdir minus a trailing `_raw`). It reads the
+   metadata frame map, asserts a uniform cell size, and writes a deterministic
+   grid: **row 0** = the 8 rotations (columns in `dirs` order, south→south-west
+   clockwise), then **one row per animation frame** (`walking`→`walk` 6 rows,
+   `animating`→`idle` 4 rows) across the 8 direction columns. The JSON records
+   `canvas` (cell px), `cols`/`rows`, `dirs`, `anims`, the per-frame source
+   rects (keyed `rot_<dir>` / `walk_<dir>_<f>` / `idle_<dir>_<f>`), and a
+   measured **`anchor {cx, footY}`** (union alpha-bbox centre column + ground
+   row) the draw bridge uses to plant feet.
+3. **Commit** only `<name>.sheet.png` + `<name>.sheet.json`; the loose frames
+   stay in staging. To regenerate, re-download and re-pack — deterministic, so
+   an unchanged export yields byte-identical output.
 
 - **Regenerate a static** (e.g. redo the barn): `create_map_object` with the
   recorded prompt (tweak as needed), `get_map_object` until `completed`,

@@ -12,7 +12,7 @@
  * Poses WITHOUT a generated animation (fishing, hoeing, foraging, busking,
  * sleeping) always return false here → the rig draws them, unchanged.
  */
-import { sprite } from "./sprites";
+import { spriteFrame, type SpriteFrame } from "./sprites";
 import { shadow, castShadow } from "./shapes";
 import {
   SPRITE_PLAYER_SCALE, SPRITE_PLAYER_FOOT_DY, SPRITE_WALK_STRIDE,
@@ -23,13 +23,19 @@ import type { Outfit } from "./rig";
 import type { Player } from "../entities/player";
 
 // ---- generated-sheet geometry -------------------------------------------
-// Properties of the 84x84 heroine sheet (measured alpha bbox across all 8
-// rotations + walk/idle frames: horizontal centre col ≈ 42 = canvas centre,
-// foot row ≈ 62, character ≈ 42-44px tall — the rig's own hat-top-to-boot
-// height). Not gameplay tuning, so they live here with the sheet, not config.
+// The heroine's frames now live in ONE packed atlas (characters/heroine.sheet
+// .png, mapped by heroine.sheet.json — see scripts/packsheets.mjs); spriteFrame
+// hands back each frame's source sub-rect, drawn with the 9-arg drawImage. The
+// per-frame CELL is 84x84 with the character ≈ 42-44px tall — the SAME apparent
+// height as the code rig — so these anchor constants are unchanged from the old
+// loose-PNG path and the render is pixel-identical. The packer's own measured
+// foot row is 64 (raw silhouette bottom); ANCHOR_Y=62 is the verified visual
+// ground-contact row hand-tuned ~2px above it. Not gameplay tuning, so these
+// live here with the sheet, not config.
+const SHEET_ID = "characters/heroine";
 const SHEET = 84;
-const ANCHOR_X = 42;   // sprite column planted on player.x
-const ANCHOR_Y = 62;   // sprite foot row planted on the ground line
+const ANCHOR_X = 42;   // sprite column planted on player.x (= atlas cell centre)
+const ANCHOR_Y = 62;   // sprite foot row planted on the ground line (verified)
 const WALK_FRAMES = 6, IDLE_FRAMES = 4;
 
 // 8 sprite directions in atan2(dy, dx) sector order. Canvas y is DOWN, so
@@ -117,15 +123,15 @@ export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, t: numb
   if (!kind) return false;   // fishing / hoeing / foraging / busking / sleeping → rig
 
   const dir = facingDir(p);
-  let img: HTMLImageElement | null;
+  let frame: SpriteFrame | null;
   if (kind === "walk") {
     const f = Math.floor(Math.max(0, p.dist) / SPRITE_WALK_STRIDE) % WALK_FRAMES;
-    img = sprite(`characters/heroine/walk_${dir}_${f}`);
+    frame = spriteFrame(SHEET_ID, `walk_${dir}_${f}`);
   } else {
     const f = Math.floor(t * SPRITE_IDLE_FPS) % IDLE_FRAMES;
-    img = sprite(`characters/heroine/idle_${dir}_${f}`);
+    frame = spriteFrame(SHEET_ID, `idle_${dir}_${f}`);
   }
-  if (!img) return false;   // not decoded yet → rig this frame (alignment matches, so no pop)
+  if (!frame) return false;   // atlas not decoded yet → rig this frame (alignment matches, so no pop)
 
   // shadows first, at the rig's ground line (mirrors rig.ts, scale s = 1)
   castShadow(g, p.x, p.y + 13, 7, 13);
@@ -137,7 +143,7 @@ export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, t: numb
   const dy = (p.y + SPRITE_PLAYER_FOOT_DY) - ANCHOR_Y * sc;
   const prev = g.imageSmoothingEnabled;
   g.imageSmoothingEnabled = false;   // crisp pixels at every zoom
-  g.drawImage(img, dx, dy, dw, dh);
+  g.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh, dx, dy, dw, dh);
   g.imageSmoothingEnabled = prev;
   return true;
 }
