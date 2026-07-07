@@ -10,7 +10,8 @@ import type { WindowHandle } from "./windows/window";
  * one NPC, lists the giftable goods currently in the bag with icons, and
  * calls back on a pick. The give flow itself (consume + apply delta + toast +
  * memory) lives in main.ts — this is pure UI. Opened programmatically (no
- * dock icon/shortcut); Escape or the window's own ✕ close it. Default:
+ * dock icon/shortcut); the window's own ✕ or Esc (the shared cascade, Windows
+ * migration II, when it's the topmost open window) close it. Default:
  * hidden, near the shop window.
  */
 
@@ -34,11 +35,6 @@ export function initGiftChooser(economy: Economy) {
     defaultPos: (d) => ({ x: Math.round(d.w * 0.5 - 280) + 40, y: Math.round(d.h * 0.5 - 240) + 40 }),
   });
   win.close(); // default: hidden
-
-  // Escape closes the chooser first (its capture handler beats the backpack's).
-  addEventListener("keydown", (e) => {
-    if (e.code === "Escape" && win.isOpen()) { closeGiftChooser(); e.stopImmediatePropagation(); }
-  }, true);
 }
 
 export function isGiftChooserOpen(): boolean { return win.isOpen(); }

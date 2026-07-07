@@ -3,16 +3,23 @@ import { topActivityLine } from "../systems/daylog";
 import { SKILL_NAMES } from "../systems/skills";
 import type { Season } from "../systems/calendar";
 import { EOD_QUICK_SHOW_SECONDS } from "../config";
+import { wm } from "./windows/manager";
+import type { WindowHandle } from "./windows/window";
 
 /**
- * End-of-day summary UI (Part A #7) — two presentations driven by the
- * player's `endOfDaySummary` setting:
+ * End-of-day summary UI — two presentations driven by the player's
+ * `endOfDaySummary` setting:
  *  - "quick": a small toast-style pill, 3 lines, auto-fades. Non-blocking —
- *    game-time is NOT paused.
- *  - "full": a proper wood/gold modal listing every non-zero ledger line +
- *    today's achievements (new discoveries/memories). Dismiss by click, Enter,
- *    or Esc; `isDayEndOpen()` lets main.ts gate game-time exactly like the
- *    dialogue box does.
+ *    game-time is NOT paused. Unchanged by Windows migration II (it was never
+ *    a panel to begin with).
+ *  - "full" (Windows migration II): a real wm window listing every non-zero
+ *    ledger line + today's achievements (new discoveries/memories); title bar
+ *    reads "<Season>, Day <N> — day complete" (set dynamically, like the shop
+ *    window's). Dismiss via the window's ✕, the shared Esc cascade, or Enter
+ *    (kept as its own dedicated shortcut — "acknowledge and continue" reads
+ *    naturally on Enter, unlike the generic per-window Esc-closes rule).
+ *    `isDayEndOpen()` lets main.ts gate game-time exactly like the dialogue
+ *    box does.
  */
 
 export interface DayEndSnapshot { season: Season; day: number; log: DayLog }
@@ -45,14 +52,11 @@ export function updateQuickSummary(dt: number): void {
 }
 
 // ---- full -----------------------------------------------------------------
-let scrim: HTMLElement;
-let panel: HTMLElement;
-let titleEl: HTMLElement;
+let win: WindowHandle;
 let bodyEl: HTMLElement;
-let fullOpen = false;
 let onCloseCb: (() => void) | null = null;
 
-export function isDayEndOpen(): boolean { return fullOpen; }
+export function isDayEndOpen(): boolean { return win.isOpen(); }
 
 function row(text: string, cls = "eod-row"): HTMLElement {
   const div = document.createElement("div");
@@ -63,9 +67,8 @@ function row(text: string, cls = "eod-row"): HTMLElement {
 
 export function showFullSummary(snap: DayEndSnapshot, onClose: () => void): void {
   onCloseCb = onClose;
-  fullOpen = true;
   const { log } = snap;
-  titleEl.textContent = `${cap(snap.season)}, Day ${snap.day} — day complete`;
+  win.setTitle(`${cap(snap.season)}, Day ${snap.day} — day complete`);
   bodyEl.replaceChildren();
 
   const rows: string[] = [];
@@ -94,33 +97,40 @@ export function showFullSummary(snap: DayEndSnapshot, onClose: () => void): void
     for (const m of log.newMemories) bodyEl.append(row(`✒ ${m}`));
   }
 
-  scrim.style.display = "block";
-  panel.style.display = "block";
+  win.open();
 }
 
 function closeFullSummary() {
-  if (!fullOpen) return;
-  fullOpen = false;
-  scrim.style.display = "none";
-  panel.style.display = "none";
-  const cb = onCloseCb;
-  onCloseCb = null;
-  cb?.();
+  win.close();
 }
+
+const EOD_W = 380;
 
 export function initDayEndPanel(): void {
   quickEl = document.getElementById("eodQuick")!;
-  scrim = document.getElementById("eodScrim")!;
-  panel = document.getElementById("eodPanel")!;
-  titleEl = document.getElementById("eodTitle")!;
+  const panel = document.getElementById("eodPanel")!;
   bodyEl = document.getElementById("eodBody")!;
 
-  scrim.addEventListener("click", closeFullSummary);
-  panel.addEventListener("click", closeFullSummary);
-  // capture-phase so Esc/Enter beat any other panel's handler while open
+  win = wm.createWindow({
+    id: "dayend", title: "Day complete", icon: "📋",
+    content: panel,
+    defaultRect: (d) => ({ x: Math.round((d.w - EOD_W) / 2), y: Math.round((d.h - 320) / 2), w: 0, h: 0 }),
+    onClose: () => {
+      const cb = onCloseCb;
+      onCloseCb = null;
+      cb?.();
+    },
+  });
+  win.close(); // default: hidden — auto-opens on day rollover
+
+  // Enter/NumpadEnter is a dedicated "acknowledge and continue" shortcut
+  // (capture-phase so it beats other handlers while open); Escape is no
+  // longer special-cased here — it's just another closable window now, so
+  // the shared Esc cascade (setup.ts's escCloseTopWindow) closes it like any
+  // other topmost window.
   addEventListener("keydown", (e) => {
-    if (!fullOpen) return;
-    if (e.code === "Escape" || e.code === "Enter" || e.code === "NumpadEnter") {
+    if (!win.isOpen()) return;
+    if (e.code === "Enter" || e.code === "NumpadEnter") {
       e.stopImmediatePropagation();
       closeFullSummary();
     }

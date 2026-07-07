@@ -458,7 +458,7 @@ class WindowManager {
   snapshotLayout(): LayoutStore {
     const windows: Record<string, WindowLayout> = {};
     for (const [id, m] of this.wins) {
-      const row: WindowLayout = { x: m.normalRect.x, y: m.normalRect.y, state: m.state };
+      const row: WindowLayout = { x: m.normalRect.x, y: m.normalRect.y, state: m.state, z: m.z };
       if (m.spec.resizable ?? false) { row.w = m.normalRect.w; row.h = m.normalRect.h; }
       if (m.pinned) row.pinned = true;
       windows[id] = row;
@@ -488,6 +488,16 @@ class WindowManager {
       // set state without persisting per-window (batch persist at the end)
       this.forceState(m, row.state);
     }
+    // Stable z-order after reload (Windows migration II polish): forceState's
+    // normal-branch focus() calls above just ran in Object.entries iteration
+    // order (= window creation order), which is an arbitrary final z-order.
+    // Re-focus every normal-state window with a saved `z`, ascending, so the
+    // one that was actually on top before the reload ends up on top again —
+    // ties (older saves with no `z`) fall back to that same creation order.
+    const order = Object.entries(store.windows)
+      .filter(([id, row]) => row.state === "normal" && this.wins.has(id))
+      .sort((a, b) => (a[1].z ?? 0) - (b[1].z ?? 0));
+    for (const [id] of order) this.focus(id);
     if (immediate) saveLayoutNow(this.snapshotLayout());
     else this.persist();
   }
@@ -518,6 +528,21 @@ class WindowManager {
       this.focus(m.spec.id);
       m.spec.onMinimize?.(false);
     }
+  }
+
+  /** The Esc cascade (Windows migration II): the topmost open, closable
+   *  window that isn't in `exclude` (the always-on chrome — viewport, HUD
+   *  windows) — or undefined if none, meaning Esc should fall through to
+   *  Pause. Used by `setup.ts`'s `escCloseTopWindow()`. */
+  topmostClosable(exclude: ReadonlySet<string>): WindowHandle | undefined {
+    let best: Managed | undefined;
+    for (const m of this.wins.values()) {
+      if (m.state !== "normal") continue;
+      if (!(m.spec.closable ?? true)) continue;
+      if (exclude.has(m.spec.id)) continue;
+      if (!best || m.z > best.z) best = m;
+    }
+    return best?.handle;
   }
 
   // ---- queries used by setup.ts (the ☰ hidden-windows menu, presets) -------

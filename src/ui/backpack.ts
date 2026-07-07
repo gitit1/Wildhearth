@@ -9,10 +9,11 @@ import type { WindowHandle } from "./windows/window";
 
 /**
  * Backpack window (Windows migration I): a real wm window — draggable,
- * resizable, minimizable, closable, persisted. Icon 🎒 / key I / Escape
- * toggle it (see toggleWindow's "open→focus if already open, close if
- * focused" feel). Right-click (or long-press) an edible item for an "Eat"
- * action (Needs engine). Default: open, docked to the right side.
+ * resizable, minimizable, closable, persisted. Icon 🎒 / key I toggle it (see
+ * toggleWindow's "open→focus if already open, close if focused" feel); Esc
+ * closes it via the shared cascade (Windows migration II, setup.ts) when it's
+ * the topmost open window. Right-click (or long-press) an edible item for an
+ * "Eat" action (Needs engine). Default: open, docked to the right side.
  */
 
 const ICON_PX = 40;
@@ -62,10 +63,9 @@ export function initBackpack(economy: Economy, eat: (id: string) => boolean) {
     onVisibleChange: (hidden) => { bagBtn?.classList.toggle("active", !hidden); if (!hidden) render(); },
   });
   bagBtn?.addEventListener("click", () => toggleWindow(win));
-  addEventListener("keydown", (e) => {
-    if (e.code === "KeyI") toggleWindow(win);
-    else if (e.code === "Escape" && win.isOpen()) win.close();
-  });
+  // Escape is handled generically now (the shared Esc cascade in
+  // src/ui/windows/setup.ts closes the topmost open utility window).
+  addEventListener("keydown", (e) => { if (e.code === "KeyI") toggleWindow(win); });
   bagBtn?.classList.toggle("active", win.isOpen());
 }
 

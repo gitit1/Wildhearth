@@ -122,11 +122,11 @@ import {
 } from "./ui/shopwindow";
 import { hideOpening } from "./ui/titlescreen";
 import { showMainMenu, menuConfirm } from "./ui/mainmenu";
-import { showSettings } from "./ui/settingsscreen";
+import { showSettings, showSettingsWindow } from "./ui/settingsscreen";
 import { showPause } from "./ui/pausescreen";
 import { showExitDialog } from "./ui/exitscreen";
 import { applyGlobalPrefs, applyHudPrefs } from "./ui/uiPrefs";
-import { setupWindows, isViewportActive, finishWindowSetup } from "./ui/windows/setup";
+import { setupWindows, isViewportActive, finishWindowSetup, escCloseTopWindow } from "./ui/windows/setup";
 import { showIntro, showReveal } from "./ui/intro";
 import { showPathAndGoal } from "./ui/newgame";
 import { showCharacterCreation } from "./ui/charcreation";
@@ -1241,11 +1241,12 @@ function openSettingsFromMenu() {
 }
 
 /** Settings from the ⚙ HUD button in-game — pauses game-time (like dialogue)
- *  while it's open, and drains any queued world input on close. */
+ *  while it's open (a window now — Windows migration II — so the paused game
+ *  view stays visible behind it), and drains any queued world input on close. */
 function openSettingsInGame() {
   if (openingActive) return;      // the menu/creation overlays own their own flow
   menuOpen = true;
-  showSettings(inGameSettingsCtx(closeInGameMenu));
+  showSettingsWindow(inGameSettingsCtx(closeInGameMenu));
 }
 document.getElementById("settingsBtn")!.addEventListener("click", openSettingsInGame);
 
@@ -1268,7 +1269,12 @@ function showPauseScreen() {
   showPause({
     onResume: closeInGameMenu,
     onSave: manualSave,
-    onSettings: () => showSettings(inGameSettingsCtx(showPauseScreen)),
+    // Pause is a full-screen overlay (#opening, z-index above the wm desktop)
+    // — hide it first so the Settings WINDOW (Windows migration II, living on
+    // the desktop underneath) is actually visible/clickable; closing Settings
+    // re-shows Pause (showPauseScreen as its onBack), same round-trip the old
+    // screenShell-based Settings did.
+    onSettings: () => { hideOpening(); showSettingsWindow(inGameSettingsCtx(showPauseScreen)); },
     onReturnToMenu: returnToMainMenu,
     onExit: () => showExitDialog({
       fromGame: true,
@@ -1289,10 +1295,17 @@ function openPause() {
 }
 document.getElementById("pauseBtn")!.addEventListener("click", openPause);
 
-// Esc opens Pause during play. In-game overlays that own Esc (dialogue, shop,
-// the day-end panel, the guidance prompt) consume it on the capture phase and
-// stop propagation, so this bubble-phase handler only ever fires in free play.
-addEventListener("keydown", (e) => { if (e.key === "Escape") openPause(); });
+// The Esc cascade (Windows migration II — "polish sweep"): the topmost open
+// utility window (backpack/skills/minimap/memory book/shop/gift/dialogue/
+// debug/day-end/settings — anything that isn't the permanent desktop chrome)
+// closes first; only once none of those are open does Esc fall through to
+// Pause. A capture-phase interceptor with its own higher-priority Escape use
+// (currently just the right-click context menu) still wins over both.
+addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (escCloseTopWindow()) return;
+  openPause();
+});
 
 /** The boot title screen (and the screen returned to from its sub-screens). */
 function openMainMenu() {

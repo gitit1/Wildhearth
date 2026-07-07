@@ -83,6 +83,13 @@ export interface WindowLayout {
   h?: number;
   state: WindowState;
   pinned?: boolean;
+  /** Snapshot of the window's z at save time (Windows migration II "stable
+   *  z-order after reload" polish) — `applyLayout` re-focuses normal-state
+   *  windows in ascending-z order, so the one that was on top before a reload
+   *  ends up on top again. Optional/omittable for forward-compat with older
+   *  saved layouts (missing => treated as 0, falling back to creation order,
+   *  which is what every layout did before this field existed). */
+  z?: number;
 }
 
 /** The whole persisted layout (WIN_LAYOUT_KEY). Per-slot forward-compat: the

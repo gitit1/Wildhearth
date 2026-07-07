@@ -6,10 +6,11 @@ import type { WindowHandle } from "./windows/window";
 
 /**
  * Skills window (Windows migration I): a real wm window — draggable,
- * resizable, minimizable, closable, persisted. Icon 📜 / key K / Escape
- * toggle it. Scrollable list of skills, a value per row, a lock toggle
- * (up/down/locked), and a floating "+0.3" popup on gain. Default: hidden,
- * docked to the left edge (under coins/needs).
+ * resizable, minimizable, closable, persisted. Icon 📜 / key K toggle it; Esc
+ * closes it via the shared cascade (Windows migration II) when it's the
+ * topmost open window. Scrollable list of skills, a value per row, a lock
+ * toggle (up/down/locked), and a floating "+0.3" popup on gain. Default:
+ * hidden, docked to the left edge (under coins/needs).
  */
 
 const LOCK_GLYPH: Record<SkillLock, string> = { up: "▲", down: "▼", locked: "🔒" };
@@ -65,10 +66,9 @@ export function initSkillsUI(skills: Skills) {
   win.close(); // default: hidden (matches the legacy panel's closed-by-default feel)
 
   skillsBtn?.addEventListener("click", () => toggleWindow(win));
-  addEventListener("keydown", (e) => {
-    if (e.code === "KeyK") toggleWindow(win);
-    else if (e.code === "Escape" && win.isOpen()) win.close();
-  });
+  // Escape is handled generically now (the shared Esc cascade in
+  // src/ui/windows/setup.ts closes the topmost open utility window).
+  addEventListener("keydown", (e) => { if (e.code === "KeyK") toggleWindow(win); });
 }
 
 function refresh() {

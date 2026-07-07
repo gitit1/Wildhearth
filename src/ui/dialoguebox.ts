@@ -1,8 +1,12 @@
 /**
- * The dialogue bottom-box (Dialogue engine, Part A #4 — UI). A wood/gold panel
- * docked bottom-centre of the play window: NPC name header (gold), the current
- * line, and choice buttons (click OR number keys 1-9; Esc / Farewell closes).
- * Not draggable, no minimise — it's a modal conversation, not a gump.
+ * The dialogue window (Windows migration II — Dialogue engine, Part A #4 UI):
+ * a real wm window, title = the NPC's name (icon 💬), default bottom-centre of
+ * the desktop; resizable but never below a readable min. The current line and
+ * choice buttons (click OR number keys 1-9; Esc / Farewell closes — Esc now
+ * via the shared cascade in setup.ts, since this is just another closable
+ * window) live in its body. Not minimizable to keep it feeling like an active
+ * conversation rather than a gump you'd tuck away mid-sentence, but its
+ * dragged position persists like any other window.
  *
  * This module owns the turn state machine and drives systems/dialogue.ts (pure
  * selection + tree logic). It reads ONE world-context snapshot per turn via the
@@ -24,6 +28,8 @@ import {
   type ChoiceEffect, type DialogueChoice, type NpcDialogue, type RenderReq,
 } from "../systems/dialogue";
 import { getNpcDialogue } from "../data/dialogue";
+import { wm } from "./windows/manager";
+import type { WindowHandle } from "./windows/window";
 
 export interface DialogueHooks {
   /** A fresh world snapshot scoped to this NPC (season/weather/relationship/…). */
@@ -46,12 +52,10 @@ export interface DialogueHooks {
   recordScripted?: (npcId: string, text: string) => void;
 }
 
-let panel: HTMLElement;
-let nameEl: HTMLElement;
+let win: WindowHandle;
 let textEl: HTMLElement;
 let choicesEl: HTMLElement;
 
-let open = false;
 let def: NpcDef | null = null;
 let dlg: NpcDialogue | null = null;
 let hooks: DialogueHooks;
@@ -73,18 +77,38 @@ function nextRot(id: string): number {
   return v;
 }
 
+const GAP = 12;
+const DLG_W = 680, DLG_H = 240;
+
 export function initDialogue(h: DialogueHooks) {
   hooks = h;
-  panel = document.getElementById("dialogueBox")!;
-  nameEl = document.getElementById("dlgName")!;
+  const panel = document.getElementById("dialogueBox")!;
   textEl = document.getElementById("dlgText")!;
   choicesEl = document.getElementById("dlgChoices")!;
 
-  // Capture-phase keys so number/Escape choices beat the game + other panels'
-  // Escape handlers while a conversation is open.
+  win = wm.createWindow({
+    id: "dialogue", title: "Dialogue", icon: "💬",
+    content: panel,
+    resizable: true, minW: 380, minH: 180, maxW: 820, maxH: 520,
+    minimizable: false, // an active conversation, not a gump to tuck away
+    defaultRect: (d) => ({ x: Math.round((d.w - DLG_W) / 2), y: d.h - DLG_H - GAP, w: DLG_W, h: DLG_H }),
+    onClose: () => {
+      choicesEl.replaceChildren();
+      const d = def;
+      def = null; dlg = null; currentButtons = [];
+      if (d) hooks.onClose(d);
+    },
+  });
+  win.close(); // default: hidden — auto-opens on talk
+
+  // Capture-phase so number choices beat any other capture-phase handler
+  // (e.g. an open context menu) while a conversation is open. Escape is no
+  // longer special-cased here — it's just another closable window now, so
+  // the shared Esc cascade (setup.ts's escCloseTopWindow) closes it like any
+  // other topmost window (Farewell IS just closeDialogue() under the hood,
+  // wired as this window's onClose below).
   addEventListener("keydown", (e) => {
-    if (!open) return;
-    if (e.code === "Escape") { e.stopImmediatePropagation(); closeDialogue(); return; }
+    if (!win.isOpen()) return;
     const m = /^Digit([1-9])$/.exec(e.code);
     if (m) {
       const i = Number(m[1]) - 1;
@@ -93,7 +117,7 @@ export function initDialogue(h: DialogueHooks) {
   }, true);
 }
 
-export function isDialogueOpen(): boolean { return open; }
+export function isDialogueOpen(): boolean { return win.isOpen(); }
 
 /** Resolve one displayed line: pick the scripted line (avoiding recent repeats),
  *  record it for cross-session variety, then route it through the AI seam. Always
@@ -116,26 +140,23 @@ function openingChoices(root: DialogueChoice[]): DialogueChoice[] {
 /** Open a conversation with `def`: resolve the condition-keyed opening line and
  *  present the root + meta choices. */
 export function openDialogue(target: NpcDef) {
-  if (open) closeDialogue();
+  if (win.isOpen()) closeDialogue();
   def = target;
   dlg = getNpcDialogue(target);
-  open = true;
   hooks.onOpen(target);
 
+  win.setTitle(target.name);   // set once — can't change mid-conversation
   const wc = hooks.worldFor(target.id);
   const text = lineFor(target, wc, dlg.openings, "opening");
-  renderChoices(target.name, text, openingChoices(dlg.root));
-  panel.style.display = "block";
+  renderChoices(text, openingChoices(dlg.root));
+  win.open();
 }
 
+/** Just closes the window — the actual cleanup (mark contact, social bump)
+ *  runs in the window's own `onClose` hook below, so it fires no matter which
+ *  path closed it (Farewell, the window's ✕, or the shared Esc cascade). */
 export function closeDialogue() {
-  if (!open) return;
-  open = false;
-  panel.style.display = "none";
-  choicesEl.replaceChildren();
-  const d = def;
-  def = null; dlg = null; currentButtons = [];
-  if (d) hooks.onClose(d);
+  win.close();
 }
 
 /** Advance the tree on a picked choice: meta choices show backstory/thought;
@@ -151,7 +172,7 @@ function choose(choice: DialogueChoice) {
     ? lineFor(def, wc, choice.npcReply, "reply")
     : (textEl.textContent ?? "");
   const nextChoices = choice.next ? (dlg.nodes?.[choice.next]?.choices ?? []) : [];
-  renderChoices(def.name, text, presentedChoices(nextChoices));
+  renderChoices(text, presentedChoices(nextChoices));
 }
 
 /** Show the NPC's backstory / current thought, paged if long. */
@@ -193,23 +214,24 @@ function showPage(pages: string[], idx: number, kind: "backstory" | "thought") {
     buttons.push({ label: "Let's talk of something else", onClick: () => backToRoot() });
     buttons.push({ label: "Farewell", onClick: () => closeDialogue() });
   }
-  paint(def.name, pages[idx] ?? "…", buttons);
+  paint(pages[idx] ?? "…", buttons);
 }
 
 /** Re-open the opening turn (a fresh opening line + the root + meta choices). */
 function backToRoot() {
   if (!def || !dlg) return;
   const wc = hooks.worldFor(def.id);
-  renderChoices(def.name, lineFor(def, wc, dlg.openings, "opening"), openingChoices(dlg.root));
+  renderChoices(lineFor(def, wc, dlg.openings, "opening"), openingChoices(dlg.root));
 }
 
-function renderChoices(name: string, text: string, choices: DialogueChoice[]) {
-  paint(name, text, choices.map((c) => ({ label: c.label, onClick: () => choose(c) })));
+function renderChoices(text: string, choices: DialogueChoice[]) {
+  paint(text, choices.map((c) => ({ label: c.label, onClick: () => choose(c) })));
 }
 
-/** Low-level paint: name header, line, and the numbered choice buttons. */
-function paint(name: string, text: string, buttons: Button[]) {
-  nameEl.textContent = name;
+/** Low-level paint: the line + the numbered choice buttons. The NPC's name
+ *  lives in the window's own title bar (set once, in openDialogue) — not
+ *  repainted every turn since it can't change mid-conversation. */
+function paint(text: string, buttons: Button[]) {
   textEl.textContent = text;
   currentButtons = buttons;
   choicesEl.replaceChildren();

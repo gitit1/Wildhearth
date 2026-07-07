@@ -8,8 +8,9 @@ import type { WindowHandle } from "./windows/window";
 /**
  * Memory Book window (Windows migration I): one window, two tabs —
  * Collections (X/Y discovered per category) and Memories (the curated
- * life-event log). Icon 📖 / key B / Escape toggle it (M belongs to the
- * minimap — the two collided before that split). Default: hidden,
+ * life-event log). Icon 📖 / key B toggle it (M belongs to the minimap — the
+ * two collided before that split); Esc closes it via the shared cascade
+ * (Windows migration II) when it's the topmost open window. Default: hidden,
  * center-left.
  */
 
@@ -46,11 +47,10 @@ export function initMemoryBook(collections: Collections, memories: Memories) {
   win.close(); // default: hidden
 
   bookBtn?.addEventListener("click", () => toggleWindow(win));
-  // B for Book — M belongs to the minimap
-  addEventListener("keydown", (e) => {
-    if (e.code === "KeyB") toggleWindow(win);
-    if (e.code === "Escape" && win.isOpen()) win.close();
-  });
+  // B for Book — M belongs to the minimap. Escape is handled generically now
+  // (the shared Esc cascade in src/ui/windows/setup.ts closes the topmost
+  // open utility window).
+  addEventListener("keydown", (e) => { if (e.code === "KeyB") toggleWindow(win); });
 }
 
 function iconCanvas(id: string): HTMLCanvasElement {

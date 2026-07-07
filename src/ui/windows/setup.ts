@@ -23,13 +23,33 @@ import { clearLayout } from "./layout";
  * exist (after the last of the six init*() calls) to restore the saved
  * layout / lay out Classic — see docs/WINDOW_SYSTEM.md checklist step 7
  * ("create the window before the first layout restore").
+ *
+ * Windows migration II adds dialogue / debug / day-end summary / in-game
+ * settings on top of the same abstraction, plus the Esc cascade
+ * (`escCloseTopWindow`, called by main.ts's global Escape handler): the
+ * topmost open+closable window that ISN'T the permanent chrome
+ * (`CHROME_WINDOW_IDS`) closes; if none is open, Esc falls through to Pause.
+ * Because this is exclude-based (not an enumerated include-list), every
+ * future migrated window gets Esc-to-close for free.
  */
 
 const GAP = 12;
-/** Every migrated panel window's id (Windows migration I) — used by the
- *  presets below and by `finishWindowSetup`'s "are they all here yet" boot
- *  ordering note. Kept as one list so a future migrated window is one line. */
-const PANEL_WINDOW_IDS = ["backpack", "skills", "memorybook", "minimap", "shop", "gift"] as const;
+/** The permanent desktop chrome — never a candidate for the Esc cascade
+ *  (closing the viewport via Esc would make Esc "hide the game" instead of
+ *  "pause", since a click-to-move click on the canvas focuses the viewport
+ *  constantly during normal play) and never swept by the Focus preset. */
+const CHROME_WINDOW_IDS = new Set(["viewport", "clock", "coins", "needs", "dock"]);
+
+/** The Esc cascade's entry point (Windows migration II). Closes the topmost
+ *  utility window (backpack/skills/…/dialogue/debug/day-end/settings/…) if
+ *  one is open; returns false (nothing to close) when only the permanent
+ *  chrome is open, so the caller knows to fall through to Pause instead. */
+export function escCloseTopWindow(): boolean {
+  const top = wm.topmostClosable(CHROME_WINDOW_IDS);
+  if (!top) return false;
+  top.close();
+  return true;
+}
 
 let viewportWin: WindowHandle;
 let clockWin: WindowHandle;
@@ -202,10 +222,12 @@ function classicLayout(): void {
   layoutPanels(d, clk, cn, nd);
 }
 
-/** Viewport maximized; every other window (HUD + the six panels, whichever
- *  happen to be open) minimized to bottom title-strips. A panel that's
- *  already hidden stays hidden — Focus doesn't pop up a dock strip for a
- *  contextual window (shop/gift) nobody opened. */
+/** Viewport maximized; every other window (HUD + any migrated window —
+ *  panels, dialogue, debug, day-end, settings, whichever happen to be open)
+ *  minimized to bottom title-strips. A window that's already hidden stays
+ *  hidden — Focus doesn't pop up a dock strip for a contextual window
+ *  (shop/gift/dialogue/…) nobody opened. Exclude-based (like the Esc
+ *  cascade), so a future migrated window is swept for free. */
 function focusLayout(): void {
   const d = wm.desktopSize();
   setDock("horizontal");
@@ -215,9 +237,8 @@ function focusLayout(): void {
   coinsWin.minimize();
   needsWin.minimize();
   dockWin.minimize();
-  for (const id of PANEL_WINDOW_IDS) {
-    const h = wm.get(id);
-    if (h?.isOpen()) h.minimize();
+  for (const h of wm.all()) {
+    if (!CHROME_WINDOW_IDS.has(h.id) && h.isOpen()) h.minimize();
   }
 }
 

@@ -16,10 +16,12 @@ import { categoryItemIds, categoryById } from "../systems/sellCategories";
  * you interact with a stall. Sell side lists the sellable goods in your
  * backpack with a quantity stepper and a live total; buy side lists the
  * stall's stock. Pure UI over systems/economy.ts + systems/shop.ts. Opened
- * programmatically (no dock icon/shortcut) — walking away, Escape, or the
- * window's own ✕ close it (main.ts's proximity check calls closeShopWindow()).
- * The title bar's text is the one dynamic bit — set via `win.setTitle()` each
- * render, since it flips between the player's own stall and an NPC's.
+ * programmatically (no dock icon/shortcut) — walking away (main.ts's
+ * proximity check calls closeShopWindow()), the window's own ✕, or Esc (the
+ * shared cascade, Windows migration II, when it's the topmost open window)
+ * close it. The title bar's text is the one dynamic bit — set via
+ * `win.setTitle()` each render, since it flips between the player's own
+ * stall and an NPC's.
  */
 
 const ICON_PX = 26;
@@ -81,12 +83,6 @@ export function initShopWindow(
     defaultPos: (d) => ({ x: Math.round(d.w * 0.5 - 280), y: Math.round(d.h * 0.5 - 240) }),
   });
   win.close(); // default: hidden — opened by walking up to a stall
-
-  // Escape closes the trade window first (before the backpack's handler);
-  // the context menu's capture handler still wins while a menu is open.
-  addEventListener("keydown", (e) => {
-    if (e.code === "Escape" && win.isOpen()) { closeShopWindow(); e.stopImmediatePropagation(); }
-  }, true);
 }
 
 export function isShopOpen(): boolean { return win.isOpen(); }

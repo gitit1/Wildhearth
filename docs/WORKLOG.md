@@ -29,6 +29,132 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Windows migration II — dialogue, debug, day summary, in-game settings + polish
+- **Date:** 2026-07-09 (v1-foundation, session 3)
+- **Block given:** Session-3 Task 1, commit 2 of 2 — migrate the dialogue box,
+  the dev-only debug panel, the day-end full summary, and in-game Settings
+  onto the wm window system; define and wire a unified Esc cascade; do the
+  full WINDOW_SYSTEM.md "everything migrated" documentation pass.
+- **Done:**
+  - **Dialogue** (`src/ui/dialoguebox.ts`) — id `dialogue`, icon 💬, real
+    `wm.createWindow` (resizable, `minW/minH 380/180`, `maxW/maxH 820/520`,
+    `minimizable:false` — a live conversation, not a gump to tuck away).
+    Default bottom-centre of the desktop. The NPC's name — previously an
+    internal `#dlgName` header — is now the window's own title bar
+    (`win.setTitle(target.name)`, set once per conversation in
+    `openDialogue`); `paint()`/`renderChoices()` dropped their now-redundant
+    `name` parameter. `closeDialogue()` is just `win.close()`; the actual
+    cleanup (null `def`/`dlg`, fire `hooks.onClose`) moved into the window's
+    own `onClose` hook, so it fires identically whether Farewell, the
+    window's ✕, or the Esc cascade closed it. The Digit1-9 choice-key
+    listener stays capture-phase; its Escape branch is gone (subsumed by the
+    cascade below).
+  - **Debug panel** (`src/ui/debugpanel.ts`) — id `debug`, icon 🐞, a real
+    resizable window (`minW/minH 280/200`, `maxW/maxH 900/900`, default
+    480×520 top-left) instead of a raw fixed `<pre>` with inline
+    `position:fixed`/`pointer-events:none`. Backtick still toggles it, now
+    via `toggleWindow()`; dev-only, unreachable from any player menu, same as
+    before.
+  - **Day-end full summary** (`src/ui/dayendpanel.ts`) — id `dayend`, icon
+    📋, a non-resizable window (auto-sized, ~380px wide, centred-ish default;
+    the removed `#eodScrim` full-screen dimming backdrop is gone — windows
+    don't get modal scrims in this system). Title is dynamic
+    (`"<Season>, Day <N> — day complete"`, `win.setTitle()`, replacing the
+    internal `#eodTitle`); content (`#eodBody`) keeps its own
+    `max-height`+`overflow-y:auto` so a big day's ledger scrolls instead of
+    growing the window past the desktop. Dropped the old "click anywhere on
+    the panel/scrim to dismiss" convenience (no scrim to click through
+    anymore); kept Enter/NumpadEnter as its own dedicated "acknowledge and
+    continue" shortcut (capture-phase), dropped its Escape branch (cascade).
+    The "quick" toast pill (`#eodQuick`) is untouched — never a panel.
+  - **In-game Settings** (`src/ui/settingsscreen.ts`) — the ~350-line
+    section-building body (Time/Gameplay/Interface/Windows/Audio/AI
+    companion/Save) is extracted into `buildSettingsBody(body, ctx)`, called
+    by BOTH presentations: `showSettings(ctx)` (unchanged — main-menu path,
+    full-screen `screenShell`, since the title screen has no desktop) and
+    the new `showSettingsWindow(ctx)` (id `settings`, icon ⚙️, resizable
+    480×360 min up to 900×900, default 720×560 centred, scrollable content
+    div). The window is a singleton, content rebuilt fresh on every open (a
+    save-slot timestamp / live AI settings need current state, not whatever
+    was true last time). `onClose` calls whatever `onBack` the latest
+    `showSettingsWindow(ctx)` call passed — same round-trip the old
+    screenShell `‹ Back` button did, now via the window's ✕/the Esc cascade.
+    `main.ts`: `openSettingsInGame()` (⚙ HUD button) and Pause's "Settings"
+    button both now call `showSettingsWindow` instead of `showSettings`.
+    **Z-layering fix:** Pause is a full-screen `#opening` overlay ABOVE the
+    wm desktop (`z-index` 9 vs. the desktop's 1) — opening Settings from
+    Pause's button now calls `hideOpening()` first (else the window would
+    render, correctly, but invisibly underneath the still-visible Pause
+    overlay); closing Settings calls `showPauseScreen()` again to bring
+    Pause back. The direct ⚙-button path needs no such trick (nothing covers
+    the desktop there) — the game view stays visible, frozen, behind the
+    window either way (`menuOpen` gating is unchanged).
+  - **The Esc cascade** (`src/ui/windows/setup.ts`'s new `escCloseTopWindow()`
+    + `wm.topmostClosable()` in `manager.ts`) replaces FIVE separate
+    per-window Escape handlers (backpack/skills/memory book's bubble-phase
+    "close if I'm open"; shop/gift chooser/dialogue/day-end's capture-phase
+    "close + stopImmediatePropagation") with one rule: the topmost open+
+    closable window that isn't the permanent chrome (`viewport`/`clock`/
+    `coins`/`needs`/`dock`) closes; only when none is open does
+    `main.ts`'s global Escape handler fall through to `openPause()`.
+    Exclude-based rather than an enumerated include-list, so every future
+    migrated window gets Esc-to-close for free (verified: minimap, never
+    explicitly wired for Escape, closes via the cascade same as everything
+    else). Farewell / day-end's Enter are unaffected — they still work as
+    their own dedicated shortcuts (both just call the same window's
+    `.close()` under the hood).
+  - **Stable z-order after reload** (`window.ts`'s `WindowLayout.z`,
+    `manager.ts`'s `snapshotLayout`/`applyLayout`): each window's z at save
+    time now rides along in the persisted layout; on restore, every
+    normal-state window is re-focused in ascending saved-z order, so whoever
+    was actually on top before a reload ends up on top again (previously,
+    `applyLayout`'s restore loop focused windows in a fixed but *wrong*
+    order — window creation order — a real, confirmed bug: the last-created
+    still-open window always won focus after any reload, regardless of what
+    the player last clicked). `z` is optional/omittable for forward-compat
+    with layouts saved before this field existed.
+  - **`docs/WINDOW_SYSTEM.md`** — full "everything migrated" pass: intro
+    updated (every player-facing surface is a window now); new §5 "The Esc
+    cascade"; §2's z-order note corrected (was "not persisted", now
+    documents the ascending-z restore + the bug it fixes); §3's persisted
+    JSON schema gained the `z` field; §6 (the checklist, renumbered) notes
+    both migrations are done and adds the `display:inline-block` gotcha (see
+    below); §7 (edge cases, renumbered) adds the Pause/Settings z-layering
+    fix, why Pause/main-menu/What's New/Help/Credits deliberately stay
+    overlays (not windows — freezing the CURRENT session vs. replacing it),
+    and the debug panel's low-stakes "no z-layering protection" rough edge.
+- **Judgment calls:**
+  - Pause, the main menu, the Exit-confirm dialog, and What's New/Help/
+    Credits stay full-screen `screenShell`/`openingRoot` overlays, NOT
+    windows — they're menus, not workspace content, and the title screen has
+    no desktop at all. Logged in WINDOW_SYSTEM.md §7 rather than treated as
+    a gap.
+  - Day-end's old "click the panel/scrim to dismiss" convenience was dropped
+    (no scrim to click through to anymore); ✕/Esc/Enter cover dismissal.
+  - The debug panel gets no Pause-overlay z-layering protection (unlike
+    Settings) — dev-only, backtick still toggles it unconditionally even
+    while another overlay is showing. Low-stakes, documented rather than
+    fixed.
+- **Verify (Playwright, chromium, dev server; `window.__wh.newGameWith()` dev
+  bridge to skip the onboarding UI into live play deterministically):** talk
+  to Maren → dialogue window opens, title "Maren", draggable, Digit1 choice
+  advances the tree, Esc closes it (cascade) ✅; **reopened + dragged
+  position persists across a full reload** (exact px match) ✅; backtick
+  opens the debug window (shows the live JSON snapshot), Esc closes it
+  *without* opening Pause ✅; **Esc cascade verified with three real windows
+  stacked** (Skills → Backpack → Minimap, opened/focused in that order) —
+  each Esc closes exactly the topmost one, and only once all three are
+  closed does the fourth Esc open Pause ✅; from Pause, "Settings" hides the
+  Pause overlay and shows the Settings window (resizes 720→802px, lists the
+  Classic/Focus/Cozy preset buttons), Esc closes it and Pause reappears ✅;
+  from the ⚙ HUD button directly, Settings opens as a window with the
+  viewport still open/visible behind it, Esc closes it ✅; `advanceDay()` +
+  `setEodMode('full')` → the day-end window opens with title "Spring, Day 1
+  — day complete", Enter closes it ✅; **zero page errors** across the whole
+  run ✅. `npm run build` ✅ (typecheck + bundle).
+- **Follow-ups:** none outstanding — this closes out the Windows migration
+  work opened in Session-2's window-system commits.
+
 ## Windows migration I — backpack, skills, minimap, memory book, shop, gift chooser
 - **Date:** 2026-07-09 (v1-foundation, session 3)
 - **Block given:** Session-3 Task 1, commit 1 of 2 — migrate the six legacy

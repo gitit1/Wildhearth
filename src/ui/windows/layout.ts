@@ -46,6 +46,7 @@ export function loadLayout(): LayoutStore | null {
         w: num(r.w), h: num(r.h),
         state: isState(r.state) ? r.state : "normal",
         pinned: r.pinned === true,
+        z: num(r.z),
       };
     }
     const dock: DockOrientation = p.dockOrientation === "vertical" ? "vertical" : "horizontal";

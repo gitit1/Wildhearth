@@ -10,16 +10,23 @@ import {
 } from "../systems/aiSettings";
 import { createAiCtx, type AiErrorKind } from "../systems/ai";
 import { applyWindowPreset, type WindowPreset } from "./windows/setup";
+import { wm } from "./windows/manager";
+import type { WindowHandle } from "./windows/window";
 import { DAY_LENGTH_MIN_MIN, DAY_LENGTH_MAX_MIN } from "../config";
 import type { SlotManifest } from "../systems/saveSlots";
 
 /**
- * Settings screen (Part E #3) — reachable from the title menu and in-game (the
- * ⚙ HUD button, which pauses time). Sections: Time, Gameplay, Interface, Audio
- * (inert until sound exists), AI companion (the settings surface for the coming
- * AI layer), and Save management. Every change persists immediately via
- * settings.ts / aiSettings.ts; live-applying ones (day length, summary,
- * guidance) are read live by main.ts, and Interface prefs are re-applied here.
+ * Settings — reachable from the title menu (full-screen `screenShell`, since
+ * the title screen has no desktop) and in-game (Windows migration II: a real
+ * wm window now, opened via the ⚙ HUD button or Pause → Settings — both
+ * still pause game-time exactly as before; the game view stays visible,
+ * frozen, behind it). Both presentations share the SAME section-building
+ * code (`buildSettingsBody`) — only the chrome around it differs. Sections:
+ * Time, Gameplay, Interface, Windows (layout presets), Audio (inert until
+ * sound exists), AI companion, and Save management. Every change persists
+ * immediately via settings.ts / aiSettings.ts; live-applying ones (day
+ * length, summary, guidance) are read live by main.ts, and Interface prefs
+ * are re-applied here.
  */
 
 export interface SettingsCtx {
@@ -58,8 +65,46 @@ function testErrorMessage(error: AiErrorKind, message: string): string {
   }
 }
 
+/** The main-menu path: full-screen `screenShell` (title-screen context has
+ *  no desktop to float a window on). */
 export function showSettings(ctx: SettingsCtx) {
   const { body } = screenShell("Settings", ctx.onBack, { wide: true });
+  buildSettingsBody(body, ctx);
+}
+
+// ===========================================================================
+//  In-game path (Windows migration II): a real wm window, singleton +
+//  rebuilt fresh on every open (save-slot timestamp, live AI settings, etc.
+//  need to read current state, not whatever was true the last time it opened).
+// ===========================================================================
+let settingsWin: WindowHandle | undefined;
+let settingsBody: HTMLElement | undefined;
+let settingsCtx: SettingsCtx | null = null;
+
+export function showSettingsWindow(ctx: SettingsCtx) {
+  settingsCtx = ctx;
+  if (!settingsWin) {
+    settingsBody = document.createElement("div");
+    settingsBody.style.cssText = "height:100%;box-sizing:border-box;overflow-y:auto;padding:6px 14px 14px";
+    settingsWin = wm.createWindow({
+      id: "settings", title: "Settings", icon: "⚙️",
+      content: settingsBody,
+      resizable: true, minW: 480, minH: 360, maxW: 960, maxH: 960,
+      defaultRect: (d) => ({
+        x: Math.round((d.w - 720) / 2), y: Math.round((d.h - 560) / 2), w: 720, h: 560,
+      }),
+      // the window's ✕ / the shared Esc cascade both funnel through here —
+      // same "go back to whatever opened Settings" semantics the old
+      // screenShell's Back button had, just via WindowHandle.close() now.
+      onClose: () => settingsCtx?.onBack(),
+    });
+  }
+  settingsBody!.replaceChildren();
+  buildSettingsBody(settingsBody!, ctx);
+  settingsWin.open();
+}
+
+function buildSettingsBody(body: HTMLElement, ctx: SettingsCtx) {
   const s = loadSettings();
 
   // ---------- Time ----------

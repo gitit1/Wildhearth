@@ -8,7 +8,13 @@ whole layout persisted. **The game viewport itself is a window.**
 
 This doc is the reference for the abstraction, its internals, the persistence
 format, and — most importantly — the **checklist for turning any surface into a
-window** (that is how the remaining modal screens keep getting migrated).
+window** (that is how every modal screen got migrated, and how the next one
+will too). **Every player-facing surface is now a window**: backpack, skills,
+minimap, memory book, the shop/trade window, the gift chooser (Windows
+migration I), plus dialogue, the day-end summary, and in-game Settings
+(Windows migration II — the dev-only debug panel too). Only the title-screen
+menus (main menu, Pause, the Exit-confirm dialog, What's New/Help/Credits) are
+deliberately NOT windows — see §7's note on why.
 
 Source lives in `src/ui/windows/`:
 
@@ -89,7 +95,17 @@ every move (live resize) and once more, clamped, on release.
 ### Focus / z-order
 A `pointerdown` anywhere on a window frame (capture phase) calls `focus(id)`,
 which bumps a monotonically increasing `topZ` and assigns it as the window's
-`z-index`. Z-order is **not** persisted (it's ephemeral session state).
+`z-index`. `wm.isFocused(id)` reports whether a window is both open (`state
+=== "normal"`) AND the current topmost — the distinction `toggleWindow()` and
+the Esc cascade (§5) both key off. **Stable z-order after reload** (Windows
+migration II): each window's `z` at save time rides along in the persisted
+layout (§3); on restore, every normal-state window is re-focused in ascending
+saved-`z` order, so whichever window was actually on top before a reload ends
+up on top again — not just "whichever happened to be created last" (that was
+this feature's actual bug before the fix: `applyLayout`'s state-restore loop
+already called `focus()` per window in a fixed order — window CREATION
+order — which is deterministic but not "correct"; the ascending-`z` re-focus
+pass on top of it corrects that to the real prior order).
 
 ### Minimize → dock, restore
 Minimizing moves the frame into `#whDock` (a flex row along the bottom, `z 9000`
@@ -151,8 +167,11 @@ on boot. Format:
   "slot": 1,
   "dockOrientation": "horizontal" | "vertical",
   "windows": {
-    "<id>": { "x", "y", "w"?, "h"?, "state": "normal|minimized|hidden", "pinned"? }
-    // w/h are stored only for resizable windows (the viewport)
+    "<id>": { "x", "y", "w"?, "h"?, "state": "normal|minimized|hidden", "pinned"?, "z"? }
+    // w/h are stored only for resizable windows; z is the "stable z-order
+    // after reload" field (§2) — optional/omittable for forward-compat with
+    // layouts saved before it existed (missing => treated as 0, falling back
+    // to creation order, exactly what every layout did before this field).
   }
 }
 ```
@@ -198,12 +217,61 @@ All four are also reachable programmatically via the exported
 
 ---
 
-## 5. Adding a new window (the migration checklist)
+## 5. The Esc cascade
 
-This is exactly how the modal screens (backpack / skills / shop / dialogue /
-settings …) get migrated onto the system — mechanical, one at a time. **Windows
-migration I** (backpack, skills, minimap, memory book, shop, gift chooser) is
-done; it's the reference application of every step below.
+Windows migration II's "polish sweep" replaced FIVE separate per-window
+Escape handlers (backpack/skills/memory book each had their own bubble-phase
+"close if I'm open" listener; shop/gift chooser/dialogue/the day-end summary
+each had their own capture-phase one with `stopImmediatePropagation`) with
+**one** rule, in `src/ui/windows/setup.ts`'s `escCloseTopWindow()`, called
+from `main.ts`'s single global Escape listener:
+
+```ts
+addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (escCloseTopWindow()) return;   // closed the topmost utility window
+  openPause();                       // nothing to close — open Pause instead
+});
+```
+
+`escCloseTopWindow()` asks `wm.topmostClosable(CHROME_WINDOW_IDS)` for the
+topmost **open + closable** window that ISN'T the permanent desktop chrome
+(`viewport`, `clock`, `coins`, `needs`, `dock` — closing the viewport via Esc
+would make Esc "hide the game" instead of "pause", since a click-to-move click
+on the canvas focuses the viewport constantly during normal play) and closes
+it. Because the exclusion is a small hardcoded set rather than an enumerated
+include-list, **every window gets Esc-to-close for free**, including ones
+migrated after this was written — no per-window listener to remember to add.
+
+This means: with two utility windows open (say Skills focused on top of
+Backpack), the first Esc closes Skills (topmost), the second closes Backpack,
+and only the third — nothing left open — opens Pause. A capture-phase
+listener with its own higher-priority Escape use still wins over this bubble-
+phase cascade (currently just the right-click context menu, which dismisses
+itself and stops propagation so it never reaches the cascade).
+
+**Farewell / Enter-to-continue still work as dedicated shortcuts** where that
+reads more naturally than a bare "close": dialogue's Farewell choice and the
+day-end summary's Enter key both just call the SAME window's `.close()` (so
+the visible outcome is identical to the generic cascade closing them) — they
+just aren't the ONLY way to close those two.
+
+**Settings' "Back" is now just its window's close.** The old screenShell-based
+Settings had a dedicated `‹ Back` button; the in-game window doesn't need
+one — its `onClose` hook calls whatever `onBack` was passed to
+`showSettingsWindow(ctx)` (resume play, or return to Pause), so the window's
+own ✕ and the Esc cascade both already do the right thing.
+
+---
+
+## 6. Adding a new window (the migration checklist)
+
+This is exactly how every modal screen (backpack / skills / shop / dialogue /
+settings / the debug panel / the day-end summary …) got migrated onto the
+system — mechanical, one at a time. **Windows migration I** (backpack,
+skills, minimap, memory book, shop, gift chooser) and **migration II**
+(dialogue, the debug panel, the day-end summary, in-game Settings) are both
+done; together they're the reference application of every step below.
 
 1. **Have a content element.** Use the surface's existing root element (e.g.
    `#backpack`) as `spec.content`, or wrap its inner markup in a fresh `<div>`.
@@ -260,7 +328,7 @@ done; it's the reference application of every step below.
 
 ---
 
-## 6. Known edge cases
+## 7. Known edge cases
 
 - **Off-screen rescue.** A layout saved on a large monitor, restored on a small
   one, could place a window past the edge → `clampAll()` on boot (and on every
@@ -278,3 +346,24 @@ done; it's the reference application of every step below.
   bottom edge rather than running off the side.
 - **The dock is never closable.** Guarantees the ☰ reopen path is always on
   screen; a corrupt/preset layout that marks it hidden is coerced to normal.
+- **Why Pause / the main menu / What's New / Help / Credits stay overlays, not
+  windows** (Windows migration II judgment call): they're menus, not
+  workspace content — the title screen has no desktop at all (`setupWindows`
+  hasn't run yet), and Pause is reached by freezing the CURRENT desktop
+  session, not replacing it. A "Pause window" would be a window you could
+  drag out of the way to keep playing underneath, which defeats the point of
+  pausing. They keep the pre-existing `screenShell`/`openingRoot` full-screen
+  overlay pattern, entirely separate from `wm`.
+- **The Settings-window / Pause z-layering fix.** Pause is a full-screen
+  `#opening` overlay ABOVE the wm desktop (`z-index` 9 vs. the desktop's 1).
+  Opening the in-game Settings WINDOW from Pause's "Settings" button first
+  calls `hideOpening()` — otherwise the window would render, correctly, but
+  invisibly UNDER the still-visible Pause overlay. Closing Settings calls
+  `showPauseScreen()` again (its `onBack`) to bring Pause back. Any future
+  window openable FROM an overlay screen needs the same
+  hide-the-overlay-first treatment; opened directly from live play (the ⚙ HUD
+  button), no such trick is needed since nothing is covering the desktop.
+- **The debug panel has no such protection.** Backtick toggles it unconditionally,
+  even while Pause (or another overlay) is showing — dev-only, so this is left
+  as a low-stakes rough edge rather than plumbing the same hide/restore dance
+  into a diagnostic tool: press backtick again (or close Pause first).
