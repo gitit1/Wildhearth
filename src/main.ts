@@ -43,7 +43,7 @@ import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
-import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
+import { saveSettings, isGuided, dayLengthSeconds, endOfDaySummaryMode } from "./systems/settings";
 import { loadFarm, resetFarm, saveFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather, isRaining, saveWeather } from "./systems/weather";
@@ -57,6 +57,15 @@ import {
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import { stampSave } from "./systems/saveSlots";
+import {
+  freshDayLog, resetDayLog, logCoinsEarned, logCoinsSpent, logItemsSold,
+  logCatch, logHarvest, logForage, logDishCooked, logSkillGain, logDiscovery,
+  logMemory, logRelationshipChange,
+} from "./systems/daylog";
+import {
+  initDayEndPanel, showQuickSummary, showFullSummary, updateQuickSummary,
+  isDayEndOpen, type DayEndSnapshot,
+} from "./ui/dayendpanel";
 import { getWorldContext } from "./systems/worldContext";
 import {
   loadRelationships, resetRelationships, decayRelationships, giveGift, applyInteraction,
@@ -124,6 +133,7 @@ const skills = loadSkills();
 const garden = loadGarden();
 const collections = loadCollections();
 const memories = loadMemories();
+const dayLog = freshDayLog();   // End-of-day summary ledger — not persisted, reset every in-game day
 const calendar = loadCalendar();
 const weather = loadWeather();
 const worldFlags = loadWorldFlags();
@@ -173,7 +183,9 @@ function applyDialogueEffect(def: NpcDef, effect: ChoiceEffect) {
   const today = absoluteDay(calendar);
   switch (effect.kind) {
     case "friendship": {
-      const thresholds = dialogueBump(relationships, def, effect.amount ?? DIALOGUE_FRIENDSHIP_BUMP, calendar);
+      const amount = effect.amount ?? DIALOGUE_FRIENDSHIP_BUMP;
+      const thresholds = dialogueBump(relationships, def, amount, calendar);
+      logRelationshipChange(dayLog, def.id, "friendship", amount);
       const npc = npcById(npcs, def.id);
       if (npc) for (const ev of thresholds) fireHeart(npc, ev);
       break;
@@ -200,7 +212,7 @@ const GIFT_REACTIONS: Record<GiftRating, (name: string) => string> = {
 /** Plays a crossed heart threshold: a toast + a once-only Memory Book entry. */
 function fireHeart(npc: Npc, ev: ThresholdEvent) {
   const h = heartEvent(npc.def, ev);
-  addMemory(memories, h.memoryKey, h.memoryText, calendar);   // once per (npc,axis,threshold)
+  if (addMemory(memories, h.memoryKey, h.memoryText, calendar)) logMemory(dayLog, h.memoryText);   // once per (npc,axis,threshold)
   toast(h.toast);
 }
 
@@ -216,6 +228,7 @@ function giveGiftFlow(npc: Npc, itemId: string) {
   startTalking(npc);
   const line = GIFT_REACTIONS[out.rating](npc.def.name);
   toast(out.birthday ? `🎂 A birthday gift! ${line}` : line);
+  logRelationshipChange(dayLog, npc.def.id, "friendship", out.delta);   // gifts always move Friendship in v1
   if (out.firstEver) remember("first_gift", "You gave your first gift — a small kindness offered.");
   for (const ev of out.thresholds) fireHeart(npc, ev);
 }
@@ -236,6 +249,7 @@ function doInteraction(npc: Npc, it: InteractionDef) {
   startTalking(npc);
   socialContact(needs, npc.def.id, absoluteDay(calendar));
   toast(`${npc.def.name}: ${interactionLine(it.category, npc.def.personality)}`);
+  logRelationshipChange(dayLog, npc.def.id, res.axis, res.applied);
   for (const ev of res.thresholds) fireHeart(npc, ev);
 }
 
@@ -299,6 +313,19 @@ if (import.meta.env.DEV)
     saveNow: manualSave,
     autosaveNow: autosaveTick,
     setAutosaveSeconds: (s: number) => { autosaveSeconds = s; autosaveAccum = 0; },
+    // end-of-day summary verification bridge — read/reset the live ledger,
+    // set the setting without a Settings screen, and fast-forward a rollover
+    // through the REAL minute loop (so daily hooks + the panel fire exactly
+    // as in play) without waiting on the sleep fade.
+    dayLog: () => ({ ...dayLog }),
+    setEodMode: (m: "none" | "quick" | "full") => saveSettings({ endOfDaySummary: m }),
+    dayEndOpen: () => isDayEndOpen(),
+    advanceDay: () => {
+      for (let i = 0; i < 24 * 60; i++) {
+        const s = stepGameMinute(false);
+        if (s) { presentDayEnd(s); break; }
+      }
+    },
   };
 
 initBackpack(economy, eatItem);
@@ -322,6 +349,7 @@ initSkillsUI(skills);
 initMemoryBook(collections, memories);
 initDebugPanel();
 initFade();
+initDayEndPanel();
 
 /** Eat one edible item from the bag: consume it, restore hunger (Needs engine).
  *  Cooked dishes restore most, then crop produce, then wild forage; raw fish
@@ -338,12 +366,16 @@ function eatItem(id: string): boolean {
 
 /** Writes a once-only life event into the Memory Book (+ a quiet toast). */
 function remember(key: string, text: string) {
-  if (addMemory(memories, key, text, calendar)) toast(`✒ ${text}`);
+  if (addMemory(memories, key, text, calendar)) { toast(`✒ ${text}`); logMemory(dayLog, text); }
 }
 
 /** Records a species/find discovery; celebrates only the first time. */
 function record(category: "fish" | "forage", id: string) {
-  if (discover(collections, category, id)) toast(`New in your book: ${discoveredName(id)}.`);
+  if (discover(collections, category, id)) {
+    const name = discoveredName(id);
+    toast(`New in your book: ${name}.`);
+    logDiscovery(dayLog, name);
+  }
 }
 initShopWindow(economy, skills, farm, livestock,
   (kind) => {
@@ -352,7 +384,9 @@ initShopWindow(economy, skills, farm, livestock,
   },
   () => currentSeason(calendar),
   () => sellableGoodIds({ inv: economy.inv, collections }),
-  toast, remember);
+  toast, remember,
+  (coins, qty) => { logCoinsEarned(dayLog, coins); logItemsSold(dayLog, qty); },
+  (coins) => logCoinsSpent(dayLog, coins));
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];
@@ -390,9 +424,16 @@ const npcCommentDay: Record<string, number> = {};   // needId -> absoluteDay an 
 /** One in-game minute: roll the clock, fire the daily hooks on a new day, drain
  *  needs. The single source of truth for time passing — both the live tick and
  *  the sleep/collapse skip call it, so a skipped night fires every daily hook
- *  exactly as a played-out one would (weather reroll, flag prune, crop aging). */
-function stepGameMinute(sleeping: boolean) {
+ *  exactly as a played-out one would (weather reroll, flag prune, crop aging).
+ *  Returns a day-end snapshot exactly on the tick a day rolls over (End-of-day
+ *  summary engine) — the caller decides WHEN to actually show it (immediately
+ *  for the live tick, after the fade completes for sleep/nap/collapse), so a
+ *  night slept through never flashes a panel behind the black screen. */
+function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
   const endedDay = absoluteDay(calendar);   // captured BEFORE the clock advances (year-wrap safe)
+  const endedSeason = currentSeason(calendar);
+  const endedDayNum = calendar.day;
+  let snapshot: DayEndSnapshot | null = null;
   if (advanceMinute(calendar)) {
     rollDailyWeather(weather, currentSeason(calendar));
     pruneExpired(worldFlags, absoluteDay(calendar));
@@ -400,15 +441,31 @@ function stepGameMinute(sleeping: boolean) {
     // neglect decay: any NPC not contacted during the day that just ended drifts
     // down (faster the shallower the bond); also expires a stale birthday flag
     decayRelationships(relationships, endedDay, absoluteDay(calendar));
+    // a shallow copy is enough: resetDayLog() REASSIGNS dayLog's nested
+    // objects/arrays to fresh ones rather than mutating them in place, so the
+    // snapshot's references stay untouched by the reset below.
+    snapshot = { season: endedSeason, day: endedDayNum, log: { ...dayLog } };
+    resetDayLog(dayLog);   // a fresh ledger for the day that just began
   }
   decayNeeds(needs, { season: currentSeason(calendar), weather: weather.kind, sleeping });
+  return snapshot;
+}
+
+/** Shows the just-ended day's ledger per the player's endOfDaySummary setting
+ *  ("none" is silent). "full" pauses game-time until dismissed — see isDayEndOpen(). */
+function presentDayEnd(snap: DayEndSnapshot) {
+  const mode = endOfDaySummaryMode();
+  if (mode === "none") return;
+  if (mode === "quick") showQuickSummary(snap);
+  else showFullSummary(snap, () => {});
 }
 
 /** One LIVE in-game minute (awake): advance time + needs, fire escalating
  *  warnings, and trigger a collapse/accident if a need bottomed out. Returns
  *  true if a collapse started (the caller stops advancing time for the fade). */
 function liveMinute(): boolean {
-  stepGameMinute(false);
+  const snap = stepGameMinute(false);
+  if (snap) presentDayEnd(snap);
   for (const line of collectWarnings(needs)) toast(line);   // escalating 25/10 warnings
   const crit = criticalNeed(needs);
   if (crit) {
@@ -432,10 +489,15 @@ function sleepUntilMorning() {
   if (timeSkipping) return;
   timeSkipping = true;
   const mins = minutesUntilMorning();
+  let pendingDayEnd: DayEndSnapshot | null = null;
   fadeThrough(
-    () => { for (let i = 0; i < mins; i++) stepGameMinute(true); },
+    () => { for (let i = 0; i < mins; i++) { const s = stepGameMinute(true); if (s) pendingDayEnd = s; } },
     "You sleep until morning…",
-    () => { timeSkipping = false; toast("A new day. You wake rested. ☀"); },
+    () => {
+      timeSkipping = false;
+      toast("A new day. You wake rested. ☀");
+      if (pendingDayEnd) presentDayEnd(pendingDayEnd);   // shown AFTER the fade — never behind the black screen
+    },
   );
 }
 
@@ -443,10 +505,11 @@ function sleepUntilMorning() {
 function napAnHour() {
   if (timeSkipping) return;
   timeSkipping = true;
+  let pendingDayEnd: DayEndSnapshot | null = null;
   fadeThrough(
-    () => { for (let i = 0; i < 60; i++) stepGameMinute(true); },
+    () => { for (let i = 0; i < 60; i++) { const s = stepGameMinute(true); if (s) pendingDayEnd = s; } },
     "You nap for an hour…",
-    () => { timeSkipping = false; },
+    () => { timeSkipping = false; if (pendingDayEnd) presentDayEnd(pendingDayEnd); },
   );
 }
 
@@ -464,13 +527,15 @@ function handleCollapse(need: NeedId) {
   const label = need === "energy" ? "exhaustion" : need === "hunger" ? "hunger" : "thirst";
   const mins = minutesUntilMorning();
   let fee = 0;
+  let pendingDayEnd: DayEndSnapshot | null = null;
   fadeThrough(
     () => {
-      for (let i = 0; i < mins; i++) stepGameMinute(true);
+      for (let i = 0; i < mins; i++) { const s = stepGameMinute(true); if (s) pendingDayEnd = s; }
       collapseRecover(needs);
       fee = Math.min(COLLAPSE_FEE, Math.max(0, economy.coins));   // never go negative
       economy.coins -= fee;
       saveEconomy(economy);
+      logCoinsSpent(dayLog, fee);   // charged on waking — the new day's ledger, not the one that ended
       wakeAtBed();
     },
     "You collapse…",
@@ -479,6 +544,7 @@ function handleCollapse(need: NeedId) {
       toast(fee > 0
         ? `You collapsed from ${label}. A neighbour found you and helped you home. (−${fee} coins)`
         : `You collapsed from ${label}. A neighbour helped you home — you'll owe them a favour.`);
+      if (pendingDayEnd) presentDayEnd(pendingDayEnd);
     },
   );
 }
@@ -617,12 +683,14 @@ function tick(now: number) {
   last = now; time += dt;
 
   updateAnimals(cows, hens, dt);   // ambience runs even behind the opening screens
-  // auto-pause: a conversation freezes game-time AND the townsfolk (they're "in
-  // conversation") — the same gating pattern the title screen uses below.
-  const dialoguePaused = isDialogueOpen();
-  if (!dialoguePaused) updateNpcs(npcs, calendar, weather, player, dt);
+  updateQuickSummary(dt);          // the "quick" end-of-day pill fades on its own, even while paused
+  // auto-pause: a conversation OR the full end-of-day panel freezes game-time
+  // AND the townsfolk (they're "in conversation" / the day is officially over)
+  // — the same gating pattern the title screen uses below.
+  const timePaused = isDialogueOpen() || isDayEndOpen();
+  if (!timePaused) updateNpcs(npcs, calendar, weather, player, dt);
 
-  if (!openingActive && !dialoguePaused) {
+  if (!openingActive && !timePaused) {
   // autosave: counts real seconds of actual play (paused whenever the block
   // above is skipped — title screen / dialogue), fires + resets on the knob.
   autosaveAccum += dt;
@@ -734,11 +802,12 @@ function tick(now: number) {
       if (haul.kind === "fish") {
         record("fish", haul.id);
         remember("first_catch", "Your first catch — the water gave something back.");
+        logCatch(dayLog);
       }
     } else toast("Backpack full — the catch slips away!");
     applyExertion(needs, "fishing");
     const gained = gainSkill(skills, "fishing", moodPerfMult(needs));
-    if (gained > 0) skillGainPopup("fishing", gained);
+    if (gained > 0) { skillGainPopup("fishing", gained); logSkillGain(dayLog, "fishing", gained); }
     if (isGuided() && !hintSellShown) {
       hintSellShown = true;
       setTimeout(() => toast("Sell your catch: walk to the stall and Trade."), 2400);
@@ -755,10 +824,11 @@ function tick(now: number) {
       toast(n > 1 ? `Picked ${n} ${foundName}!` : `Picked ${foundName}!`);
       record("forage", found);
       remember("first_forage", "The forest fed you today — first wild pickings.");
+      logForage(dayLog);
     } else toast("Backpack full — no room for the find!");
     applyExertion(needs, "foraging");
     const gained = gainSkill(skills, "foraging", moodPerfMult(needs));
-    if (gained > 0) skillGainPopup("foraging", gained);
+    if (gained > 0) { skillGainPopup("foraging", gained); logSkillGain(dayLog, "foraging", gained); }
   }
   if (updateBusking(busking, dt)) {
     // mood colours a performance: a low spirit plays flat, a high one shines
@@ -766,10 +836,11 @@ function tick(now: number) {
     economy.coins += tip;
     saveEconomy(economy);
     toast(`Earned ${tip} coin${tip === 1 ? "" : "s"} busking! 🎶`);
+    logCoinsEarned(dayLog, tip);
     remember("first_busk", "You played for strangers, and they paid — first tips.");
     applyExertion(needs, "busking");
     const gained = gainSkill(skills, "busking", moodPerfMult(needs));
-    if (gained > 0) skillGainPopup("busking", gained);
+    if (gained > 0) { skillGainPopup("busking", gained); logSkillGain(dayLog, "busking", gained); }
   }
   const cooked = updateCooking(cooking, dt);
   if (cooked) {
@@ -780,9 +851,10 @@ function tick(now: number) {
       if (gainItem(economy, r.id)) {
         toast(`Cooked ${r.name.toLowerCase()}! 🍲`);
         remember("first_cook", "A warm meal from your own hearth — first dish.");
+        logDishCooked(dayLog);
       } else toast("Backpack full — the dish burns while you rummage!");
       const gained = gainSkill(skills, "cooking", moodPerfMult(needs));
-      if (gained > 0) skillGainPopup("cooking", gained);
+      if (gained > 0) { skillGainPopup("cooking", gained); logSkillGain(dayLog, "cooking", gained); }
     }
   }
   if (updateGarden(garden, dt, dayLengthSeconds())) {
@@ -817,8 +889,9 @@ function tick(now: number) {
         cell.state = "tilled"; cell.growth = 0; cell.cropId = null; cell.watered = false; cell.dryDays = 0;
         toast(`Harvested ${crop.name.toLowerCase()}! 🌽`);
         remember("first_harvest", "The first harvest from your own soil.");
+        logHarvest(dayLog);
         const gained = gainSkill(skills, "farming", moodPerfMult(needs));
-        if (gained > 0) skillGainPopup("farming", gained);
+        if (gained > 0) { skillGainPopup("farming", gained); logSkillGain(dayLog, "farming", gained); }
       } else if (crop) toast(`Backpack full — no room for the ${crop.name.toLowerCase()}!`);
     }
     savePlots(plots);

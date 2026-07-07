@@ -32,6 +32,8 @@ let seasonNow: () => Season = () => "spring";
 let sellableIds: () => string[] = () => [];   // path/category-aware sell list
 let toastFn: (s: string) => void = () => {};
 let memoryFn: (key: string, text: string) => void = () => {};
+let logSaleFn: (coins: number, qty: number) => void = () => {};
+let logPurchaseFn: (coins: number) => void = () => {};
 const sellQty = new Map<string, number>();
 const buyQty = new Map<string, number>();
 
@@ -40,6 +42,8 @@ export function initShopWindow(
   onAnimalBought: (kind: "hen" | "cow") => void, currentSeason: () => Season,
   sellable: () => string[],
   toast: (s: string) => void, memory: (key: string, text: string) => void,
+  logSale: (coins: number, qty: number) => void = () => {},
+  logPurchase: (coins: number) => void = () => {},
 ) {
   eco = economy;
   sk = skills;
@@ -50,6 +54,8 @@ export function initShopWindow(
   sellableIds = sellable;
   toastFn = toast;
   memoryFn = memory;
+  logSaleFn = logSale;
+  logPurchaseFn = logPurchase;
   panel = document.getElementById("shopWindow")!;
   sellList = document.getElementById("shopSell")!;
   buyList = document.getElementById("shopBuy")!;
@@ -141,6 +147,7 @@ function render() {
       if (earned > 0) {
         toastFn(`Sold ${q} ${(ITEM_NAMES[id] ?? id).toLowerCase()} for ${earned} coins!`);
         memoryFn("first_sale", "Your first sale at the stall.");
+        logSaleFn(earned, q);
       }
       sellQty.delete(id);
       render();
@@ -154,11 +161,17 @@ function render() {
     all.textContent = "Sell everything";
     all.addEventListener("click", () => {
       // sell everything THE STALL SHOWS — hidden-category goods stay in the bag
-      let earned = 0;
-      for (const id of goods) earned += sellGood(eco, id);
+      let earned = 0, units = 0;
+      for (const id of goods) {
+        const have = goodCount(eco, id);
+        const e = sellGood(eco, id);
+        earned += e;
+        if (e > 0) units += have;
+      }
       if (earned > 0) {
         toastFn(`Sold everything for ${earned} coins!`);
         memoryFn("first_sale", "Your first sale at the stall.");
+        logSaleFn(earned, units);
       }
       sellQty.clear();
       render();
@@ -198,6 +211,7 @@ function render() {
         onAnimal(kind);
         toastFn(kind === "cow" ? "A cow of your own! She heads for the barn." : "A new hen joins the yard!");
         memoryFn("first_animal", "The yard has a heartbeat now — first animal.");
+        logPurchaseFn(price);
         const gained = gainSkill(sk, "haggling");   // every purchase is practice
         if (gained > 0) skillGainPopup("haggling", gained);
         render();
@@ -234,6 +248,7 @@ function render() {
       if (bought > 0) {
         const n = ITEM_NAMES[entry.id] ?? entry.id;
         toastFn(`Bought ${entry.unique ? `a ${n.toLowerCase()}` : `${bought} ${n.toLowerCase()}`}!`);
+        logPurchaseFn(price * bought);
         const gained = gainSkill(sk, "haggling");   // every purchase is practice
         if (gained > 0) skillGainPopup("haggling", gained);
       }

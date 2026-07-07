@@ -223,6 +223,25 @@
     .dlg-key{flex:none;width:20px;height:20px;border-radius:6px;background:rgba(232,195,79,.18);
       color:var(--gold);font-weight:800;font-size:12px;display:flex;align-items:center;
       justify-content:center;font-variant-numeric:tabular-nums}
+    /* End-of-day summary (Part A #7): a "quick" 3-line toast-style pill that
+       auto-fades, and a "full" wood/gold modal (dismiss by click/Esc/Enter,
+       pauses game-time — same gating the dialogue box uses). */
+    #eodQuick{position:absolute;top:60px;left:50%;transform:translateX(-50%);display:none;
+      background:var(--panel-bg);border:1.5px solid var(--wood);box-shadow:var(--pill-shadow);
+      color:var(--ink);padding:10px 18px;border-radius:12px;font-size:13px;line-height:1.6;
+      font-weight:700;text-align:center;z-index:6;white-space:nowrap;transition:opacity .3s linear}
+    #eodScrim{position:fixed;inset:0;z-index:10;display:none;background:rgba(10,12,8,.55)}
+    #eodPanel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);display:none;z-index:11;
+      background:var(--panel-bg);border:2px solid var(--wood);border-radius:var(--r);
+      box-shadow:var(--float-shadow);color:var(--ink);padding:18px 26px;min-width:300px;
+      max-width:min(420px,calc(100vw - 40px));max-height:min(560px,calc(100vh - 40px));
+      overflow-y:auto;cursor:pointer}
+    #eodTitle{color:var(--gold);font-size:18px;font-weight:800;letter-spacing:.04em;
+      text-align:center;margin:0 0 10px;border-bottom:1px solid var(--hairline);padding-bottom:8px}
+    .eod-row{font-size:14px;padding:3px 0}
+    .eod-achieve-head{color:var(--gold);font-weight:700;font-size:13px;margin:10px 0 2px;
+      border-top:1px solid var(--hairline);padding-top:8px;text-transform:uppercase;letter-spacing:.05em}
+    #eodHint{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;font-style:italic}
   </style>
 </head>
 <body>
@@ -240,6 +259,13 @@
       <div id="dlgText"></div>
       <div id="dlgChoices"></div>
     </div>
+    <div id="eodQuick"></div>
+  </div>
+  <div id="eodScrim"></div>
+  <div id="eodPanel">
+    <div id="eodTitle"></div>
+    <div id="eodBody"></div>
+    <div id="eodHint">Click, Enter, or Esc to continue</div>
   </div>
   <div id="sidebar"></div>
   <div id="hud">

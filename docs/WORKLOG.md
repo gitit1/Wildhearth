@@ -42,6 +42,90 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## End-of-day summary — none/quick/full with day ledger
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (Part A #7) End-of-day summary engine. Player setting
+  none/quick/full-with-achievements (DECISIONS). A day ledger accumulates the
+  cheap seams main.ts already owns; on day rollover, show per the setting.
+  "full" auto-pauses game-time until dismissed (same gating as the dialogue
+  box); a night slept through shows it only after the fade completes.
+- **Done:**
+  - **Files:**
+    - `src/systems/daylog.ts` (new) — `DayLog` { coinsEarned, coinsSpent,
+      itemsSold, catches, harvests, forages, dishesCooked, skillGains
+      (Record<skillId,points>), newDiscoveries (string[]), newMemories
+      (string[]), relationshipChanges (Record<npcId,{friendship,romance}>) };
+      `freshDayLog()`/`resetDayLog()`; `logCoinsEarned/logCoinsSpent/
+      logItemsSold/logCatch/logHarvest/logForage/logDishCooked/logSkillGain/
+      logDiscovery/logMemory/logRelationshipChange`; `topActivityLine()` for
+      the quick summary's one-line highlight. Not persisted — a plain object
+      main.ts owns and resets every in-game day (explicit-passing, like every
+      other store).
+    - `src/systems/settings.ts` — new `EndOfDaySummary` type + `Settings.
+      endOfDaySummary` field (default `"quick"`), validated on load (falls
+      back to the default on junk); new `endOfDaySummaryMode()` accessor.
+    - `src/config.ts` — new `EOD_QUICK_SHOW_SECONDS = 5` (how long the quick
+      pill stays up before fading).
+    - `src/ui/dayendpanel.ts` (new) — `initDayEndPanel()`, `showQuickSummary`/
+      `updateQuickSummary` (a small auto-fading pill, non-blocking), `showFull
+      Summary`/`isDayEndOpen` (a proper wood/gold modal listing every non-zero
+      ledger line + an "Achievements today" section for new discoveries/
+      memories; dismiss by click anywhere on it, Esc, or Enter).
+    - `index.html` — `#eodQuick` pill, `#eodScrim` + `#eodPanel` modal (new
+      CSS block matching the existing wood/gold token system).
+    - `src/ui/shopwindow.ts` — two new optional callback params on
+      `initShopWindow` (`logSale`, `logPurchase`), called at the existing
+      sell/sell-everything/buy/buy-livestock success branches — the primary
+      trade loop now feeds the ledger without shopwindow.ts owning daylog.ts.
+    - `src/main.ts` — owns the live `dayLog` object; hooks it into `record()`
+      (discoveries), `remember()` + `fireHeart()` (memories), `giveGiftFlow`/
+      `doInteraction`/`applyDialogueEffect`'s friendship case (relationship
+      deltas), the fishing/foraging/busking/cooking/farming-harvest completion
+      handlers (catches/forages/dishesCooked/harvests/coinsEarned + per-skill
+      gains), `handleCollapse`'s fee (coinsSpent), and the shop callbacks
+      above. `stepGameMinute()` now returns a `DayEndSnapshot | null` (season/
+      day of the day that just ended + a shallow-copied ledger) exactly on
+      rollover, then resets the ledger; `presentDayEnd()` reads the setting
+      and shows quick/full/nothing. The three time-skip paths (sleep/nap/
+      collapse) collect any pending snapshot during the fade and present it
+      only in the `onDone` callback — after the screen fades back in, never
+      behind it. `isDayEndOpen()` joins `isDialogueOpen()` in the single
+      `timePaused` gate that already froze NPCs/player/autosave for dialogue.
+      Dev bridge: `dayLog()`, `setEodMode()`, `dayEndOpen()`, `advanceDay()`
+      (fast-forwards through the real minute loop to the next rollover).
+  - **Systems / functions:** no new save keys — `dayLog` is intentionally
+    unpersisted; `endOfDaySummary` rides on the existing settings key.
+  - **Behavior:** the player can set none/quick/full (today: via the dev
+    bridge / a future Settings screen — same state as `dayLengthSeconds` and
+    `guided` before their screens existed). "quick" shows a small 3-line pill
+    (day header, coin net, top activity) that fades on its own and never
+    pauses anything. "full" opens a proper panel listing every non-zero stat
+    for the day just ended plus new discoveries/memories, freezes game-time
+    and the townsfolk until dismissed (click/Esc/Enter). "none" is silent.
+    Sleeping through midnight shows the panel only once the wake-up fade
+    completes.
+- **Build:** `npm run build` — ✅ passing
+- **Commit:** (filled in below after committing)
+- **Verification:** Playwright against the dev server via the dev bridge:
+  gifting Maren + a friendly chat with Tobin populated `relationshipChanges`
+  (`maren: +20 friendship`, `tobin: +3 friendship`) and the first-gift memory;
+  `setEodMode('full')` + `advanceDay()` opened the modal with those exact
+  lines plus the achievement, froze an NPC's world position while open, and
+  Esc closed it; `setEodMode('quick')` + `advanceDay()` showed the 3-line
+  pill without opening the blocking panel; `setEodMode('none')` showed
+  neither; the setting value survived a full page reload.
+- **Follow-ups:** relationship NEGLECT DECAY (the daily "no contact" drift)
+  is deliberately NOT folded into `relationshipChanges` — only active
+  interactions (gifts/categorized/dialogue) are logged, since decay is
+  passive and would clutter the "today's activity" framing; a future pass
+  could add it as a separate "faded" line if wanted. Building/Husbandry/
+  Gardening skill gains (all three live in `systems/interact.ts`, not
+  main.ts) aren't logged to `skillGains` — kept in scope per the block's
+  explicit "cheap seams main.ts already owns"; wiring them later just needs
+  an extra `InteractCtx` hook mirroring `toast`/`memory`. No dedicated
+  Settings-screen toggle yet (Part E) — same gap as `dayLengthSeconds`/
+  `guided` today.
+
 ## Save system — manifest, manual save icon, 10-minute autosave
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (Part A #11) Save/load system. Every store already writes

@@ -174,6 +174,12 @@ export const CAM_USER_ZOOM_STEP = 0.15; // ...changed by this much per wheel not
 // ===========================================================================
 export const AUTOSAVE_SECONDS = 600;    // 10 real minutes between autosaves (DECISIONS: "Save")
 
+// ===========================================================================
+//  End-of-day summary engine (Part A #7) — DECISIONS: "End-of-day summary:
+//  player setting — none/quick/full-with-achievements".
+// ===========================================================================
+export const EOD_QUICK_SHOW_SECONDS = 5;   // how long the "quick" pill stays up before fading
+
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";
