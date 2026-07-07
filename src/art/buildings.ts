@@ -1,8 +1,8 @@
 import { HOUSE, BARN, STALL, type Rect } from "../world/zones";
 import { shadow, oRect, outline, OUTLINE, OUTLINE_W, castShadow, roundR } from "./shapes";
 import { mulberry32 } from "../engine/rng";
-import { sprite, drawGroundSprite, type SpritePlacement } from "./sprites";
-import { SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE } from "../config";
+import { sprite, drawGroundSprite, recolorSprite, type SpritePlacement, type HueBand } from "./sprites";
+import { SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE, SPRITE_STALL_SCALE, SPRITE_WELL_SCALE } from "../config";
 
 // ---- static-sprite sheet anchors (measured alpha bbox: horizontal centre col
 // + foot row = the ground-contact base). The sheets were sized to the HOUSE /
@@ -10,6 +10,14 @@ import { SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE } from "../config";
 // above it, exactly as the painter overhangs today. ---
 const FARMHOUSE_SHEET = { cx: 96, foot: 169 };   // 192x176
 const BARN_SHEET = { cx: 104, foot: 170 };        // 208x176
+const STALL_SHEET = { cx: 55, foot: 106 };        // 112x112
+const WELL_SHEET = { cx: 38.5, foot: 88 };        // 80x96
+// The stall sprite's own baked-in awning fabric (a candy red/cream stripe) —
+// its hue band, measured from the generated PNG (see docs/PIXELLAB_ASSETS.md),
+// recolored per stall via recolorSprite(); the alternating cream stripe sits
+// outside this band (hue ~40-43°) so it's untouched, keeping the stripe
+// pattern readable after the tint.
+const STALL_AWNING_BAND: HueBand = { hueMin: 334, hueMax: 6, satMin: 0.34 };
 
 /** sprite-pixel (sx,sy) -> world point, through a drawGroundSprite placement. */
 function sw(p: SpritePlacement, sx: number, sy: number): [number, number] {
@@ -239,6 +247,22 @@ export function drawStall(
   awning = "#c05038", accent = "#7fb0c8", sign: StallSign = "fish",
 ) {
   const { x, y, w, h } = r;
+  // ---- sprite path: the stall's base+roof, its awning fabric hue-shifted to
+  // THIS stall's own awning colour (recolorSprite, cached per colour — see
+  // STALL_AWNING_BAND above); goods stay code-drawn on top, unchanged — the
+  // per-stall identity feature the (generic) sprite shelf art doesn't encode.
+  // The code painter below (counter/posts/striped awning/goods) is the
+  // fallback. Sign/goods interactions unchanged (keyed to the stall's rect). ----
+  const img = sprite("buildings/market-stall");
+  if (img) {
+    const gx = x + w / 2, gy = y + h;
+    castShadow(g, gx, gy, w * 0.5, h * 0.9);
+    const tinted = recolorSprite("buildings/market-stall", img, awning, STALL_AWNING_BAND);
+    drawGroundSprite(g, tinted ?? img, gx, gy, STALL_SHEET.cx, STALL_SHEET.foot, SPRITE_STALL_SCALE);
+    drawStallGoods(g, r, accent, sign);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   castShadow(g, x + w / 2, y + h, w * 0.5, h * 0.9);
   shadow(g, x + w / 2 + 4, y + h + 6, w * 0.55, 8);
   // counter
@@ -266,8 +290,15 @@ export function drawStall(
   // the awning's contour as one shape
   g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W;
   g.strokeRect(x - 6, y - h * 0.4, w + 12, h * 0.35 + fl);
+  drawStallGoods(g, r, accent, sign);
+}
 
-  // goods on the counter — a little different per stall type
+/** Goods on the counter — a little different per stall type (fish buyer /
+ *  produce / general / empty). A code-drawn overlay on BOTH the sprite and
+ *  fallback paths: the per-stall differentiator the sprite's own (generic)
+ *  shelf art doesn't encode. */
+function drawStallGoods(g: CanvasRenderingContext2D, r: Rect, accent: string, sign: StallSign) {
+  const { x, y, w, h } = r;
   if (sign === "fish") {
     g.fillStyle = "#b08a58"; g.fillRect(x + w * 0.2, y + h * 0.3, w * 0.28, h * 0.2);
     g.fillStyle = accent;
@@ -354,6 +385,16 @@ export function drawOuthouse(g: CanvasRenderingContext2D, r: Rect) {
 /** The market square's stone well: a round wall, a little peaked roof on posts,
  *  a rope and bucket. Purely decorative. */
 export function drawWell(g: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  // ---- sprite path: the built well, base-on-ground at the circle's bottom
+  // edge; the code painter below is the fallback. Drink interaction unchanged
+  // (keyed to WELL's cx/cy/r, not to this painter). ----
+  const img = sprite("buildings/well");
+  if (img) {
+    castShadow(g, cx, cy + r * 0.6, r * 0.9, r * 2.2);
+    drawGroundSprite(g, img, cx, cy + r, WELL_SHEET.cx, WELL_SHEET.foot, SPRITE_WELL_SCALE);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   castShadow(g, cx, cy + r * 0.6, r * 0.9, r * 2.2);
   shadow(g, cx + 4, cy + r + 4, r * 1.1, r * 0.4);
   // stone rim

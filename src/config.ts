@@ -352,6 +352,16 @@ export const SPRITE_FACING_HYSTERESIS = 0.14; // rad past a sector edge before t
 export const SPRITE_HOUSE_SCALE = 1.0;
 export const SPRITE_BARN_SCALE = 1.0;
 export const SPRITE_HEARTH_SCALE = 1.0;
+// --- Wave 2: interior room backdrop, furniture, market stalls + well. Same
+//     "measure the alpha bbox, scale footprint ≈ zone rect" recipe; the room
+//     backdrop is a full-bleed background (not a footprint sprite), so it's
+//     placed by offset only (SPRITE_ROOM_SCALE stays 1.0 — see art/interior.ts). ---
+export const SPRITE_ROOM_SCALE = 1.0;
+export const SPRITE_BASIN_SCALE = 0.92;
+export const SPRITE_CHAIR_CRATE_SCALE = 1.12;
+export const SPRITE_BED_SCALE = 1.21;
+export const SPRITE_STALL_SCALE = 0.77;
+export const SPRITE_WELL_SCALE = 1.05;
 
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
