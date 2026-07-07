@@ -114,6 +114,39 @@ files (`DECISIONS.md`, `FABLE_PROMPT.md`). Resolution:
   ducks/deer/hares by season+weather+region; flee-and-despawn; storm
   empties the world.
 
+- **Character creation** (`d65b87e`) — full New Game flow: identity
+  (first/last/nickname, age 18+, gender), curated appearance presets
+  with a live breathing rig preview + Randomize, skippable intro story,
+  farm reveal BEFORE the path choice, Starting Path cards
+  (Fisher/Farmer/Musician/Animal-Keeper — kit + skill 10 + 50 coins +
+  food), life-goal pick. Old saves synthesize a default character.
+- **Guidance Mode engine** (`ee2fe8d`) — picker (Tutorial/Aspiration/
+  None); Tutorial = 4 real-action steps (move→first action→first
+  sale→first purchase) with clock-freeze, Skip (one-way), persistent
+  Help icon, mid-progress reload prompt; Aspiration = per-path 3-4 step
+  background chains + life-goal flavor, HUD pill; switchable in
+  Settings (tutorial re-entry blocked per DECISIONS).
+
+### Part E — main menu + screens (complete)
+- **Main menu** (`4827325`) — code-painted sunrise-farm vista + animated
+  "Wildhearth" logo; Continue (live slot manifest: season/day/coins/
+  saved-ago; disabled without a save), New Game (confirm-over-save),
+  What's New (data-driven `src/data/changelog.ts`, NEW badges +
+  lastSeen tracking), Help/Guide (5 honest pages), Credits, Exit.
+- **Settings screen** (`8259b09`) — day-length slider (live), summary
+  detail, guidance switch, HUD toggles (needs strip/minimap/dial), font
+  size, high contrast, colorblind hook (stored, honest "coming soon"),
+  audio sliders (stored, "no sound yet"), **AI section** (master off by
+  default, masked BYOK key, monthly token budget, 8 feature checkboxes
+  — surface only; the AI layer itself is the next block), save
+  management (save now / double-confirm delete). `aiSettings.ts` is NOT
+  in GAME_KEYS (survives New Game).
+- **Pause + Exit** (`ee96377`) — Esc/⏸ pause (freeze, Save/Settings/
+  menu/exit), DECISIONS' three-option exit dialog ("Switch to another
+  game" greyed until v5 multi-character), return-to-menu autosaves then
+  `location.reload()` (sanctioned pragmatic teardown), exit-fully saves
+  + farewell screen.
+
 ### Part B — visual foundation
 - **Segmented rig** (`ad18828`) — `art/rig.ts` (RigParams: build, legs,
   arms, skin, 5 hairstyles, outfit, age proportions; 8 poses: idle,
@@ -169,6 +202,14 @@ Later decisions (10+):
 - **#15** — NPC-stall trading is a data table; only Maren's fish stall is live in v1 (FABLE_PROMPT: fishing scope).
 - **#16** — Wildlife tables: spring butterflies/songbirds/rabbits, summer +ducks, autumn deer, winter hares+deer; insects vanish in rain; storms empty the world.
 
+Decisions 17-22:
+- **#17** — Life-goal list (open decision in DECISIONS): **Family / Independence / Community / Mastery / Fortune**. OWNER PLEASE CONFIRM.
+- **#18** — Old `guided:true` saves migrate to **Aspiration** (gentle, non-modal), `false` → None; a forced tutorial is never revived on a mid-game save.
+- **#19** — "Tutorial pauses game-time per step" read as: the CLOCK freezes while a step bubble is up, movement/actions stay live so steps can complete.
+- **#20** — Return-to-main-menu = autosave then `location.reload()` (clean-teardown risk not worth zero player-visible gain); Continue re-enters cleanly.
+- **#21** — AI settings surface (key/budget/feature checkboxes) shipped BEFORE the AI layer so Part D wires into a real UI; master toggle defaults OFF; stored outside GAME_KEYS.
+- **#22** — Player-facing changelog lives in `src/data/changelog.ts` (FABLE_PROMPT suggested a docs file "or similar" — in-code = type-checked + bundled).
+
 ## Subagent registry
 
 (One row per subagent task; filled in as they run.)
@@ -183,6 +224,8 @@ Later decisions (10+):
 | Dialogue engine (A4) | Opus | ✅ committed `63140f4` | ~283k tok, ~26 min; 16/16 checks incl. condition precedence |
 | Save+Summary+Festival (A11/A7/A6) | Sonnet | ✅ 3 commits `592f8f2`/`218fc5f`/`baa7c14` | ~405k tok, ~39 min |
 | Fish stall + wildlife (A9/A8b) | Sonnet | ✅ 2 commits `88d22e8`/`577f242` | ~369k tok, ~38 min |
+| Char creation + Guidance (A10/A5) | Opus | ✅ 2 commits `d65b87e`/`ee2fe8d` | ~393k tok, ~45 min; 37/37 + 36/36 checks, real-action tutorial |
+| Main menu + screens (Part E) | Opus | ✅ 3 commits `4827325`/`8259b09`/`ee96377` | ~336k tok, ~37 min; 60 checks + reviewed vista screenshots |
 | ROADMAP_TO_V5.md | Opus | ✅ delivered | ~135k tok; judgment calls in decision #8 |
 | AI_ARCHITECTURE.md | Opus | ✅ delivered | ~273k tok; judgment calls in decision #9 |
 | PROPOSALS.md | Sonnet | ✅ delivered | ~101k tok; 22 proposals |
@@ -199,11 +242,49 @@ Later decisions (10+):
 
 - **OWNER PLEASE CONFIRM:** starting coins = 50 (kept). See Doc sync #2.
 
+## Session status at the pause point (2026-07-07)
+
+The product owner asked to pause mid-session. State: **Parts A and E are
+COMPLETE** (all 11 Part-A engines + all 7 Part-E screens, every block
+committed, verified in-browser, and pushed). Part B item 6 (the rig) is
+done. **Remaining:** Part D (the AI layer — foundation + the 8
+features; the Settings AI surface already exists and waits for it),
+Part B remainder (day/night tint, weather visuals, parallax, ambient
+particles, diagonal cast shadows, outline/shadow audits), Part C
+(content library: more crops/trees/decorations/animals/buildings/
+outfits/tools). After those: the user's standing instruction is to
+continue into next-version work per ROADMAP_TO_V5.md if budget remains.
+
 ## How to continue
 
 1. `git checkout v1-foundation && git pull`
-2. `npm install && npm run dev` — confirm the game boots.
+2. `npm install && npm run dev` — confirm the game boots to the new
+   main menu; run a quick New Game to see the creation flow.
 3. Read this file top to bottom, then the newest WORKLOG entries.
-4. Continue from the first unchecked item in the session plan (Parts
-   A→E per FABLE_PROMPT.md); the "What was built" section above shows
-   exactly where the session stopped.
+4. Build next, in order, one subagent per block, each with its own
+   WORKLOG-entry commit pushed to v1-foundation:
+   a. **Part D commit 1 — AI foundation**: `src/systems/ai/` per
+      docs/AI_ARCHITECTURE.md (provider.ts BYOK browser-direct +
+      mock provider, budget.ts monthly cap vs `aiSettings`, cache,
+      schema validator with the closed action set, deterministic test
+      mode). Wire the Settings "Test connection" button.
+   b. **Part D commit 2+ — AI features with flat fallbacks**: NPC
+      backstories at world-creation, dialogue variation via the
+      existing `renderNpcLine()` seam, NPC inner thoughts, world-event
+      narration, anti-repetition memory, quest-gen stub, improvement
+      observer (writes dev notes, off by default). EVERY feature must
+      no-op gracefully with AI off — the game is complete without it.
+   c. **Part B remainder** (one Sonnet run, commits per feature):
+      day/night full-screen tint from `currentPhase()`, weather visual
+      layer (rain particles, storm tint, fog overlay), one parallax
+      background band, ambient particle system (seasonal drift +
+      action sparkles), diagonal cast shadows for tall objects
+      (upper-left light), audit outlines/drop-shadows on new entities
+      (NPCs/wildlife/cottages/stalls).
+   d. **Part C content library** (one-two Sonnet runs): crops 9→15-20,
+      tree/bush seasonal variants, 20-30 ambient decorations, farm
+      animals pig/sheep/duck/cat/dog/rabbit (params exist in
+      animalRig), building variants, 10 outfits (5/gender) on the rig,
+      15-25 tool/accessory painters.
+5. Keep updating THIS file the same way (decisions, registry, built
+   list) and keep the one-commit-per-block + WORKLOG rule.
