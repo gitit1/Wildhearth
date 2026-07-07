@@ -29,6 +29,53 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Window layout persistence + presets + WINDOW_SYSTEM.md
+- **Date:** 2026-07-08 (v1-foundation, session 2)
+- **Block given:** Session-2 Task 1 (window system), commit 2 of 2 — persist
+  the player's whole desktop layout, add layout presets to Settings, and
+  document the system.
+- **Done:**
+  - **Persistence** (built in the manager in commit 1, verified here): the
+    whole desktop — every window's position/size/state + the dock
+    orientation — is saved (debounced, `WIN_LAYOUT_SAVE_DEBOUNCE_MS`) to
+    `wildhearth-layout-v1` on any change and restored on boot, then run
+    through the keep-on-screen clamp (`wm.clampAll()`). **Deliberately NOT in
+    `saves.ts` GAME_KEYS**, so a New Game keeps the arranged desktop (layout
+    is a preference, like Settings — UO keeps your client layout). Per-slot
+    forward-compat: the store carries a `slot` field and the key is ready for
+    a `-slotN` suffix (commented in `layout.ts`).
+  - **Presets** — new `applyWindowPreset(name)` in
+    `src/ui/windows/setup.ts` + a **"Windows" section in the Settings
+    screen** (`src/ui/settingsscreen.ts`, added between Interface and Audio):
+    - **Classic** — the defaults (viewport ~88% centred; coins top-left,
+      clock top-right, needs left edge, dock bottom-right).
+    - **Focus** — viewport maximized; clock/coins/needs/dock minimized to
+      bottom title-strips.
+    - **Cozy** — viewport ~72% (`WIN_COZY_FILL`), HUD windows tiled around it.
+    - **Reset to default** — clears the saved layout, then applies Classic.
+    All are instant (animation-free) and persist.
+  - **`docs/WINDOW_SYSTEM.md`** (new) — the abstraction, chrome, drag/resize/
+    minimize/close/pin/focus internals, snap + keep-on-screen rules, the
+    persistence format + per-slot plan, the presets, the **"add a new window"
+    migration checklist** (the mechanical path for migrating the modal
+    screens next), and the known edge cases (off-screen rescue, viewport
+    resize during drag, dpr changes, minimized-at-edge stacking,
+    non-migrated panels floating above, the never-closable dock).
+- **Verify (Playwright, screenshots reviewed):** 18/18 — arrange (move coins,
+  minimize needs, close clock) → the values land in `wildhearth-layout-v1` →
+  reload → **layout restored** exactly (coins x=420, needs minimized in the
+  dock, clock hidden); a layout with an off-screen window (x=5000) is
+  **clamped back on-screen** on restore; the Settings "Windows" section
+  renders with all four buttons; **each preset applies correctly** (Focus:
+  viewport 1416/1440 + 4/4 HUD minimized; Cozy: viewport ≈72% + HUD normal;
+  Classic: viewport ≈88% centred; Reset re-persists Classic); **New Game
+  keeps the layout** (coins x unchanged across a New Game). `npm run build` ✅.
+- **Follow-ups:** the window system is complete; the next block migrates the
+  modal screens (backpack/skills/shop/dialogue/settings/…) onto the same
+  abstraction via the WINDOW_SYSTEM.md checklist, which also resolves the
+  known overlap of the still-`makePanel` backpack/minimap with the HUD
+  windows.
+
 ## Window system core — manager, viewport window, HUD windows
 - **Date:** 2026-07-08 (v1-foundation, session 2)
 - **Block given:** Session-2 Task 1 (window system), commit 1 of 2 — make

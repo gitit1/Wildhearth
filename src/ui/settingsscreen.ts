@@ -9,6 +9,7 @@ import {
   loadAiSettings, saveAiSettings, setAiFeature, AI_FEATURES, AI_DEPTHS, type AiDepth,
 } from "../systems/aiSettings";
 import { createAiCtx, type AiErrorKind } from "../systems/ai";
+import { applyWindowPreset, type WindowPreset } from "./windows/setup";
 import { DAY_LENGTH_MIN_MIN, DAY_LENGTH_MAX_MIN } from "../config";
 import type { SlotManifest } from "../systems/saveSlots";
 
@@ -135,6 +136,44 @@ export function showSettings(ctx: SettingsCtx) {
       (v) => { saveSettings({ colorblind: v }); applyGlobalPrefs(); },
       false,
     ));
+  }
+
+  // ---------- Windows (layout presets) ----------
+  {
+    const sec = section(body, "Windows",
+      "Everything on screen is a draggable, resizable, minimizable window on your desktop — the game viewport included. These are quick starting layouts; your arrangement is remembered (and kept across a New Game).");
+    const presets: Array<{ id: WindowPreset; label: string; note: string }> = [
+      { id: "classic", label: "Classic", note: "The default: viewport centred, HUD around the edges." },
+      { id: "focus", label: "Focus", note: "Viewport maximized, HUD tucked into the dock." },
+      { id: "cozy", label: "Cozy", note: "A smaller viewport with the HUD tiled around it." },
+    ];
+    const feedback = document.createElement("span");
+    feedback.className = "set-feedback set-ok";
+    const flash = (name: string) => {
+      feedback.textContent = `${name} ✓`;
+      setTimeout(() => { feedback.textContent = ""; }, 2200);
+    };
+    const seg = document.createElement("div");
+    seg.className = "set-seg";
+    for (const p of presets) {
+      const b = document.createElement("button");
+      b.className = "set-seg-btn";
+      b.textContent = p.label;
+      b.title = p.note;
+      b.addEventListener("click", () => { applyWindowPreset(p.id); flash(p.label); });
+      seg.append(b);
+    }
+    const presetWrap = document.createElement("div");
+    presetWrap.className = "set-inline";
+    presetWrap.append(seg, feedback);
+    sec.append(row("Layout presets", presetWrap, "Applied instantly — Classic · Focus · Cozy."));
+
+    const reset = document.createElement("button");
+    reset.className = "set-btn";
+    reset.id = "setResetWindows";
+    reset.textContent = "Reset to default";
+    reset.addEventListener("click", () => { applyWindowPreset("reset"); flash("Default layout"); });
+    sec.append(row("Reset windows", reset, "Clears your saved window layout and restores the Classic arrangement."));
   }
 
   // ---------- Audio ----------
