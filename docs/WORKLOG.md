@@ -133,7 +133,7 @@ project.
   the shared outline/shadow, reading clearly against the tree-lined
   forest floor.
 - **Build:** `npm run build` — ✅ passing
-- **Commit:** (filled in below after committing)
+- **Commit:** `577f242` — "Seasonal wildlife — butterflies, songbirds, rabbits, deer by season & weather"
 - **Follow-ups:** binoculars-gated sighting/Collections wiring (deliberately
   NOT built here, per the block's own scope note — that's the Riverside
   Fisherwoman block) would turn these sightings into Memory Book entries.
