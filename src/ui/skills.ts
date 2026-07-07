@@ -1,24 +1,28 @@
 import { SKILL_CAP } from "../config";
 import { SKILL_NAMES, cycleLock, totalSkills, type Skills, type SkillLock } from "../systems/skills";
-import { makePanel } from "./panels";
+import { createScaleWindow } from "./windows/scalewindow";
+import { toggleWindow } from "./windows/manager";
+import type { WindowHandle } from "./windows/window";
 
 /**
- * UO-style skills window (key K or the HUD 📜 icon): scrollable list of
- * skills, a value per row, a lock toggle (up/down/locked), and a floating
- * "+0.3" popup on gain. Drag the header to move, corner grip to resize.
+ * Skills window (Windows migration I): a real wm window — draggable,
+ * resizable, minimizable, closable, persisted. Icon 📜 / key K / Escape
+ * toggle it. Scrollable list of skills, a value per row, a lock toggle
+ * (up/down/locked), and a floating "+0.3" popup on gain. Default: hidden,
+ * docked to the left edge (under coins/needs).
  */
 
 const LOCK_GLYPH: Record<SkillLock, string> = { up: "▲", down: "▼", locked: "🔒" };
+const GAP = 12;
 
-let panel: HTMLElement;
+let win: WindowHandle;
 let skillsBtn: HTMLElement | null;
-let open = false;
 let sk: Skills;
 let rows: { value: HTMLElement; lock: HTMLElement; float: HTMLElement }[] = [];
 
 export function initSkillsUI(skills: Skills) {
   sk = skills;
-  panel = document.getElementById("skillsPanel")!;
+  const panel = document.getElementById("skillsPanel")!;
   skillsBtn = document.getElementById("skillsBtn");
   const list = document.getElementById("skillsList")!;
 
@@ -51,24 +55,20 @@ export function initSkillsUI(skills: Skills) {
     rows.push({ value, lock, float });
   }
 
-  skillsBtn?.addEventListener("click", () => setOpen(!open));
+  win = createScaleWindow({
+    id: "skills", title: "Skills", icon: "📜",
+    content: panel,
+    onScale: (s) => panel.style.setProperty("--s", String(s)),
+    defaultPos: (d) => ({ x: GAP, y: Math.round(d.h * 0.42) }),
+    onVisibleChange: (hidden) => { skillsBtn?.classList.toggle("active", !hidden); if (!hidden) refresh(); },
+  });
+  win.close(); // default: hidden (matches the legacy panel's closed-by-default feel)
+
+  skillsBtn?.addEventListener("click", () => toggleWindow(win));
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyK") setOpen(!open);
-    else if (e.code === "Escape" && open) setOpen(false);
+    if (e.code === "KeyK") toggleWindow(win);
+    else if (e.code === "Escape" && win.isOpen()) win.close();
   });
-
-  panel.style.display = "block";           // measurable for makePanel, then honor `open`
-  makePanel(panel, panel.querySelector("h2")!, "skills", (s) => {
-    panel.style.setProperty("--s", String(s));
-  });
-  setOpen(false);
-}
-
-function setOpen(v: boolean) {
-  open = v;
-  panel.style.display = open ? "block" : "none";
-  skillsBtn?.classList.toggle("active", open);
-  if (open) refresh();
 }
 
 function refresh() {
@@ -82,7 +82,7 @@ function refresh() {
 
 /** Call every frame; keeps visible numbers current. */
 export function updateSkillsUI() {
-  if (open) refresh();
+  if (win.isOpen()) refresh();
 }
 
 /** Floating "+0.3" popup on the skill's row (visible when the window is open). */

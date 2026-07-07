@@ -8,16 +8,17 @@ whole layout persisted. **The game viewport itself is a window.**
 
 This doc is the reference for the abstraction, its internals, the persistence
 format, and — most importantly — the **checklist for turning any surface into a
-window** (that is how the modal screens get migrated next).
+window** (that is how the remaining modal screens keep getting migrated).
 
 Source lives in `src/ui/windows/`:
 
 | File | Responsibility |
 |---|---|
 | `window.ts` | Types only: `WindowSpec`, `WindowHandle`, `WindowRect`, `WindowState`, `WindowLayout`, `LayoutStore`, `DockOrientation`, `clamp`. |
-| `manager.ts` | `WindowManager` (singleton `wm`): desktop + dock DOM, chrome, drag/resize/minimize/close/pin, focus/z-order, snap, keep-on-screen clamp, layout snapshot/apply/persist. |
+| `manager.ts` | `WindowManager` (singleton `wm`): desktop + dock DOM, chrome, drag/resize/minimize/close/pin, focus/z-order, snap, keep-on-screen clamp, layout snapshot/apply/persist, `isFocused()`. Also exports `toggleWindow()`, the shared dock-icon/shortcut-key "toggle feel" helper. |
 | `layout.ts` | `wildhearth-layout-v1` load/save (debounced + immediate + clear). Validation + per-slot forward-compat. |
-| `setup.ts` | Game wiring: creates the viewport + clock/coins/needs/dock windows, the dock's ⇄/☰ controls, the boot restore, `isViewportActive()`, and the presets. |
+| `setup.ts` | Game wiring: creates the viewport + clock/coins/needs/dock windows (`setupWindows`), the dock's ⇄/☰ controls, the boot restore (`finishWindowSetup`, called once every window exists), `isViewportActive()`, and the presets (which also place the six migrated panel windows — §4). |
+| `scalewindow.ts` | `createScaleWindow()` — the migration helper for the `--s`-scale panel convention (backpack/skills/memory book/shop/gift): measures natural size once, wires a resizable window's width back to a uniform scale. |
 
 Tuning knobs are in `src/config.ts` under **Window system** (`WIN_*`).
 
@@ -177,11 +178,20 @@ on boot. Format:
 relayout and persists:
 
 - **Classic** — the defaults: viewport ~`WIN_VIEWPORT_FILL` (88%) centred;
-  coins top-left, clock top-right, needs on the left edge, dock bottom-right.
-- **Focus** — viewport maximized (desktop minus a gutter); the clock/coins/
-  needs/dock windows minimized to bottom strips.
-- **Cozy** — viewport ~`WIN_COZY_FILL` (72%), HUD windows tiled around it.
-- **Reset to default** — clears the saved layout, then applies Classic.
+  coins top-left, clock top-right, needs on the left edge, dock bottom-right;
+  backpack right side, minimap top-right (under the clock) — both open;
+  skills left edge (under coins/needs), memory book center-left, shop center,
+  gift near the shop — all four hidden (their pre-migration closed-by-default
+  feel), reachable from the dock's ☰ menu or their icon/key.
+- **Focus** — viewport maximized (desktop minus a gutter); every other window
+  (HUD + any of the six panels that happen to be open) minimized to bottom
+  strips. A panel that's already hidden stays hidden.
+- **Cozy** — viewport ~`WIN_COZY_FILL` (72%), HUD + panel windows tiled around
+  it (same panel arrangement as Classic).
+- **Reset to default** — clears the saved layout, then applies Classic. Note:
+  like Classic/Cozy, this only repositions the six panel windows — a panel a
+  player has manually resized keeps that size (only the viewport's size is
+  ever reset by a preset, since its size IS the preset's defining feature).
 
 All four are also reachable programmatically via the exported
 `applyWindowPreset`.
@@ -191,32 +201,62 @@ All four are also reachable programmatically via the exported
 ## 5. Adding a new window (the migration checklist)
 
 This is exactly how the modal screens (backpack / skills / shop / dialogue /
-settings …) get migrated onto the system — mechanical, one at a time:
+settings …) get migrated onto the system — mechanical, one at a time. **Windows
+migration I** (backpack, skills, minimap, memory book, shop, gift chooser) is
+done; it's the reference application of every step below.
 
 1. **Have a content element.** Use the surface's existing root element (e.g.
    `#backpack`) as `spec.content`, or wrap its inner markup in a fresh `<div>`.
    Strip any `position:fixed` / bespoke chrome from it — the window frame
-   provides the chrome; the content should be plain flow content.
+   provides the chrome; the content should be plain flow content. **Gotcha:**
+   a plain block-level content root stretches to its containing block's width
+   the instant `position:fixed` is gone — including for the split-second it's
+   still sitting in its original DOM spot at boot (see step 2's measurement).
+   Give it `display:inline-block` so it keeps shrinking-to-fit its own
+   grid/list, exactly like the old fixed-position panel did.
 2. **`wm.createWindow({ ... })`** with a stable `id` (this is the persistence
    key — never reuse one), a `title`, an `icon`, and `content`. Set `resizable:
    true` + `minW/minH` if it should scale; leave it off to size-to-content.
    Provide a `defaultRect` (a function of the desktop size for edge-anchored
-   windows).
+   windows). **The `--s`-scale convention** (backpack/skills/memory book/shop/
+   gift all resize by scaling one CSS custom property, the old `makePanel`
+   convention) has a ready-made wrapper: `createScaleWindow()` in
+   `src/ui/windows/scalewindow.ts` measures the content's natural size once (at
+   `s=1`, before it's reparented), derives `minW/maxW/minH/maxH` from
+   `WIN_PANEL_SCALE_MIN/MAX`, and maps every resize back to a uniform scale —
+   only width drives it, matching the legacy corner-grip's horizontal-only drag.
 3. **Replace open/close plumbing** with the returned handle: the surface's
-   toggle button calls `handle.toggle()`; its own close ✕ / Escape call
-   `handle.close()`. Delete its old `makePanel(...)` call and any manual
-   drag/resize code — the manager owns that now.
+   dock-icon/shortcut-key handler calls `toggleWindow(handle)`
+   (`src/ui/windows/manager.ts`) — hidden/minimized → open+focus; open but not
+   focused → just focus; open AND focused → close (the desktop "toggle feel").
+   Its own close ✕ / Escape call `handle.close()` directly. Delete its old
+   `makePanel(...)` call and any manual drag/resize code — the manager owns
+   that now. A window with no dock icon (opened only by game logic, like the
+   shop/gift chooser) skips `toggleWindow` — just `handle.open()` /
+   `handle.close()` from wherever the game triggers it.
 4. **Anchoring after content settles:** if the content's size depends on
    late-populated text (like the clock's date pill), give it a `min-width`/
    `min-height` so the initial measurement matches, or re-anchor after the
    first update. (See the `#hudInfo{min-width}` note in `index.html`.)
 5. **Side-effects on state:** if the surface must pause the game or refit
    something when shown/hidden, use `onOpen`/`onClose`/`onMinimize`.
+   `onMinimize(hidden)` is the one hook that fires for **every** visibility
+   change (open AND restore-from-dock both pass `false`; minimize AND close
+   both pass `true`) — the right place to re-render stale content and sync a
+   dock icon's `.active` class, rather than `onOpen` alone (which misses
+   restore-from-minimized).
 6. **Persistence is automatic** — as soon as it's a managed window, its
    position/size/state ride in `wildhearth-layout-v1`. Add it to a preset in
    `setup.ts` if it should be placed by Classic/Focus/Cozy.
-7. **Boot order:** create the window before the first layout restore
-   (`setupWindows`), so `applyLayout` finds it.
+7. **Boot order:** create the window before the first layout restore. In
+   practice this means calling `wm.createWindow`/`createScaleWindow` from the
+   surface's own `init*()` — wherever in main.ts's boot sequence that already
+   runs — and only running the actual restore (`setupWindows` used to do this
+   inline; it's now the separate `finishWindowSetup()` export) once every
+   window that should participate has been created. Migration I's six panels
+   depend on game state (economy/skills/…) that isn't ready when `setupWindows`
+   itself runs, so `finishWindowSetup()` is called separately, once, right
+   after the last panel's `init*()`.
 
 ---
 
@@ -236,11 +276,5 @@ settings …) get migrated onto the system — mechanical, one at a time:
 - **Minimized-at-edge stacking.** Minimized windows live in `#whDock`
   (`flex-wrap: wrap-reverse`), so many minimized strips stack upward from the
   bottom edge rather than running off the side.
-- **Non-migrated panels float above.** The backpack/skills/memory/minimap/shop/
-  gift panels (still on the old `makePanel`, `z-index 5-7`) render **above** the
-  desktop windows (`#whDesktop` is a `z-index:1` stacking context). This is
-  intentional until they are migrated with the checklist above; the full-screen
-  modal overlays (`#opening`/`#eodPanel`/`#fade`, `z 9-20`) stay above
-  everything.
 - **The dock is never closable.** Guarantees the ☰ reopen path is always on
   screen; a corrupt/preset layout that marks it hidden is coerced to normal.

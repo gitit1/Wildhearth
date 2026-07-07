@@ -344,7 +344,6 @@ export const NEEDS_KEY = "wildhearth-needs-v1";             // 7 needs (hunger/t
 export const RELATIONSHIPS_KEY = "wildhearth-relationships-v1"; // per-NPC Friendship/Romance (Relationship engine)
 export const SLOT_KEY = "wildhearth-slot-v1";        // save-slot manifest (Save system, Part A #11)
 export const GUIDANCE_KEY = "wildhearth-guidance-v1"; // tutorial/aspiration progress (Guidance Mode engine)
-export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)
 
 // ===========================================================================
 //  Window system (UO-classic windows) — src/ui/windows/*. Everything on screen
@@ -364,6 +363,13 @@ export const WIN_COZY_FILL = 0.72;      // "Cozy" preset: a smaller viewport wit
 export const WIN_DOCK_STRIP_W = 156;    // width of a minimized title-strip in the bottom dock row
 export const WIN_LAYOUT_KEY = "wildhearth-layout-v1"; // per-window rect/state + dock orientation (a preference, NOT game state)
 export const WIN_LAYOUT_SAVE_DEBOUNCE_MS = 400;       // debounce before a layout change is written to disk
+// "Scale panels" (Windows migration I) — the legacy makePanel convention of one
+// CSS `--s` custom property driving every internal size (backpack/skills/memory
+// book/shop/gift). createScaleWindow() (src/ui/windows/scalewindow.ts) maps a
+// window resize to a uniform scale within this range, matching the old
+// corner-grip's default bounds.
+export const WIN_PANEL_SCALE_MIN = 0.6;
+export const WIN_PANEL_SCALE_MAX = 2.5;
 
 // ===========================================================================
 //  Visual foundation (Part B, v1-foundation branch) — day/night, weather fx,

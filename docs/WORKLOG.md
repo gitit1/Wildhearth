@@ -29,6 +29,125 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Windows migration I — backpack, skills, minimap, memory book, shop, gift chooser
+- **Date:** 2026-07-09 (v1-foundation, session 3)
+- **Block given:** Session-3 Task 1, commit 1 of 2 — migrate the six legacy
+  `makePanel` floating panels onto the wm window system, then retire
+  `makePanel` entirely. Second commit (dialogue/debug/day-summary/settings +
+  Esc cascade polish) follows separately.
+- **Done:**
+  - **`src/ui/panels.ts` (the whole `makePanel` module) deleted.** Its
+    fixed-position drag + corner-grip-scale + `wildhearth-ui-v2` localStorage
+    persistence is fully replaced by wm windows; `UI_KEY` removed from
+    `config.ts` (dead).
+  - **New `src/ui/windows/scalewindow.ts` — `createScaleWindow()`.** The
+    reusable migration helper for the `--s`-CSS-custom-property convention
+    every one of the five content panels already used: measures the panel's
+    natural size once (at `s=1`, before it's reparented into the window —
+    mirrors the old makePanel comment about sizing before measuring),
+    derives `minW/maxW/minH/maxH` from the new `WIN_PANEL_SCALE_MIN/MAX`
+    knobs (0.6–2.5, matching the old corner-grip's default bounds), and maps
+    every resize's CONTENT WIDTH back to a uniform scale (only width drives
+    it — the legacy corner-grip was also horizontal-drag-only). Gotcha fixed
+    along the way: removing `position:fixed` turns a panel into a stretch-
+    to-fill block the instant it's un-hidden, including for the split-second
+    it's still sitting in its original DOM spot pre-reparent — `display:
+    inline-block` on all five (`index.html`) keeps them shrinking to their
+    own grid/list content, so the natural-size measurement is accurate.
+  - **`src/ui/windows/manager.ts`** — added `wm.isFocused(id)` and the
+    exported `toggleWindow(handle)` helper: hidden/minimized → open+focus;
+    open but not the topmost window → just focus; open AND already focused →
+    close. This is the "toggle feel" every dock-icon/shortcut-key handler
+    below now shares (replacing five copies of a hand-rolled `open` boolean).
+  - **The six panels**, each rewritten to create (`src/ui/*.ts`) a real
+    window instead of calling `makePanel`:
+    - **Backpack** (`backpack.ts`) — id `backpack`, icon 🎒, `createScaleWindow`.
+      Default: **open**, right side. Icon `#bagBtn` / key I / Escape via
+      `toggleWindow`/`handle.close()`.
+    - **Skills** (`skills.ts`) — id `skills`, icon 📜. Default: **hidden**,
+      left edge (under coins/needs). Icon `#skillsBtn` / key K / Escape.
+    - **Memory Book** (`memorybook.ts`) — id `memorybook`, icon 📖. Default:
+      **hidden**, center-left. Icon `#bookBtn` / key B / Escape.
+    - **Minimap** (`minimap.ts`) — id `minimap`, icon 🗺️. NOT a scale panel:
+      `wm.createWindow` directly, `onResize(cw,ch)` computes
+      `scale = min(cw/WORLD_W, ch/WORLD_H) / MINIMAP_SCALE` — "cover the
+      smaller axis" so the map's true aspect ratio never distorts regardless
+      of which edge/corner is dragged. Default: **open**, top-right (under
+      the clock). Icon `#mapBtn` / key M.
+    - **Shop / trade window** (`shopwindow.ts`) — id `shop`, icon 🛒,
+      `createScaleWindow`, no dock icon (opened only by `openShopWindow()` /
+      `openNpcStallWindow()`, closed by `closeShopWindow()` — main.ts's
+      walk-away proximity check is unchanged). The title bar is dynamic
+      (player stall vs. an NPC's) — `win.setTitle(...)` replaces the old
+      `#shopTitle` element; the old `#shopClose` button is gone, replaced by
+      the window's own ✕. Default: **hidden**, center.
+    - **Gift chooser** (`giftchooser.ts`) — id `gift`, icon 🎁, same pattern
+      as shop (dynamic `setTitle`, no `#giftClose`/`#giftTitle`). Default:
+      **hidden**, near the shop.
+  - **Boot ordering fix** (`src/ui/windows/setup.ts` + `main.ts`): the six
+    panels depend on game state (economy/skills/…) not ready when
+    `setupWindows()` used to run the saved-layout restore inline, so that
+    restore is now the separate exported `finishWindowSetup()`, called once
+    in `main.ts` right after the last panel's `init*()` (`initShopWindow`) —
+    per the checklist's boot-order rule ("create the window before the first
+    layout restore").
+  - **Presets extended** (`classicLayout`/`focusLayout`/`cozyLayout` in
+    `setup.ts`) to place all six: Classic/Cozy — backpack right, minimap
+    top-right under the clock (both open), skills left (under coins/needs),
+    memory book center-left, shop center, gift near the shop (those four
+    hidden, matching their pre-migration closed-by-default feel); Focus
+    minimizes any of the six that happen to be open (a hidden one stays
+    hidden — no dock strip for an untouched contextual window).
+  - **`index.html`** — the old `#backpack/#skillsPanel/#memoryPanel/
+    #shopWindow/#giftChooser/#minimapBox` fixed-position/z-index/background/
+    border/box-shadow/display chrome removed (the wm frame supplies all of
+    it now); `.panel-grip` CSS deleted; the five static `<h2>` titles removed
+    (redundant with the window's own title bar) along with `#shopTitle/
+    #shopClose/#giftTitle/#giftClose`.
+  - **`docs/WINDOW_SYSTEM.md`** — the "non-migrated panels float above"
+    known edge case removed (resolved); the migration checklist (§5) updated
+    with the `display:inline-block` gotcha, the `createScaleWindow` variant,
+    `toggleWindow`, the `onMinimize(hidden)` "one hook for every visibility
+    change" note, and the real two-phase boot order now in place; §4 presets
+    section documents the panel placements; the file table lists
+    `scalewindow.ts`.
+- **Verify (Playwright, chromium, against the dev server):** fresh New Game
+  through character creation into live play, then: all six windows exist as
+  `.wh-window[data-win=...]` frames with the right default open/hidden state
+  (backpack + minimap open; skills/memory book/shop/gift hidden) ✅; backpack
+  icon-toggle open→close→reopen ✅; key I closes it once focused (confirms
+  `toggleWindow`'s focus-aware "close only if focused, else just focus"
+  branch — verified across a real multi-window-focus history, not just at
+  boot) ✅; key K opens Skills, drag (titlebar), resize (SE handle, width
+  234→286px), minimize→dock strip→restore-by-click, close via ✕, reopen from
+  the dock's ☰ menu (confirmed it lists exactly the hidden ones: Skills,
+  Memory Book, Market stall, Give a gift) ✅; **position AND resized size
+  persist across a full page reload** (132/258, 286×208, exact) ✅; key M /
+  key B open minimap/memory book ✅; zero page errors across the whole run
+  ✅. `npm run build` ✅ (typecheck + bundle). **Not live-automated:** the
+  shop's walk-away auto-close — camera-relative in-world navigation wasn't
+  scripted; verified instead by code inspection (`isShopOpen()` /
+  `closeShopWindow()` / `nearRect()` wiring in `main.ts` is byte-for-byte
+  unchanged, just backed by a `WindowHandle` instead of a raw `display`
+  toggle) plus the fact that shop/gift share the exact same `createScaleWindow`
+  + `open()`/`close()`/`setTitle()` plumbing already proven correct above.
+- **Judgment calls:**
+  - Dropped each panel's static `<h2>` title in favor of the window's own
+    title bar (shop/gift's dynamic title moves to `handle.setTitle()`)
+    rather than keeping a redundant duplicate heading.
+  - Shop's NPC-stall title lost its leading 🐟 emoji (the window's own icon
+    slot is a static 🛒 — `WindowHandle` has no `setIcon`); the name text
+    itself (`"<Name>'s stall"`) still tells them apart.
+  - Presets reposition the six panels but don't reset a user-resized one's
+    width/height back to natural size (only the viewport's size is ever
+    reset by a preset, since size IS the preset's defining feature there) —
+    a true "Reset to default" would need `createScaleWindow` to expose each
+    panel's natural base size; left as a follow-up rather than re-adding the
+    fragile hand-computed pixel constants that measurement was built to avoid.
+- **Follow-ups:** commit 2 migrates dialogue/debug/day-summary/settings,
+  defines the Esc cascade, and does the full WINDOW_SYSTEM.md "all migrated"
+  pass.
+
 ## Window layout persistence + presets + WINDOW_SYSTEM.md
 - **Date:** 2026-07-08 (v1-foundation, session 2)
 - **Block given:** Session-2 Task 1 (window system), commit 2 of 2 — persist

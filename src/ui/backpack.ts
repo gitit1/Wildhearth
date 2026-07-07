@@ -2,20 +2,24 @@ import type { Economy } from "../systems/economy";
 import { ITEM_NAMES } from "../systems/inventory";
 import { isEdible } from "../systems/needs";
 import { drawItemIcon } from "../art/icons";
-import { makePanel } from "./panels";
 import { openContextMenu } from "./contextmenu";
+import { createScaleWindow } from "./windows/scalewindow";
+import { toggleWindow } from "./windows/manager";
+import type { WindowHandle } from "./windows/window";
 
 /**
- * Backpack panel: always visible UO-style. Drag the header to move, corner
- * grip to resize, key I (or Escape) toggles. Right-click (or long-press) an
- * edible item for an "Eat" action (Needs engine).
+ * Backpack window (Windows migration I): a real wm window — draggable,
+ * resizable, minimizable, closable, persisted. Icon 🎒 / key I / Escape
+ * toggle it (see toggleWindow's "open→focus if already open, close if
+ * focused" feel). Right-click (or long-press) an edible item for an "Eat"
+ * action (Needs engine). Default: open, docked to the right side.
  */
 
 const ICON_PX = 40;
+const GAP = 12;
 
-let panel: HTMLElement;
+let win: WindowHandle;
 let bagBtn: HTMLElement | null;
-let open = true;
 let eco: Economy;
 let iconScale = 1;
 let slotEls: { canvas: HTMLCanvasElement; qty: HTMLElement; paintedKey: string }[] = [];
@@ -25,7 +29,7 @@ let eatItem: (id: string) => boolean = () => false;
 export function initBackpack(economy: Economy, eat: (id: string) => boolean) {
   eco = economy;
   eatItem = eat;
-  panel = document.getElementById("backpack")!;
+  const panel = document.getElementById("backpack")!;
   bagBtn = document.getElementById("bagBtn");
   const grid = document.getElementById("backpackGrid")!;
 
@@ -50,32 +54,30 @@ export function initBackpack(economy: Economy, eat: (id: string) => boolean) {
     });
   }
 
-  // Two ways in: the HUD icon (mouse-first) and the I / Escape shortcuts.
-  bagBtn?.addEventListener("click", () => setOpen(!open));
-  addEventListener("keydown", (e) => {
-    if (e.code === "KeyI") setOpen(!open);
-    else if (e.code === "Escape" && open) setOpen(false);
+  win = createScaleWindow({
+    id: "backpack", title: "Backpack", icon: "🎒",
+    content: panel,
+    onScale: setScale,
+    defaultPos: (d) => ({ x: d.w - 250 - GAP, y: 236 }),
+    onVisibleChange: (hidden) => { bagBtn?.classList.toggle("active", !hidden); if (!hidden) render(); },
   });
-
-  setOpen(true);
-  makePanel(panel, panel.querySelector("h2")!, "bag", setScale);
-}
-
-function setOpen(v: boolean) {
-  open = v;
-  panel.style.display = open ? "block" : "none";
-  bagBtn?.classList.toggle("active", open);
-  if (open) render();
+  bagBtn?.addEventListener("click", () => toggleWindow(win));
+  addEventListener("keydown", (e) => {
+    if (e.code === "KeyI") toggleWindow(win);
+    else if (e.code === "Escape" && win.isOpen()) win.close();
+  });
+  bagBtn?.classList.toggle("active", win.isOpen());
 }
 
 /** Call every frame; repaints only while open and only slots that changed. */
 export function updateBackpack() {
-  if (open) render();
+  if (win.isOpen()) render();
 }
 
 /** Resizes the whole panel; slot canvases re-render crisp at the new size. */
 function setScale(s: number) {
   iconScale = s;
+  const panel = document.getElementById("backpack")!;
   panel.style.setProperty("--s", String(s));
   const px = Math.round(ICON_PX * s);
   for (const el of slotEls) {

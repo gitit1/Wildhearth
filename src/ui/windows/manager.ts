@@ -236,6 +236,14 @@ class WindowManager {
     if (m.state === "normal") m.spec.onFocus?.();
   }
 
+  /** True if `id` is open AND the topmost normal-state window — used by
+   *  `toggleWindow()` (dock icon / shortcut key "toggle feel") and the Esc
+   *  cascade (COMMIT 2) to tell "focused" apart from merely "open". */
+  isFocused(id: string): boolean {
+    const m = this.wins.get(id);
+    return !!m && m.state === "normal" && m.z === this.topZ;
+  }
+
   // =========================================================================
   //  State transitions (normal / minimized / hidden)
   // =========================================================================
@@ -528,3 +536,15 @@ class WindowManager {
 }
 
 export const wm = new WindowManager();
+
+/**
+ * The dock-icon / shortcut-key "toggle feel" (Windows migration I checklist):
+ * hidden or minimized → open (and focus); open but not focused (another
+ * window is in front) → just focus it; open AND already focused → close.
+ * Used by backpack/skills/memory book/minimap's icon+key handlers.
+ */
+export function toggleWindow(h: WindowHandle): void {
+  if (!h.isOpen()) { h.open(); return; }
+  if (wm.isFocused(h.id)) h.close();
+  else h.focus();
+}

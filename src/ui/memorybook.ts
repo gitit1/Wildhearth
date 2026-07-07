@@ -1,23 +1,25 @@
 import { CATEGORIES, discoveredCount, discoveredName, type Collections } from "../systems/collections";
 import type { Memories } from "../systems/memories";
 import { drawItemIcon } from "../art/icons";
-import { makePanel } from "./panels";
+import { createScaleWindow } from "./windows/scalewindow";
+import { toggleWindow } from "./windows/manager";
+import type { WindowHandle } from "./windows/window";
 
 /**
- * The Memory Book (Memory Book block): one window, two tabs — Collections
- * (X/Y discovered per category) and Memories (the curated life-event log).
- * Opens from the 📖 tool icon (mouse-first) or key M; the physical book
- * "sits" at the house's rest corner, but the window opens from anywhere.
+ * Memory Book window (Windows migration I): one window, two tabs —
+ * Collections (X/Y discovered per category) and Memories (the curated
+ * life-event log). Icon 📖 / key B / Escape toggle it (M belongs to the
+ * minimap — the two collided before that split). Default: hidden,
+ * center-left.
  */
 
 const ICON_PX = 22;
 
-let panel: HTMLElement;
+let win: WindowHandle;
 let bookBtn: HTMLElement | null;
 let tabCol: HTMLElement;
 let tabMem: HTMLElement;
 let body: HTMLElement;
-let open = false;
 let tab: "collections" | "memories" = "collections";
 let col: Collections;
 let mem: Memories;
@@ -25,7 +27,7 @@ let mem: Memories;
 export function initMemoryBook(collections: Collections, memories: Memories) {
   col = collections;
   mem = memories;
-  panel = document.getElementById("memoryPanel")!;
+  const panel = document.getElementById("memoryPanel")!;
   bookBtn = document.getElementById("bookBtn");
   tabCol = document.getElementById("bookTabCollections")!;
   tabMem = document.getElementById("bookTabMemories")!;
@@ -33,25 +35,22 @@ export function initMemoryBook(collections: Collections, memories: Memories) {
 
   tabCol.addEventListener("click", () => { tab = "collections"; render(); });
   tabMem.addEventListener("click", () => { tab = "memories"; render(); });
-  bookBtn?.addEventListener("click", () => setOpen(!open));
-  // B for Book — M belongs to the minimap (the two collided before this pass)
+
+  win = createScaleWindow({
+    id: "memorybook", title: "Memory Book", icon: "📖",
+    content: panel,
+    onScale: (s) => panel.style.setProperty("--s", String(s)),
+    defaultPos: (d) => ({ x: Math.round(d.w * 0.22), y: Math.round(d.h * 0.18) }),
+    onVisibleChange: (hidden) => { bookBtn?.classList.toggle("active", !hidden); if (!hidden) render(); },
+  });
+  win.close(); // default: hidden
+
+  bookBtn?.addEventListener("click", () => toggleWindow(win));
+  // B for Book — M belongs to the minimap
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyB") setOpen(!open);
-    if (e.code === "Escape" && open) setOpen(false);
+    if (e.code === "KeyB") toggleWindow(win);
+    if (e.code === "Escape" && win.isOpen()) win.close();
   });
-
-  panel.style.display = "block";        // measurable for makePanel, then hidden
-  makePanel(panel, panel.querySelector("h2")!, "memorybook", (s) => {
-    panel.style.setProperty("--s", String(s));
-  });
-  panel.style.display = "none";
-}
-
-function setOpen(o: boolean) {
-  open = o;
-  panel.style.display = open ? "block" : "none";
-  bookBtn?.classList.toggle("active", open);
-  if (open) render();
 }
 
 function iconCanvas(id: string): HTMLCanvasElement {
@@ -131,7 +130,7 @@ function render() {
  *  re-rendered at most once a second to spare the DOM. */
 let lastRender = 0;
 export function updateMemoryBook() {
-  if (!open) return;
+  if (!win.isOpen()) return;
   const now = performance.now();
   if (now - lastRender < 1000) return;
   lastRender = now;

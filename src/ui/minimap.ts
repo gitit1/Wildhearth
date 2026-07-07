@@ -1,4 +1,4 @@
-import { T, WORLD_W, WORLD_H, MINIMAP_SCALE } from "../config";
+import { T, WORLD_W, WORLD_H, MINIMAP_SCALE, WIN_PANEL_SCALE_MIN, WIN_PANEL_SCALE_MAX } from "../config";
 import {
   FIELD, YARD, HOUSE, BARN, STALL, POND, WORLD_TREES,
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES,
@@ -11,30 +11,36 @@ export function setMinimapField(b: { x0: number; y0: number; x1: number; y1: num
   if (base) base = paintBase();   // repaint the static layer with the new field
 }
 import { roundR } from "../art/shapes";
-import { makePanel } from "./panels";
+import { wm, toggleWindow } from "./windows/manager";
+import type { WindowHandle } from "./windows/window";
 import type { Player } from "../entities/player";
 
 /**
- * UO-style always-on radar map: drag to move, corner grip to resize,
- * key M toggles. The static world repaints only when the size changes.
+ * Minimap window (Windows migration I): an always-on-by-default radar map.
+ * Resizable from any edge/corner; `onResize` keeps the world's true aspect
+ * ratio (min(cw/WORLD_W, ch/WORLD_H) — "cover the smaller axis") rather than
+ * stretching, so the map never distorts no matter which handle is dragged.
+ * Icon 🗺️ / key M toggle it. Default: open, top-right (under the clock).
  */
 
-let box: HTMLElement;
+const GAP = 12;
+
 let canvas: HTMLCanvasElement;
 let g: CanvasRenderingContext2D;
 let base: HTMLCanvasElement;
-let visible = true;
-let scale = MINIMAP_SCALE;   // world px -> map px, including user resize
+let scale = MINIMAP_SCALE;   // world px -> map px, including live resize
 let W = 0, H = 0;
 
+let win: WindowHandle;
 let mapBtn: HTMLElement | null = null;
 
 export function initMinimap() {
-  box = document.getElementById("minimapBox")!;
+  const box = document.getElementById("minimapBox")!;
   canvas = document.getElementById("minimap") as HTMLCanvasElement;
   mapBtn = document.getElementById("mapBtn");
   g = canvas.getContext("2d")!;
-  makePanel(box, box, "map", (userS) => {
+
+  const applyScale = (userS: number) => {
     scale = MINIMAP_SCALE * userS;
     W = Math.round(WORLD_W * scale);
     H = Math.round(WORLD_H * scale);
@@ -43,23 +49,37 @@ export function initMinimap() {
     canvas.style.width = `${W}px`;
     canvas.style.height = `${H}px`;
     base = paintBase();
+  };
+  applyScale(1);
+
+  const minW = Math.round(WORLD_W * MINIMAP_SCALE * WIN_PANEL_SCALE_MIN);
+  const minH = Math.round(WORLD_H * MINIMAP_SCALE * WIN_PANEL_SCALE_MIN);
+  const maxW = Math.round(WORLD_W * MINIMAP_SCALE * WIN_PANEL_SCALE_MAX);
+  const maxH = Math.round(WORLD_H * MINIMAP_SCALE * WIN_PANEL_SCALE_MAX);
+
+  win = wm.createWindow({
+    id: "minimap", title: "Map", icon: "🗺️",
+    content: box,
+    resizable: true,
+    minW, minH, maxW, maxH,
+    // top-right, under the clock window (created earlier in boot — see setup.ts)
+    defaultRect: (d) => {
+      const clockH = wm.get("clock")?.el.getBoundingClientRect().height ?? 74;
+      return { x: d.w - W - GAP, y: GAP + clockH + GAP, w: W, h: H };
+    },
+    onResize: (cw, ch) => applyScale(Math.min(cw / WORLD_W, ch / WORLD_H) / MINIMAP_SCALE),
+    onMinimize: (hidden) => mapBtn?.classList.toggle("active", !hidden),
   });
 
-  // the 🗺 tool icon is the primary way in (mouse-first); M stays as shortcut
-  const setVisible = (v: boolean) => {
-    visible = v;
-    box.style.display = visible ? "block" : "none";
-    mapBtn?.classList.toggle("active", visible);
-  };
-  mapBtn?.addEventListener("click", () => setVisible(!visible));
-  mapBtn?.classList.toggle("active", visible);
+  mapBtn?.addEventListener("click", () => toggleWindow(win));
+  mapBtn?.classList.toggle("active", win.isOpen());
   addEventListener("keydown", (e) => {
-    if (e.code === "KeyM") setVisible(!visible);
+    if (e.code === "KeyM") toggleWindow(win);
   });
 }
 
 export function updateMinimap(player: Player) {
-  if (!visible) return;
+  if (!win.isOpen()) return;
   g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
   g.drawImage(base, 0, 0, W, H);
   const px = player.x * scale, py = player.y * scale;

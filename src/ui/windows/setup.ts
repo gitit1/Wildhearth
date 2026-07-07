@@ -2,23 +2,34 @@ import {
   WIN_VIEWPORT_MIN_W, WIN_VIEWPORT_MIN_H, WIN_VIEWPORT_FILL, WIN_COZY_FILL,
 } from "../../config";
 import { wm } from "./manager";
-import type { WindowHandle, WindowRect, DockOrientation } from "./window";
+import type { WindowHandle, WindowRect, DockOrientation, DesktopSize } from "./window";
 import { clearLayout } from "./layout";
 
 /**
- * Game-specific window wiring (COMMIT 1 integration): turns the existing DOM
- * into windows on the desktop surface —
+ * Game-specific window wiring: turns the existing DOM into windows on the
+ * desktop surface —
  *   • the game viewport (the whole #gameArea: canvas + prompt/dialogue/… ),
  *   • the clock & date window, the coins window, the needs window,
  *   • the icon dock (the tool-button row) with a horizontal/vertical toggle
  *     and a ☰ menu that lists + reopens closed windows.
  *
- * The modal screens (backpack / skills / shop / dialogue / settings / …) are
- * deliberately NOT migrated here — that is the next block. Migrating one is
- * mechanical: see the "add a new window" checklist in docs/WINDOW_SYSTEM.md.
+ * Windows migration I: the six legacy floating panels (backpack / skills /
+ * minimap / memory book / shop / gift chooser) are now ALSO real wm windows —
+ * each module (src/ui/backpack.ts etc.) creates its own via createWindow() /
+ * createScaleWindow(), at various points in main.ts's boot sequence (they
+ * depend on game state like economy/skills that isn't ready this early). So
+ * boot is two phases: `setupWindows()` here creates the always-present HUD
+ * windows only; main.ts calls `finishWindowSetup()` once ALL panel windows
+ * exist (after the last of the six init*() calls) to restore the saved
+ * layout / lay out Classic — see docs/WINDOW_SYSTEM.md checklist step 7
+ * ("create the window before the first layout restore").
  */
 
 const GAP = 12;
+/** Every migrated panel window's id (Windows migration I) — used by the
+ *  presets below and by `finishWindowSetup`'s "are they all here yet" boot
+ *  ordering note. Kept as one list so a future migrated window is one line. */
+const PANEL_WINDOW_IDS = ["backpack", "skills", "memorybook", "minimap", "shop", "gift"] as const;
 
 let viewportWin: WindowHandle;
 let clockWin: WindowHandle;
@@ -75,9 +86,16 @@ export function setupWindows(hooks: WindowSetupHooks): void {
   });
 
   wireDockControls();
+}
 
-  // boot: restore the saved desktop, else lay out the "Classic" defaults. The
-  // manager re-clamps everything into reach (keep-on-screen rescue) either way.
+/**
+ * Call once every window that should participate in the saved layout has
+ * been created — i.e. after the last of the six panel-window init*() calls
+ * in main.ts (initShopWindow today). Restores the saved desktop, else lays
+ * out "Classic". The manager re-clamps everything into reach (keep-on-screen
+ * rescue) either way.
+ */
+export function finishWindowSetup(): void {
   const saved = wm.loadSavedLayout();
   if (saved) { wm.applyLayout(saved); wm.setDockOrientation(saved.dockOrientation); applyDockOrientation(saved.dockOrientation); }
   else classicLayout();
@@ -166,20 +184,28 @@ export function applyWindowPreset(preset: WindowPreset): void {
 
 /** The default arrangement: viewport center-filling; coins top-left, clock
  *  top-right, needs on the left edge, dock bottom-right — echoing the pre-window
- *  HUD so a returning player isn't lost. */
+ *  HUD so a returning player isn't lost. Windows migration I extends this to
+ *  the six panel windows: backpack right side, skills left (under coins/
+ *  needs), memory book center-left, minimap top-right under the clock, shop
+ *  center, gift near the shop — matching each module's own `defaultRect`
+ *  POSITION (their sizes are content-derived, so only x/y are set here). */
 function classicLayout(): void {
   const d = wm.desktopSize();
   allNormal();
   setDock("horizontal");
   viewportWin.setRect(centered(d.w, d.h, WIN_VIEWPORT_FILL));
-  const clk = size(clockWin), cn = size(coinsWin), dk = size(dockWin);
+  const clk = size(clockWin), cn = size(coinsWin), dk = size(dockWin), nd = size(needsWin);
   coinsWin.setRect({ x: GAP, y: GAP });
   clockWin.setRect({ x: d.w - clk.w - GAP, y: GAP });
   needsWin.setRect({ x: GAP, y: GAP + cn.h + GAP });
   dockWin.setRect({ x: d.w - dk.w - GAP, y: d.h - dk.h - GAP });
+  layoutPanels(d, clk, cn, nd);
 }
 
-/** Viewport maximized; the HUD windows minimized to bottom title-strips. */
+/** Viewport maximized; every other window (HUD + the six panels, whichever
+ *  happen to be open) minimized to bottom title-strips. A panel that's
+ *  already hidden stays hidden — Focus doesn't pop up a dock strip for a
+ *  contextual window (shop/gift) nobody opened. */
 function focusLayout(): void {
   const d = wm.desktopSize();
   setDock("horizontal");
@@ -189,9 +215,13 @@ function focusLayout(): void {
   coinsWin.minimize();
   needsWin.minimize();
   dockWin.minimize();
+  for (const id of PANEL_WINDOW_IDS) {
+    const h = wm.get(id);
+    if (h?.isOpen()) h.minimize();
+  }
 }
 
-/** A smaller viewport (~72%) with the HUD windows tiled neatly around it. */
+/** A smaller viewport (~72%) with the HUD + panel windows tiled neatly around it. */
 function cozyLayout(): void {
   const d = wm.desktopSize();
   allNormal();
@@ -199,11 +229,28 @@ function cozyLayout(): void {
   const vw = Math.round(d.w * WIN_COZY_FILL), vh = Math.round(d.h * WIN_COZY_FILL);
   const vx = Math.round((d.w - vw) / 2), vy = GAP;
   viewportWin.setRect({ x: vx, y: vy, w: vw, h: vh });
-  const clk = size(clockWin), cn = size(coinsWin), dk = size(dockWin);
+  const clk = size(clockWin), cn = size(coinsWin), dk = size(dockWin), nd = size(needsWin);
   coinsWin.setRect({ x: GAP, y: GAP });
   needsWin.setRect({ x: GAP, y: GAP + cn.h + GAP });
   clockWin.setRect({ x: d.w - clk.w - GAP, y: GAP });
   dockWin.setRect({ x: Math.round((d.w - dk.w) / 2), y: d.h - dk.h - GAP });
+  layoutPanels(d, clk, cn, nd);
+}
+
+/** Shared panel placement for Classic + Cozy (same arrangement; only the
+ *  viewport fill differs between the two presets). Backpack + minimap open by
+ *  default (matching their pre-migration always-visible feel); skills / memory
+ *  book / shop / gift start hidden (matching their pre-migration closed-by-
+ *  default feel) — reachable from the dock's ☰ menu or their icon/key. */
+function layoutPanels(d: DesktopSize, clk: { w: number; h: number }, cn: { w: number; h: number }, nd: { w: number; h: number }): void {
+  const bp = wm.get("backpack"), sk = wm.get("skills"), bk = wm.get("memorybook"),
+    mm = wm.get("minimap"), sh = wm.get("shop"), gf = wm.get("gift");
+  if (bp) { bp.setPinned(false); bp.restore(); bp.setRect({ x: d.w - bp.rect().w - GAP, y: 236 }); }
+  if (mm) { mm.setPinned(false); mm.restore(); mm.setRect({ x: d.w - mm.rect().w - GAP, y: GAP + clk.h + GAP }); }
+  if (sk) { sk.setPinned(false); sk.setRect({ x: GAP, y: GAP + cn.h + GAP + nd.h + GAP }); sk.close(); }
+  if (bk) { bk.setPinned(false); bk.setRect({ x: Math.round(d.w * 0.22), y: Math.round(d.h * 0.18) }); bk.close(); }
+  if (sh) { sh.setPinned(false); sh.setRect({ x: Math.round(d.w * 0.5 - sh.rect().w / 2), y: Math.round(d.h * 0.5 - sh.rect().h / 2) }); sh.close(); }
+  if (gf) { gf.setPinned(false); const r = sh?.rect(); gf.setRect({ x: (r?.x ?? 0) + 40, y: (r?.y ?? 0) + 40 }); gf.close(); }
 }
 
 function allNormal(): void {

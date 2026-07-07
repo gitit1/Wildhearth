@@ -126,7 +126,7 @@ import { showSettings } from "./ui/settingsscreen";
 import { showPause } from "./ui/pausescreen";
 import { showExitDialog } from "./ui/exitscreen";
 import { applyGlobalPrefs, applyHudPrefs } from "./ui/uiPrefs";
-import { setupWindows, isViewportActive } from "./ui/windows/setup";
+import { setupWindows, isViewportActive, finishWindowSetup } from "./ui/windows/setup";
 import { showIntro, showReveal } from "./ui/intro";
 import { showPathAndGoal } from "./ui/newgame";
 import { showCharacterCreation } from "./ui/charcreation";
@@ -665,6 +665,12 @@ initShopWindow(economy, skills, farm, livestock,
     if (devNotesOn()) devNotes.observe("sell", absoluteDay(calendar));
   },
   (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); });
+
+// Every migrated panel window (backpack/skills/minimap/memory book/shop/gift)
+// now exists — restore the saved desktop layout (or lay out Classic), per
+// docs/WINDOW_SYSTEM.md's boot-order note ("create the window before the
+// first layout restore").
+finishWindowSetup();
 
 interface Puff { x: number; y: number; a: number; r: number }
 const smoke: Puff[] = [];

@@ -6,26 +6,29 @@ import type { FarmState } from "../systems/renovation";
 import type { Livestock } from "../systems/livestock";
 import type { Season } from "../systems/calendar";
 import { drawItemIcon } from "../art/icons";
-import { makePanel } from "./panels";
+import { createScaleWindow } from "./windows/scalewindow";
+import type { WindowHandle } from "./windows/window";
 import { skillGainPopup } from "./skills";
 import { categoryItemIds, categoryById } from "../systems/sellCategories";
 
 /**
- * The market trade window (UO vendor gump): opens when you interact with
- * the stall. Sell side lists the sellable goods in your backpack with a
- * quantity stepper and a live total; buy side lists the stall's stock.
- * Pure UI over systems/economy.ts + systems/shop.ts.
+ * The market trade window (Windows migration I — UO vendor gump): opens when
+ * you interact with a stall. Sell side lists the sellable goods in your
+ * backpack with a quantity stepper and a live total; buy side lists the
+ * stall's stock. Pure UI over systems/economy.ts + systems/shop.ts. Opened
+ * programmatically (no dock icon/shortcut) — walking away, Escape, or the
+ * window's own ✕ close it (main.ts's proximity check calls closeShopWindow()).
+ * The title bar's text is the one dynamic bit — set via `win.setTitle()` each
+ * render, since it flips between the player's own stall and an NPC's.
  */
 
 const ICON_PX = 26;
 
-let panel: HTMLElement;
-let titleEl: HTMLElement;
+let win: WindowHandle;
 let sellList: HTMLElement;
 let buyList: HTMLElement;
 let buyLabelEl: HTMLElement;
 let coinsEl: HTMLElement;
-let open = false;
 
 /** "player" = the farm stall (sell everything + buy stock). "npc" = a single
  *  NPC-specialty stall (Maren's fish stall, and future produce/etc. stalls):
@@ -65,34 +68,33 @@ export function initShopWindow(
   memoryFn = memory;
   logSaleFn = logSale;
   logPurchaseFn = logPurchase;
-  panel = document.getElementById("shopWindow")!;
-  titleEl = document.getElementById("shopTitle")!;
+  const panel = document.getElementById("shopWindow")!;
   sellList = document.getElementById("shopSell")!;
   buyList = document.getElementById("shopBuy")!;
   buyLabelEl = document.getElementById("shopBuyLabel")!;
   coinsEl = document.getElementById("shopCoins")!;
-  document.getElementById("shopClose")!.addEventListener("click", closeShopWindow);
+
+  win = createScaleWindow({
+    id: "shop", title: "Market stall", icon: "🛒",
+    content: panel,
+    onScale: (s) => panel.style.setProperty("--s", String(s)),
+    defaultPos: (d) => ({ x: Math.round(d.w * 0.5 - 280), y: Math.round(d.h * 0.5 - 240) }),
+  });
+  win.close(); // default: hidden — opened by walking up to a stall
 
   // Escape closes the trade window first (before the backpack's handler);
   // the context menu's capture handler still wins while a menu is open.
   addEventListener("keydown", (e) => {
-    if (e.code === "Escape" && open) { closeShopWindow(); e.stopImmediatePropagation(); }
+    if (e.code === "Escape" && win.isOpen()) { closeShopWindow(); e.stopImmediatePropagation(); }
   }, true);
-
-  panel.style.display = "block";       // measurable for makePanel, then hidden
-  makePanel(panel, panel.querySelector("h2")!, "shop", (s) => {
-    panel.style.setProperty("--s", String(s));
-  });
-  panel.style.display = "none";
 }
 
-export function isShopOpen(): boolean { return open; }
+export function isShopOpen(): boolean { return win.isOpen(); }
 
 export function openShopWindow() {
   mode = { kind: "player" };
-  open = true;
   render();
-  panel.style.display = "block";
+  win.open();
 }
 
 /**
@@ -106,14 +108,12 @@ export function openShopWindow() {
  */
 export function openNpcStallWindow(npcName: string, categoryId: string, onSale: () => void) {
   mode = { kind: "npc", npcName, categoryId, onSale };
-  open = true;
   render();
-  panel.style.display = "block";
+  win.open();
 }
 
 export function closeShopWindow() {
-  open = false;
-  panel.style.display = "none";
+  win.close();
 }
 
 function iconCanvas(id: string): HTMLCanvasElement {
@@ -144,7 +144,7 @@ function stepper(get: () => number, set: (n: number) => void, max: () => number)
 function render() {
   coinsEl.textContent = String(eco.coins);
   const npc = mode.kind === "npc" ? mode : null;
-  titleEl.textContent = npc ? `🐟 ${npc.npcName}'s stall` : "🛒 Market stall";
+  win.setTitle(npc ? `${npc.npcName}'s stall` : "Market stall");
   buyLabelEl.style.display = npc ? "none" : "";
   buyList.style.display = npc ? "none" : "";
 
@@ -324,5 +324,5 @@ function render() {
 
 /** Keeps the numbers honest if inventory changes while the window is open. */
 export function updateShopWindow() {
-  if (open) coinsEl.textContent = String(eco.coins);
+  if (win.isOpen()) coinsEl.textContent = String(eco.coins);
 }
