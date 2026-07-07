@@ -29,6 +29,45 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## docs — HANDOFF: session-2 wrap — Path A shipped, continuation recipes
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** close out session 2 in `docs/HANDOFF.md` (the master
+  continuity doc) now that every Path-A batch has landed. Docs only —
+  no source changes.
+- **Done (docs only, all in `docs/HANDOFF.md`):**
+  - **Path-A execution log completed:** added the heroine-fidelity
+    (`f27fcb9`), farmyard (`25d7153`), and docs-refresh (`376d3f8`)
+    ship entries; recorded T3 (character quality gate) as SATISFIED;
+    replaced the interim spend estimate with the live `get_balance`
+    figure — **508/5,000 generations used, 4,492 remaining, resets
+    monthly**.
+  - **Session-2 subagent registry completed:** the pre-freeze NPC
+    integration row corrected to "task lost to interrupts" (its
+    relaunch shipped `a3eb122`+`43a7ae8`), and ten Path-A rows added
+    (inpainting gate, NPC atlas+integration, building batch +
+    integration, hairstyle animations + drift-fix regens, character
+    fidelity integration, animal batch + integration, docs refresh) —
+    models, commits, and outcomes from the actual launch records.
+  - **PixelLab asset ledger brought to end-state:** stale
+    "baking/queued/pending" character rows replaced with the shipped
+    reality (all 10 NPCs, 4 hairstyle bases, flat-front building
+    regens, cottages 01-08, themed stalls, five farmyard species,
+    cat+dog banked), plus the month-ledger line.
+  - **New "Session-2 close-out — NEXT SESSION STARTS HERE" section:**
+    ship summary, drift scoreboard (4 catches, 0 shipped), and the
+    ordered continuation recipes — crops/trees MIX batch (trees =
+    ~1-gen inpainting with per-season spot-checks; crops =
+    ~20-gen object-states; 1,280-1,600 gens projected), NPC action
+    poses, props batch, gap fills, UI last — with the standing
+    generation rules (flat-front guardrail, 8h download window,
+    10-slot queue, drift gate before animation, first-call
+    cost-check, one-agent-per-category, dual-path absolute).
+  - Session-1 "How to continue" retitled as superseded by the
+    close-out section.
+- **Build:** `npm run build` passed (no source changed).
+- **Follow-ups:** none — this entry closes session 2; next session
+  starts from HANDOFF's close-out section.
+
 ## docs — status refresh: ROADMAP_TO_V5 pipeline shifts + GAME_OVERVIEW/WORLD_MAP reality
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** refresh three status/planning docs to reflect the two

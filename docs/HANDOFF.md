@@ -148,8 +148,35 @@ branch `v1-foundation`.
   (damage overlays re-derived for the new farmhouse art), 4 themed
   stalls, 6/8 distinct cottages (2 spare), whitewash-slate neighbor
   farmhouse, 11 spares banked under buildings/spare/ for v2.
-- Generation spend at this point: ~424/5,000 used total (incl. all
-  probes + pre-session tests) — 4,576 remaining.
+- **Heroine fidelity SHIPPED** (`f27fcb9`): all 5 hairstyle bases
+  (hat/default + bun, short, cropped, ponytail) on the player bridge +
+  runtime hue-and-saturation recolor (keeps per-pixel lightness) for
+  hair (6 colors) and dress/apron — the creation screen's choices now
+  show on the sprite. Navy-trousers identity drift caught on 2 bases +
+  a server-side failure on ponytail → 3 hardened regens, all PASS.
+  Coverage is honest: female + skirted outfits + any hair style/color
+  are sprite-covered; male/overalls/non-default skin fall back to the
+  rig wearing her exact chosen colors (skin recolor deliberately
+  excluded — it smears eyes/mouth).
+- **Farmyard SHIPPED** (`25d7153`): cow, sheep, pig, hen, duck sheets
+  on a shared animal bridge (batch cost 84 gens incl. retries), heights
+  within ~1% of the rig's; birds get a code waddle-bob (±1px y-bob +
+  tilt keyed to stride); cat + dog sheets downloaded and BANKED for the
+  future Pets block. Feeding/persistence verified; bundle 434.83KB,
+  no chunk warnings.
+- **Docs refreshed** (`376d3f8`): ROADMAP_TO_V5 rows/estimates moved to
+  the sprite pipeline + window system, GAME_OVERVIEW status tags
+  flipped to two-session reality (plus two stale factual fixes),
+  WORLD_MAP built-region pass.
+- **T3 (character quality gate): SATISFIED.** The heroine and all 4
+  hairstyle bases passed the hair/hat/eyes gate at full zoom across
+  directions; the navy-trousers catches are the gate working. No "meh"
+  character shipped, no drift shipped.
+- **Final generation ledger (get_balance at session end): 508/5,000
+  used this month — 4,492 remaining, $0 extra credits, resets
+  monthly.** That 508 includes every probe, retry, and pre-session
+  test. The projected crops/trees MIX batch (1,280-1,600) fits in the
+  remainder ~3x over.
 
 ## Session-2 owner feedback log (live)
 1. "Characters don't match the design the player defined" → coverage
@@ -175,10 +202,21 @@ branch `v1-foundation`.
 | Surface migrations (T1b) | Sonnet | ✅ `766fb35`+`77fcb0a` | ~589k tok; makePanel deleted, Esc cascade |
 | Sprite integration (T2) | Opus | ✅ `ecf98f2`+`92f15a6` | first launch completed pre-interrupt; second run independently verified all checks |
 | Wave-2 integration (T2) | Sonnet | ✅ `1365f06` | interior room+furniture, tinted stall awnings (per-pixel H&S recolor, cached), well; zero-assets fallback re-proven |
-| NPC sheet-pack + integration | Opus | 🔄 running at freeze time (pre-freeze launch; integrates already-generated assets, dual-path) | lands on its own; Jonas ships on rig fallback (his walk was frozen) |
+| NPC sheet-pack + integration (pre-freeze launch) | Opus | ⚠ task lost to interrupts, no commit landed | relaunched after "Path A go" — see the Path-A rows |
 | Feasibility: budget math | Sonnet | ✅ report | v1 bar 575-1,547 gens = 12-32% of month; review-time is the real bottleneck |
 | Feasibility: projection diagnosis | Sonnet | ✅ report | world correctly non-isometric; 4 sprites too oblique; regenerate, don't convert |
 | Feasibility: scaling probes | Opus | ✅ report (⚠ 114 gens vs 35 authorized — state-cost discovery) | variety PASS, identity PASS, tilesets qualified |
+| **— Path A (post-"go") —** | | | |
+| Inpainting identity gate | Opus | ✅ verdict → decision S2-10 | trees PARTIAL-PASS at ~1 gen (trunk holds; spot-check each); crops FAIL (clump layout dissolves) → MIX path |
+| NPC atlas + integration (relaunch) | Opus | ✅ `a3eb122`+`43a7ae8` | `scripts/packsheets.mjs` atlas packer (fixed 665KB base64 bloat → 398KB); all 10 NPCs incl. Jonas on `spriteNpc.ts` bridge |
+| Building variety batch (generation) | Sonnet | ✅ gate-passed to scratchpad | flat-front regens ×4 + themed stalls + 8 cottages + neighbor farmhouse + spares, all with the camera guardrail |
+| Building variety integration | Sonnet | ✅ `c16e452` | damage overlays re-derived for new farmhouse; 6/8 cottage variants wired to market; 11 spares banked under `buildings/spare/` |
+| Hairstyle base animations (generation) | Sonnet | ✅ walk+idle for 4 bases | 8-slot atomic animation calls; queue-split folders merged by the packer |
+| Hair-base regens (drift fix) | Sonnet | ✅ 3 bases regenerated, all PASS | navy-trousers drift ×2 + ponytail server failure → hardened "one continuous rust-red work dress" wording |
+| Character fidelity integration | Opus | ✅ `f27fcb9` | 5 hairstyle sheets + measured H&S recolor bands (hair/dress/apron) + honest coverage matrix in `spriteChar.ts` |
+| Farm animal batch (generation) | Sonnet | ✅ 7/7 gate-passed, 84 gens | cow/sheep/pig/hen/duck + cat/dog banked; drift review before every animation spend |
+| Animal integration | Sonnet | ✅ `25d7153` | shared `spriteAnimal.ts` bridge, ~1% height match to rig, bird waddle-bob in code |
+| Docs status refresh | Sonnet | ✅ `376d3f8` | ROADMAP_TO_V5 pipeline shifts + GAME_OVERVIEW/WORLD_MAP reality pass |
 
 ## Session-2 PixelLab asset ledger
 
@@ -193,11 +231,84 @@ branch `v1-foundation`.
 | Bed | map object ×2 (1st looked like a bench → REJECTED, retry passed) | ✅ PASS | `interior/bed.png` |
 | Market stall (awning recolored per stall) | map object | ✅ PASS | `buildings/market-stall.png` |
 | Well | map object | ✅ PASS | `buildings/well.png` |
-| Cottage 128×128 | map object | ✅ PASS (downloaded, integration pending) | scratchpad → next wave |
-| Maren, Tobin, Sera, Liora | character v3 | ✅ full-size drift gate PASS (S/E/N reviewed each) | animations in progress |
-| Henrik, Petra | character v3 | ✅ preview PASS | drift gate + animations pending |
-| Bram, Ada | character v3 | baking | — |
-| Finn, Jonas | character v3 | queued next | — |
+| Flat-front regens: farmhouse, barn, market-stall, well | map objects | ✅ SHIPPED `c16e452` — replace the 4 oblique originals above at the same paths | `buildings/…` |
+| Cottages 01–08 (batch variety) | map objects | ✅ SHIPPED `c16e452` (variants 1-5,7 wired to market; 6,8 spare) | `buildings/cottage-0*.png` |
+| Themed stalls (fish, produce, general, empty) + neighbor farmhouse | map objects | ✅ SHIPPED `c16e452`; +11 banked variants | `buildings/…` + `buildings/spare/` |
+| All 10 NPCs (Maren, Tobin, Sera, Liora, Henrik, Petra, Bram, Ada, Finn, Jonas) | character v3 + walk (idle = static rotation per S2-8) | ✅ drift-gated + SHIPPED `43a7ae8` | `characters/<npc>.sheet.png` |
+| Heroine hairstyle bases ×4 (bun, short, cropped, ponytail) | character v3 + walk + idle | ✅ SHIPPED `f27fcb9` (2 trouser-drifts + 1 server fail caught → regens PASS) | `characters/heroine-<style>.sheet.png` |
+| Cow, sheep, pig, hen, duck | characters/objects + walk | ✅ drift-gated + SHIPPED `25d7153` | `animals/<kind>.sheet.png` |
+| Cat, dog | character v3 + walk | ✅ generated + gate-passed, BANKED for the Pets block | `animals/{cat,dog}.sheet.png` |
+
+**Month ledger at session end (live `get_balance`): 508/5,000
+generations used — 4,492 remaining, $0 extra credits, resets
+monthly.** Character IDs, anchors, and the per-asset pipeline how-to
+live in `docs/PIXELLAB_ASSETS.md` (maintained by every integration
+agent).
+
+## Session-2 close-out — NEXT SESSION STARTS HERE
+
+**Everything in the session-2 work order shipped, committed with
+WORKLOG entries, and pushed to `v1-foundation` (latest `376d3f8`;
+master and autorun branches untouched).** T1 window system ✅. T2
+sprite world ✅ — heroine + 5 hairstyles with runtime recolor, 10
+NPCs, building variety, interior, farmyard, all dual-path (the game
+boots complete with the assets folder emptied). T3 character gate ✅
+satisfied. Drift scoreboard: 4 catches (bench-bed, navy-trousers ×2,
+the 4-oblique-sprites class), **0 drift shipped**. Spend 508/5,000;
+4,492 remain this month.
+
+**How to continue (the owner's priority order — trees/crops are
+next):**
+
+1. `git checkout v1-foundation && git pull`, `npm install && npm run
+   dev` — boot to the main menu, New Game, walk farm + market +
+   interior; try dragging/minimizing windows.
+2. Read this section + the Path-A execution log above, then
+   `docs/PIXELLAB_ASSETS.md` (pipeline how-to, style anchors,
+   character IDs) and `docs/SCALING_DECISION.md` (the media division:
+   what is sprite-sourced vs deliberately code-drawn).
+3. **Crops & trees MIX batch** (decision S2-10; projected 1,280-1,600
+   gens — fits the remaining month ~3x over):
+   - TREES: generate each base tree as a map object (flat-front
+     guardrail wording), then seasons via inpainting edits over the
+     base image — the trunk/silhouette holds identity at ~1 gen per
+     season. Full-size spot-check EVERY inpainted season; two-strike
+     retry rule.
+   - CROPS: inpainting FAILS for crops (clump layout dissolves) — use
+     `create_object_state` (~20 gens per state). Cost-check after the
+     FIRST call; run as one gated category batch.
+   - Variety bar (DECISIONS.md): 20 crop species × 4 stages, 20
+     trees/bushes × 3 seasons. Integrate dual-path over the existing
+     crop/tree painters.
+4. **NPC action poses** where gameplay actually shows them (~8
+   gens/pose/NPC via template animations) — Finn fishing and Liora
+   performing first.
+5. **Props batch** — fences, crates, lamps, signage, flowers: ~1 gen
+   each, flat-front guardrail, batch → gate → integrate.
+6. **Gap fills**: wire the 2 spare cottage variants when new zones
+   open; male sprite bases + non-skirt outfits (rig covers them today,
+   wearing the player's exact colors); body-build variation
+   (rig-only today).
+7. **UI sprites LAST** (her explicit ordering).
+
+**Standing generation rules (hard-won, do not relearn):** flat-front
+camera guardrail on every object prompt ("high top-down, straight-on
+front view, no side walls"); download map objects immediately (8h
+auto-delete); the account has a 10-concurrent-job cap — 8-slot
+animation calls are atomic, retry patiently on "need 8 job slots";
+full-size multi-direction drift review BEFORE any animation spend;
+cost-check after the first call of any new tool kind (the 114-gen
+probe lesson); one category = one delegated agent owning
+generate→download→review→integrate; dual-path is absolute; every
+batch updates the PIXELLAB_ASSETS.md ledger and lands as one commit +
+WORKLOG entry.
+
+**Known rough edges (also under WORKLOG Follow-ups):** `spare/` PNGs
+are eagerly fetched by the manifest glob (exclude later if it
+matters); body build not reflected in sprites; one dress-style preset
+is sprite-covered (others recolor onto it); `mergeSplitAnimations`
+relies on a job-id-suffix regex; festival day formula pinned to
+`min(15, ceil(DAYS_PER_SEASON/2))`.
 
 ---
 
@@ -495,7 +606,7 @@ docs status refresh, then v2 blocks in value/dependency order — real
 sell menu, customers + reputation, parchment minimap + fast travel,
 the Riverside Fisherwoman.
 
-## How to continue
+## How to continue (session-1 original — SUPERSEDED by "Session-2 close-out" above)
 
 1. `git checkout v1-foundation && git pull`
 2. `npm install && npm run dev` — confirm the game boots to the new
