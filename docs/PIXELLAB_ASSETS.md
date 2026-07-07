@@ -19,16 +19,19 @@ the asset/manifest layout, and generation costs.
 |---|---|---|
 | **Heroine player** (default female) — 8-dir walk + idle | **Sprite** | `characters/heroine.sheet.png` → `art/spriteChar.ts` |
 | **Townsfolk** — the 10 NPCs, each 8-dir walk + static rotations | **Sprite** | `characters/<id>.sheet.png` → `art/spriteNpc.ts` |
-| **Farmhouse** (repaired base) | **Sprite** | `buildings/farmhouse.png` → `art/buildings.ts` `drawHouse` |
-| **Barn** (repaired base) | **Sprite** | `buildings/barn.png` → `art/buildings.ts` `drawBarn` |
+| **Farmhouse** (player's, repaired base — flat-front) | **Sprite** | `buildings/farmhouse.png` → `art/buildings.ts` `drawHouse` |
+| **Farmhouse** (neighbour's — established/prosperous, flat-front) | **Sprite** | `buildings/farmhouse-neighbor.png` → `art/buildings.ts` `drawHouse(..., spriteId)` |
+| **Barn** (repaired base — flat-front; shared by the player's farm AND the neighbour farm) | **Sprite** | `buildings/barn.png` → `art/buildings.ts` `drawBarn` |
 | **Hearth** (interior cook spot) | **Sprite** | `interior/hearth.png` → `art/interior.ts` |
 | **Interior room backdrop** (floor + walls + window) | **Sprite** | `interior/room-backdrop.png` → `art/interior.ts` `drawInterior` |
 | **Wash basin** (interior) | **Sprite** | `interior/basin.png` → `art/interior.ts` `drawInterior` |
 | **Bed** (interior) | **Sprite** | `interior/bed.png` → `art/interior.ts` `drawInterior` |
 | **Chair + crate table** (interior rest corner) | **Sprite** | `interior/chair-crate.png` → `art/interior.ts` `drawInterior` |
-| **Market/farm stall** (base + roof; awning re-tinted per stall) | **Sprite** | `buildings/market-stall.png` → `art/buildings.ts` `drawStall` |
-| **Market well** | **Sprite** | `buildings/well.png` → `art/buildings.ts` `drawWell` |
-| Everything else — animals, crops/trees/bushes, cottages, outhouse, dock, market ground, weather/particles, UI, tools, stall goods/signs (a code overlay on the stall sprite — see notes), the player's non-walk/idle poses (fishing/hoeing/foraging/busking/sleeping) | **Code-drawn** | `src/art/*` |
+| **The 4 market stalls** (fish/produce/goods/empty — each its OWN themed sprite, flat-front) | **Sprite** | `buildings/stall-{fish,produce,goods,empty}.png` → `art/buildings.ts` `drawStall(..., themed=true)` |
+| **The farm's own trade stall** (generic base; awning re-tinted to the player's selling path) | **Sprite** | `buildings/market-stall.png` → `art/buildings.ts` `drawStall` |
+| **Market well** (flat-front) | **Sprite** | `buildings/well.png` → `art/buildings.ts` `drawWell` |
+| **Market cottages** (6, each a DIFFERENT approved variant of 8 generated) | **Sprite** | `buildings/cottage-0N_*.png` → `art/buildings.ts` `drawCottage(..., variant)` |
+| Everything else — animals, crops/trees/bushes, outhouse, dock, market ground, weather/particles, UI, tools, stall goods/signs (a code overlay on the stall sprite — see notes), the player's non-walk/idle poses (fishing/hoeing/foraging/busking/sleeping) | **Code-drawn** | `src/art/*` |
 
 Notes:
 - The heroine sprite only covers the **walk** and **idle** poses. Action poses
@@ -49,12 +52,65 @@ Notes:
   backdrop, unchanged; the fallback-only "rotten floorboards" detail is
   skipped on the sprite path (the sprite has its own worn boards baked in —
   drawing both would double up).
-- The four market stalls (+ the farm's own stall, same `drawStall`) share ONE
-  sprite, re-tinted per stall via `recolorSprite` (hue/saturation swap on the
-  awning fabric only — see §3's "Recoloring part of a sprite"). The goods on
-  the counter (fish/produce/goods/empty) stay a code-drawn overlay on both
-  paths — the sprite's own shelf art is generic, so the overlay is what makes
-  each stall read as fish-buyer / produce / general / empty.
+- **Building variety batch** (2026-07-07, v1-foundation) — the "no two
+  neighbors alike" pass. See `docs/SCALING_DECISION.md` for why (four sprites
+  came out too oblique for the flat world) and the full manifest handed off by
+  the generation batch for every pick's reasoning.
+  - **Flat-front replacements**: `farmhouse.png`, `barn.png`,
+    `market-stall.png`, `well.png` were swapped for flat-front regenerations
+    (same filenames, same pixel sizes — a drop-in swap). Every anchor
+    (`FARMHOUSE_SHEET`/`BARN_SHEET`/`STALL_SHEET`/`WELL_SHEET` in
+    `art/buildings.ts`) was re-measured against the new art, and the
+    renovation damage overlays (roof hole + patch, boarded window, barn
+    boards) were re-tuned to sit on the new silhouettes — verified with an
+    in-browser screenshot of the rundown state, not just measured.
+  - **The 4 market stalls stopped sharing one recolored design.** Each now
+    draws its OWN dedicated sprite (`STALL_THEMES` in `art/buildings.ts`,
+    picked from 3 generated variants per theme): fish = `stall-fish.png`
+    (clearest "FISH" signage + net + barrel, of `stall-fish-01/02/03`);
+    produce = `stall-produce.png` (open-counter read with veg crates +
+    flowers, of `-01/02/03`); goods = `stall-goods.png` (mustard awning +
+    lanterns, of `stall-general-01/02/03` — picked for the distinct mustard
+    hue the manifest's own color-coding calls out, over `-01`/`-03`'s
+    red-leaning palette); empty = `stall-empty.png` (shuttered counter + blank
+    placard, of `stall-empty-01/02/03` — manifest's own "best fit to disused"
+    pick; `-02` was avoided per the brief, reading too cozy for a vacant
+    stall). The single generic sprite + `recolorSprite` hue-band machinery
+    (`STALL_SHEET`/`STALL_AWNING_BAND`) was NOT deleted — it stays live as the
+    code path for the farm's own trade stall (its awning/goods are driven by
+    the player's chosen selling path, so it can't commit to one theme's art)
+    and for any future stall that doesn't have its own themed art yet
+    (`drawStall`'s new `themed` param, `false` by default, `true` for the 4
+    market stalls only).
+  - **6 market cottages, 6 different variants** (of 8 approved; 2 spare) — a
+    `variant: number` field on each `zones.ts` `CottageDef`, resolved to a
+    sprite + its own measured anchor via `COTTAGE_SPRITES` in
+    `art/buildings.ts`. `drawCottage`'s existing code painter (random
+    wall/roof tone) is untouched as the fallback.
+  - **The neighbour farm's house** draws its OWN sprite
+    (`farmhouse-neighbor.png`, the whitewash-walls/slate-roof "established"
+    variant) via a new `spriteId` param on `drawHouse` (default
+    `"buildings/farmhouse"`, so every other caller is unaffected); its barn
+    reuses the player's barn sprite as-is (no distinct "established" barn art
+    this wave).
+  - **Spares** (paid for, unused this wave, v2 will want them): committed
+    under `buildings/spare/`, all ≥4.3KB so Vite's asset inliner (base64,
+    <4KB by default) never touches them — they land as their own hashed
+    files, not inline in the JS bundle. 11 files: 1 farmhouse variant
+    (`farmhouse-extra-01_stone-plank.png`), 2 cottage variants (`cottage-06_
+    slate-stone-porch.png`, `cottage-08_shingle-plank-leanto.png`), 8 stall
+    variants (the 2 unused generations per theme). Being under
+    `src/assets/pixellab/`, the manifest glob still picks them up and
+    `loadSprites()` fetches+decodes them at boot like any other sprite (a
+    dozen small unused network fetches, functionally harmless, dual-path-safe
+    — they're just never drawn) — noted honestly rather than silently
+    accepted; splitting the glob to exclude `spare/` was judged out of scope
+    for this batch (see "Adding a category" in §4 — the glob's whole design
+    point is needing no code change per drop-in).
+  - The four market stalls' own baked-in goods overlay stays a code-drawn
+    overlay on both paths (themed sprite AND the generic fallback) — the
+    per-stall differentiator (fish/produce/goods/empty) the sprite's shelf art
+    doesn't itself encode; unchanged by this batch, documented again below.
 - **Bed**: the first generation read as a bench on review and was rejected;
   the retry clearly reads as a straw bed with a blanket and was integrated
   (see §2 for both object ids).
@@ -196,6 +252,39 @@ downloaded native size; the packer aligns to it). Character ids + prompts:
 - **jonas** `c0e81f27-537b-4851-b79f-60dabad10bff`, 92×92 — *wiry middle-aged
   peddler, travel-worn burgundy coat, patched satchel, flat cap, clever eyes.*
 
+**Wave 4** (building variety batch, `create_map_object`) — the FLAT-FRONT
+GUARDRAIL, now the standard for every future object generation: view
+`"high top-down"` + *"straight-on front view, camera looking slightly down,
+only the front face and roof visible, no side walls, flat pixel-art game
+building like Stardew Valley architecture"*, style suffix *"charming cozy
+fantasy farm-game style, warm palette, soft dark outlines"*, detail
+`"high detail"`, outline `"selective outline"`, shading `"medium shading"`.
+18 generations, all landing clean first try (no reject/retry cycle needed):
+- **4 flat-front replacements** (drop-in, same filename/size as the sprite
+  they replaced): `farmhouse-flat.png` → `farmhouse.png` (192×176),
+  `barn-flat.png` → `barn.png` (208×176), `market-stall-flat.png` →
+  `market-stall.png` (112×112), `well-flat.png` → `well.png` (80×96, also
+  fixed an internal-inconsistency bug — the old well had a 3D-pyramid roof
+  over a flat top-down base).
+- **12 stall variants** (112×112, 3 each × fish/produce/goods/empty theme) —
+  see the Notes above (§1) for which one was picked per theme and why.
+- **2 extra farmhouse variants** (192×176): `farmhouse-extra-01_stone-plank.png`
+  (stone foundation + honey plank, spare) and `farmhouse-extra-02_whitewash-
+  slate.png` (whitewash walls + slate roof — integrated as the neighbour's
+  `farmhouse-neighbor.png`).
+- **8 cottage variants** (112×128) were NOT generated this wave — reused
+  as-is from the pre-guardrail probe batch (`docs/SCALING_DECISION.md`
+  Finding 3), re-reviewed against this wave's stricter guardrail and judged
+  still on-style (one notch more oblique than the wave-4 assets, never
+  approaching the old market-stall/well's severe two-visible-side-faces
+  problem) — 0 generations spent. `cottage-01` through `cottage-08`, axes
+  roof×wall×feature (thatch/slate/red-tile/shingle × plank/plaster/stone/
+  timber × porch/ivy/flowerbox/lean-to); 6 integrated, 2 spare (see §1 notes
+  for which). The EARLIER pre-guardrail cottage designs in scratchpad
+  `objects/` (`cottage.png` thatched, `cottage-stone.png`, `cottage-tall.png`)
+  are retired — mildly oblique, never integrated, superseded by the 8-variant
+  probe batch above.
+
 ---
 
 ## 3. Asset folder + manifest recipe
@@ -205,10 +294,24 @@ src/assets/pixellab/
   manifest.ts                     ← two eager globs; adding assets needs no edit
   characters/heroine.sheet.png    ← ONE packed atlas (was 88 loose PNGs)
   characters/heroine.sheet.json   ← its frame map + anchor (scripts/packsheets.mjs)
-  buildings/farmhouse.png
-  buildings/barn.png
-  buildings/market-stall.png
-  buildings/well.png
+  characters/<npc-id>.sheet.png   ← one per townsfolk (10)
+  characters/<npc-id>.sheet.json
+  buildings/farmhouse.png              ← player farm (flat-front)
+  buildings/farmhouse-neighbor.png     ← neighbour farm (established/prosperous)
+  buildings/barn.png                   ← flat-front; shared by both farms
+  buildings/market-stall.png           ← generic; farm's own stall + future recolor path
+  buildings/stall-fish.png             ← the 4 themed market stalls (building-variety batch)
+  buildings/stall-produce.png
+  buildings/stall-goods.png
+  buildings/stall-empty.png
+  buildings/well.png                   ← flat-front
+  buildings/cottage-01_thatch-plank-porch.png     ← 6 of 8 approved cottage variants
+  buildings/cottage-02_slate-plaster-ivy.png
+  buildings/cottage-03_redtile-stone-flowerbox.png
+  buildings/cottage-04_shingle-timber-leanto.png
+  buildings/cottage-05_thatch-plaster-flowerbox.png
+  buildings/cottage-07_redtile-timber-ivy.png
+  buildings/spare/                     ← paid-for, unused this wave (see notes above)
   interior/hearth.png
   interior/room-backdrop.png
   interior/basin.png
@@ -296,9 +399,11 @@ from everything else at typical saturations.
 `SPRITE_IDLE_FPS`, `SPRITE_FACING_HYSTERESIS`, `SPRITE_HOUSE_SCALE`,
 `SPRITE_BARN_SCALE`, `SPRITE_HEARTH_SCALE`, `SPRITE_ROOM_SCALE`,
 `SPRITE_BASIN_SCALE`, `SPRITE_BED_SCALE`, `SPRITE_CHAIR_CRATE_SCALE`,
-`SPRITE_STALL_SCALE`, `SPRITE_WELL_SCALE`. Dev A/B toggle:
-`__wh.spriteMode(on)` (the player sprite only — buildings/interior/stalls/well
-have no runtime toggle, only the load-or-not dual path).
+`SPRITE_STALL_SCALE`, `SPRITE_WELL_SCALE`, `SPRITE_COTTAGE_SCALE` (building-
+variety batch — one scale for all 8 cottage variants, same 112×128 canvas).
+Dev A/B toggle: `__wh.spriteMode(on)` (the player sprite only —
+buildings/interior/stalls/well/cottages have no runtime toggle, only the
+load-or-not dual path).
 
 ---
 
@@ -353,13 +458,24 @@ turns a raw PixelLab character export into `<name>.sheet.png` + `.sheet.json`:
 ## 5. Generation costs
 
 PixelLab account: **Tier 2 (Pixel Artisan)**, 5,000 subscription generations/mo,
-$0.00 extra credits. **~198 used / ~4,800 remaining** as of this integration —
-wave 1 (58: the heroine character + its walk & idle animations across 8
-directions + 3 map objects + a few style tests), wave 2 (+40: room
+$0.00 extra credits. **~198 used / ~4,800 remaining** as of the wave-3
+integration — wave 1 (58: the heroine character + its walk & idle animations
+across 8 directions + 3 map objects + a few style tests), wave 2 (+40: room
 backdrop, basin, chair+crate, market stall, well, and the bed — 2 attempts,
 the first rejected on review and retried — 7 objects total this wave), plus
-**wave 3 (+~100: the 10 townsfolk** — each 2 (8 rotations, v3) + 8 (the walk
+wave 3 (+~100: the 10 townsfolk — each 2 (8 rotations, v3) + 8 (the walk
 template across 8 directions) = ~10 gens; no idle template, decision S2-8).
+
+**Wave 4 — building variety batch** (2026-07-07): 18 successful
+`create_map_object` generations (1 gen each, all landing clean on the first
+try — zero rejects/retries, the hardened flat-front guardrail wording worked
+every time): the 4 flat-front replacements, 12 new stall variants (3 each ×
+fish/produce/goods/empty), and 2 extra farmhouse variants (the neighbour's +
+1 spare). The 8 cottage variants were REUSED from an earlier probe batch
+(SCALING_DECISION.md Finding 3) at 0 additional generations — copied, not
+regenerated. Session ledger delta was 27 (shared queue with other
+concurrently-running agents per this batch's own brief; the 18-call count is
+the reliable per-batch number). ~4,677 remaining after this wave.
 
 Rough per-category estimate for the rest of the plan (a generation ≈ one
 direction of one frame/rotation, so animated characters dominate):

@@ -2,16 +2,22 @@ import { HOUSE, BARN, STALL, type Rect } from "../world/zones";
 import { shadow, oRect, outline, OUTLINE, OUTLINE_W, castShadow, roundR } from "./shapes";
 import { mulberry32 } from "../engine/rng";
 import { sprite, drawGroundSprite, recolorSprite, type SpritePlacement, type HueBand } from "./sprites";
-import { SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE, SPRITE_STALL_SCALE, SPRITE_WELL_SCALE } from "../config";
+import {
+  SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE, SPRITE_STALL_SCALE, SPRITE_WELL_SCALE, SPRITE_COTTAGE_SCALE,
+} from "../config";
 
 // ---- static-sprite sheet anchors (measured alpha bbox: horizontal centre col
 // + foot row = the ground-contact base). The sheets were sized to the HOUSE /
 // BARN rects, so at scale 1.0 the walls fill the rect with the roof overhanging
-// above it, exactly as the painter overhangs today. ---
-const FARMHOUSE_SHEET = { cx: 96, foot: 169 };   // 192x176
-const BARN_SHEET = { cx: 104, foot: 170 };        // 208x176
-const STALL_SHEET = { cx: 55, foot: 106 };        // 112x112
-const WELL_SHEET = { cx: 38.5, foot: 88 };        // 80x96
+// above it, exactly as the painter overhangs today. Re-measured for the
+// building-variety batch's flat-front replacements (docs/PIXELLAB_ASSETS.md). ---
+const FARMHOUSE_SHEET = { cx: 95.5, foot: 167 };            // 192x176 — buildings/farmhouse (player farm)
+// The neighbour's OWN farmhouse art (established/prosperous whitewash+slate
+// variant) — same canvas size, different silhouette, so its own anchor.
+const FARMHOUSE_NEIGHBOR_SHEET = { cx: 95.5, foot: 161 };   // 192x176 — buildings/farmhouse-neighbor
+const BARN_SHEET = { cx: 103.5, foot: 167 };      // 208x176
+const STALL_SHEET = { cx: 57.5, foot: 104 };      // 112x112 — buildings/market-stall (generic)
+const WELL_SHEET = { cx: 39.5, foot: 87 };        // 80x96
 // The stall sprite's own baked-in awning fabric (a candy red/cream stripe) —
 // its hue band, measured from the generated PNG (see docs/PIXELLAB_ASSETS.md),
 // recolored per stall via recolorSprite(); the alternating cream stripe sits
@@ -88,16 +94,24 @@ function drawShingleRoof(
   g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W; g.stroke();
 }
 
-export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk = true, r: Rect = HOUSE) {
+export function drawHouse(
+  g: CanvasRenderingContext2D, roofOk = true, windowOk = true, r: Rect = HOUSE,
+  spriteId = "buildings/farmhouse",
+) {
   const { x, y, w, h } = r;
   // ---- sprite path: the repaired farmhouse, base-on-ground, centred on the
   // rect (collision/door hotspots unchanged); the renovation DAMAGE overlays
-  // draw on top of the sprite when a part is broken. ----
-  const img = sprite("buildings/farmhouse");
+  // draw on top of the sprite when a part is broken. `spriteId` lets a caller
+  // swap in a DIFFERENT farmhouse sprite at the same rect (the neighbour farm's
+  // own established/prosperous look, building-variety batch) without touching
+  // the damage-overlay logic, which only ever runs for the player's own
+  // (always-repaired-art) house anyway. ----
+  const img = sprite(spriteId);
   if (img) {
     const gx = x + w / 2, gy = y + h;
     castShadow(g, gx, gy, w * 0.5, h * 1.3);   // keep the cast shadow; the sprite carries its own outline
-    const p = drawGroundSprite(g, img, gx, gy, FARMHOUSE_SHEET.cx, FARMHOUSE_SHEET.foot, SPRITE_HOUSE_SCALE);
+    const anchor = spriteId === "buildings/farmhouse" ? FARMHOUSE_SHEET : FARMHOUSE_NEIGHBOR_SHEET;
+    const p = drawGroundSprite(g, img, gx, gy, anchor.cx, anchor.foot, SPRITE_HOUSE_SCALE);
     if (!roofOk) drawHouseRoofDamageSprite(g, p);      // renovation overlays land on the sprite's roof / window
     if (!windowOk) drawHouseWindowBoardSprite(g, p);
     return;
@@ -182,24 +196,30 @@ export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = B
 // ===========================================================================
 //  Renovation DAMAGE overlays for the SPRITE path — the sprites are the
 //  repaired buildings, so a broken part gets its code-drawn damage painted on
-//  top, positioned in the SPRITE's own pixel space (measured from the sheets;
-//  farmhouse red roof y≈8-89, its lower-right window ≈(133-148, 110-131); barn
-//  doors centre ≈(104,116), right wall). Tuned to sit on the sprite features,
-//  independent of the painter geometry the fallback overlays used. `sw()` maps
-//  sprite pixels -> world through the drawGroundSprite placement.
+//  top, positioned in the SPRITE's own pixel space (measured/re-tuned for the
+//  building-variety batch's flat-front farmhouse/barn, verified against a
+//  rundown-state screenshot: farmhouse roof spans y≈9-100 with its ridge/
+//  chimney near the horizontal centre, so the hole sits left-of-centre at
+//  roughly (60-92, 40-63); its right window ≈(111-148, 110-143); barn doors
+//  centre ≈(104,116), right wall gap ≈(178,76) — both barn numbers verified
+//  unchanged against the new barn-flat art, same canvas size and proportions).
+//  Tuned to sit on the sprite features, independent of the painter geometry the
+//  fallback overlays used. `sw()` maps sprite pixels -> world through the
+//  drawGroundSprite placement. Only ever invoked for the PLAYER's farmhouse/
+//  barn (the neighbour's are always drawn roofOk/windowOk/barnOk=true).
 // ===========================================================================
 
 /** Broken roof: a torn dark hole in the tiles + a mismatched patch plank. */
 function drawHouseRoofDamageSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
   const s = p.scale;
   g.fillStyle = "#241207";
-  const poly: Array<[number, number]> = [[101, 27], [122, 22], [131, 36], [112, 45], [99, 38]];
+  const poly: Array<[number, number]> = [[62, 45], [83, 40], [92, 54], [73, 63], [60, 56]];
   g.beginPath();
   poly.forEach(([sx, sy], i) => { const [wx, wy] = sw(p, sx, sy); i ? g.lineTo(wx, wy) : g.moveTo(wx, wy); });
   g.closePath(); g.fill();
   g.strokeStyle = "rgba(18,9,4,.7)"; g.lineWidth = 1.6; g.stroke();   // the hole's own dark rim
   // a mismatched patch plank hastily nailed over part of it
-  const [cx, cy] = sw(p, 115, 33);
+  const [cx, cy] = sw(p, 76, 51);
   g.save(); g.translate(cx, cy); g.rotate(-0.32);
   const pw = 30 * s, ph = 8 * s;
   g.fillStyle = "#a6844f"; roundR(g, -pw / 2, -ph / 2, pw, ph, 1.5 * s); g.fill();
@@ -209,10 +229,10 @@ function drawHouseRoofDamageSprite(g: CanvasRenderingContext2D, p: SpritePlaceme
   g.restore();
 }
 
-/** Boarded-shut window: brown boards over the lower-right pane + an X of planks. */
+/** Boarded-shut window: brown boards over the right pane + an X of planks. */
 function drawHouseWindowBoardSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
-  const [x0, y0] = sw(p, 130, 107);
-  const [x1, y1] = sw(p, 151, 134);
+  const [x0, y0] = sw(p, 111, 110);
+  const [x1, y1] = sw(p, 148, 143);
   const bw = x1 - x0, bh = y1 - y0;
   g.fillStyle = "#4a3a26"; g.fillRect(x0, y0, bw, bh);
   g.strokeStyle = "rgba(28,18,9,.6)"; g.lineWidth = 1.4; g.strokeRect(x0, y0, bw, bh);
@@ -240,13 +260,47 @@ function drawBarnDamageSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
 
 export type StallSign = "fish" | "produce" | "goods" | "empty";
 
+interface StallThemeSprite { id: string; cx: number; foot: number }
+/**
+ * The 4 market stalls each get their OWN themed sprite (building-variety
+ * batch) — no more recolor, the art itself carries the theme (teal fish
+ * stall, green produce, mustard goods, a shuttered/blank-placard empty). The
+ * single generic sprite + recolor machinery below (STALL_SHEET/STALL_AWNING_BAND)
+ * stays live as the code path for the farm's OWN stall (its awning/sign are
+ * driven by the player's chosen selling path, so it can't commit to one
+ * theme's art) and for any FUTURE stall (v2 town) that doesn't have its own
+ * themed art yet — see docs/PIXELLAB_ASSETS.md for the picks + spares.
+ */
+const STALL_THEMES: Record<StallSign, StallThemeSprite> = {
+  fish:    { id: "buildings/stall-fish",    cx: 55,   foot: 105 },
+  produce: { id: "buildings/stall-produce", cx: 54.5, foot: 99 },
+  goods:   { id: "buildings/stall-goods",   cx: 55,   foot: 99 },
+  empty:   { id: "buildings/stall-empty",   cx: 56.5, foot: 89 },
+};
+
 /** The market/farm stall. Awning colour + goods vary by stall so the four
- *  market stalls read distinct (fish buyer / produce / general / empty). */
+ *  market stalls read distinct (fish buyer / produce / general / empty).
+ *  `themed`: use this stall's OWN dedicated sprite (STALL_THEMES) instead of
+ *  the generic recolored one — set by the market stalls, left off for the
+ *  farm's own stall (see STALL_THEMES doc above). */
 export function drawStall(
   g: CanvasRenderingContext2D, t: number, r: Rect = STALL,
-  awning = "#c05038", accent = "#7fb0c8", sign: StallSign = "fish",
+  awning = "#c05038", accent = "#7fb0c8", sign: StallSign = "fish", themed = false,
 ) {
   const { x, y, w, h } = r;
+  if (themed) {
+    const theme = STALL_THEMES[sign];
+    const timg = sprite(theme.id);
+    if (timg) {
+      const gx = x + w / 2, gy = y + h;
+      castShadow(g, gx, gy, w * 0.5, h * 0.9);
+      drawGroundSprite(g, timg, gx, gy, theme.cx, theme.foot, SPRITE_STALL_SCALE);
+      drawStallGoods(g, r, accent, sign);
+      return;
+    }
+    // this stall's themed sprite hasn't decoded yet (or is missing) -> fall
+    // through to the generic sprite/painter below, same as any other dual-path
+  }
   // ---- sprite path: the stall's base+roof, its awning fabric hue-shifted to
   // THIS stall's own awning colour (recolorSprite, cached per colour — see
   // STALL_AWNING_BAND above); goods stay code-drawn on top, unchanged — the
@@ -325,10 +379,38 @@ function drawStallGoods(g: CanvasRenderingContext2D, r: Rect, accent: string, si
   }
 }
 
+interface CottageSpriteInfo { id: string; cx: number; foot: number }
+/**
+ * The 6 market cottages each get a DIFFERENT approved variant (of 8 generated;
+ * building-variety batch — see docs/PIXELLAB_ASSETS.md for the full picture,
+ * incl. which two variants sit unused/spare under buildings/spare/). Keyed by
+ * the `variant` number on each zones.ts CottageDef.
+ */
+const COTTAGE_SPRITES: Record<number, CottageSpriteInfo> = {
+  1: { id: "buildings/cottage-01_thatch-plank-porch", cx: 55.5, foot: 114 },
+  2: { id: "buildings/cottage-02_slate-plaster-ivy", cx: 56.5, foot: 116 },
+  3: { id: "buildings/cottage-03_redtile-stone-flowerbox", cx: 53.5, foot: 96 },
+  4: { id: "buildings/cottage-04_shingle-timber-leanto", cx: 55.5, foot: 119 },
+  5: { id: "buildings/cottage-05_thatch-plaster-flowerbox", cx: 55, foot: 107 },
+  7: { id: "buildings/cottage-07_redtile-timber-ivy", cx: 56.5, foot: 121 },
+};
+
 /** A small cottage — a compact house variant for the market's NPC homes.
- *  Warm plaster wall, shingle gable, a plank door (a would-be entry point). */
-export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number) {
+ *  Warm plaster wall, shingle gable, a plank door (a would-be entry point).
+ *  `variant` (1-8, see COTTAGE_SPRITES) picks this cottage's own sprite; the
+ *  code painter below (random wall/roof tone keyed off `seed`) is the
+ *  fallback, used as-is when no variant is given or its sprite isn't ready. */
+export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, variant?: number) {
   const { x, y, w, h } = r;
+  const info = variant !== undefined ? COTTAGE_SPRITES[variant] : undefined;
+  const img = info ? sprite(info.id) : null;
+  if (img && info) {
+    const gx = x + w / 2, gy = y + h;
+    castShadow(g, gx, gy, w * 0.5, h * 1.2);
+    drawGroundSprite(g, img, gx, gy, info.cx, info.foot, SPRITE_COTTAGE_SCALE);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   const rnd = mulberry32(seed);
   const wall = ["#d8b483", "#cca878", "#c9b98f", "#d3a06e"][(rnd() * 4) | 0]!;
   castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.2);

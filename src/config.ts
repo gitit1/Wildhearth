@@ -378,6 +378,11 @@ export const SPRITE_CHAIR_CRATE_SCALE = 1.12;
 export const SPRITE_BED_SCALE = 1.21;
 export const SPRITE_STALL_SCALE = 0.77;
 export const SPRITE_WELL_SCALE = 1.05;
+// --- Building variety batch: 6 distinct market cottages (art/buildings.ts
+//     COTTAGE_SPRITES), one scale for every variant (all cottage canvases are
+//     the same 112x128 size, same "footprint <= zone rect" recipe as above;
+//     each variant's own cx/foot anchor is what actually differs per art). ---
+export const SPRITE_COTTAGE_SCALE = 0.8;
 
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";

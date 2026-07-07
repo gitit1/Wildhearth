@@ -29,6 +29,136 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Building variety — themed stalls, eight cottages, flat-front world
+- **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 4)
+- **Block given:** Integrate the approved building-variety batch (26 PixelLab
+  PNGs, pre-reviewed against the 3 reject criteria): replace the 4 sprites
+  SCALING_DECISION.md found too oblique for the flat world with flat-front
+  regenerations, give the market's 4 stalls + 6 cottages real per-building
+  variety instead of one shared design, and give the neighbour farm its own
+  established-looking house — the "no two neighbors alike" mandate.
+- **Done:**
+  - **Assets** — copied from the generation batch's scratchpad output into
+    `src/assets/pixellab/buildings/`:
+    - **4 flat-front replacements** (same filename/size as what they
+      replace): `farmhouse.png`, `barn.png`, `market-stall.png`, `well.png`.
+    - **1 new sprite**: `farmhouse-neighbor.png` (the whitewash-walls/
+      slate-roof "established" variant, for the neighbour farm only).
+    - **4 new themed stall sprites**: `stall-fish.png`, `stall-produce.png`,
+      `stall-goods.png`, `stall-empty.png` — one pick each out of 3 generated
+      variants per theme (picks + reasoning in `docs/PIXELLAB_ASSETS.md` §1).
+    - **6 cottage variants** (of 8 approved, reused from an earlier probe
+      batch, not regenerated): `cottage-01_thatch-plank-porch.png`,
+      `cottage-02_slate-plaster-ivy.png`,
+      `cottage-03_redtile-stone-flowerbox.png`,
+      `cottage-04_shingle-timber-leanto.png`,
+      `cottage-05_thatch-plaster-flowerbox.png`,
+      `cottage-07_redtile-timber-ivy.png`.
+    - **11 spares** (paid for, unused this wave — v2 will want them) under
+      `src/assets/pixellab/buildings/spare/`: `farmhouse-extra-01_stone-
+      plank.png`, `cottage-06_slate-stone-porch.png`, `cottage-08_shingle-
+      plank-leanto.png`, and the 2 unpicked variants per stall theme (8
+      files). All ≥4.3KB so Vite's base64 inliner (<4KB) never touches them —
+      confirmed in the build output, each lands as its own hashed asset file.
+      The batch's "four-in-a-row" coherence-reference image and 3 pre-
+      guardrail cottage designs in scratchpad `objects/` were NOT committed
+      (reference-only / mildly oblique and superseded, respectively).
+  - **`src/art/buildings.ts`**:
+    - Re-measured `FARMHOUSE_SHEET` (cx 96→95.5, foot 169→167), `BARN_SHEET`
+      (cx 104→103.5, foot 170→167), `STALL_SHEET` (cx 55→57.5, foot 106→104),
+      `WELL_SHEET` (cx 38.5→39.5, foot 88→87) against the new flat-front art
+      (alpha-bbox, same convention as the existing sheets).
+    - Re-tuned `drawHouseRoofDamageSprite`'s hole polygon + patch center and
+      `drawHouseWindowBoardSprite`'s board rect to the new farmhouse art's
+      roof/window positions (found via a coarse pixel-color grid dump of the
+      sprite, then confirmed with an in-browser screenshot of the rundown
+      state); the barn's damage coordinates were re-verified against the new
+      barn art and left unchanged (still sit correctly at the door-centre and
+      right-wall positions).
+    - New `FARMHOUSE_NEIGHBOR_SHEET` anchor; `drawHouse` gained a `spriteId`
+      parameter (default `"buildings/farmhouse"`) so a caller can swap in a
+      different farmhouse sprite at the same rect without touching the
+      damage-overlay logic.
+    - New `STALL_THEMES` (fish/produce/goods/empty → sprite id + anchor) and
+      a `themed` parameter on `drawStall` (default `false`): when true, draws
+      the stall's own dedicated sprite directly; when false (unchanged
+      default — the farm's own stall), keeps the original generic sprite +
+      `recolorSprite(awning)` path, which stays live as the code for future
+      stalls too.
+    - New `COTTAGE_SPRITES` (variant number → sprite id + anchor, one entry
+      per integrated variant) and a `variant` parameter on `drawCottage`;
+      falls back to the existing code painter (random wall/roof tone) when no
+      variant/sprite is available.
+  - **`src/world/zones.ts`**: `COTTAGES` is now `CottageDef[]` (`Rect` + a
+    `variant: number`), one different variant (1,2,3,4,5,7 — 6 and 8 spare)
+    assigned per cottage so no two neighboring cottages share a design;
+    `NEIGHBOR`'s doc comment notes its house's own sprite id.
+  - **`src/main.ts`**: the neighbour farm's house call now passes
+    `"buildings/farmhouse-neighbor"`; the 4 `MARKET_STALLS` draws now pass
+    `themed=true`; the `COTTAGES` draws now pass `c.variant`. The farm's own
+    stall and every other draw site are unchanged.
+  - **`src/config.ts`**: new `SPRITE_COTTAGE_SCALE = 0.8` (one scale for every
+    cottage variant — same 112×128 canvas across all 8).
+  - **`docs/PIXELLAB_ASSETS.md`**: ledger updated — the ownership table (§1),
+    a new "building variety batch" notes block documenting every pick +
+    reasoning, a new "Wave 4" prompt/id record (§2, the flat-front guardrail
+    wording now standard for future generations), the asset tree (§3), the
+    new `SPRITE_COTTAGE_SCALE` knob, and generation-cost ledger (§5: 18 new
+    generations, 8 cottages reused at 0 cost, ~4,677 remaining).
+- **Behavior:** the player's farmhouse/barn/well/stall read flat-front
+  (matching the code-drawn ground and props) instead of subtly isometric; the
+  farm's renovation damage (roof hole+patch, boarded window, barn boards)
+  still tracks correctly on the new art through every repair. The neighbour
+  farm's house now visually reads as a different, more established building
+  than the player's starting farmhouse. The market's 4 stalls each show a
+  distinct building (teal "FISH"-signed stall / green produce stall with
+  veg+flowers / mustard goods stall with lanterns / a shuttered, blank-
+  placard "vacant" stall) instead of one recolored shape; their fish/produce/
+  goods/empty goods overlay (unchanged code) still layers on top correctly.
+  The market's 6 cottages are all visibly different buildings (roof material
+  × wall tone × feature all vary), reading as a lived-in village instead of a
+  repeated tile. Every sprite keeps its code-drawn fallback exactly as before.
+- **Build:** `npm run build` — passing (`tsc` clean). Bundle: one JS chunk,
+  401.21KB (gzip 133.49KB) — no chunk-size warning. All 26 new/replaced PNGs
+  emit as separate hashed asset files (4.3KB-41KB each), none inlined.
+- **Verification:** headless Playwright against a dedicated dev server,
+  screenshots reviewed:
+  - Farm: rundown (roof patch + boarded window both correctly on the new
+    farmhouse art, barn's loose door-plank + wall gap correctly on the new
+    barn art) vs. fully repaired (`repairFarm()`) — damage disappears
+    cleanly, nothing else changes.
+  - Neighbour farm: established/whitewash farmhouse + the shared flat barn,
+    both read flat-front.
+  - Well: flat-front, centred correctly.
+  - Market: an overview shot plus individual + paired close-ups of all 4
+    stalls (fish/produce/goods/empty all visually distinct, confirmed
+    side-by-side) and all 6 cottages (confirmed no two adjacent cottages
+    share a roof-type + wall-tone combination).
+  - Zero-assets fallback: every `.png` request blocked via Playwright route
+    interception (simulating an empty asset folder) — `spriteProgress()`
+    stayed 0/42, the game still booted to `scene() === "world"` with every
+    building/stall/cottage/well rendering its code-drawn painter fallback,
+    **zero page errors** (the 42 blocked-resource console entries are
+    expected browser network logs from the deliberate block, not app
+    exceptions).
+  - **0 page errors** across every other run too; `spriteProgress()` reported
+    42/42 loaded (confirms the 11 spares ARE fetched/decoded at boot despite
+    never being drawn — noted honestly in PIXELLAB_ASSETS.md rather than
+    silently glossed over; harmless, just a dozen small unused network
+    fetches, no bundle-size impact since none are inlined).
+- **Follow-ups:**
+  - The 11 spare PNGs (1 farmhouse, 2 cottage, 8 stall variants) are decoded
+    at boot despite never being drawn (the manifest glob has no way to
+    exclude `buildings/spare/` without a code change) — cosmetic network-cost
+    only, flagged in PIXELLAB_ASSETS.md, not fixed this pass.
+  - The cottage set's coverage gap against the full requested axis menu (no
+    moss-green roof; round door/lantern/chimney-smoke/attic-window features
+    still absent) carries over from the probe batch, unaddressed here (out of
+    this batch's "backfill only if missing/off-style" scope).
+  - The rest of SCALING_DECISION's Path A plan (crops/trees × seasons, NPC
+    extra action poses, the inpainting test) remains parked for its own
+    gated batch.
+
 ## The town gets faces — 10 NPC sprite sets on the shared bridge
 - **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 3)
 - **Block given:** Integrate the 10 generated townsfolk sprite sets (8 rotations

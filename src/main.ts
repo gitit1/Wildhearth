@@ -1728,14 +1728,20 @@ function draw(dt: number) {
     { y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
     { y: player.y + 13, f: () => drawFarmer(ctx, player, time, playerRigParams, playerUsesSprite) },
-    // the neighbour farm (cared-for: repaired roof/window/barn) — decorative
-    { y: NEIGHBOR.house.y + NEIGHBOR.house.h, f: () => drawHouse(ctx, true, true, NEIGHBOR.house) },
+    // the neighbour farm (cared-for: repaired roof/window/barn) — decorative;
+    // its own established/prosperous farmhouse sprite (building-variety batch),
+    // barn reuses the player's barn sprite as-is.
+    { y: NEIGHBOR.house.y + NEIGHBOR.house.h, f: () => drawHouse(ctx, true, true, NEIGHBOR.house, "buildings/farmhouse-neighbor") },
     { y: NEIGHBOR.barn.y + NEIGHBOR.barn.h, f: () => drawBarn(ctx, true, NEIGHBOR.barn) },
     { y: WELL.cy + WELL.r, f: () => drawWell(ctx, WELL.cx, WELL.cy, WELL.r) },
     { y: OLD_BUSK_SIGN[1], f: () => drawBuskSign(ctx, OLD_BUSK_SIGN[0], OLD_BUSK_SIGN[1]) },
   ];
-  MARKET_STALLS.forEach((s) => ents.push({ y: s.y + s.h, f: () => drawStall(ctx, time, s, s.awning, s.accent, s.sign) }));
-  COTTAGES.forEach((c, i) => ents.push({ y: c.y + c.h, f: () => drawCottage(ctx, c, 700 + i * 37) }));
+  // Each market stall now draws with its OWN themed sprite (fish/produce/
+  // goods/empty — building-variety batch), not the generic recolored one.
+  MARKET_STALLS.forEach((s) => ents.push({ y: s.y + s.h, f: () => drawStall(ctx, time, s, s.awning, s.accent, s.sign, true) }));
+  // Each cottage gets its own approved variant (zones.ts CottageDef.variant) —
+  // "no two neighbors alike" (building-variety batch).
+  COTTAGES.forEach((c, i) => ents.push({ y: c.y + c.h, f: () => drawCottage(ctx, c, 700 + i * 37, c.variant) }));
   if (festival) {
     FESTIVAL_LANTERN_SPOTS.forEach(([lx, ly]) => ents.push({ y: ly, f: () => drawLanternPole(ctx, lx, ly, time) }));
     FESTIVAL_HARVEST_CLUSTERS.forEach(([hx, hy]) => ents.push({ y: hy + 6, f: () => drawHarvestCluster(ctx, hx, hy) }));

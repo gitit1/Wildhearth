@@ -95,7 +95,11 @@ export const HEDGES: Rect[] = [
 ];
 
 /** The established neighbour farm along the road — cared-for house + barn
- *  (visual contrast to the player's rundown start). Decorative, no interactions. */
+ *  (visual contrast to the player's rundown start). Decorative, no interactions.
+ *  The house draws with its OWN sprite ("buildings/farmhouse-neighbor" — the
+ *  whitewash/slate variant, building-variety batch) so it doesn't look like a
+ *  copy of the player's farmhouse; the barn reuses the player's barn sprite
+ *  as-is (no distinct "established" barn art this wave). */
 export const NEIGHBOR = {
   house: rect(39, 15, 5, 3.4),
   barn: rect(45.2, 17.4, 3.6, 2.8),
@@ -126,15 +130,21 @@ export const FESTIVAL_HARVEST_CLUSTERS: Array<[number, number]> = [
   [WELL.cx - 4.6 * T, WELL.cy + 0.6 * T],
 ];
 
+export interface CottageDef extends Rect { variant: number }
 /** Small cottages ringing the square — future NPC homes, decorative for now,
- *  each with a door that could later be an entry point. */
-export const COTTAGES: Rect[] = [
-  rect(61, 19.5, 2.8, 2.3),
-  rect(60.5, 24, 2.8, 2.3),
-  rect(64.5, 25.5, 2.8, 2.3),
-  rect(69, 25.8, 2.8, 2.3),
-  rect(73.5, 25.3, 2.8, 2.3),
-  rect(76, 19, 2.8, 2.3),
+ *  each with a door that could later be an entry point. `variant` (1-8) picks
+ *  one of the 8 approved cottage sprites (art/buildings.ts COTTAGE_SPRITES) —
+ *  a different variant per cottage, deterministic, so "no two neighbors alike"
+ *  (building-variety batch; variants 6 and 8 sit unused/spare, see
+ *  docs/PIXELLAB_ASSETS.md). Falls back to the code painter's own random wall/
+ *  roof tone (keyed off `seed` at the call site) when no sprite is present. */
+export const COTTAGES: CottageDef[] = [
+  { ...rect(61, 19.5, 2.8, 2.3), variant: 2 },
+  { ...rect(60.5, 24, 2.8, 2.3), variant: 4 },
+  { ...rect(64.5, 25.5, 2.8, 2.3), variant: 5 },
+  { ...rect(69, 25.8, 2.8, 2.3), variant: 3 },
+  { ...rect(73.5, 25.3, 2.8, 2.3), variant: 1 },
+  { ...rect(76, 19, 2.8, 2.3), variant: 7 },
 ];
 
 /** Dense tree-lined trunks flanking the forest passage + filling the grove. */
