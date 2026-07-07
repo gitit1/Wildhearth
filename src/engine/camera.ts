@@ -16,10 +16,14 @@ export function zoomFactor(): number { return userZoom; }
 
 /** Applies a camera transform centred on (fx,fy), clamped to `bounds`
  *  (the world by default; a scene smaller than the viewport — the house
- *  interior — gets centred instead of pinned to a corner). */
+ *  interior — gets centred instead of pinned to a corner). `northMargin`
+ *  (Part B #7) lets the camera pull back past the world's y=0 edge, revealing
+ *  a sky/parallax gap above it — 0 (the historical behavior) for every other
+ *  caller, so nothing else changes. */
 export function applyCamera(
   ctx: CanvasRenderingContext2D, cv: HTMLCanvasElement, fx: number, fy: number,
   bounds: { w: number; h: number } = { w: WORLD_W, h: WORLD_H },
+  northMargin = 0,
 ): { camx: number; camy: number; vw: number; vh: number; scale: number } {
   canvas = cv;
   // zoom is the on-screen size of a world px (CSS px); the backing-store
@@ -31,7 +35,7 @@ export function applyCamera(
   const scale = zoom * devicePixelRatio;
   const vw = cv.width / scale, vh = cv.height / scale;
   let camx = bounds.w < vw ? (bounds.w - vw) / 2 : Math.max(0, Math.min(bounds.w - vw, fx - vw / 2));
-  let camy = bounds.h < vh ? (bounds.h - vh) / 2 : Math.max(0, Math.min(bounds.h - vh, fy - vh / 2));
+  let camy = bounds.h < vh ? (bounds.h - vh) / 2 : Math.max(-northMargin, Math.min(bounds.h - vh, fy - vh / 2));
   ctx.setTransform(scale, 0, 0, scale, -camx * scale, -camy * scale);
   lastCam = { camx, camy, scale };
   return { camx, camy, vw, vh, scale };

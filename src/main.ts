@@ -1,6 +1,7 @@
 import {
   WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE,
   DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS, AUTOSAVE_SECONDS, NPC_SALE_FRIENDSHIP_BUMP,
+  CAM_NORTH_SKY_MARGIN,
 } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
@@ -144,6 +145,8 @@ import type { RigParams } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
 import { paintDayNightTint } from "./art/daynight";
 import { updateWeatherFx, drawWeatherFx } from "./art/weatherfx";
+import { drawParallaxBand } from "./art/parallax";
+import { updateParticles, drawParticles, burst, debugParticleCounts } from "./art/particles";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -343,6 +346,16 @@ if (import.meta.env.DEV)
     outhouse: () => useOuthouse(needs), sitRest: () => rest(needs),
     sleep: sleepUntilMorning, nap: napAnHour,
     scene: () => scene, leave: () => leaveHouse(), enter: () => enterHouse(),
+    particleCounts: () => debugParticleCounts(),
+    // Part B #10 verification bridge: force plot 0 ripe and harvest it, so the
+    // leaf-puff burst can be exercised without a full till/plant/grow cycle.
+    harvestPlot0: () => {
+      const cell = plots[0]; if (!cell) return;
+      cell.state = "ready"; cell.cropId = "corn"; cell.growth = 1; cell.watered = true; cell.dryDays = 0;
+      player.x = cell.x; player.y = cell.y + 24; player.moving = false; clearMoveTarget();
+      const obj = byId("plot-0");
+      if (obj) runDefault(obj, makeCtx());
+    },
     give: (id: string, n = 1) => { addItem(economy.inv, id, n); saveEconomy(economy); },
     // relationship verification bridge — drive gifts/interactions/decay without UI
     relationships,
@@ -567,6 +580,28 @@ function eatItem(id: string): boolean {
 /** Writes a once-only life event into the Memory Book (+ a quiet toast). */
 function remember(key: string, text: string) {
   if (addMemory(memories, key, text, calendar)) { toast(`✒ ${text}`); logMemory(dayLog, text); }
+}
+
+/** Approximate world point for the fishing bobber (Part B #10 splash burst):
+ *  FishingState doesn't track the exact cast point, so this reaches out from
+ *  the player in her facing direction, echoing the rod's own reach in rig.ts. */
+function bobberSpot(): [number, number] {
+  const d = 26;
+  switch (player.dir) {
+    case 0: return [player.x, player.y - d];
+    case 1: return [player.x + d, player.y];
+    case 2: return [player.x, player.y + d];
+    default: return [player.x - d, player.y];
+  }
+}
+
+/** A skill gain's tiny gold glint at the player, alongside the existing DOM
+ *  popup + day-log entry (Part B #10) — one seam replacing 5 duplicated
+ *  `skillGainPopup + logSkillGain` pairs across the action handlers below. */
+function onSkillGain(id: string, gained: number) {
+  skillGainPopup(id, gained);
+  logSkillGain(dayLog, id, gained);
+  burst("glint", player.x, player.y - 10);
 }
 
 /** Records a species/find discovery; celebrates only the first time. Returns true
@@ -1368,6 +1403,10 @@ function tick(now: number) {
 
   if (updateFishing(fishing, dt)) {
     player.fishing = false;
+    // Ambient particle feedback (Part B #10): a splash-sparkle at the bobber.
+    // FishingState doesn't track the exact cast point, so this approximates
+    // it from the player's facing (matching the rod's own reach in rig.ts).
+    burst("splash", ...bobberSpot());
     // what actually bit: species/junk table roll against skill, season, weather,
     // and WHERE the line was cast (pond / river / lake — set by the fishing spot)
     const haul = resolveCatch(skillValue(skills, "fishing"), currentSeason(calendar), weather.kind, fishing.location);
@@ -1387,7 +1426,7 @@ function tick(now: number) {
     if (devNotesOn()) devNotes.observe("fish", absoluteDay(calendar));
     applyExertion(needs, "fishing");
     const gained = gainSkill(skills, "fishing", moodPerfMult(needs));
-    if (gained > 0) { skillGainPopup("fishing", gained); logSkillGain(dayLog, "fishing", gained); }
+    if (gained > 0) onSkillGain("fishing", gained);
   }
   if (updateForaging(foraging, bushes, dt)) {
     // what the pick found rolls against the forage table for this season+skill;
@@ -1406,7 +1445,7 @@ function tick(now: number) {
     if (devNotesOn()) devNotes.observe("forage", absoluteDay(calendar));
     applyExertion(needs, "foraging");
     const gained = gainSkill(skills, "foraging", moodPerfMult(needs));
-    if (gained > 0) { skillGainPopup("foraging", gained); logSkillGain(dayLog, "foraging", gained); }
+    if (gained > 0) onSkillGain("foraging", gained);
   }
   if (updateBusking(busking, dt)) {
     // mood colours a performance: a low spirit plays flat, a high one shines
@@ -1421,7 +1460,7 @@ function tick(now: number) {
     if (devNotesOn()) devNotes.observe("busk", absoluteDay(calendar));
     applyExertion(needs, "busking");
     const gained = gainSkill(skills, "busking", moodPerfMult(needs));
-    if (gained > 0) { skillGainPopup("busking", gained); logSkillGain(dayLog, "busking", gained); }
+    if (gained > 0) onSkillGain("busking", gained);
   }
   const cooked = updateCooking(cooking, dt);
   if (cooked) {
@@ -1437,7 +1476,7 @@ function tick(now: number) {
         if (devNotesOn()) devNotes.observe("cook", absoluteDay(calendar));
       } else toast("Backpack full — the dish burns while you rummage!");
       const gained = gainSkill(skills, "cooking", moodPerfMult(needs));
-      if (gained > 0) { skillGainPopup("cooking", gained); logSkillGain(dayLog, "cooking", gained); }
+      if (gained > 0) onSkillGain("cooking", gained);
     }
   }
   if (updateGarden(garden, dt, dayLengthSeconds())) {
@@ -1472,13 +1511,14 @@ function tick(now: number) {
       if (crop && gainItem(economy, crop.id)) {
         cell.state = "tilled"; cell.growth = 0; cell.cropId = null; cell.watered = false; cell.dryDays = 0;
         toast(`Harvested ${crop.name.toLowerCase()}! 🌽`);
+        burst("leafpuff", cell.x, cell.y);   // Ambient particle feedback (Part B #10)
         remember("first_harvest", "The first harvest from your own soil.");
         logHarvest(dayLog);
         fireGuidance({ kind: "harvest" });   // Guidance: farmer aspiration progress
         arcs.recordActivity("harvest");
         if (devNotesOn()) devNotes.observe("farm", absoluteDay(calendar));
         const gained = gainSkill(skills, "farming", moodPerfMult(needs));
-        if (gained > 0) { skillGainPopup("farming", gained); logSkillGain(dayLog, "farming", gained); }
+        if (gained > 0) onSkillGain("farming", gained);
       } else if (crop) toast(`Backpack full — no room for the ${crop.name.toLowerCase()}!`);
     }
     savePlots(plots);
@@ -1546,16 +1586,22 @@ function tick(now: number) {
   updateMemoryBook();
   if (!openingActive) tickGuidance();   // keep the tutorial bubble / aspiration pill live
   updateToast(dt);
-  draw();
+  draw(dt);
   requestAnimationFrame(tick);
 }
 
-function draw() {
+function draw(dt: number) {
   if (scene === "interior") { drawInteriorScene(); return; }
-  const { camx, camy, vw, vh } = applyCamera(ctx, cv, player.x, player.y);
+  // North sky margin (Part B #7): lets the camera pull back past the world's
+  // y=0 edge near the top of the map, revealing the parallax band's sky gap.
+  const { camx, camy, vw, vh } = applyCamera(ctx, cv, player.x, player.y, undefined, CAM_NORTH_SKY_MARGIN);
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(camx, camy, vw, vh);
+  drawParallaxBand(ctx, camx);   // beyond-the-world backdrop, drawn BEFORE the (opaque) ground clips its seam
   ctx.drawImage(ground, 0, 0);
+  // Ambient particle system (Part B #10): advance before drawing, using the
+  // just-computed viewport so seasonal drift spawns/recycles within view.
+  updateParticles(dt, currentSeason(calendar), currentPhase(calendar), { camx, camy, vw, vh });
   drawWaterShimmer(ctx, time);
   drawOpenWaterShimmer(ctx, time);       // river + lake surface + fishing-spot ripples
   drawDock(ctx, time);                    // walkable, drawn at ground level under entities
@@ -1618,6 +1664,8 @@ function draw() {
   for (const e of ents) e.f();
 
   if (hovered) hovered.drawHover(ctx, time);
+
+  drawParticles(ctx);   // world-space, depth-agnostic: above every entity, below the tint/vignette
 
   for (const s of smoke) {
     ctx.fillStyle = `rgba(230,230,235,${s.a})`;

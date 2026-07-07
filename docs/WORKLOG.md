@@ -29,6 +29,129 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Parallax skyline + ambient particles
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part B commit 2 — at least one distant parallax band beyond
+  the world's north edge (rolling hills + tree line + a mountain hint), plus a
+  pooled ambient particle system (`src/art/particles.ts`): seasonal drift
+  (petals/motes-fireflies/leaves/snow) and a `burst(kind,x,y)` feedback API,
+  wired to 3 real actions (catch landed, harvest, skill gain).
+- **Done:**
+  - **Files:**
+    - `src/engine/camera.ts`: `applyCamera()` gains a 5th param `northMargin =
+      0` — lets the camera's y-clamp go as low as `-northMargin` instead of
+      the historical hard `0` floor. Every existing caller keeps the old
+      behavior (default 0); only main.ts's world-scene draw passes
+      `CAM_NORTH_SKY_MARGIN`.
+    - `src/art/parallax.ts` (NEW): `drawParallaxBand(g, camx)` blits a
+      pre-baked (`paintBand()`, same offscreen-canvas technique world/
+      ground.ts uses) strip — sky gradient, two hazy mountain ranges
+      clustered over the farm's stretch, two rolling-hill layers, and a
+      tree-line silhouette flush at the strip's bottom edge — offset by
+      `camx * (1 - PARALLAX_FACTOR)` so it scrolls at 0.3x camera speed.
+      Placement is a **judgment call grounded in docs**: WORLD_MAP.md's
+      intended-feel notes say "the mine entrance is visible on the horizon
+      from the farm", so the mountain hint sits over the west (farm) side of
+      the band, echoing that future landmark without committing to the still-
+      open mine-location decision. The band is exactly `CAM_NORTH_SKY_MARGIN`
+      tall so its bottom sits flush at world y=0 — no separate overlap
+      bookkeeping (an earlier version used a +40px overlap, which put the
+      tree line INSIDE the zone the opaque ground image covers, hiding it
+      entirely — caught during verification, see Rough edges).
+    - `src/art/particles.ts` (NEW): one fixed-size pool
+      (`PARTICLE_POOL_MAX`=160 records, `active` toggles a slot — zero
+      per-frame allocation). `updateParticles(dt, season, phase, viewport)`
+      tops up the ONE currently-active seasonal drift kind toward its cap
+      (spring petals / summer motes by day, fireflies by dusk-night / autumn
+      falling leaves / winter snow) and recycles anything that drifts out of
+      the (padded) viewport or whose kind no longer matches the season/time —
+      so changing season/time cleanly clears the wrong kind instead of
+      leaving stragglers. `burst(kind,x,y)` (splash/leafpuff/glint) grabs free
+      slots from the SAME pool for a short-lived feedback sparkle. Per-kind
+      look/feel numbers (colors, speeds, sizes) are pure art constants in this
+      file, matching rig.ts/animalRig.ts's own stated convention; the pool
+      caps + burst counts (the numbers that matter for perf/balance) are in
+      config.ts. `debugParticleCounts()` is a dev-only verification hook
+      (active-slot counts by kind).
+    - `src/main.ts`: `draw()` now takes `dt` (passed from `tick()`) so
+      particles can advance using the frame's own delta. World scene: camera
+      call passes `CAM_NORTH_SKY_MARGIN`; `drawParallaxBand()` is called right
+      after the viewport clear, BEFORE `ctx.drawImage(ground,...)`, so the
+      opaque ground clips the band's seam; `updateParticles()` runs with the
+      just-computed viewport; `drawParticles()` is called after the entity
+      pass + hover glow, before the smoke/tint/vignette (world-space,
+      depth-agnostic, above ents, below the tint per the brief). Three real
+      triggers: `burst("splash", ...bobberSpot())` when a cast resolves
+      (`bobberSpot()` is a **judgment call** — `FishingState` doesn't track
+      the exact cast point, so it approximates the bobber from the player's
+      facing direction, echoing rig.ts's own rod-reach distance);
+      `burst("leafpuff", cell.x, cell.y)` on a successful harvest; a new
+      `onSkillGain(id, gained)` helper (glint burst + the existing popup/log)
+      replacing 5 duplicated `skillGainPopup+logSkillGain` pairs across
+      fishing/foraging/busking/cooking/farming — a small reuse cleanup that
+      fell out of wiring the single skill-gain trigger. Dev bridge additions
+      (all dead-code-eliminated in prod): `enter()` (mirrors the existing
+      `leave()`), `particleCounts()`, `harvestPlot0()` (forces plot 0 ripe +
+      harvests it — verification-only, lets the leaf-puff burst be exercised
+      without a full till/plant/grow cycle).
+    - `src/config.ts`: `CAM_NORTH_SKY_MARGIN`, `PARALLAX_FACTOR`,
+      `PARTICLE_POOL_MAX`, `PARTICLE_AMBIENT_MAX`, `PARTICLE_FIREFLY_MAX`,
+      `PARTICLE_BURST_COUNTS`, `PARTICLE_VIEWPORT_PAD` (added alongside
+      commit 1's knobs in the prior commit; only these are exercised here).
+  - **Behavior:** Walking near the world's north edge (forest's north end, the
+    road's north branch, the roadside trees) now reveals a distant sky band —
+    mountains, hills, a tree line — that scrolls slower than the foreground,
+    reading as "beyond the world" rather than a static sticker. Elsewhere
+    (most of the map) nothing changes — the sky gap simply isn't in view. The
+    world now carries sparse, gentle seasonal ambience (petals in spring,
+    daytime motes/dusk-night fireflies in summer, falling leaves in autumn,
+    snow in winter), plus three feedback sparkles: a splash at the bobber when
+    a cast lands, a leaf-puff on harvest, and a tiny gold glint at the player
+    on any skill-gain tick.
+- **Build:** `npm run build` — passing.
+- **Verification:** headless Playwright against the dev server.
+  - **Parallax:** screenshotted at two player x-positions 1000px apart near
+    the north edge — the mountain/hill silhouette recognizably shifted but far
+    less than the foreground (which showed a completely different part of the
+    farm), confirming the sub-1x scroll. A mid-map screenshot (well south of
+    the edge) showed no sky gap at all. Zoomed fully in and fully out near the
+    edge — clean seam, no tiling artifacts, no stretching at either extreme.
+  - **Seasonal drift:** rather than eyeballing screenshots for something as
+    fine as falling leaves (which can look like the ground's own pre-baked
+    leaf-litter decoration at a glance), I added `debugParticleCounts()` and
+    read it directly: spring/day -> `{petal:22}`, summer/day -> `{mote:16}`,
+    summer/night -> `{firefly:10}`, autumn/day -> `{leaf:22}`, winter/day ->
+    `{snow:22}` — each exactly the one expected kind, capped correctly
+    (`PARTICLE_FIREFLY_MAX`=10 for fireflies, `PARTICLE_AMBIENT_MAX`=22 for
+    the rest), with NO cross-contamination between seasons/times (confirms
+    the recycle-on-mismatch logic actually clears stale kinds).
+  - **Bursts:** same counter, polled every ~80ms right after triggering each
+    action, to catch the brief (0.4-0.65s) burst mid-flight: a real fish catch
+    (via the dev bridge's `castPond()`, after giving the player a rod —
+    fishing is gated on holding one, a real gate I'd initially forgotten in a
+    test, not a bug) showed `{splash:8, glint:6}` (the glint from that same
+    catch's skill-gain roll) exactly matching `PARTICLE_BURST_COUNTS`; a
+    forced-ripe harvest (`harvestPlot0()`) showed `{leafpuff:7, glint:6}`,
+    again exact. Screenshots at the moment of detection show the splash at
+    the water's edge and the "Harvested corn!" toast.
+  - Combined worst case (autumn leaves near cap + a storm) sampled 150
+    `requestAnimationFrame` deltas: avg 16.62ms, max 18.6ms — no fps
+    collapse from running both systems together; no console/page errors in
+    any pass.
+- **Commit:** <hash> — Parallax skyline + ambient particles
+- **Follow-ups / rough edges:**
+  - `bobberSpot()`'s facing-direction approximation is a stand-in for a real
+    tracked cast point; if `FishingState` ever grows an explicit bobber
+    x/y (e.g. for a future bite-animation), the splash should read from that
+    instead.
+  - The parallax band's mountain placement is a judgment call (grounded in
+    WORLD_MAP.md's "visible on the horizon from the farm" line) — it isn't
+    tied to the still-open mine-location decision, so it may need to move
+    once that's settled.
+  - Ambient particles update unconditionally, even while paused (same
+    look-and-feel call as commit 1's weather layer) — not exercised by an
+    automated pause-state assertion.
+
 ## Day/night tint + weather visual layer
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part B commit 1 — a continuous (hour+minute, not the 4 stepped
