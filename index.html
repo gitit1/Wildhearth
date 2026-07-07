@@ -189,6 +189,56 @@
     .choice-card:hover{border-color:#e8c34f;background:rgba(230,190,80,.15)}
     .choice-card h3{margin:8px 0 6px;font-size:15px;color:#ffd54f}
     .choice-card p{margin:0;font-size:12px;opacity:.8;line-height:1.45}
+    .choice-card.sel{border-color:#e8c34f;background:rgba(230,190,80,.22);
+      box-shadow:0 0 0 1px #e8c34f inset}
+    .choice-card .cc-note{margin-top:6px;color:#ffd54f;opacity:.95;font-weight:700;font-size:11px}
+    /* ============ Character Creation + Path/Goal screens ============ */
+    .cc-panel{max-width:760px;width:min(760px,calc(100vw - 24px));
+      max-height:92vh;overflow-y:auto;text-align:left}
+    .cc-title{font-size:30px;text-align:center;margin-bottom:12px}
+    .cc-body{display:flex;gap:22px;align-items:flex-start}
+    .cc-left{flex:none}
+    .cc-preview{background:radial-gradient(ellipse at 50% 42%,rgba(90,120,70,.35),rgba(14,18,10,.55));
+      border:2px solid var(--wood);border-radius:12px;box-shadow:var(--pill-shadow)}
+    .cc-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:11px}
+    .cc-field{display:flex;flex-direction:column;gap:5px}
+    .cc-field.cc-inline{flex-direction:row;align-items:center;gap:12px}
+    .cc-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+    .cc-names{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+    .cc-input{flex:1;min-width:96px;background:var(--cell-bg);border:1px solid var(--cell-edge);
+      border-radius:8px;color:var(--ink);font:inherit;font-size:14px;padding:8px 10px}
+    .cc-input:focus{outline:none;border-color:var(--gold-soft)}
+    .cc-dice{flex:none;width:40px;height:38px;border-radius:9px;border:2px solid var(--wood);
+      background:var(--panel-bg);color:var(--ink);font-size:19px;cursor:pointer;line-height:1;box-shadow:var(--pill-shadow)}
+    .cc-dice:hover{border-color:var(--gold-soft)}
+    .cc-stepper{display:flex;align-items:center;gap:8px}
+    .cc-step{width:30px;height:30px;border-radius:8px;border:1px solid var(--cell-edge);
+      background:var(--cell-bg);color:var(--ink);font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0}
+    .cc-step:hover{border-color:var(--gold-soft)}
+    .cc-age-val{min-width:34px;text-align:center;font-size:16px;font-weight:800;color:var(--gold);
+      font-variant-numeric:tabular-nums}
+    .cc-toggle,.cc-row{display:flex;gap:6px}
+    .cc-row.cc-wrap{flex-wrap:wrap}
+    .cc-btn{background:var(--cell-bg);border:1px solid var(--cell-edge);border-radius:8px;
+      color:var(--ink);font:inherit;font-size:13px;font-weight:700;padding:6px 12px;cursor:pointer}
+    .cc-btn:hover{border-color:var(--gold-soft)}
+    .cc-btn.sel{background:rgba(230,190,80,.9);color:#241d0e;border-color:#b8912f}
+    .cc-swatch{width:30px;height:30px;border-radius:8px;border:2px solid rgba(240,234,214,.25);
+      cursor:pointer;padding:0}
+    .cc-swatch:hover{border-color:var(--gold-soft)}
+    .cc-swatch.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,213,79,.5)}
+    .cc-outfit{width:36px;height:30px}
+    .cc-continue{margin-top:16px}
+    .cc-section-head{font-size:14px;font-weight:800;color:var(--gold);letter-spacing:.04em;
+      text-align:center;margin:14px 0 4px;text-transform:uppercase}
+    .goal-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:2px 0}
+    .cc-goal{display:flex;flex-direction:column;gap:2px;text-align:left;width:138px;
+      background:var(--cell-bg);border:2px solid var(--cell-edge);border-radius:10px;
+      color:var(--ink);font:inherit;padding:8px 10px;cursor:pointer}
+    .cc-goal:hover{border-color:var(--gold-soft)}
+    .cc-goal.sel{border-color:var(--gold);background:rgba(230,190,80,.18)}
+    .cc-goal-title{font-size:14px;font-weight:800;color:var(--gold)}
+    .cc-goal-blurb{font-size:11px;opacity:.82;line-height:1.35}
     .reveal-bar{pointer-events:auto;margin-bottom:56px;background:rgba(25,32,18,.92);
       border:2px solid #7a5c34;border-radius:14px;padding:16px 24px;text-align:center;max-width:600px;
       color:#f0ead6}

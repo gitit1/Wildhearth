@@ -20,6 +20,8 @@ export const ITEM_NAMES: Record<string, string> = {
   hoe: "Hoe",
   rod: "Fishing rod",
   lute: "Lute",
+  pot: "Cooking pot",       // Animal-Keeper kit — enables the hearth loop from day one
+  pail: "Feed pail",        // Animal-Keeper kit — inert until you own an animal to feed
   hen: "Hen",       // livestock: named for shop rows/toasts, never a bag item
   cow: "Cow",
   "flower-seeds": "Flower seeds",

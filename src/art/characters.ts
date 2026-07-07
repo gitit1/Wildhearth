@@ -5,15 +5,18 @@
  * here, so main.ts's draw + depth-sort code is untouched. When NPCs arrive
  * next block they call drawRig directly with their own RigParams.
  */
-import { drawRig, RIG_STRIDE } from "./rig";
+import { drawRig, RIG_STRIDE, type RigParams } from "./rig";
 import { drawQuadruped, drawBird, COW_RIG, HEN_RIG, QUAD_STRIDE, BIRD_STRIDE } from "./animalRig";
 import { roundR, outline } from "./shapes";
 import { DEFAULT_PLAYER_RIG, type Player } from "../entities/player";
 import type { Cow, Hen } from "../entities/animals";
 import type { Npc } from "../entities/npc";
 
-export function drawFarmer(g: CanvasRenderingContext2D, p: Player, t: number) {
-  drawRig(g, p.x, p.y, p.dir, DEFAULT_PLAYER_RIG, p.pose, p.dist / RIG_STRIDE, t);
+/** The player, drawn with her created look. `rig` comes from her saved
+ *  Character (main owns it, rebuilt on New Game); falls back to the default
+ *  farmer when a caller has none. */
+export function drawFarmer(g: CanvasRenderingContext2D, p: Player, t: number, rig: RigParams = DEFAULT_PLAYER_RIG) {
+  drawRig(g, p.x, p.y, p.dir, rig, p.pose, p.dist / RIG_STRIDE, t);
 }
 
 /** Live relationship readout for the name pill (Relationship engine). Romance

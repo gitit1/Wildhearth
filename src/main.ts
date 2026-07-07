@@ -61,7 +61,7 @@ import {
   restore, edibleHunger, needsRecord, drink, wash, useOuthouse, rest,
   PHYSICAL_NEEDS, type NeedId, saveNeeds,
 } from "./systems/needs";
-import { loadMeta, saveMeta } from "./systems/meta";
+import { loadMeta, saveMeta, characterForPath, type Character, type Path } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import { stampSave } from "./systems/saveSlots";
 import {
@@ -103,7 +103,11 @@ import {
 } from "./ui/shopwindow";
 import { showTitle, hideOpening } from "./ui/titlescreen";
 import { showIntro, showReveal } from "./ui/intro";
-import { showStarterChoice, showTutorialToggle, type StarterTool } from "./ui/newgame";
+import { showPathAndGoal, showTutorialToggle } from "./ui/newgame";
+import { showCharacterCreation } from "./ui/charcreation";
+import { STARTER_FOOD, pathById } from "./data/paths";
+import { rigFromCharacter } from "./entities/player";
+import type { RigParams } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
@@ -150,6 +154,9 @@ const worldFlags = loadWorldFlags();
 const needs = loadNeeds();
 const relationships = loadRelationships();
 const meta = loadMeta();
+// the player's drawn look, built from her created Character (rebuilt on New
+// Game). Old / pre-character saves fall back to the default farmer rig.
+let playerRigParams: RigParams = rigFromCharacter(meta.character);
 registerBushes(bushes);
 registerPlots(plots, plots, () => currentSeason(calendar));
 registerFlowerBeds(garden);
@@ -326,7 +333,12 @@ if (import.meta.env.DEV)
     flag: (key: string, days = 4) => setWorldFlag(worldFlags, key, days, absoluteDay(calendar)),
     repairFarm: () => { farm.roof = true; farm.window = true; farm.barn = true; farm.fence = true; },
     begin: () => beginPlay(),                     // skip the title screens into live play
-    newGame: () => { newGameReset(meta.starterTool as StarterTool, isGuided()); beginPlay(); },
+    newGame: () => { newGameReset(meta.character ?? characterForPath("fisher"), isGuided()); beginPlay(); },
+    // start a fresh life on a chosen path without walking the creation screens
+    newGameWith: (path: Path, guided = false) => { newGameReset(characterForPath(path), guided); beginPlay(); },
+    meta: () => meta,                             // read the live character/path/goal for verification
+    skillOf: (id: string) => skillValue(skills, id),
+    invOf: (id: string) => countItem(economy.inv, id),
     // save-system verification bridge — force the two save paths and shrink
     // the autosave interval instead of waiting 10 real minutes
     saveNow: manualSave,
@@ -665,6 +677,7 @@ function firstTip(): string {
     case "rod":  return "Tip: click the pond to cast — your rod's ready. First coins await!";
     case "lute": return "Tip: click the busking spot and play a tune for your first coins!";
     case "hoe":  return "Tip: forage a bush or fish the pond for first coins — then buy seeds for your hoe.";
+    case "pot":  return "Tip: forage a bush, then cook at your hearth — a warm dish sells for more than its parts!";
     default:     return "Tip: click the pond to fish or a bush to forage — first coins!";
   }
 }
@@ -677,14 +690,16 @@ function beginPlay() {
     setTimeout(() => toast(firstTip()), 500);
 }
 
-function newGameReset(tool: StarterTool, guided: boolean) {
+function newGameReset(character: Character, guided: boolean) {
   clearSavedGame();                 // wipe every game-state key first, then re-seed fresh
-  economy.coins = STARTING_COINS;   // "enough for exactly one starter-tool choice" — anchor table: 50
+  const path = pathById(character.path);
+  economy.coins = STARTING_COINS;   // 50 — the anchor-table purse, "enough for one starter choice"
   economy.inv.slots.fill(null);
-  addItem(economy.inv, tool);
+  for (const [id, n] of path.kit) addItem(economy.inv, id, n);        // path kit (tool + specifics)
+  for (const [id, n] of STARTER_FOOD) addItem(economy.inv, id, n);    // + 2-3 days of food (all paths)
   saveEconomy(economy);
   for (const s of skills.list) { s.value = 0; s.lock = "up"; }
-  const seeded = getSkill(skills, tool === "hoe" ? "farming" : tool === "rod" ? "fishing" : "busking");
+  const seeded = getSkill(skills, path.skill);                        // seed the path's preferred skill
   if (seeded) seeded.value = STARTER_SKILL_SEED;
   saveSkills(skills);
   resetPlots(plots);                        // also drops purchased expansion cells
@@ -702,9 +717,11 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   resetLivestock(livestock);
   cows.length = 0; hens.length = 0;   // the yard empties with the new life
   initNpcPositions(npcs, calendar, weather);   // re-snap townsfolk to fresh day-1 morning
-  meta.starterTool = tool;
+  meta.character = character;
+  meta.starterTool = path.tool;       // kept in sync for the systems that still read it
   saveMeta(meta);
-  saveSettings({ guided });         // settings are not game state — kept across a New Game
+  playerRigParams = rigFromCharacter(character);   // she now looks like the person she made
+  saveSettings({ guided });           // settings are not game state — kept across a New Game
 }
 
 // ---- Save system (Part A #11): every store already saves itself on every
@@ -747,10 +764,19 @@ function autosaveTick() {
 
 document.getElementById("saveBtn")!.addEventListener("click", manualSave);
 
+// New Game flow (DECISIONS "Opening flow" + VISION "Opening sequence"):
+// character creation (identity/appearance) → intro story → farm reveal →
+// starting path + life-goal → guidance → play. Identity is collected first,
+// then carried through the intro/reveal in this closure and joined with the
+// path/goal chosen AFTER seeing the place.
 showTitle(
   hasSavedGame(),
-  () => showIntro(() => showReveal(() => showStarterChoice((tool) =>
-    showTutorialToggle((guided) => { newGameReset(tool, guided); beginPlay(); })))),
+  () => showCharacterCreation((identity) =>
+    showIntro(() => showReveal(() =>
+      showPathAndGoal((path, lifeGoal) => {
+        const character: Character = { ...identity, path, lifeGoal };
+        showTutorialToggle((guided) => { newGameReset(character, guided); beginPlay(); });
+      })))),
   beginPlay,
 );
 
@@ -1079,7 +1105,7 @@ function draw() {
     { y: OUTHOUSE.y + OUTHOUSE.h, f: () => drawOuthouse(ctx, OUTHOUSE) },
     { y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
-    { y: player.y + 13, f: () => drawFarmer(ctx, player, time) },
+    { y: player.y + 13, f: () => drawFarmer(ctx, player, time, playerRigParams) },
     // the neighbour farm (cared-for: repaired roof/window/barn) — decorative
     { y: NEIGHBOR.house.y + NEIGHBOR.house.h, f: () => drawHouse(ctx, true, true, NEIGHBOR.house) },
     { y: NEIGHBOR.barn.y + NEIGHBOR.barn.h, f: () => drawBarn(ctx, true, NEIGHBOR.barn) },
@@ -1139,7 +1165,7 @@ function drawInteriorScene() {
   ctx.fillStyle = "#171209";                     // beyond-the-walls darkness
   ctx.fillRect(camx, camy, vw, vh);
   drawInterior(ctx, time, currentPhase(calendar));
-  drawFarmer(ctx, player, time);
+  drawFarmer(ctx, player, time, playerRigParams);
   if (hovered) hovered.drawHover(ctx, time);
   drawVignette("rgba(60,45,25,0)", "rgba(15,10,5,.42)");   // dimmer indoors
 }

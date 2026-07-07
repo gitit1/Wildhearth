@@ -324,6 +324,46 @@ function paintCow(g: CanvasRenderingContext2D, s: number) {
   g.fillRect(s * 0.56, s * 0.68, s * 0.05, s * 0.14);
 }
 
+/** A feed pail — a metal bucket with a hoop handle (Animal-Keeper kit). */
+function paintPail(g: CanvasRenderingContext2D, s: number) {
+  // tapered bucket body
+  g.fillStyle = "#9aa2ab";
+  g.beginPath();
+  g.moveTo(s * 0.34, s * 0.4); g.lineTo(s * 0.66, s * 0.4);
+  g.lineTo(s * 0.6, s * 0.78); g.lineTo(s * 0.4, s * 0.78);
+  g.closePath(); g.fill();
+  // rim + a little grain of feed at the top
+  g.fillStyle = "#c4cad2";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.4, s * 0.16, s * 0.06, 0, 0, 7); g.fill();
+  g.fillStyle = "#d8b25a";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.4, s * 0.1, s * 0.035, 0, 0, 7); g.fill();
+  // shading band + hoop handle
+  g.fillStyle = "#7f868f";
+  g.fillRect(s * 0.4, s * 0.6, s * 0.2, s * 0.05);
+  g.strokeStyle = "#6f767f"; g.lineWidth = Math.max(1, s * 0.035); g.lineCap = "round";
+  g.beginPath(); g.arc(s * 0.5, s * 0.4, s * 0.17, Math.PI * 1.08, Math.PI * 1.92, true); g.stroke();
+}
+
+/** A cooking pot — squat black cauldron with a lid knob (Animal-Keeper kit). */
+function paintPot(g: CanvasRenderingContext2D, s: number) {
+  // body
+  g.fillStyle = "#3a3a40";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.58, s * 0.26, s * 0.2, 0, 0, 7); g.fill();
+  g.fillRect(s * 0.24, s * 0.44, s * 0.52, s * 0.14);
+  // rim + lid
+  g.fillStyle = "#55555e";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.44, s * 0.27, s * 0.08, 0, 0, 7); g.fill();
+  g.fillStyle = "#2c2c32";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.42, s * 0.22, s * 0.06, 0, 0, 7); g.fill();
+  g.beginPath(); g.arc(s * 0.5, s * 0.38, s * 0.035, 0, 7); g.fill();   // lid knob
+  // little side handles + a warm sheen
+  g.strokeStyle = "#2c2c32"; g.lineWidth = Math.max(1, s * 0.04); g.lineCap = "round";
+  g.beginPath(); g.arc(s * 0.24, s * 0.52, s * 0.05, Math.PI * 0.4, Math.PI * 1.6); g.stroke();
+  g.beginPath(); g.arc(s * 0.76, s * 0.52, s * 0.05, Math.PI * 1.4, Math.PI * 0.6); g.stroke();
+  g.fillStyle = "rgba(255,255,255,.14)";
+  g.beginPath(); g.ellipse(s * 0.42, s * 0.55, s * 0.06, s * 0.03, -0.4, 0, 7); g.fill();
+}
+
 const PAINTERS: Record<string, IconPainter> = {
   fish: paintFish,
   coins: paintCoinPouch,
@@ -333,6 +373,8 @@ const PAINTERS: Record<string, IconPainter> = {
   corn: paintCorn,
   rod: paintRod,
   lute: paintLute,
+  pot: paintPot,
+  pail: paintPail,
   hen: paintHen,
   cow: paintCow,
   boot: paintBoot,

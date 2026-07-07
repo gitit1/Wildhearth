@@ -1,34 +1,169 @@
 import { META_KEY } from "../config";
+import type { HairStyle, BodyBuild, Outfit } from "../art/rig";
 
 /**
- * Playthrough meta — one-time origin facts chosen at New Game, kept so the
- * game can remember *how* this life began even after its effects (the tool in
- * the bag, the seeded skill) have long since changed. Versioned and
- * junk-tolerant like every other store (Step 9 save hardening).
+ * Playthrough meta — one-time origin facts chosen at New Game (Character
+ * Creation), kept so the game can remember *who* this life began as even after
+ * the effects of that choice (the kit in the bag, the seeded skill) have long
+ * since changed. Versioned and junk-tolerant like every other store.
+ *
+ * `starterTool` is kept in sync with the chosen path (rod/hoe/lute/pot) so the
+ * older systems that already read it (the first-tip, the fishing/farming tool
+ * gates) keep working unchanged; `character` is the full identity the
+ * Character Creation screen writes. Old saves (pre-character) synthesize a
+ * default character on load, derived from their starterTool, so downstream code
+ * (the player's rig, the Aspiration life-goal) always has one to read.
  */
 
-export type StarterTool = "hoe" | "rod" | "lute";
+export type StarterTool = "hoe" | "rod" | "lute" | "pot";
+export type Gender = "female" | "male";
+export type Path = "fisher" | "farmer" | "musician" | "keeper";
+export type LifeGoal = "family" | "independence" | "community" | "mastery" | "fortune";
 
-export interface Meta { version: number; starterTool: StarterTool | null }
+/** The rig-relevant subset the creation screen sets — everything drawRig needs
+ *  to paint an individual, minus the fixed v1 values (scale 1, adult profile,
+ *  neutral limb lengths). */
+export interface Appearance {
+  skin: string;
+  hair: HairStyle;
+  hairColor: string;
+  hatColor?: string;       // used when hair === "hat"
+  build: BodyBuild;
+  outfit: Outfit;
+}
 
-const FRESH: Meta = { version: 1, starterTool: null };
+/** Identity + look, collected on the first screen (before the path/goal one). */
+export interface CharacterIdentity {
+  firstName: string;
+  lastName: string;
+  nickname?: string;
+  age: number;             // 18-70, stored as the chosen number
+  gender: Gender;
+  appearance: Appearance;
+}
 
-function isTool(v: unknown): v is StarterTool {
-  return v === "hoe" || v === "rod" || v === "lute";
+/** The full character: identity + the path & life-goal chosen after the reveal. */
+export interface Character extends CharacterIdentity {
+  path: Path;
+  lifeGoal: LifeGoal;
+}
+
+export interface Meta {
+  version: number;
+  starterTool: StarterTool | null;
+  character: Character | null;
+}
+
+/** The established straw-hat farmer look — the fallback for old saves and the
+ *  seed the rig derives DEFAULT_PLAYER_RIG from (entities/player.ts). */
+export const DEFAULT_APPEARANCE: Appearance = {
+  skin: "#e8b48a",
+  hair: "hat",
+  hairColor: "#5b3b22",
+  hatColor: "#e0be5c",
+  build: "average",
+  outfit: { torso: "#b0432f", legs: "#4a5d8a", accent: "#7a3020", shoes: "#4b3a26" },
+};
+
+const NAME_MAX = 16;
+const PATH_TOOL: Record<Path, StarterTool> = {
+  fisher: "rod", farmer: "hoe", musician: "lute", keeper: "pot",
+};
+const TOOL_PATH: Record<StarterTool, Path> = {
+  rod: "fisher", hoe: "farmer", lute: "musician", pot: "keeper",
+};
+
+const isTool = (v: unknown): v is StarterTool =>
+  v === "hoe" || v === "rod" || v === "lute" || v === "pot";
+const isPath = (v: unknown): v is Path =>
+  v === "fisher" || v === "farmer" || v === "musician" || v === "keeper";
+const isGoal = (v: unknown): v is LifeGoal =>
+  v === "family" || v === "independence" || v === "community" || v === "mastery" || v === "fortune";
+const isHair = (v: unknown): v is HairStyle =>
+  v === "short" || v === "ponytail" || v === "bun" || v === "bald" || v === "hat";
+const isBuild = (v: unknown): v is BodyBuild =>
+  v === "slim" || v === "average" || v === "round";
+
+const str = (v: unknown, fallback: string) =>
+  typeof v === "string" && v.trim() ? v.slice(0, NAME_MAX) : fallback;
+const clampAge = (v: unknown) =>
+  typeof v === "number" && Number.isFinite(v) ? Math.max(18, Math.min(70, Math.round(v))) : 25;
+
+function cloneAppearance(a: Appearance): Appearance {
+  return { ...a, outfit: { ...a.outfit } };
+}
+
+function reviveAppearance(a: Partial<Appearance> | undefined): Appearance {
+  if (!a || typeof a !== "object") return cloneAppearance(DEFAULT_APPEARANCE);
+  const o = (a.outfit && typeof a.outfit === "object" ? a.outfit : DEFAULT_APPEARANCE.outfit) as Partial<Outfit>;
+  return {
+    skin: str(a.skin, DEFAULT_APPEARANCE.skin),
+    hair: isHair(a.hair) ? a.hair : DEFAULT_APPEARANCE.hair,
+    hairColor: str(a.hairColor, DEFAULT_APPEARANCE.hairColor),
+    hatColor: typeof a.hatColor === "string" ? a.hatColor : DEFAULT_APPEARANCE.hatColor,
+    build: isBuild(a.build) ? a.build : DEFAULT_APPEARANCE.build,
+    outfit: {
+      torso: str(o.torso, DEFAULT_APPEARANCE.outfit.torso),
+      legs: str(o.legs, DEFAULT_APPEARANCE.outfit.legs),
+      accent: typeof o.accent === "string" ? o.accent : DEFAULT_APPEARANCE.outfit.accent,
+      shoes: typeof o.shoes === "string" ? o.shoes : DEFAULT_APPEARANCE.outfit.shoes,
+      torsoStyle: typeof o.torsoStyle === "number" ? o.torsoStyle : undefined,
+      legStyle: typeof o.legStyle === "number" ? o.legStyle : undefined,
+    },
+  };
+}
+
+/** A default character for a chosen path — used by the dev bridge and as the
+ *  shape old saves are backfilled into. */
+export function characterForPath(path: Path): Character {
+  return {
+    firstName: "Robin", lastName: "Vale", age: 25, gender: "female",
+    appearance: cloneAppearance(DEFAULT_APPEARANCE), path, lifeGoal: "independence",
+  };
+}
+
+/** Synthesize a full character from an old save's lone starter tool. */
+function synthCharacter(tool: StarterTool): Character {
+  return characterForPath(TOOL_PATH[tool] ?? "fisher");
+}
+
+function reviveCharacter(c: Partial<Character> | undefined, tool: StarterTool | null): Character | null {
+  if (c && typeof c === "object" && isPath(c.path)) {
+    const nick = typeof c.nickname === "string" && c.nickname.trim()
+      ? c.nickname.slice(0, NAME_MAX) : undefined;
+    return {
+      firstName: str(c.firstName, "Robin"),
+      lastName: str(c.lastName, "Vale"),
+      ...(nick ? { nickname: nick } : {}),
+      age: clampAge(c.age),
+      gender: c.gender === "male" ? "male" : "female",
+      appearance: reviveAppearance(c.appearance),
+      path: c.path,
+      lifeGoal: isGoal(c.lifeGoal) ? c.lifeGoal : "independence",
+    };
+  }
+  // old save (pre-character): backfill from the starter tool so the rig and the
+  // Aspiration life-goal always have a character to read
+  return tool ? synthCharacter(tool) : null;
 }
 
 export function loadMeta(): Meta {
   try {
     const raw = localStorage.getItem(META_KEY);
-    if (!raw) return { ...FRESH };
-    const d = JSON.parse(raw) as Partial<Meta>;
-    return { version: 1, starterTool: isTool(d.starterTool) ? d.starterTool : null };
+    if (!raw) return { version: 1, starterTool: null, character: null };
+    const d = JSON.parse(raw) as Partial<Meta> & { character?: Partial<Character> };
+    const starterTool = isTool(d.starterTool) ? d.starterTool : null;
+    return { version: 1, starterTool, character: reviveCharacter(d.character, starterTool) };
   } catch {
-    return { ...FRESH };
+    return { version: 1, starterTool: null, character: null };
   }
 }
 
 export function saveMeta(m: Meta) {
-  try { localStorage.setItem(META_KEY, JSON.stringify({ version: 1, starterTool: m.starterTool })); }
-  catch { /* private mode */ }
+  // keep starterTool coherent with the character's path even if a caller only
+  // set one of the two
+  const starterTool = m.character ? PATH_TOOL[m.character.path] : m.starterTool;
+  try {
+    localStorage.setItem(META_KEY, JSON.stringify({ version: 1, starterTool, character: m.character }));
+  } catch { /* private mode */ }
 }

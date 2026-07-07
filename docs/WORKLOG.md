@@ -42,6 +42,94 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Character creation — identity, appearance presets, paths & life goals
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Character Creation flow v1 (FABLE_PROMPT Part A #10 + Part E
+  #4). Replace the MVP's single-tool newgame placeholder with the real flow:
+  identity (name/age/gender), curated appearance presets with a live rig
+  preview + Randomize, four Starting Paths (Fisher/Farmer/Musician/Animal-
+  Keeper) each granting a kit + seeding a skill, and a five-option Life-goal.
+  Re-order per DECISIONS "Opening flow" + VISION: creation → intro → farm
+  reveal → path + life-goal → guidance → play. Persist a versioned, tolerant
+  `character` on meta; old (pre-character) saves keep working via a synthesized
+  default. First of two interlocking commits (guidance engine follows).
+- **Done:**
+  - **Files:**
+    - `src/systems/meta.ts` (EXTENDED): new persisted types `Gender`, `Path`
+      (fisher/farmer/musician/keeper), `LifeGoal` (family/independence/
+      community/mastery/fortune), `Appearance` (rig-relevant subset),
+      `CharacterIdentity`, `Character`. `StarterTool` gains `"pot"` (Keeper).
+      `Meta` now carries `character: Character | null`. `DEFAULT_APPEARANCE`
+      (the straw-hat farmer), `characterForPath()`, and a tolerant
+      `loadMeta`/`saveMeta` that revives a stored character field and, for old
+      saves that only have a `starterTool`, **synthesizes** a default character
+      (tool→path) so downstream code always has one. `saveMeta` keeps
+      `starterTool` in sync with `character.path`.
+    - `src/entities/player.ts` (CHANGED): `DEFAULT_PLAYER_RIG` is now derived
+      from `rigFromCharacter(null)`; new exported `rigFromCharacter(c)` builds a
+      `RigParams` from a character's `Appearance` (fixed v1 scale/adult profile/
+      neutral limbs), falling back to `DEFAULT_APPEARANCE`.
+    - `src/data/paths.ts` (NEW): the four `PATHS` (title, tool, iconId, seeded
+      skill, kit, blurb, note), `STARTER_FOOD` (berries ×3 — the universal 2-3
+      days of food), `pathById()`, plus `LIFE_GOALS` + `lifeGoalById()`.
+    - `src/ui/charcreation.ts` (NEW): `showCharacterCreation(onDone)` — the
+      identity+appearance screen. Name inputs (first/last/optional nickname,
+      capped) + 🎲 Randomize, age stepper (18-70), gender toggle, and curated
+      preset rows (5 skins, the rig's 5 hair styles, 6 hair colours, 3 builds,
+      4 outfit schemes). A canvas runs a live `drawRig` idle-breathing preview
+      that slowly turns between facings and updates on every change.
+    - `src/ui/newgame.ts` (REWRITTEN): the old single-tool `showStarterChoice`
+      is replaced by `showPathAndGoal(onDone)` — four code-drawn path cards +
+      five life-goal chips. `showTutorialToggle` kept as the interim guidance
+      step (Commit 2 replaces it with the three-way picker).
+    - `src/art/icons.ts`: new `paintPot` + `paintPail` painters, registered for
+      the `pot`/`pail` Keeper-kit items (path card icon + backpack).
+    - `src/systems/inventory.ts`: `ITEM_NAMES` for `pot` ("Cooking pot") and
+      `pail` ("Feed pail").
+    - `src/art/characters.ts`: `drawFarmer(g, p, t, rig?)` now takes the live
+      rig (defaults to `DEFAULT_PLAYER_RIG`).
+    - `src/main.ts`: new opening-flow wiring (creation → intro → reveal →
+      path/goal → toggle → play); `playerRigParams` rebuilt from the character
+      on load + New Game and passed to both `drawFarmer` calls; `newGameReset`
+      now takes a `Character`, grants the path kit + `STARTER_FOOD` + 50 coins,
+      seeds the path's skill, and stores the character; `firstTip()` gains a
+      `pot` (Keeper) case; dev bridge gains `newGameWith(path)`, `meta()`,
+      `skillOf`, `invOf`.
+    - `index.html`: wood/gold chrome for the creation + path/goal screens
+      (`.cc-*`, `.choice-card.sel`, `.goal-row`, `.cc-goal`).
+  - **Systems / functions:** `rigFromCharacter`, `characterForPath`,
+    `pathById`, `lifeGoalById`; `PATHS`/`LIFE_GOALS`/`STARTER_FOOD` content;
+    `showCharacterCreation`, `showPathAndGoal`. No new save key — the character
+    rides on the existing `META_KEY` (versioned, tolerant). `newGameReset`
+    signature: `(tool, guided)` → `(character, guided)`.
+  - **Behavior:** New Game now opens a real Character Creation screen: the
+    player names herself, sets age/gender, and dresses a live code-drawn
+    preview from curated presets (with a dice to randomize everything). After
+    the skippable intro and the farm reveal she picks one of four Starting
+    Paths — each grants its kit (Fisher: rod; Farmer: hoe + 3 corn-seed
+    packets; Musician: lute; Keeper: feed pail + cooking pot), seeds its skill
+    to 10, and every path also gets 50 coins + 3 berries of food — and a
+    life-goal. Her chosen look is who she is in the world from then on. Old
+    saves Continue exactly as before (a default character is synthesized for
+    them); a New Game started from an old save wipes and reseeds cleanly.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright drove the real game (37/37 checks):
+  full New-Game UI flow (creation with preset changes + a proven live-preview
+  update on outfit change + Randomize, intro skip, farm reveal before the path
+  choice, path + life-goal, guidance); all four kits land correctly (tool +
+  skill 10 + 50 coins + 3 berries, plus corn-seeds×3 for Farmer and the pail
+  for Keeper) with the path/goal stored; an old pre-character save Continues
+  with coins/inventory intact and a synthesized farmer character; and New Game
+  from an old save reseeds. Zero page/console errors.
+- **Commit:** `<fill>` — Character creation — identity, appearance presets,
+  paths & life goals
+- **Follow-ups:** The stored `age`, `gender`, and `nickname` aren't surfaced
+  in-world yet (no dialogue/HUD reads them in v1) — they're persisted and
+  ready. Rig `age` profile is always "adult" for created characters (the 18-70
+  number is stored but doesn't bend the rig toward "elder"). Guidance is still
+  the interim guided/open toggle — replaced by the three-way engine in the
+  next commit.
+
 ## Seasonal wildlife — butterflies, songbirds, rabbits, deer by season & weather
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** ROADMAP_EXPANSION's "Wild animals along the road/river"

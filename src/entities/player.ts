@@ -2,6 +2,7 @@ import { T, PLAYER_SPEED, CLICK_ARRIVE } from "../config";
 import { blocked } from "../world/collision";
 import { inputVec, getMoveTarget, clearMoveTarget } from "../engine/input";
 import type { PoseName, RigParams } from "../art/rig";
+import { DEFAULT_APPEARANCE, type Appearance, type Character } from "../systems/meta";
 
 export interface Player {
   x: number; y: number;
@@ -17,29 +18,31 @@ export function createPlayer(): Player {
 }
 
 /**
- * The player's look. One place, one object — later set by the Character
- * Creation flow; for now it reproduces the established straw-hat farmer
- * (reddish tunic, blue-grey trousers) so the character reads as the same
- * person, just rigged and alive. It is a plain RigParams, exactly like the
- * ones the 10 NPCs will each get next block.
+ * The player's look, built from her chosen Appearance (Character Creation).
+ * The rig's fixed v1 values (unit scale, adult profile, neutral limb lengths)
+ * live here; the individual bits (skin, hair, build, outfit) come from the
+ * saved character. A null character (a brand-new boot, or an old pre-character
+ * save) falls back to DEFAULT_APPEARANCE — the established straw-hat farmer.
  */
-export const DEFAULT_PLAYER_RIG: RigParams = {
-  scale: 1,
-  build: "average",
-  legLength: 1,
-  armLength: 1,
-  skin: "#e8b48a",
-  hair: "hat",
-  hairColor: "#5b3b22",
-  hatColor: "#e0be5c",
-  age: "adult",
-  outfit: {
-    torso: "#b0432f",
-    legs: "#4a5d8a",
-    accent: "#7a3020",
-    shoes: "#4b3a26",
-  },
-};
+export function rigFromCharacter(c: Character | null): RigParams {
+  const a: Appearance = c?.appearance ?? DEFAULT_APPEARANCE;
+  return {
+    scale: 1,
+    build: a.build,
+    legLength: 1,
+    armLength: 1,
+    skin: a.skin,
+    hair: a.hair,
+    hairColor: a.hairColor,
+    hatColor: a.hatColor,
+    age: "adult",
+    outfit: { ...a.outfit },
+  };
+}
+
+/** The fallback look — the straw-hat farmer — for any caller without a live
+ *  character (old saves, the rig preview's default). */
+export const DEFAULT_PLAYER_RIG: RigParams = rigFromCharacter(null);
 
 export function updatePlayer(p: Player, dt: number) {
   const [ix, iy] = inputVec();
