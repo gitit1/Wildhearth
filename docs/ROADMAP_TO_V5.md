@@ -115,8 +115,8 @@ Terse cell = the state of that system at that version. "→" means "grows into."
 | **Festivals / calendar / weather** | Calendar+weather built; **1 festival**; weather affects needs/wildlife | 1 festival, town-wide participation | 2 festivals | 3 festivals | **4 festivals** (one/season) |
 | **Character creation** | Gender, presets, name, 4 paths, short life-goal, guidance mode | + wardrobe/outfit swap (town) | + appearance via professions | Personality begins to matter | Full spectrum, personality axes, backstories, multi-character |
 | **Save system** | 1 slot, autosave, versioned per-store | 1 slot | 1 slot | 1 slot | **2nd slot** + multi-character |
-| **Menus / settings** | Title, new-game, char-create, guidance, settings (AI/day-length/HUD/EOD), pause, exit | Same + map markers begin | + storage/employee UI | + family/home UI | Full, rotatable camera option |
-| **Art / visual layer** | Full "depth illusion" foundation: outlines, shadows, segmented rig, day/night tint, weather visuals, parallax, particles | Town/coast painters | Mine/profession-station painters | Family/furniture painters | Fullest juice pass (rig upgrade, secondary motion) |
+| **Menus / settings** | Title, new-game, char-create, guidance, settings (AI/day-length/HUD/EOD/**Windows** presets), pause, exit — every panel is now a draggable/resizable/minimizable **UO-classic window** on a persisted desktop (`WINDOW_SYSTEM.md`); title/pause/exit/What's-New/Help/Credits deliberately stay full-screen overlays, not windows | Same + map markers begin | + storage/employee UI | + family/home UI | Full, rotatable camera option |
+| **Art / visual layer** | Full "depth illusion" foundation (outlines, shadows, segmented rig, day/night tint, weather visuals, parallax, particles) + **PixelLab sprite layer** (buildings, heroine, 10 NPCs, farm animals — dual-path, code fallback always kept) | Town/coast sprite buildings (~1 gen/variant, proven) + new-NPC sprites (~2+16 gens each + poses) + code painters for water/motion | Mine/profession-station art on the same sprite pipeline | Family/furniture art on the same sprite pipeline | Fullest juice pass (rig upgrade, secondary motion) — the code rig stays every sprite's fallback |
 
 ---
 
@@ -189,14 +189,31 @@ are built.
   built forward-compatible for a future 2nd slot / multi-character.
 - **Menus (new):** full main menu (Continue / New Game / What's New / Settings
   / Help / Credits / Exit), Settings (day-length, HUD panel, end-of-day
-  summary, accessibility, audio, AI section, save management), Guidance picker,
-  Pause, three-way Exit dialog.
+  summary, accessibility, audio, AI section, save management, **Windows**
+  presets), Guidance picker, Pause, three-way Exit dialog. **Updated (session
+  2):** every player-facing panel — backpack, skills, minimap, memory book,
+  shop/trade, gift chooser, dialogue, day-end summary, in-game Settings — is
+  now a real **window** (drag/resize/minimize-to-dock/close/pin/z-order) on a
+  persisted UO-classic desktop, including the game viewport itself
+  (`WINDOW_SYSTEM.md`); only the title screen, Pause, the Exit dialog, and
+  What's New/Help/Credits deliberately stay full-screen overlays (menus, not
+  workspace content).
 - **Art / visual layer (new, large):** the "depth illusion" foundation —
   universal outlines, elliptical + diagonal cast shadows, a **segmented rig**
   for player/NPCs/animals with per-action poses, multi-tone canopies, rich
   ground texture, parallax band, weather visuals (rain/storm/fog), day/night
   tint driven by `calendar.ts`, ambient particles. Plus the content library
-  (~20 crops, ~10 fish, 6–8 animals, outfits, tools) — all code-drawn.
+  (~20 crops, ~10 fish, 6–8 animals, outfits, tools). **Updated (session 2):**
+  buildings (farmhouse/barn/4 themed stalls/well/6 cottages), the heroine (5
+  hairstyles + runtime hair/dress recolour), all 10 NPCs, and 5 farm-animal
+  species are now **PixelLab-sprite-sourced**, dual-path with the code
+  rig/painter always kept as fallback (`PIXELLAB_ASSETS.md`); crops, trees,
+  ambient decorations, tools, and seasonal wildlife stay code-drawn, with an
+  approved MIX path (object-states for crop growth stages, inpainting for
+  tree seasons) gated behind its own batch, not yet run. Standing cost: a
+  Tier-2 PixelLab subscription, ~5,000 generations/month — the full v1
+  sprite bar measured at 575–1,547 gens (`SCALING_DECISION.md`), 3–8x under
+  budget; review time, not generation budget, is the real bottleneck.
 
 **Gap from current build → v1 complete:** everything under "Not yet built"
 above — the four new core engines (NPC, Needs, Relationships, Dialogue+AI),
@@ -228,6 +245,10 @@ library are parallelizable to subagents; the menus are broad but shallow.
   cost must be tuned against the price anchor table.
 - **Segmented rig scope creep** — one rig serving player + NPCs + animals with
   many action poses is a large art-engine task; risk of it swallowing time.
+  **Largely resolved in practice (session 2):** the rig now mainly serves as
+  the universal dual-path fallback beneath the PixelLab sprite layer, which
+  absorbed most of the "does it look good" burden (see the Art / visual
+  layer note above).
 - **Festival theme** and **life-goal list** are still open decisions.
 
 ---
@@ -263,6 +284,10 @@ sightings that fill the bird/animal/flower collections. Transportation
   trait-derived preference (rare aquatic items) is the first live instance.
 - **NPCs:** roster grows toward ~15–25 with the town homes; the
   `systems/schedule.ts` engine moves them between fixed points across the day.
+  **Costed (session 2):** each new NPC on the proven sprite pipeline runs
+  ~2+16 gens (8 rotations + an 8-dir walk + an 8-dir idle) plus a few gens
+  per extra action pose — comfortably inside the standing ~5,000 gens/month
+  subscription even at the top of this roster range.
 - **Dialogue + AI:** AI (if on) now covers town NPCs, gossip between them, and
   location-aware lines (the condition-keyed dialogue table).
 - **Needs:** + sleeping at the inn (a second sleep location).
@@ -274,8 +299,14 @@ sightings that fill the bird/animal/flower collections. Transportation
   for duplicate rare catches.
 - **Festivals:** the one festival now has town-wide NPC participation.
 - **Character creation:** + first appearance *change* during play (wardrobe).
-- **Art:** town + coast + boat/water + neighbouring-farm painters; a basic
-  diving underwater transition.
+- **Art:** town + coast + boat/water + neighbouring-farm art. **Updated
+  (session 2):** buildings now follow the proven PixelLab batch-variety
+  pipeline instead of pure code painters — ~1 generation per building
+  variant (8 distinct farmhouses cost 9 gens in the v1 probe,
+  `SCALING_DECISION.md`), flat-front guardrailed for this game's
+  non-isometric camera; large open ground, water, and all motion/atmosphere
+  stay code-drawn by deliberate design (the pipeline's own division of
+  media). A basic diving underwater transition (code).
 
 **Gap from v1:** build the town region and its buildings; the schedule engine;
 customers + reputation; the Fisherwoman's full kit (rod tiers, bait, teaching,
@@ -288,7 +319,10 @@ locations; the Fisherwoman's boat gates diving/net/deep-water fish; sightings
 need the (built) collections engine + binoculars.
 
 **Scope estimate:** ~8–12 weeks (rough). The Fisherwoman block alone is large;
-the town buildout is broad but reuses established patterns.
+the town buildout is broad but reuses established patterns. Its ART cost is
+now a small, proven fraction of the standing ~5,000 gens/month PixelLab
+subscription (buildings ~1 gen/variant; NPCs ~2+16 gens each) — review time,
+not generation budget, is the real bottleneck (`SCALING_DECISION.md`).
 
 **Key risks / unknowns:**
 - **Mine/mountain gating** is still an open decision (reachable from
@@ -347,7 +381,9 @@ gets its first real furniture (tier-2 templates).
 - **Festivals:** a second festival added.
 - **Character creation:** the **first real customization moment** — appearance
   changed through the Fashion/Hairdressing professions (not a day-one screen).
-- **Art:** mine/profession-station painters; tier-2 furniture painters.
+- **Art:** mine/profession-station art + tier-2 furniture art, on the same
+  PixelLab sprite pipeline proven in v1 (dual-path, code fallback kept)
+  rather than pure painters.
 
 **Gap from v2:** the crafting engine + chains; Mining + the mine region;
 Fashion/Tailoring + Hairdressing professions and their stations; appearance
@@ -413,7 +449,8 @@ season and supply. A third festival joins the calendar.
 - **Character creation:** personality begins to matter (traits influence
   family/dialogue), foreshadowing v5's full personality axes.
 - **Save:** still one slot (2nd slot is v5, but the architecture is ready).
-- **Art:** family/child/furniture painters; fuller home interiors.
+- **Art:** family/child/furniture art, on the same PixelLab sprite pipeline
+  (dual-path); fuller home interiors.
 
 **Gap from v3:** the marriage→cohabitation→children flow; NPC↔NPC
 relationships + rumors; full pet depth; tier-3 freeform housing; dynamic
@@ -488,7 +525,9 @@ game.
 - **Art:** the fullest juice pass — player rig upgrade (jointed limbs, per-
   action animation arcs), secondary motion (hair/cloth sway, facial states),
   faked-height depth (two-face buildings, diagonal cast shadows), full ambient
-  life, feedback juice (particles, floating numbers, gentle screen shake).
+  life, feedback juice (particles, floating numbers, gentle screen shake). The
+  segmented code rig remains the universal fallback beneath every sprite
+  category, per the v1 dual-path rule.
 
 **Gap from v4:** scale the NPC roster to 50+ with families/backstories; full
 personality axes + evolution; multi-character + second save slot; the full

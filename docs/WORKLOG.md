@@ -29,6 +29,71 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## docs — status refresh: ROADMAP_TO_V5 pipeline shifts + GAME_OVERVIEW/WORLD_MAP reality
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** refresh three status/planning docs to reflect the two
+  session-2 architecture shifts (the PixelLab sprite pipeline going live,
+  the UO-classic window system shipping) and, for GAME_OVERVIEW.md
+  specifically, a full status-tag pass against everything WORKLOG/git shows
+  as actually built across both sessions. Docs only — no source changes.
+- **Done (docs only):**
+  - **`docs/ROADMAP_TO_V5.md`** — surgical edits, structure/estimates kept
+    intact: the "Art / visual layer" and "Menus / settings" rows of the
+    v1-v5 system matrix; v1's "Art / visual layer (new, large)" bullet (now
+    notes what's sprite-sourced vs. still code-drawn, the MIX path, and the
+    ~5,000 gens/month standing cost); v1's "Menus (new)" bullet (the window
+    system); the "Segmented rig scope creep" risk (now largely mitigated by
+    the sprite layer); v2's "NPCs"/"Art" bullets + scope estimate (buildings
+    ~1 gen/variant, NPCs ~2+16 gens each, standing subscription cost); v3's
+    and v4's "Art" bullets and v5's "Art" bullet (same pipeline, dual-path
+    fallback note kept).
+  - **`docs/GAME_OVERVIEW.md`** — comprehensive status-tag flip against
+    WORKLOG/git: **Needs** (🔵→🟢, 7 not 5), **Relationships** (🔵→🟢,
+    marriage/children/pets still 🔵), **Quests** (clarified: guidance
+    delivery 🟢, a real quest system still 🔵, AI quest-gen is a stub only),
+    **Character creation & customization** (🔵→🟢, deep customization via
+    professions still 🔵), **NPC brain / AI layer** (⚪→🟢, off by default,
+    8 features), the **NPCs** section rewritten (🟡→🟢: the 10-NPC roster,
+    sprited, schedules, dialogue; the Riverside Fisherwoman's full concept
+    kept honestly 🔵 — she isn't any of the 10), **Seasons & Weather**
+    (added festival engine + seasonal wildlife + day/night/weather visuals,
+    all 🟢), **Art direction** (rewritten: the "no image assets" rule
+    amendment, the segmented rig/day-night/weather/parallax/particles/
+    shadows all 🟢, the full PixelLab sprite pipeline 🟢, crops/trees/MIX
+    path/two-face buildings/underwater transitions kept 🔵), a new "Menus,
+    screens & the window system 🟢" section, the world table (Market/dock,
+    Road, Forest edge, River flipped to 🟢 with honest carve-outs for what
+    isn't built at each), and "The opening arc" (🟡→🟢: character creation,
+    the four Starting Paths, and the Guidance Mode engine). Also corrected
+    a stale "starting coins 15" anchor-table figure to 50 (DECISIONS.md +
+    commit `ff95174`) and a stale "will read from once it exists" line
+    about the dialogue system (now built). Town, Crafting, the quest
+    SYSTEM, marriage, the Mine, the Riverside Fisherwoman's deep kit, fast
+    travel, barter, and Reputation are all deliberately left 🔵/🟡/⚪ — none
+    of that is built yet. Doc's voice/format/legend preserved throughout.
+  - **`docs/WORLD_MAP.md`** — tracking-sheet refresh for the built regions:
+    Market/dock area, Forest edge, and Road (farm → town) flipped to ✅ with
+    notes on what's actually built (themed stalls, 6 cottage variants, the
+    forest passage, the established neighbor farmhouse); River's note
+    clarified to separate the built physical region from the still-unbuilt
+    Riverside Fisherwoman; the "First NPC roster" row's notes updated to
+    name the built 10-NPC roster and note the Fisherwoman isn't among them;
+    the closing "Next places to walk through together" pointer updated
+    (road/market/river/forest-edge are now built in code, not just walked
+    in chat — the town is what's actually left). Town, Coast, Deep forest,
+    and the Mine left exactly as-is (all still future).
+  - **Not touched** (by instruction): `docs/HANDOFF.md`,
+    `docs/SCALING_DECISION.md`, `docs/PIXELLAB_ASSETS.md`.
+- **Build:** `npm run build` — ✅ (no source change; verified anyway per
+  the mandatory workflow).
+- **Commit:** docs — status refresh: ROADMAP_TO_V5 pipeline shifts + GAME_OVERVIEW/WORLD_MAP reality
+- **Follow-ups:** `docs/ROADMAP_TO_V5.md`'s "Current build state (mid-v1)"
+  and "Not yet built for v1" sections still predate Parts A-E's completion
+  (the NPC engine/Needs/Relationships/Dialogue+AI etc. are already built) —
+  out of scope for this pass (which only covers the two named architecture
+  shifts); a fuller reconciliation of that doc against WORKLOG is a
+  separate follow-up.
+
 ## Farmyard sprites — cow, pig, sheep, hen, duck on the animal bridge
 - **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 6)
 - **Block given:** Integrate the farm-animal sprite batch (cow/pig/sheep/dog/cat
