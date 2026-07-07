@@ -1,12 +1,13 @@
 import { T } from "../config";
 import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
-import { shadow, outline, oRect } from "./shapes";
+import { shadow, outline, oRect, castShadow } from "./shapes";
 
 /** A tree with a blob-clustered, three-tone canopy: a dark under-layer, the
  *  mid-tone body, and sunlit top clusters — each tree slightly its own shade
  *  (deterministic by position). */
 export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  castShadow(g, x, y, 14, 46);   // the canopy's own blob shadow, cast from the trunk's base
   shadow(g, x + 4, y + 6, 20, 8);
   const rnd = mulberry32(((x * 31) ^ (y * 17)) | 0);
   const hueShift = (rnd() - 0.5) * 0.15;           // subtle per-tree variation
@@ -285,7 +286,9 @@ export function drawBuskSpot(g: CanvasRenderingContext2D, x: number, y: number, 
     g.ellipse(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.7, 5 + rnd() * 2, 3.5 + rnd() * 1.5, a, 0, 7);
     g.fill();
   }
-  // upturned hat
+  // upturned hat (audit fix, Part B #1-2: it's a small raised object sitting
+  // on the cobbles — give it the same under-entity shadow every other prop has)
+  shadow(g, x, y + 4, 8, 3);
   g.fillStyle = "#7a5230";
   g.beginPath(); g.ellipse(x, y + 2, 9, 5, 0, 0, 7); g.fill(); outline(g);
   g.fillStyle = "#5d3e22";
@@ -362,6 +365,8 @@ export function drawDock(g: CanvasRenderingContext2D, t: number) {
   }
   // two mooring posts at the far (south) end
   const bob = Math.sin(t * 1.5) * 0.8;
+  castShadow(g, x + 4.5, y + h + 6 + bob, 2.5, 10);
+  castShadow(g, x + w - 4.5, y + h + 6 - bob, 2.5, 10);
   oRect(g, x + 2, y + h - 4 + bob, 5, 10, "#6f5334");
   oRect(g, x + w - 7, y + h - 4 - bob, 5, 10, "#6f5334");
 }

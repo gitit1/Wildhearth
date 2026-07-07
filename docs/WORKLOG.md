@@ -29,6 +29,123 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Cast shadows + outline/shadow audit
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part B commit 3 — diagonal cast shadows (item 3) for tall
+  objects, distinct from the existing under-entity ellipse (items 1-2), plus
+  an audit of every entity type added this session for outline + ellipse
+  coverage, tree canopy tone, and rich-ground-texture reach.
+- **Done:**
+  - **Files:**
+    - `src/art/shapes.ts`: `castShadow(g, footX, footY, halfW, rise)` — a
+      skewed dark quadrilateral thrown toward the lower-right (fixed
+      upper-left sun), ~16% base alpha (spec: 12-18%). Reads a tiny
+      module-level "sun state" (`sunLenMult`, `sunAlphaMult`) set once per
+      frame via `setSunFactors()` — the SAME pattern `engine/camera.ts`
+      already uses for `lastCam`, chosen over threading hour/minute through
+      every painter's signature (would have touched a dozen call sites for no
+      real benefit). `getSunFactors()` is a dev-only verification hook.
+    - `src/art/daynight.ts` (touched in commit 1, exercised here):
+      `shadowFactors(hour, minute)` — shares commit 1's `sampleAt()`
+      keyframe interpolator against a SEPARATE table tuned for shadow
+      length/alpha: shortest (`CAST_SHADOW_LEN_NOON`=0.55) and near-full
+      alpha at solar noon, longest (`CAST_SHADOW_LEN_EDGE`=1.6) at dawn/dusk,
+      fading to near-invisible (`CAST_SHADOW_ALPHA_NIGHT`=0.05) at night.
+    - `src/engine/camera.ts`: `getLastCam()` (dev-only) — exposes the raw
+      camera state for a verification hook that maps a world point straight
+      to a canvas pixel.
+    - `src/art/buildings.ts`: `castShadow()` added to `drawHouse` (also
+      covers the neighbor farm's house — same function, different rect),
+      `drawBarn` (ditto, neighbor's barn), `drawStall` (covers all 4 market
+      stalls, same function), `drawCottage`, `drawOuthouse`, `drawWell`.
+    - `src/art/props.ts`: `castShadow()` added to `drawTree` (the canopy's
+      blob shadow, anchored at the trunk base) and to `drawDock`'s two
+      mooring posts. Audit fix: `drawBuskSpot`'s upturned hat had NO
+      under-entity shadow (it's a small raised object sitting on the
+      cobbles, same as every other prop) — added the shared `shadow()`
+      ellipse.
+    - `src/art/rig.ts`: `castShadow()` added to `drawRig` — a short skewed
+      blob, distinct from (and drawn alongside) the existing under-feet
+      ellipse. Since NPCs and the player both go through this ONE shared
+      rig, this single change covers the player AND all 10 NPCs.
+    - `src/main.ts`: `setSunFactors(shadowFactors(calendar.hour,
+      calendar.minute))` called once per frame in the world scene's `draw()`,
+      right after the ground image and before the depth-sorted entity pass
+      (interior scene doesn't call it — no tall silhouettes indoors). Dev
+      bridge (verification-only): `shadowFactorsNow()`, `sunFactorsRaw()`,
+      `worldToCanvasPx()`.
+  - **Audit table** (every entity type added this session — outline / ellipse
+    shadow / cast shadow):
+
+    | Entity | Outline | Ellipse shadow | Cast shadow | Notes |
+    |---|---|---|---|---|
+    | Player + NPCs (shared rig) | ✓ (already) | ✓ (already) | **added** | one shared function covers both |
+    | Wildlife: songbird/duck (bird rig) | ✓ (already) | ✓ (already) | n/a | low profile, not in item 3's list |
+    | Wildlife: rabbit/hare/deer (quad rig) | ✓ (already) | ✓ (already) | n/a | ditto |
+    | Wildlife: butterfly (bespoke shape) | ✓ (already) | ✓ (already) | n/a | ditto |
+    | Cow / Hen | ✓ (already) | ✓ (already) | n/a | ditto |
+    | House (+ neighbor's) | ✓ (already) | ✓ (already) | **added** | |
+    | Barn (+ neighbor's) | ✓ (already) | ✓ (already) | **added** | |
+    | Farm stall / 4 market stalls | ✓ (already) | ✓ (already) | **added** | one function, all 5 |
+    | Cottages (6) | ✓ (already) | ✓ (already) | **added** | |
+    | Well | ✓ (already) | ✓ (already) | **added** | |
+    | Outhouse | ✓ (already) | ✓ (already) | **added** | |
+    | Dock (deck + posts) | ✓ (already) | reflection substitutes (over water) | **added** (posts) | deck itself doesn't need one — it's flush with the water, not raised |
+    | Hedges | ✓ (already) | base-tint substitutes | not applicable | a running wall, not a discrete tall object; the flat base tint already reads as grounded |
+    | Trees (farm/forest/roadside) | ✓ (already) | ✓ (already) | **added** | canopy blob shadow |
+    | Busk spot (cobbles + hat) | ✓ (already) | **fixed** (was missing) | not applicable | a ground-flush decal except the small hat, which now has one |
+    | Festival: lantern poles, harvest clusters | ✓ (already) | ✓ (already) | not applicable (not in item 3's list; short props) | |
+    | Festival: bunting | n/a (overhead, not ground-touching) | n/a | n/a | correct as-is |
+
+    Multi-tone tree canopies: verified 3 shades still read (dark under-layer,
+    mid-tone body, sunlit top clusters) in the farm AND forest regions — no
+    fix needed. Rich ground texture (grass tufts + flower dots): verified it
+    extends into the road/neighbor-farm/market gaps (painted before the
+    region-specific overlays clip their own footprint) — no flat regions
+    found; forest gets its own equally rich dappled-leaf-litter treatment.
+- **Build:** `npm run build` — passing.
+- **Verification:** headless Playwright against the dev server; this one took
+  real debugging (see Rough edges) before I trusted the result.
+  - Screenshots at the market square (well + 4 stalls + 6 cottages + 7 NPCs
+    all in frame) at noon and dusk, the forest, the road/neighbor-farm strip,
+    and a zoomed house+barn crop: every building/tree/NPC/player shows a
+    lower-right cast shadow; shadows read visibly longer at dusk than noon;
+    zoomed fully in and fully out — no artifacts, no double-shadows.
+  - Because the effect is intentionally subtle (~16% alpha, per spec) against
+    an already-textured ground, comparing noon vs. dusk screenshots by eye
+    was inconclusive at first, and a naive pixel-strip/area-average sampling
+    attempt was too noisy (confounded by the ground's own dirt-clump texture
+    AND by the separate day/night tint, which is strongest exactly when
+    shadows are longest — dawn/dusk). I did NOT declare success on ambiguous
+    data: I built an isolated, blank-canvas test (`isolated_shadow_test.html`,
+    scratchpad-only, not part of the repo) that calls the exact same
+    `castShadow` formula directly with `lenMult=0.55` vs `lenMult=1.0` side by
+    side on a plain background — it shows an unambiguous, clearly-longer
+    parallelogram on the `1.0` side. Combined with `sunFactorsRaw()`
+    confirming the module-level state genuinely differs by time (0.3 night /
+    0.55 noon / 1.0 morning-evening / 1.6 dawn-dusk-edge, matching
+    `shadowFactors()`'s own output exactly), this confirms the mechanism is
+    correct; the in-game subtlety is a deliberate consequence of the spec'd
+    low alpha plus a busy, textured background, not a bug.
+  - No console/page errors in any pass.
+- **Commit:** <hash> — Cast shadows + outline/shadow audit
+- **Follow-ups / rough edges:**
+  - Verifying this block took several wrong turns worth recording: an hour-6
+    vs. noon screenshot comparison was contaminated by the day/night tint
+    (also strongest at low sun angles); an ASCII brightness-grid over a wide
+    area mostly captured the pre-baked ground's own dirt-clump texture noise,
+    not the shadow. The lesson (left here for whoever verifies the next
+    subtle low-alpha visual effect): isolate the primitive on a blank canvas
+    FIRST, rather than trying to diff two busy, multi-layered screenshots.
+  - The busk spot's hat shadow and the dock posts' cast shadows are small
+    enough that I couldn't get a clean isolated screenshot of either — verified
+    by code-reading + the pattern's success everywhere else it was applied
+    (well/cottages/stalls/houses all confirmed visually), not by a dedicated
+    screenshot.
+  - Dock deck / hedges / festival lantern poles+harvest clusters were audited
+    and judged NOT to need a cast shadow (see the table's Notes column) —
+    flagged here in case that judgment call needs revisiting later.
+
 ## Parallax skyline + ambient particles
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part B commit 2 — at least one distant parallax band beyond

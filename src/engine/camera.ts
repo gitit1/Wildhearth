@@ -7,6 +7,13 @@ import {
 let lastCam = { camx: 0, camy: 0, scale: 1 };
 let canvas: HTMLCanvasElement | null = null;
 
+/** Dev-only verification hook: the raw camera state (backing-store scale +
+ *  world offset) so an automated check can map a world point straight to a
+ *  canvas pixel (the inverse of screenToWorld) without duplicating the math. */
+export function getLastCam(): { camx: number; camy: number; scale: number } {
+  return lastCam;
+}
+
 /** Player-controlled zoom factor on top of the automatic fit (wheel / +−). */
 let userZoom = 1;
 export function adjustZoom(steps: number) {

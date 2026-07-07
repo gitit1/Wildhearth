@@ -1,5 +1,5 @@
 import { HOUSE, BARN, STALL, type Rect } from "../world/zones";
-import { shadow, oRect, outline, OUTLINE, OUTLINE_W } from "./shapes";
+import { shadow, oRect, outline, OUTLINE, OUTLINE_W, castShadow } from "./shapes";
 import { mulberry32 } from "../engine/rng";
 
 /** Vertical plank striping for wall faces: alternating tones, thin seams,
@@ -68,6 +68,7 @@ function drawShingleRoof(
 
 export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk = true, r: Rect = HOUSE) {
   const { x, y, w, h } = r;
+  castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.3);
   shadow(g, x + w / 2 + 8, y + h + 8, w * 0.55, 12);
   drawPlankWall(g, x, y + h * 0.35, w, h * 0.65, "#c9a06a", 101);
   oRect(g, x + w * 0.44, y + h * 0.55, w * 0.13, h * 0.45, "#7a5230");
@@ -110,6 +111,7 @@ export function drawHouse(g: CanvasRenderingContext2D, roofOk = true, windowOk =
 
 export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = BARN) {
   const { x, y, w, h } = r;
+  castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.2);
   shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
   drawPlankWall(g, x, y + h * 0.3, w, h * 0.7, "#b24a3e", 303);
   // the barn roof shares the shingle treatment (weathered until mended)
@@ -141,6 +143,7 @@ export function drawStall(
   awning = "#c05038", accent = "#7fb0c8", sign: StallSign = "fish",
 ) {
   const { x, y, w, h } = r;
+  castShadow(g, x + w / 2, y + h, w * 0.5, h * 0.9);
   shadow(g, x + w / 2 + 4, y + h + 6, w * 0.55, 8);
   // counter
   oRect(g, x, y + h * 0.45, w, h * 0.55, "#9a7245");
@@ -201,6 +204,7 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number) 
   const { x, y, w, h } = r;
   const rnd = mulberry32(seed);
   const wall = ["#d8b483", "#cca878", "#c9b98f", "#d3a06e"][(rnd() * 4) | 0]!;
+  castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.2);
   shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
   drawPlankWall(g, x, y + h * 0.36, w, h * 0.64, wall, (seed * 7) | 0);
   // door
@@ -221,6 +225,7 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number) 
  *  and small — the farm's bathroom spot before any plumbing exists. */
 export function drawOuthouse(g: CanvasRenderingContext2D, r: Rect) {
   const { x, y, w, h } = r;
+  castShadow(g, x + w / 2, y + h, w * 0.45, h);
   shadow(g, x + w / 2 + 4, y + h + 5, w * 0.5, 7);
   // slightly leaning body (it IS rickety)
   g.save();
@@ -253,6 +258,7 @@ export function drawOuthouse(g: CanvasRenderingContext2D, r: Rect) {
 /** The market square's stone well: a round wall, a little peaked roof on posts,
  *  a rope and bucket. Purely decorative. */
 export function drawWell(g: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  castShadow(g, cx, cy + r * 0.6, r * 0.9, r * 2.2);
   shadow(g, cx + 4, cy + r + 4, r * 1.1, r * 0.4);
   // stone rim
   g.fillStyle = "#9a938a";

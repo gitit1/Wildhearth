@@ -7,7 +7,7 @@ import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
   getPointerScreen, setMoveTarget, clearMoveTarget,
 } from "./engine/input";
-import { applyCamera, screenToWorld, adjustZoom } from "./engine/camera";
+import { applyCamera, screenToWorld, adjustZoom, getLastCam } from "./engine/camera";
 import { paintGround } from "./world/ground";
 import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
@@ -143,7 +143,8 @@ import {
 import { rigFromCharacter } from "./entities/player";
 import type { RigParams } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
-import { paintDayNightTint } from "./art/daynight";
+import { paintDayNightTint, shadowFactors } from "./art/daynight";
+import { setSunFactors, getSunFactors } from "./art/shapes";
 import { updateWeatherFx, drawWeatherFx } from "./art/weatherfx";
 import { drawParallaxBand } from "./art/parallax";
 import { updateParticles, drawParticles, burst, debugParticleCounts } from "./art/particles";
@@ -347,6 +348,12 @@ if (import.meta.env.DEV)
     sleep: sleepUntilMorning, nap: napAnHour,
     scene: () => scene, leave: () => leaveHouse(), enter: () => enterHouse(),
     particleCounts: () => debugParticleCounts(),
+    shadowFactorsNow: () => shadowFactors(calendar.hour, calendar.minute),
+    sunFactorsRaw: () => getSunFactors(),
+    worldToCanvasPx: (wx: number, wy: number) => {
+      const { camx, camy, scale } = getLastCam();
+      return [(wx - camx) * scale, (wy - camy) * scale];
+    },
     // Part B #10 verification bridge: force plot 0 ripe and harvest it, so the
     // leaf-puff burst can be exercised without a full till/plant/grow cycle.
     harvestPlot0: () => {
@@ -1599,6 +1606,11 @@ function draw(dt: number) {
   ctx.clearRect(camx, camy, vw, vh);
   drawParallaxBand(ctx, camx);   // beyond-the-world backdrop, drawn BEFORE the (opaque) ground clips its seam
   ctx.drawImage(ground, 0, 0);
+  // Diagonal cast shadows (Part B #3): the "sun position" for this frame,
+  // read by every drawFn's castShadow() call below via shapes.ts's tiny
+  // module-level setter (same pattern camera.ts uses for `lastCam`) — set
+  // once here rather than threading hour/minute through dozens of painters.
+  { const sf = shadowFactors(calendar.hour, calendar.minute); setSunFactors(sf.lenMult, sf.alphaMult); }
   // Ambient particle system (Part B #10): advance before drawing, using the
   // just-computed viewport so seasonal drift spawns/recycles within view.
   updateParticles(dt, currentSeason(calendar), currentPhase(calendar), { camx, camy, vw, vh });

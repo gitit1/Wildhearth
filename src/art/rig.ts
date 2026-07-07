@@ -16,7 +16,7 @@
  *
  * Pure art constants live here; gameplay-tuning values live in config.ts.
  */
-import { roundR, outline, shadow } from "./shapes";
+import { roundR, outline, shadow, castShadow } from "./shapes";
 
 const TAU = Math.PI * 2;
 
@@ -127,6 +127,9 @@ export function drawRig(
   const armLen = 11 * s * p.armLength * armMul;
   const hipHalf = b.hip * s, shHalf = b.sh * s;
 
+  // a short skewed cast shadow (Part B #3), distinct from the under-feet
+  // ellipse just below — a person is short, so this stays subtle
+  castShadow(g, x, y + 13 * s, 7 * s, 13 * s);
   // drop shadow — always under the feet, at ground level
   shadow(g, x, y + 13 * s, (10 + (p.build === "round" ? 2 : 0)) * s, 4.3 * s);
 
