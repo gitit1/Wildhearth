@@ -47,13 +47,70 @@ branch `v1-foundation`.
   interface was designed swap-ready). The loader gets built in Task 2's
   integration step.
 
+## Session-2 what-was-built
+
+- **Task 1 COMPLETE — the UO-classic window system.**
+  Core (`1a27d78`): `src/ui/windows/` WindowManager — drag, 8-handle
+  resize, minimize-to-dock strip, close/reopen (☰ menu), pin, z-order,
+  edge snap (Alt bypasses), keep-on-screen clamp; THE GAME VIEWPORT IS
+  A WINDOW on a code-drawn desktop; HUD split into clock/coins/needs/
+  icon-dock windows. Persistence + presets (`d4245c7`): layout saved on
+  `wildhearth-layout-v1`, presets Classic/Focus/Cozy + Reset in
+  Settings, `docs/WINDOW_SYSTEM.md`. Migrations (`766fb35`, `77fcb0a`):
+  backpack/skills/minimap/memory book/shop/gift chooser + dialogue/
+  debug/day-summary/in-game-settings all real windows; `makePanel`
+  deleted; Esc cascade defined (topmost closable → else pause).
+- **Task 2 wave 1 — sprites are REAL.** (`ecf98f2`, `92f15a6`)
+  `src/art/sprites.ts` loader + manifest (Vite glob), pose-level
+  dual-path player bridge (`spriteChar.ts`): the PixelLab heroine
+  (8-dir rotations + 6-frame walk + breathing idle, 84px canvas) walks
+  Wildhearth with feet-aligned rig fallback for action poses;
+  farmhouse/barn sprites with the code damage-overlays preserved
+  (renovation arc intact); hearth sprite in the interior;
+  `docs/PIXELLAB_ASSETS.md`. Fallback proven: game boots clean with the
+  assets folder emptied.
+
 ## Session-2 decisions log
-(S2-1, S2-2 above; numbering continues as they land.)
+(S2-1, S2-2 in the header above.)
+- **S2-3 (windows):** the desktop layout is a PREFERENCE, not game
+  state — `wildhearth-layout-v1` survives New Game (UO keeps your
+  desktop). The icon dock can't be closed (the reopen path must always
+  exist). Pause/main-menu/exit stay overlays — they're menus, not
+  workspace windows.
+- **S2-4 (heroine gate):** v3 generation PASSED the hair/hat/eyes gate
+  (structured straw hat, readable hair, expressive eyes, no drift
+  across 8 rotations — reviewed at full size). She is the style anchor
+  (character id `0f0c45b6-…`); all other characters are prompted to
+  match her look.
+- **S2-5 (coverage):** the sprite covers the DEFAULT female appearance;
+  any customized/male character falls back to the code rig until more
+  variants are generated. Palette-swap widening was deliberately NOT
+  attempted (her rule: a clean fallback beats a drifty sprite).
+- **S2-6 (buildings):** sprites are the REPAIRED base; the rundown
+  states remain code-drawn overlays on top — one sprite serves both
+  renovation states.
+- **S2-7 (generation batching):** map objects auto-delete in 8h →
+  download immediately; NPCs generated in batches of ~4 with a
+  per-batch full-size drift review before any animation spend.
 
 ## Session-2 subagent registry
 
 | Task | Model | Outcome | Notes |
 |---|---|---|---|
+| Window system core (T1a) | Opus | ✅ `1a27d78`+`d4245c7` | ~341k tok; input-accuracy proof Δ=0.00px |
+| Surface migrations (T1b) | Sonnet | ✅ `766fb35`+`77fcb0a` | ~589k tok; makePanel deleted, Esc cascade |
+| Sprite integration (T2) | Opus | ✅ `ecf98f2`+`92f15a6` | first launch completed pre-interrupt; second run independently verified all checks |
+
+## Session-2 PixelLab asset ledger
+
+| Asset | Mode/kind | Verdict | Where |
+|---|---|---|---|
+| Heroine (default ♀) | character v3 + walk + idle templates | ✅ PASS (gate S2-4) | `src/assets/pixellab/characters/heroine/` |
+| Farmhouse 192×176 | map object | ✅ PASS (huge upgrade) | `buildings/farmhouse.png` |
+| Barn 208×176 | map object | ✅ in game | `buildings/barn.png` |
+| Hearth 64×80 | map object | ✅ in game | `interior/hearth.png` |
+| Wave 2 (queued): room backdrop 320×240, basin, bed, chair+crate, market stall, well | map objects | baking | — |
+| Wave 3 (queued): Maren, Tobin, Sera, Liora | character v3 | baking | — |
 
 ---
 
