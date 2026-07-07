@@ -29,6 +29,116 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Content — crops, seasonal trees & bushes, ambient decorations
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part C content-library commit 1 — 9→18 crops, seasonal
+  tree/bush variants, ambient decorations to ~25 kinds. Visuals-only per
+  Part C's header rule, except where the existing table-driven systems make
+  content live for free (new crop rows are automatically plantable/stockable
+  — no shop.ts/farming.ts changes needed).
+- **Done:**
+  - **Files:**
+    - `src/data/crops.ts`: 9 new crop rows (18 total) — `cabbage` (spring+
+      autumn, floor 8), `turnip` (winter, floor 5), `pepper` (summer, floor
+      15), `squash` (autumn, floor 20), `eggplant` (summer, floor 25),
+      `parsnip` (winter, floor 35), `beet` (autumn, floor 45), `glass-gem-corn`
+      (autumn, floor 50, premium), `moonmelon` (winter, floor 60, premium).
+      Seed price kept at ~50% of produce price throughout, matching the
+      original 9's ratio exactly. Winter went from 1 crop (winterroot) to 4
+      (turnip/parsnip/winterroot/moonmelon) — the "no season thin" fix;
+      autumn is now the richest at 9. New `CropGrowthShape` field
+      (`"tall-stalk" | "bushy" | "vine"`) on every row (existing 9 back-filled
+      too) driving the field-painter silhouette (see props.ts below).
+    - `src/art/props.ts`:
+      - `drawCropTile()` gained a `growth: CropGrowthShape` param (default
+        `"tall-stalk"`, so old call sites keep the original look) dispatching
+        to two new painters: `drawBushyCrop()` (a rounded leafy mound that
+        swells with growth stage, fruit peeking once ripe — potato/tomato/
+        cabbage/pepper/eggplant) and `drawVineCrop()` (a low trailing ground
+        runner with 1-2 round fruits resting beside it — strawberry/pumpkin/
+        melon/squash/moonmelon). Corn/carrot/wheat/winterroot/turnip/parsnip/
+        glass-gem-corn keep the original upright-stalk painter.
+      - `drawTree()`: now `(g, x, y, t, season)`. Added `TreeSpecies` (`default
+        | oak | pine | birch`), picked deterministically per tree position
+        from the SAME position-seeded rng already driving the per-tree hue
+        variation (`drawTrunk()`, `CANOPY_SHAPES` table, `drawDeciduousCanopy()`,
+        `drawPineCanopy()`, `drawBareBranches()`, `drawBlossoms()`). Spring:
+        blossom flecks on ~50% of default/oak trees, ~30% of birch (pine
+        never blossoms). Summer: unchanged original 3-tone canopy. Autumn: a
+        `warm()` color-shift toward orange (birch shifts hardest — "reads the
+        most golden"), plus ~20% of deciduous trees go "patchy" (drop their
+        mid-layer's odd clusters + skip the sunlit top layer entirely, reading
+        as thinning/dropping leaves). Winter: deciduous trees go fully bare
+        (a drawn 5-branch skeleton + twig forks + a pale frost-dusting fleck
+        at each twig tip) — pine is the one evergreen, staying green year-
+        round with only a slightly cooler winter tone + a light snow dusting
+        band on each conic layer. Verified live (not baked): trees are
+        depth-sorted ents drawn fresh every frame from `main.ts`, so a season
+        change shows immediately.
+      - `drawBush()`: now `(g, x, y, full, t, season)`. New `BUSH_FULL_TINT`
+        table shifts a FULL bush's foliage per season (spring fresh green,
+        summer original tone, autumn olive/warm, winter grey-brown); picked
+        (not-full/already-picked) bushes stay visually constant across
+        seasons (already reads bare/muted).
+    - `src/art/icons.ts`: added `paintGlassGemCorn()` (same silhouette as the
+      classic ear, but each kernel is its own jewel tone) registered for
+      `glass-gem-corn`, excluded from the generic tinted-produce mapping
+      alongside `corn`. Every other new crop uses the existing generic
+      `paintProduce()`/`paintSeedPacket()` painters via its `shape`/`palette`.
+    - `src/world/ground.ts`: `scatterAmbientProps()` extended from 3 kinds
+      (stones/fallen leaves/mushrooms) to 21, plus a new dedicated
+      `scatterWaterEdgeDecor()` pass for 4 more (24 kinds total, close to the
+      ~25 target): logs, stumps, twigs, weed tufts, clover patches, pebble
+      clusters, daisies/poppies/bluebells/dandelions (via shared
+      `drawTinyFlower()` + bespoke `drawBluebell()`/`drawDandelion()`),
+      thistle, wildflower clumps (market edges), pinecones/ferns/acorns/moss
+      patches (forest floor), hay wisps (farm/road), and — in
+      `scatterWaterEdgeDecor()` — cattails + reed clumps along river/lake
+      banks, lily pads at the lake's and pond's still-water edge (the pond is
+      an ellipse, sampled by angle/radius so pads never land past the
+      shoreline — the rect-bounding-box approach was tried first and fixed
+      after a close-up screenshot showed the risk), and shells on the lake
+      shore specifically. All baked (zero per-frame cost), deterministic
+      (fixed seeds), region-gated via the existing `regionAt()` + the same
+      rejection-zone `blocked()` check the original 3 kinds use — nothing
+      spawns on the field/pond/road/buildings/trees/bushes/point-props.
+    - `src/main.ts`: `drawTree`/`drawBush` calls now pass `currentSeason(calendar)`;
+      the crop-tile draw call passes `cropById(...)?.growth`. Added a small
+      dev-only verification-bridge helper `forcePlot(i, cropId, growth)`
+      (same established pattern as the existing `harvestPlot0`) so the three
+      growth-shape painters could be screenshotted without a full till/plant/
+      water cycle — dev-only, tree-shaken from the production build.
+- **Judgment calls:**
+  - Growth-shape assignment per crop, and the exact 9 new crop identities/
+    floors/seasons, were my picks (grounded in the price-anchor table +
+    matching the original 9's seed:produce ratio) — no DECISIONS.md entry
+    named specific crops.
+  - Ambient water-edge decorations were kept baked/static rather than live
+    swaying ents; the FABLE_PROMPT allowed either and the extra per-frame
+    ents felt not worth it for how small these read at world scale.
+  - Bespoke icon painter added only for glass-gem-corn (the rainbow-kernel
+    gag needs one); moonmelon uses the generic pale-round produce painter.
+- **Verification:** `npm run build` green. Playwright (dev-bridge `window.__wh`
+  — `newGameWith`, `calendar` mutation + `snap()`, `forcePlot`, `openStallDev`)
+  against the Vite dev server, screenshots reviewed per season at the forest
+  passage, the farm yard, the pond, the lake dock, and the market square:
+  spring shows blossom flecks on deciduous trees; summer is the original
+  look; autumn reads warm/golden (pines stay green); winter trees are bare-
+  but-not-dead with a frost dusting, pines keep a snow-dusted green canopy,
+  bushes go grey-brown. Shop buy-list spot-checked in spring/summer/winter —
+  each season's new seed rows appear at the right price (e.g. winter: Winter
+  root/Turnip/Parsnip/Moonmelon seeds at 5/3/6/11). Forced 7 plots through
+  all three growth shapes side by side — tall-stalk, bushy mounds, and vine
+  runners with resting fruit read as clearly distinct silhouettes. Ambient
+  decorations (logs, wildflowers, lily pads, cattails, reeds, shells, etc.)
+  render without overlapping the house/barn/stall/pond/road/trees/bushes.
+  One bug caught and fixed during verification: lily pads at the pond
+  (ellipse, not a rect) were sampled from the ellipse's bounding box, which
+  could place a pad past the shoreline into the grass; switched to angle/
+  radius sampling inside the ellipse, re-verified with a close-up screenshot.
+- **Follow-ups:** none blocking; ambient-decoration count landed at 24 kinds
+  (vs. the ~25 target) — close enough that no further padding felt worth it.
+
 ## Cast shadows + outline/shadow audit
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part B commit 3 — diagonal cast shadows (item 3) for tall

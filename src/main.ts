@@ -363,6 +363,14 @@ if (import.meta.env.DEV)
       const obj = byId("plot-0");
       if (obj) runDefault(obj, makeCtx());
     },
+    // content-library verification bridge (commit 1): force any plot to a given
+    // crop/growth stage without a full till/plant/water cycle, so the three
+    // growth-shape painters (tall-stalk/bushy/vine) can be screenshotted directly.
+    forcePlot: (i: number, cropId: string, growth = 1) => {
+      const cell = plots[i]; if (!cell) return;
+      cell.state = growth >= 1 ? "ready" : "growing";
+      cell.cropId = cropId; cell.growth = growth; cell.watered = true; cell.dryDays = 0;
+    },
     give: (id: string, n = 1) => { addItem(economy.inv, id, n); saveEconomy(economy); },
     // relationship verification bridge — drive gifts/interactions/decay without UI
     relationships,
@@ -1632,7 +1640,8 @@ function draw(dt: number) {
     if (c.state === "tilled") drawTilledTile(ctx, c.x, c.y);
     else if (c.state === "wilted") drawWiltedTile(ctx, c.x, c.y);
     else if (c.state === "growing" || c.state === "ready")
-      drawCropTile(ctx, c.x, c.y, c.growth, time, cropById(c.cropId ?? "")?.palette, c.watered);
+      drawCropTile(ctx, c.x, c.y, c.growth, time, cropById(c.cropId ?? "")?.palette, c.watered,
+        cropById(c.cropId ?? "")?.growth);
   }
   drawBuskSpot(ctx, BUSK_SPOT[0], BUSK_SPOT[1], time);
   FLOWER_BEDS.forEach(([fx, fy], i) => drawFlowerBed(ctx, fx, fy, garden.beds[i]!, time));
@@ -1657,8 +1666,8 @@ function draw(dt: number) {
     FESTIVAL_LANTERN_SPOTS.forEach(([lx, ly]) => ents.push({ y: ly, f: () => drawLanternPole(ctx, lx, ly, time) }));
     FESTIVAL_HARVEST_CLUSTERS.forEach(([hx, hy]) => ents.push({ y: hy + 6, f: () => drawHarvestCluster(ctx, hx, hy) }));
   }
-  for (const [tx, ty] of WORLD_TREES) ents.push({ y: ty + 6, f: () => drawTree(ctx, tx, ty, time) });
-  for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time) });
+  for (const [tx, ty] of WORLD_TREES) ents.push({ y: ty + 6, f: () => drawTree(ctx, tx, ty, time, currentSeason(calendar)) });
+  for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time, currentSeason(calendar)) });
   for (const c of cows) ents.push({ y: c.y + 14, f: () => drawCow(ctx, c, time) });
   for (const h of hens) ents.push({ y: h.y + 6, f: () => drawHen(ctx, h, time) });
   for (const w of wildlife) ents.push({ y: w.y + 6, f: () => drawWildlife(ctx, w, time) });

@@ -255,6 +255,25 @@ function paintCorn(g: CanvasRenderingContext2D, s: number) {
   g.beginPath(); g.ellipse(s * 0.62, s * 0.66, s * 0.06, s * 0.18, -0.4, 0, 7); g.fill();
 }
 
+/** Glass gem corn (premium late-game crop): same silhouette as the classic
+ *  ear, but each kernel row is its own jewel tone — the whole point of it. */
+function paintGlassGemCorn(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#c9b88a";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.48, s * 0.16, s * 0.3, 0.15, 0, 7); g.fill();
+  const kernelColors = ["#b03a8a", "#4a8ac9", "#e0a12f", "#7ec46a", "#c94036"];
+  let ci = 0;
+  for (let row = 0; row < 6; row++) {
+    const ry = s * (0.24 + row * 0.085);
+    for (const ox of [-0.1, -0.02, 0.06, 0.14]) {
+      g.fillStyle = kernelColors[ci++ % kernelColors.length]!;
+      g.beginPath(); g.ellipse(s * (0.5 + ox), ry, s * 0.032, s * 0.026, 0.15, 0, 7); g.fill();
+    }
+  }
+  g.fillStyle = "#528a2c";
+  g.beginPath(); g.ellipse(s * 0.36, s * 0.62, s * 0.07, s * 0.2, 0.5, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(s * 0.62, s * 0.66, s * 0.06, s * 0.18, -0.4, 0, 7); g.fill();
+}
+
 function paintRod(g: CanvasRenderingContext2D, s: number) {
   // rod
   g.strokeStyle = "#8a6a42"; g.lineWidth = Math.max(2, s * 0.07); g.lineCap = "round";
@@ -382,8 +401,9 @@ const PAINTERS: Record<string, IconPainter> = {
   rope: paintRope,
   // every fish species shares the tinted silhouette painter
   ...Object.fromEntries(FISH.map((sp) => [sp.id, ((g, s) => paintFishSpecies(g, s, sp.palette)) as IconPainter])),
-  // crop produce (corn keeps its bespoke painter below) + tinted seed packets
-  ...Object.fromEntries(CROPS.filter((c) => c.id !== "corn")
+  "glass-gem-corn": paintGlassGemCorn,
+  // crop produce (corn + glass gem corn keep bespoke painters above) + tinted seed packets
+  ...Object.fromEntries(CROPS.filter((c) => c.id !== "corn" && c.id !== "glass-gem-corn")
     .map((c) => [c.id, ((g, s) => paintProduce(g, s, c.palette, c.shape)) as IconPainter])),
   ...Object.fromEntries(CROPS.map((c) => [c.seedId, ((g, s) => paintSeedPacket(g, s, c.palette.fruit)) as IconPainter])),
   // wild forage shares four tinted silhouettes (berries keep their classic icon)

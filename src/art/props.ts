@@ -2,42 +2,170 @@ import { T } from "../config";
 import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
 import { shadow, outline, oRect, castShadow } from "./shapes";
+import type { Season } from "../systems/calendar";
+import type { CropGrowthShape } from "../data/crops";
 
-/** A tree with a blob-clustered, three-tone canopy: a dark under-layer, the
- *  mid-tone body, and sunlit top clusters — each tree slightly its own shade
- *  (deterministic by position). */
-export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
-  castShadow(g, x, y, 14, 46);   // the canopy's own blob shadow, cast from the trunk's base
-  shadow(g, x + 4, y + 6, 20, 8);
+/** Four tree species, assigned deterministically per tree position (seeded by
+ *  its world coordinates, so the same tree is always the same species —
+ *  reload-stable, no persistence needed). Fruitless visual variety only. */
+export type TreeSpecies = "default" | "oak" | "pine" | "birch";
+
+type RGB = readonly [number, number, number];
+
+/**
+ * A tree with a blob-clustered, three-tone canopy: a dark under-layer, the
+ * mid-tone body, and sunlit top clusters — each tree slightly its own shade
+ * (deterministic by position), now season + species aware (content-library
+ * commit 1): spring blossom flecks on some deciduous trees, summer is the
+ * original full 3-tone canopy, autumn shifts warm with the odd thinned/patchy
+ * canopy, winter goes bare (a drawn branch skeleton + a pale frost dusting) —
+ * except pine, which stays a year-round evergreen. Species (round oak-ish,
+ * tall pine-ish, slim pale-trunked birch-ish, and the original default) are
+ * picked once per tree from the SAME position-seeded rng already used for the
+ * per-tree hue variation, so a reload always draws the same tree the same way.
+ * Called fresh every frame from main.ts's depth-sorted ents (never baked into
+ * the ground canvas), so a season change shows immediately, live.
+ */
+export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: number, season: Season = "summer") {
   const rnd = mulberry32(((x * 31) ^ (y * 17)) | 0);
   const hueShift = (rnd() - 0.5) * 0.15;           // subtle per-tree variation
-  const tone = (base: [number, number, number]) => {
-    const [r, gg, b] = base;
+  const speciesRoll = rnd();
+  const species: TreeSpecies =
+    speciesRoll < 0.45 ? "default" : speciesRoll < 0.65 ? "oak" : speciesRoll < 0.85 ? "pine" : "birch";
+  const blossomRoll = rnd();
+  const patchyRoll = rnd();
+
+  castShadow(g, x, y, 14, 46);   // the canopy's own blob shadow, cast from the trunk's base
+  shadow(g, x + 4, y + 6, 20, 8);
+
+  // warm-shift toward autumn oranges before the per-tree hue variation is applied
+  const warm = (base: RGB): RGB => {
+    if (season !== "autumn") return base;
+    const w = species === "birch" ? 0.6 : 0.4;     // birches read the most golden in autumn
+    return [base[0] + (215 - base[0]) * w, base[1] + (140 - base[1]) * w * 0.5, base[2] + (40 - base[2]) * w];
+  };
+  const tone = (base: RGB) => {
+    const [r, gg, b] = warm(base);
     return `rgb(${Math.round(r * (1 + hueShift))},${Math.round(gg * (1 + hueShift * 0.6))},${b})`;
   };
-  // trunk with a bark seam
-  oRect(g, x - 4, y - 14, 8, 20, "#6b4a2b");
-  g.strokeStyle = "rgba(50,32,16,.6)"; g.lineWidth = 1.5;
-  g.beginPath(); g.moveTo(x - 1, y - 12); g.lineTo(x, y + 4); g.stroke();
-  const sway = Math.sin(t * 0.8 + x) * 2;
+
+  const sway = Math.sin(t * 0.8 + x) * (species === "pine" ? 1.1 : 2);
   const sx = x + sway * 0.4;
-  // 1) dark under-canopy (the shaded mass beneath) — carries the outline
+
+  drawTrunk(g, x, y, species);
+
+  if (species === "pine") { drawPineCanopy(g, sx, y, tone, season); return; }   // evergreen: never bare, never autumn-warm
+  if (season === "winter") { drawBareBranches(g, sx, y, species); return; }
+  drawDeciduousCanopy(g, sx, y, tone, species, season === "autumn" && patchyRoll < 0.2);
+  if (season === "spring" && blossomRoll < (species === "birch" ? 0.3 : 0.5)) drawBlossoms(g, sx, y, rnd);
+}
+
+function drawTrunk(g: CanvasRenderingContext2D, x: number, y: number, species: TreeSpecies) {
+  if (species === "birch") {
+    oRect(g, x - 3, y - 14, 6, 20, "#d8d0c0");                    // pale bark
+    g.strokeStyle = "rgba(40,32,24,.7)"; g.lineWidth = 1.2;
+    for (const my of [y - 10, y - 4, y + 2]) { g.beginPath(); g.moveTo(x - 2, my); g.lineTo(x + 1.5, my); g.stroke(); }
+  } else if (species === "pine") {
+    oRect(g, x - 3.5, y - 12, 7, 18, "#5a4230");
+  } else {
+    oRect(g, x - 4, y - 14, 8, 20, species === "oak" ? "#5f4128" : "#6b4a2b");
+    g.strokeStyle = "rgba(50,32,16,.6)"; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(x - 1, y - 12); g.lineTo(x, y + 4); g.stroke();
+  }
+}
+
+/** Per-species canopy cluster layouts: [dx, dy, r] triples for the under /
+ *  mid / sunlit-top layers (same 3-tone technique, different silhouette). */
+type Cluster = readonly [number, number, number];
+const CANOPY_SHAPES: Record<Exclude<TreeSpecies, "pine">, { under: Cluster[]; mid: Cluster[]; top: Cluster[] }> = {
+  default: {
+    under: [[-11, -22, 14], [9, -21, 13], [0, -24, 15]],
+    mid: [[-10, -28, 14], [10, -26, 12], [0, -38, 15], [-2, -30, 11]],
+    top: [[-6, -40, 8], [6, -36, 7], [-12, -32, 6]],
+  },
+  oak: {
+    under: [[-14, -20, 16], [12, -19, 15], [0, -23, 17], [-3, -16, 13]],
+    mid: [[-13, -26, 16], [13, -25, 15], [0, -36, 17], [-4, -29, 13], [5, -19, 12]],
+    top: [[-7, -38, 9], [8, -35, 8], [-14, -30, 7], [3, -30, 7]],
+  },
+  birch: {
+    under: [[-6, -30, 9], [6, -29, 8], [0, -33, 10]],
+    mid: [[-5, -36, 9], [5, -34, 8], [0, -42, 10]],
+    top: [[-3, -46, 5], [4, -43, 5]],
+  },
+};
+
+function drawDeciduousCanopy(
+  g: CanvasRenderingContext2D, sx: number, y: number,
+  tone: (base: RGB) => string, species: TreeSpecies, patchy: boolean,
+) {
+  const shape = CANOPY_SHAPES[species as Exclude<TreeSpecies, "pine">] ?? CANOPY_SHAPES.default;
   g.fillStyle = tone([46, 74, 28]);
-  for (const [ox, oy, r] of [[-11, -22, 14], [9, -21, 13], [0, -24, 15]] as const) {
+  for (const [ox, oy, r] of shape.under) {
     g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill(); outline(g);
   }
-  // 2) mid-tone body
   g.fillStyle = tone([71, 115, 44]);
-  for (const [ox, oy, r] of [[-10, -28, 14], [10, -26, 12], [0, -38, 15], [-2, -30, 11]] as const) {
+  // a patchy-autumn tree skips a mid cluster or two, thinning the silhouette
+  for (const [i, [ox, oy, r]] of shape.mid.entries()) {
+    if (patchy && i % 2 === 1) continue;
     g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill(); outline(g);
   }
-  // 3) sunlit clusters on top
+  if (patchy) return;   // a thinning tree drops its sunlit top clusters entirely
   g.fillStyle = tone([104, 152, 66]);
-  for (const [ox, oy, r] of [[-6, -40, 8], [6, -36, 7], [-12, -32, 6]] as const) {
+  for (const [ox, oy, r] of shape.top) {
     g.beginPath(); g.arc(sx + ox, y + oy, r, 0, 7); g.fill();
   }
   g.fillStyle = "rgba(255,255,220,.16)";
   g.beginPath(); g.arc(sx - 5, y - 42, 6, 0, 7); g.fill();
+}
+
+/** Pine/fir: a year-round evergreen, stacked conical layers narrowing upward.
+ *  Never bare — winter just cools its tone slightly + a light snow dusting. */
+function drawPineCanopy(g: CanvasRenderingContext2D, sx: number, y: number, tone: (base: RGB) => string, season: Season) {
+  const cold = season === "winter";
+  const layers: ReadonlyArray<readonly [number, number]> = [[26, 30], [-2, 26], [-26, 20]];
+  g.fillStyle = tone(cold ? [26, 58, 34] : [34, 72, 40]);
+  for (const [oy, hw] of layers) {
+    g.beginPath();
+    g.moveTo(sx, y + oy - 22);
+    g.lineTo(sx - hw, y + oy);
+    g.lineTo(sx + hw, y + oy);
+    g.closePath(); g.fill(); outline(g);
+  }
+  g.fillStyle = tone(cold ? [46, 90, 52] : [58, 104, 58]);
+  g.beginPath(); g.moveTo(sx, y - 58); g.lineTo(sx - 7, y - 40); g.lineTo(sx + 7, y - 40); g.closePath(); g.fill();
+  if (cold) {
+    g.fillStyle = "rgba(255,255,255,.55)";
+    for (const [oy, hw] of layers) { g.beginPath(); g.ellipse(sx, y + oy, hw * 0.55, 2.6, 0, 0, 7); g.fill(); }
+  }
+}
+
+/** Winter, deciduous species only: bare branch skeleton + a pale frost dusting
+ *  along the upper twigs (no snow WEATHER exists yet — just bare + pale). */
+function drawBareBranches(g: CanvasRenderingContext2D, sx: number, y: number, species: TreeSpecies) {
+  const col = species === "birch" ? "#b8ae9a" : species === "oak" ? "#4a3624" : "#5a4230";
+  g.strokeStyle = col; g.lineWidth = species === "oak" ? 2.6 : 2; g.lineCap = "round";
+  const branches: ReadonlyArray<readonly [number, number, number, number]> = [
+    [0, -14, -11, -30], [0, -14, 9, -32], [0, -20, -15, -23], [0, -20, 14, -25], [0, -10, 0, -40],
+  ];
+  for (const [x1, y1, x2, y2] of branches) {
+    g.beginPath(); g.moveTo(sx + x1, y + y1); g.lineTo(sx + x2, y + y2); g.stroke();
+    g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(sx + x2, y + y2); g.lineTo(sx + x2 - 3, y + y2 - 4); g.stroke();
+    g.beginPath(); g.moveTo(sx + x2, y + y2); g.lineTo(sx + x2 + 3, y + y2 - 4); g.stroke();
+    g.lineWidth = species === "oak" ? 2.6 : 2;
+  }
+  g.fillStyle = "rgba(255,255,255,.5)";
+  for (const [, , x2, y2] of branches) { g.beginPath(); g.ellipse(sx + x2, y + y2 - 1, 3, 1.3, 0, 0, 7); g.fill(); }
+}
+
+/** Spring: a scatter of pale blossom flecks near the canopy top. */
+function drawBlossoms(g: CanvasRenderingContext2D, sx: number, y: number, rnd: () => number) {
+  g.fillStyle = "rgba(255,222,232,.85)";
+  for (let i = 0; i < 6; i++) {
+    const bx = sx + (rnd() - 0.5) * 26, by = y - 24 - rnd() * 18;
+    g.beginPath(); g.arc(bx, by, 2, 0, 7); g.fill();
+  }
 }
 
 /** A leafy hedge wall — the "natural bound" sealing the farm's east side. Drawn
@@ -165,14 +293,21 @@ const CROP_DEFAULT = { stalk: "#3f6a22", leaf: "#528a2c", fruit: "#e8c85a" };
 /**
  * A crop on a tilled tile, drawn by growth stage (0..1): sprout -> young
  * stalk -> tall stalk -> ripe color when ready. Tinted per crop type from
- * data/crops.ts so every species reads differently in the field.
+ * data/crops.ts so every species reads differently in the field. `growth`
+ * (content-library commit 1) picks the growing-plant SILHOUETTE, not just the
+ * tint, so the field doesn't read as "the same stalk in 18 colors":
+ * tall-stalk (original upright behavior), bushy (a leafy mound, potato/
+ * tomato/cabbage), vine (a low trailing runner, melon/pumpkin/strawberry).
  */
 export function drawCropTile(
   g: CanvasRenderingContext2D, cx: number, cy: number, stage: number, t: number,
   pal: { stalk: string; leaf: string; fruit: string } = CROP_DEFAULT, watered = false,
+  growth: CropGrowthShape = "tall-stalk",
 ) {
   drawTilledTile(g, cx, cy, watered);
   const sway = Math.sin(t * 1.6 + cx * 0.13) * 1.6;
+  if (growth === "bushy") { drawBushyCrop(g, cx, cy, stage, pal, sway); return; }
+  if (growth === "vine") { drawVineCrop(g, cx, cy, stage, pal, sway); return; }
   for (const ox of [-8, 0, 8]) {
     const x = cx + ox, y = cy + 10;
     if (stage < 0.25) {
@@ -199,6 +334,69 @@ export function drawCropTile(
   }
 }
 
+/** "bushy" growth shape: a rounded leafy mound per plant (same technique as
+ *  drawBush's blobs) that swells with stage, fruit peeking from within once ripe. */
+function drawBushyCrop(
+  g: CanvasRenderingContext2D, cx: number, cy: number, stage: number,
+  pal: { stalk: string; leaf: string; fruit: string }, sway: number,
+) {
+  for (const ox of [-9, 0, 9]) {
+    const x = cx + ox + sway * 0.3, y = cy + 8;
+    if (stage < 0.25) {
+      g.strokeStyle = pal.leaf; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x - 2, y - 4); g.stroke();
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + 2, y - 4); g.stroke();
+      continue;
+    }
+    const r = 3 + stage * 5.5;
+    g.fillStyle = pal.stalk;
+    g.beginPath(); g.arc(x, y - r * 0.6, r * 0.9, 0, 7); g.fill(); outline(g);
+    g.fillStyle = pal.leaf;
+    g.beginPath(); g.arc(x - r * 0.4, y - r * 0.9, r * 0.65, 0, 7); g.fill(); outline(g);
+    g.beginPath(); g.arc(x + r * 0.45, y - r * 0.85, r * 0.6, 0, 7); g.fill(); outline(g);
+    if (stage >= 1) {
+      g.fillStyle = pal.fruit;
+      for (const [fx, fy] of [[-0.2, -0.5], [0.35, -0.3]] as const) {
+        g.beginPath(); g.arc(x + fx * r, y + fy * r, r * 0.42, 0, 7); g.fill(); outline(g);
+      }
+    }
+  }
+}
+
+/** "vine" growth shape: a low trailing runner along the ground, leaves down
+ *  its length, with 1-2 round fruits resting beside it once ripe (melon/
+ *  pumpkin/squash/strawberry style — the fruit grows ON the ground, not up). */
+function drawVineCrop(
+  g: CanvasRenderingContext2D, cx: number, cy: number, stage: number,
+  pal: { stalk: string; leaf: string; fruit: string }, sway: number,
+) {
+  const y = cy + 11;
+  if (stage < 0.25) {
+    g.strokeStyle = pal.leaf; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(cx, y); g.lineTo(cx - 2, y - 4); g.stroke();
+    g.beginPath(); g.moveTo(cx, y); g.lineTo(cx + 2, y - 4); g.stroke();
+    return;
+  }
+  const len = 6 + stage * 11;
+  g.strokeStyle = pal.stalk; g.lineWidth = 2.2; g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(cx - len + sway * 0.3, y);
+  g.quadraticCurveTo(cx, y - 3, cx + len + sway * 0.3, y - 1);
+  g.stroke();
+  g.fillStyle = pal.leaf;
+  for (const f of [-0.6, 0, 0.6]) {
+    const lx = cx + f * len + sway * 0.3, ly = y - 1 - Math.abs(f) * 1.5;
+    g.beginPath(); g.ellipse(lx, ly - 2.5, 3.4, 2.2, f * 0.6, 0, 7); g.fill(); outline(g);
+  }
+  if (stage >= 1) {
+    g.fillStyle = pal.fruit;
+    g.beginPath(); g.arc(cx + len * 0.5 + sway * 0.3, y + 2, 4.6, 0, 7); g.fill(); outline(g);
+    if (stage >= 1 && len > 12) {
+      g.beginPath(); g.arc(cx - len * 0.45 + sway * 0.3, y + 3, 3.4, 0, 7); g.fill(); outline(g);
+    }
+  }
+}
+
 /** A wilted crop: grey-brown, drooped over dry soil — clear it and replant. */
 export function drawWiltedTile(g: CanvasRenderingContext2D, cx: number, cy: number) {
   drawTilledTile(g, cx, cy, false);
@@ -212,12 +410,25 @@ export function drawWiltedTile(g: CanvasRenderingContext2D, cx: number, cy: numb
   }
 }
 
-/** Berry bush: leafy mound, dotted with berries while full; bare when picked. */
-export function drawBush(g: CanvasRenderingContext2D, x: number, y: number, full: boolean, t: number) {
+/** Season -> tinted foliage palette for a FULL bush (picked bushes stay a
+ *  constant muted "just-bare" look across seasons — already reads bare). */
+const BUSH_FULL_TINT: Record<Season, Array<[number, number, number, string]>> = {
+  spring: [[-8, -2, 10, "#4a7a30"], [8, -2, 9, "#5a8f3a"], [0, -8, 11, "#6aa348"]],
+  summer: [[-8, -2, 10, "#3d6626"], [8, -2, 9, "#47732c"], [0, -8, 11, "#528034"]],
+  autumn: [[-8, -2, 10, "#6a5a26"], [8, -2, 9, "#7a6a30"], [0, -8, 11, "#8a7638"]],
+  winter: [[-8, -2, 9, "#6a6252"], [8, -2, 8, "#75705f"], [0, -7, 9, "#7f7a68"]],
+};
+
+/** Berry bush: leafy mound, dotted with berries while full; bare when picked.
+ *  Foliage tint shifts per season (content-library commit 1) — spring fresh
+ *  green, summer the original tone, autumn warm/olive, winter grey-brown. */
+export function drawBush(
+  g: CanvasRenderingContext2D, x: number, y: number, full: boolean, t: number, season: Season = "summer",
+) {
   shadow(g, x + 2, y + 8, 16, 6);
   const sway = Math.sin(t * 1.1 + x * 0.3) * 0.8;
   const blobs: Array<[number, number, number, string]> = full
-    ? [[-8, -2, 10, "#3d6626"], [8, -2, 9, "#47732c"], [0, -8, 11, "#528034"]]
+    ? BUSH_FULL_TINT[season]
     : [[-8, -2, 9, "#4a5c33"], [8, -2, 8, "#55683a"], [0, -7, 10, "#5f7342"]];
   for (const [ox, oy, r, c] of blobs) {
     g.fillStyle = c;

@@ -286,4 +286,300 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
     g.fillStyle = "rgba(255,255,255,.4)";
     g.beginPath(); g.arc(x - 1.2, y - 3.6, 0.7, 0, 7); g.fill();
   }
+
+  // ---- content-library commit 1: ~18 more kinds, region-appropriate, same
+  // deterministic-seed + rejection-zone technique as the three kinds above ----
+
+  // logs: a mossy fallen trunk section, mostly in the forest
+  for (let i = 0; i < 10 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) !== "forest" && rnd() < 0.65) continue;
+    g.save(); g.translate(x, y); g.rotate(rnd() * Math.PI);
+    g.fillStyle = "rgba(20,16,10,.3)"; g.fillRect(-9, 2.5, 18, 3);
+    g.fillStyle = "#6f5334";
+    g.beginPath(); g.ellipse(0, 0, 9, 3.2, 0, 0, 7); g.fill();
+    g.fillStyle = "#8a6c42";
+    g.beginPath(); g.ellipse(-7.6, 0, 2.6, 2.9, 0, 0, 7); g.fill();
+    g.strokeStyle = "rgba(60,42,22,.5)"; g.lineWidth = 0.8;
+    g.beginPath(); g.arc(-7.6, 0, 1.4, 0, 7); g.stroke();
+    g.fillStyle = "#4a6a34";
+    g.beginPath(); g.ellipse(2, -1.4, 3.2, 1.5, 0.3, 0, 7); g.fill();
+    g.restore();
+  }
+  // stumps: a short cut trunk, growth rings on top
+  for (let i = 0; i < 8 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) !== "forest" && rnd() < 0.75) continue;
+    g.fillStyle = "rgba(20,16,10,.28)";
+    g.beginPath(); g.ellipse(x + 1.4, y + 2, 6.2, 2.8, 0, 0, 7); g.fill();
+    g.fillStyle = "#6f5334";
+    g.beginPath(); g.ellipse(x, y, 5.8, 4.2, 0, 0, 7); g.fill();
+    g.fillStyle = "#9a7a4e";
+    g.beginPath(); g.ellipse(x, y - 0.5, 4.4, 3.1, 0, 0, 7); g.fill();
+    g.strokeStyle = "rgba(120,90,55,.6)"; g.lineWidth = 0.8;
+    for (const rr of [1.2, 2.3, 3.3]) { g.beginPath(); g.ellipse(x, y - 0.5, rr, rr * 0.72, 0, 0, 7); g.stroke(); }
+  }
+  // twigs: a couple of crossed fallen branches
+  for (let i = 0; i < 24 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) === "market") continue;
+    g.strokeStyle = "#6f5334"; g.lineWidth = 1; g.lineCap = "round";
+    g.beginPath(); g.moveTo(x - 4, y + 1); g.lineTo(x + 4, y - 1); g.stroke();
+    g.beginPath(); g.moveTo(x - 2, y - 2 + rnd()); g.lineTo(x + 2.5, y + 1.5); g.stroke();
+  }
+  // weed tufts: taller, scraggly, seed-headed grass clumps (distinct from the
+  // baked ground-texture blades — a sparser, coarser accent)
+  for (let i = 0; i < 40 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) === "forest") continue;
+    g.strokeStyle = "rgba(120,110,60,.8)"; g.lineWidth = 1.1;
+    for (let b = 0; b < 3; b++) {
+      const lean = (b - 1) * 3, h = 6 + rnd() * 4;
+      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + lean * 0.5, y - h * 0.6, x + lean, y - h); g.stroke();
+      g.fillStyle = "#c9b25a";
+      g.beginPath(); g.arc(x + lean, y - h, 0.9, 0, 7); g.fill();
+    }
+  }
+  // clover patches: low three-leaf clusters, the odd tiny white bloom
+  for (let i = 0; i < 34 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) === "forest") continue;
+    g.fillStyle = "#3f7a3a";
+    for (const [ox, oy] of [[-2.2, -1], [2.2, -1], [0, 1.6]] as const) {
+      g.beginPath(); g.arc(x + ox, y + oy, 1.6, 0, 7); g.fill();
+    }
+    if (rnd() < 0.25) { g.fillStyle = "#f0ece0"; g.beginPath(); g.arc(x, y - 3.5, 1, 0, 7); g.fill(); }
+  }
+  // pebble clusters: a tight group of many tiny pebbles (distinct from the
+  // larger faceted stone-pair painter above)
+  for (let i = 0; i < 26 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    for (let n = 0; n < 5; n++) {
+      const px = x + (rnd() - 0.5) * 8, py = y + (rnd() - 0.5) * 5;
+      g.fillStyle = ["#9a938a", "#8a8378", "#a8a196"][(rnd() * 3) | 0]!;
+      g.beginPath(); g.ellipse(px, py, 1.1 + rnd() * 0.8, 0.9 + rnd() * 0.6, rnd(), 0, 7); g.fill();
+    }
+  }
+  // daisies / poppies / bluebells / dandelions: small wildflowers through
+  // the grass, thicker along the road/market edges
+  for (let i = 0; i < 46 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) === "forest" && rnd() < 0.7) continue;
+    const kind = rnd();
+    if (kind < 0.3) drawTinyFlower(g, x, y, rnd, 6, "#f2f2ea", 2.6, "#e8c34f");         // daisy
+    else if (kind < 0.55) drawTinyFlower(g, x, y, rnd, 4, "#c9302e", 3, "#2a2018");     // poppy
+    else if (kind < 0.8) drawBluebell(g, x, y, rnd);
+    else drawDandelion(g, x, y, rnd);
+  }
+  // thistle: a spiky purple tuft, road/farm edges
+  for (let i = 0; i < 14 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) === "forest") continue;
+    g.strokeStyle = "#5f8a4a"; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(x, y + 3); g.lineTo(x, y - 5); g.stroke();
+    g.fillStyle = "#3f7a3a";
+    for (const a of [-0.9, -0.3, 0.3, 0.9]) { g.beginPath(); g.moveTo(x, y - 3); g.lineTo(x + Math.sin(a) * 4, y - 3 + Math.cos(a) * -1); g.lineTo(x, y - 4); g.closePath(); g.fill(); }
+    g.fillStyle = "#8a5ec2";
+    g.beginPath(); g.ellipse(x, y - 6, 2, 2.6, 0, 0, 7); g.fill();
+    g.fillStyle = "rgba(180,140,220,.7)";
+    for (let f = 0; f < 5; f++) { g.beginPath(); g.arc(x - 1.6 + f * 0.8, y - 7.4, 0.6, 0, 7); g.fill(); }
+  }
+  // wildflower clumps: a mixed 3-stem cluster, dense along the market square
+  for (let i = 0; i < 20 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) !== "market" && rnd() < 0.55) continue;
+    const colors = ["#d16a9a", "#e8c34f", "#8a7ac2", "#e0e6f0"];
+    for (const [ox, oy] of [[-4, 1], [3, -1], [0, 2]] as const) {
+      drawTinyFlower(g, x + ox, y + oy, rnd, 5, colors[(rnd() * colors.length) | 0]!, 2.2, "#e8c34f");
+    }
+  }
+  // pinecones + ferns + acorns + moss patches: forest-floor accents
+  for (let i = 0; i < 22 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) !== "forest") continue;
+    const kind = rnd();
+    if (kind < 0.3) drawPinecone(g, x, y, rnd);
+    else if (kind < 0.6) drawFern(g, x, y, rnd);
+    else if (kind < 0.8) drawAcorn(g, x, y);
+    else { g.fillStyle = "rgba(74,106,52,.4)"; g.beginPath(); g.ellipse(x, y, 5 + rnd() * 3, 2.6 + rnd(), rnd(), 0, 7); g.fill(); }
+  }
+  // hay wisps: loose straw strands, farm/road only
+  for (let i = 0; i < 18 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) === "forest" || regionAt(x, y) === "market") continue;
+    g.strokeStyle = "#d8b25a"; g.lineWidth = 1;
+    for (const [dx, dy] of [[-3, -5], [0, -6], [3, -4.5]] as const) {
+      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + dx * 0.5, y + dy * 0.5, x + dx, y + dy); g.stroke();
+    }
+    g.strokeStyle = "#a9885a"; g.lineWidth = 1.6;
+    g.beginPath(); g.moveTo(x - 2, y - 1); g.lineTo(x + 2, y - 1); g.stroke();
+  }
+  scatterWaterEdgeDecor(g, rnd);
+}
+
+/** Shared tiny-wildflower painter: stem + a ring of petals + a center dot.
+ *  Used by daisies/poppies/wildflower clumps above. */
+function drawTinyFlower(
+  g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number,
+  petals: number, petalColor: string, petalR: number, centerColor: string,
+) {
+  g.strokeStyle = "#4a7a2a"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(x, y + 3); g.lineTo(x, y - 1); g.stroke();
+  g.fillStyle = petalColor;
+  for (let p = 0; p < petals; p++) {
+    const a = (p / petals) * Math.PI * 2 + rnd() * 0.3;
+    g.beginPath(); g.ellipse(x + Math.cos(a) * petalR, y - 1 + Math.sin(a) * petalR, petalR * 0.7, petalR * 0.42, a, 0, 7); g.fill();
+  }
+  g.fillStyle = centerColor;
+  g.beginPath(); g.arc(x, y - 1, petalR * 0.4, 0, 7); g.fill();
+}
+
+/** Bluebell: 2-3 drooping bell-shaped blooms off one stem (forest-leaning). */
+function drawBluebell(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
+  const lean = (rnd() - 0.5) * 2;
+  g.strokeStyle = "#4a7a2a"; g.lineWidth = 1.2;
+  g.beginPath(); g.moveTo(x, y + 3); g.quadraticCurveTo(x + 1, y - 2, x - 1 + lean, y - 6); g.stroke();
+  g.fillStyle = "#5a6ec9";
+  for (const [ox, oy] of [[-2.4, -5.4], [0.4, -7], [2.6, -5]] as const) {
+    g.beginPath(); g.ellipse(x + ox + lean, y + oy, 1.5, 2.2, 0.3, 0, 7); g.fill();
+  }
+}
+
+/** Dandelion: either a dense yellow bloom or a fluffy white seed-head puff. */
+function drawDandelion(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
+  g.strokeStyle = "#4a7a2a"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(x, y + 3); g.lineTo(x, y - 4); g.stroke();
+  if (rnd() < 0.5) {
+    g.fillStyle = "#e8c34f";
+    for (let p = 0; p < 8; p++) {
+      const a = (p / 8) * Math.PI * 2;
+      g.beginPath(); g.ellipse(x + Math.cos(a) * 2.2, y - 4 + Math.sin(a) * 2.2, 1, 0.5, a, 0, 7); g.fill();
+    }
+  } else {
+    g.fillStyle = "rgba(240,240,235,.75)";
+    g.beginPath(); g.arc(x, y - 4, 2.4, 0, 7); g.fill();
+    g.strokeStyle = "rgba(200,200,190,.6)"; g.lineWidth = 0.5;
+    for (let p = 0; p < 8; p++) {
+      const a = (p / 8) * Math.PI * 2;
+      g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + Math.cos(a) * 2.6, y - 4 + Math.sin(a) * 2.6); g.stroke();
+    }
+  }
+}
+
+/** Pinecone: a small brown oval with diamond-scale texture lines. */
+function drawPinecone(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
+  g.save(); g.translate(x, y); g.rotate(rnd() * 0.6 - 0.3);
+  g.fillStyle = "#6f5334";
+  g.beginPath(); g.ellipse(0, 0, 2.4, 4, 0, 0, 7); g.fill();
+  g.strokeStyle = "rgba(50,36,20,.6)"; g.lineWidth = 0.6;
+  for (let row = -2.5; row <= 2.5; row += 1.6) {
+    g.beginPath(); g.moveTo(-2, row); g.lineTo(0, row + 0.8); g.lineTo(2, row); g.stroke();
+  }
+  g.restore();
+}
+
+/** Fern: a fanning frond of 5 leaflet pairs from a base point. */
+function drawFern(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
+  const rot = rnd() * 0.5 - 0.25;
+  g.strokeStyle = "#3f7a3a"; g.lineWidth = 1;
+  g.save(); g.translate(x, y); g.rotate(rot);
+  g.beginPath(); g.moveTo(0, 4); g.lineTo(0, -9); g.stroke();
+  for (let i = 0; i < 5; i++) {
+    const fy = -8 + i * 2.2, len = 3.4 - Math.abs(i - 2) * 0.4;
+    g.beginPath(); g.moveTo(0, fy); g.lineTo(-len, fy + 1.4); g.stroke();
+    g.beginPath(); g.moveTo(0, fy); g.lineTo(len, fy + 1.4); g.stroke();
+  }
+  g.restore();
+}
+
+/** Acorn: a tiny oval nut with a cross-hatched cap. */
+function drawAcorn(g: CanvasRenderingContext2D, x: number, y: number) {
+  g.fillStyle = "#a97b4a";
+  g.beginPath(); g.ellipse(x, y + 1, 1.8, 2.3, 0, 0, 7); g.fill();
+  g.fillStyle = "#6f5334";
+  g.beginPath(); g.ellipse(x, y - 1.4, 2, 1.3, 0, Math.PI, 0); g.fill();
+  g.strokeStyle = "rgba(40,28,14,.6)"; g.lineWidth = 0.5;
+  g.beginPath(); g.moveTo(x - 1.6, y - 1.6); g.lineTo(x + 1.6, y - 1.2); g.stroke();
+}
+
+/**
+ * Water-edge decorations (cattails, reeds along river/lake banks; lily pads
+ * at the lake/pond's still-water edge; shells on the lake shore specifically)
+ * — a dedicated pass (not the generic spot()/blocked() sampler above) so
+ * placement hugs the actual shoreline, the same technique paintWater() already
+ * uses for its bank pebbles. Baked (zero per-frame cost) like every other
+ * ambient decoration here; a live swaying version was judged not worth the
+ * extra per-frame ents for how small these read at world scale (see WORKLOG).
+ */
+function scatterWaterEdgeDecor(g: CanvasRenderingContext2D, rnd: () => number) {
+  for (const wtr of [RIVER, LAKE]) {
+    const n = Math.round((2 * (wtr.w + wtr.h) / 70) * AREA_K);
+    for (let i = 0; i < n; i++) {
+      const side = rnd() * 4 | 0;
+      let bx: number, by: number;
+      if (side === 0) { bx = wtr.x + rnd() * wtr.w; by = wtr.y - 8 - rnd() * 6; }
+      else if (side === 1) { bx = wtr.x + rnd() * wtr.w; by = wtr.y + wtr.h + 8 + rnd() * 6; }
+      else if (side === 2) { bx = wtr.x - 8 - rnd() * 6; by = wtr.y + rnd() * wtr.h; }
+      else { bx = wtr.x + wtr.w + 8 + rnd() * 6; by = wtr.y + rnd() * wtr.h; }
+      if (rnd() < 0.5) drawCattail(g, bx, by); else drawReedClump(g, bx, by, rnd);
+    }
+  }
+  // lily pads at the LAKE's still-water edge (river excluded — it flows)
+  {
+    const n = Math.round(6 * AREA_K);
+    for (let i = 0; i < n; i++) {
+      const px = LAKE.x + 10 + rnd() * Math.max(4, LAKE.w - 20), py = LAKE.y + 10 + rnd() * Math.max(4, LAKE.h - 20);
+      drawLilyPad(g, px, py, rnd);
+    }
+  }
+  // ...and the pond (an ELLIPSE, not a rect — sample within it by angle/radius
+  // so pads never land past the shoreline into the surrounding grass).
+  for (let i = 0; i < 5; i++) {
+    const a = rnd() * Math.PI * 2, r = 0.25 + rnd() * 0.55;
+    drawLilyPad(g, POND.cx + Math.cos(a) * POND.rx * r, POND.cy + Math.sin(a) * POND.ry * r, rnd);
+  }
+  // shells: bleached pale shapes on the LAKE shore specifically
+  for (let i = 0; i < 10; i++) {
+    const bx = LAKE.x - 6 + rnd() * (LAKE.w + 12), by = LAKE.y + LAKE.h + 4 + rnd() * 8;
+    g.fillStyle = ["#ece2cf", "#e0d4bc", "#d8cbb0"][(rnd() * 3) | 0]!;
+    g.beginPath(); g.arc(bx, by, 2.2, Math.PI, 0); g.fill();
+    g.strokeStyle = "rgba(150,130,100,.5)"; g.lineWidth = 0.5;
+    for (const a of [0.7, 1.6, 2.4]) { g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + Math.cos(Math.PI + a * 0.4) * 2, by - Math.sin(a * 0.4) * 2); g.stroke(); }
+  }
+}
+
+/** Lily pad: a flat green disc with a wedge notch, a slightly darker rim. */
+function drawLilyPad(g: CanvasRenderingContext2D, px: number, py: number, rnd: () => number) {
+  g.fillStyle = "#3a6a4a";
+  g.beginPath(); g.arc(px, py, 4.5 + rnd() * 2, 0.4, Math.PI * 2 - 0.4); g.fill();
+  g.fillStyle = "#4f8a5f";
+  g.beginPath(); g.arc(px - 0.6, py - 0.6, 2.6, 0, 7); g.fill();
+}
+
+/** Cattail: a brown corndog-shaped seed head on a thin green stem. */
+function drawCattail(g: CanvasRenderingContext2D, x: number, y: number) {
+  g.strokeStyle = "#4a7a3a"; g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(x, y + 4); g.lineTo(x, y - 12); g.stroke();
+  g.fillStyle = "#5a4020";
+  g.beginPath(); g.ellipse(x, y - 12, 1.6, 4.2, 0, 0, 7); g.fill();
+}
+
+/** Reed clump: 3-4 tall thin green blades fanning from a base. */
+function drawReedClump(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
+  g.strokeStyle = "#3f7a3a"; g.lineWidth = 1.3;
+  for (let b = 0; b < 4; b++) {
+    const lean = (b - 1.5) * 2.4, h = 10 + rnd() * 6;
+    g.beginPath(); g.moveTo(x, y + 3); g.quadraticCurveTo(x + lean * 0.5, y - h * 0.5, x + lean, y - h); g.stroke();
+  }
 }
