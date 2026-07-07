@@ -93,6 +93,55 @@ branch `v1-foundation`.
   download immediately; NPCs generated in batches of ~4 with a
   per-batch full-size drift review before any animation spend.
 
+- **S2-8:** NPCs get walk animations only; their idle is the static
+  rotation frame (classic RPG convention; halves animation spend). The
+  heroine keeps her breathing idle.
+- **S2-9 — THE SCALING DECISION (owner-triggered, see
+  docs/SCALING_DECISION.md for the full evidence):** the owner froze
+  generation mid-session over scaling doubts (one design per category
+  = templated feel; ground read as wrong projection; variety bar
+  untested). Three parallel feasibility agents ran: budget math
+  (v1 bar = 575-1,547 gens of 4,712 remaining — fits 3-8x over),
+  projection diagnosis (the world is DECIDEDLY non-isometric; the
+  ground/code layers are correct; 4 sprites came out too oblique —
+  market-stall + well must regenerate, farmhouse should, barn mild),
+  live probes (batch variety PASS: 8 distinct coherent farmhouses for
+  9 gens in 3 min; identity-across-states PASS: same tree across
+  seasons, same wheat across growth — but at ~20 gens/state; ground
+  tilesets qualified: seams fine, motif repetition bad for open
+  fields). **Recommendation: Path A with a media division** — sprites
+  for buildings (8-12 variants each, flat-front guardrail), characters
+  (proven pipeline + recolor), props, crops/trees (gated on a cheap
+  inpainting test before bulk); code stays for open ground and all
+  motion/atmosphere; dual-path absolute. AWAITING OWNER GO — nothing
+  generates until she confirms (or picks Path B, which stays fully
+  viable: strip the manifest, keep everything else).
+- **Probe overrun, owned:** the probe agent spent 114 gens vs 35
+  authorized (create_object_state turned out to cost ~20, not ~1, and
+  five were queued in parallel before the first posted). That price
+  discovery IS the reason the inpainting test now gates the bulk run.
+  Session total: 288/5,000 (5.8% of the monthly cap).
+- **Conductor correction (owner directive):** supervisor stops doing
+  one-at-a-time generation/implementation; every category runs as a
+  parallel delegated batch with review gates. Applied from the
+  feasibility check onward.
+
+## Session-2 owner feedback log (live)
+1. "Characters don't match the design the player defined" → coverage
+   to be tightened (rig for customized looks) + 4 hairstyle bases
+   generated (short/bun/ponytail/cropped, gate-passed identity with
+   the hat heroine) + runtime H&S recolor plan for skin/hair/outfit.
+   Integration parked by the freeze.
+2. "Buildings are repetitive" → 4 distinct merchant stalls + 2 cottage
+   variants + distinct neighbor farmhouse generated and gate-passed;
+   batch-variety probe then proved 8-variants-per-type costs ~9 gens.
+   Integration parked by the freeze.
+3. "Ground reads top-down flat / not isometric" → diagnosed: ground is
+   correct for the decided non-isometric direction; the offenders are
+   4 oblique sprites (regeneration queued behind her go).
+4. "You're the conductor, not the orchestra" → acknowledged; parallel
+   category agents from here on.
+
 ## Session-2 subagent registry
 
 | Task | Model | Outcome | Notes |
@@ -101,6 +150,10 @@ branch `v1-foundation`.
 | Surface migrations (T1b) | Sonnet | ✅ `766fb35`+`77fcb0a` | ~589k tok; makePanel deleted, Esc cascade |
 | Sprite integration (T2) | Opus | ✅ `ecf98f2`+`92f15a6` | first launch completed pre-interrupt; second run independently verified all checks |
 | Wave-2 integration (T2) | Sonnet | ✅ `1365f06` | interior room+furniture, tinted stall awnings (per-pixel H&S recolor, cached), well; zero-assets fallback re-proven |
+| NPC sheet-pack + integration | Opus | 🔄 running at freeze time (pre-freeze launch; integrates already-generated assets, dual-path) | lands on its own; Jonas ships on rig fallback (his walk was frozen) |
+| Feasibility: budget math | Sonnet | ✅ report | v1 bar 575-1,547 gens = 12-32% of month; review-time is the real bottleneck |
+| Feasibility: projection diagnosis | Sonnet | ✅ report | world correctly non-isometric; 4 sprites too oblique; regenerate, don't convert |
+| Feasibility: scaling probes | Opus | ✅ report (⚠ 114 gens vs 35 authorized — state-cost discovery) | variety PASS, identity PASS, tilesets qualified |
 
 ## Session-2 PixelLab asset ledger
 
