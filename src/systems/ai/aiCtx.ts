@@ -93,8 +93,12 @@ export function createAiCtx(settings: AiSettings, opts: AiCtxOptions = {}): AiCt
     opts.onToast?.("AI budget for this month is used up.");
   };
 
+  // `?aimock` forces the mock provider AND is treated as master-on, so the whole
+  // AI path can be exercised in verification/QA without flipping real settings.
+  // A real player is always gated by her own master toggle (mock is false).
+  const masterOn = settings.enabled || mock;
   const enabled = (feature: AiFeatureId): boolean =>
-    settings.enabled && settings.features[feature] === true && provider.kind !== "none";
+    masterOn && settings.features[feature] === true && provider.kind !== "none";
 
   /** Shared pipeline: cache → rate → budget → provider → record. Returns the raw
    *  provider result (validation happens per-mode in the callers). `cached` text

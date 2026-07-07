@@ -29,6 +29,97 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## AI features I — backstories, dialogue variation, inner thoughts, anti-repetition
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part D commit 1 — wire the first four AI features on top of the
+  foundation, each with a flat fallback so the game is complete with AI off:
+  anti-repetition memory, NPC backstories (authored seed + generate-once richer
+  version), the flagship dialogue variation (prefetch + swap-in, never blocking),
+  and NPC inner thoughts (daily-refreshed, template fallback). Golden rules: game
+  complete with AI off, never block gameplay on a call, everything validated,
+  respect the checkboxes/budget/rate caps.
+- **Done:**
+  - **Files:**
+    - `src/systems/ai/antiRepetition.ts` (NEW): feature #7 store. `createAntiRepetition()`
+      → `{ recentLines, recordLine, recentScripted, recordScripted, isNearDuplicate,
+      reset, size }`. Per-NPC ring buffers of recent AI-line gists + recent authored
+      lines; `isNearDuplicate` uses token-set overlap (|A∩B|/min) vs `AI_DEDUP_OVERLAP`.
+      Persisted on `AI_ANTIREP_KEY`, added to saves.ts `GAME_KEYS` (per-playthrough).
+    - `src/data/backstories.ts` (NEW): authored 2-3 sentence flat-fallback backstory
+      per NPC (`BACKSTORY_SEEDS`, all 10) + `backstorySeed(id, name)`.
+    - `src/systems/ai/features/backstory.ts` (NEW): feature #1. `createBackstory(ai)`
+      → `{ text, seed, isGenerated, ensureGenerated, reset }`. `text()` returns the
+      generated version if frozen else the seed; `ensureGenerated(def)` fires ONE
+      background request on first interaction, validates, and freezes it in
+      `AI_BACKSTORY_KEY` (never rerolled, in GAME_KEYS). Prompt builder co-located.
+    - `src/data/thoughts.ts` (NEW): `THOUGHT_TEMPLATES` — ~5 slot-filled thoughts per
+      personality (10) + `fillThought()` filling `{season}`/`{weather}`.
+    - `src/systems/ai/features/thoughts.ts` (NEW): feature #4. `createThoughts(ai)`
+      → `{ current, peek, reset }`. `current(def, wc)` returns today's thought,
+      computing a deterministic template first and firing at most one AI refresh per
+      NPC per in-game day (lazy, non-blocking; the generated line replaces the
+      template for the rest of that day). In-memory (day-scoped, cheap).
+    - `src/systems/ai/features/dialogueVariation.ts` (NEW): feature #2, the flagship.
+      `createDialogueVariation(deps)` → `{ render, prefetch, isReady }`. `render()` is
+      SYNCHRONOUS: returns an already-staged variation (consumed + recorded in
+      anti-repetition) for this (npc, purpose, coarse-world-bucket, scripted-hash),
+      else the scripted line verbatim and fires an async prefetch. Prompt anchors on
+      the scripted line ("re-voice, same meaning, ≤2 sentences") grounded in sheet +
+      backstory + current thought + arc notes + relationship tier + season/weather/
+      time/region + the anti-repetition exclusions. Session Map (sync lookup layer);
+      validation/length-cap via the facade's `request()`.
+    - `src/systems/dialogue.ts`: `DialogueChoice.special?: "backstory" | "thought"`
+      (engine-level meta choices); `pickLine(set, wc, rotation, avoid?)` — new optional
+      `avoid` set skips recently-said authored lines among tied winners (identical to
+      the old rotation pick when `avoid` is empty → AI-off unchanged). `renderNpcLine`
+      unchanged (still the base seam).
+    - `src/ui/dialoguebox.ts`: rewritten to route each line through a `renderLine`
+      hook (AI variation) with `renderNpcLine` fallback; opening turn now carries
+      "Tell me about yourself" (backstory, marks contact) + "What's on your mind?"
+      (thought) meta choices with a sentence-boundary pager for long backstories;
+      new hooks `backstoryText`/`thoughtText`/`recentScripted`/`recordScripted`; new
+      export `peekOpeningText(def, wc)` (rotation-peek, for proximity prefetch). Lower-
+      level `paint()` renderer so pager buttons don't need synthetic DialogueChoices.
+    - `src/systems/aiSettings.ts`: `improve` (devNotes) now defaults OFF even when the
+      master toggle is on (`freshFeatures`); `saveAiSettings` mutates the cached object
+      IN PLACE so the live facade sees setting changes without a rebuild.
+    - `src/systems/ai/aiCtx.ts`: `enabled()` treats `?aimock` as master-on (mock is a
+      QA/verification switch), so AI paths can be exercised without editing settings;
+      a real player is still gated by her own master toggle.
+    - `src/systems/saves.ts`: added `AI_ANTIREP_KEY`, `AI_BACKSTORY_KEY`, `AI_ARCS_KEY`,
+      `AI_DEVNOTES_KEY` to `GAME_KEYS` (per-playthrough; budget/cache stay per-machine).
+    - `src/config.ts`: new AI feature keys + ~20 knobs (anti-rep sizes/overlap,
+      prefetch dwell/cooldown, per-feature max-tokens/length caps, thought-bubble
+      chance, backstory page size, quest/arc thresholds for commit 2).
+    - `src/main.ts`: instantiates the facade (`createAiCtx`) + all feature objects,
+      wires the dialogue hooks, resets the AI stores on New Game, adds proximity
+      opening-prefetch (`maybeNpcPrefetch`) and the ambient thought bubble
+      (`maybeNpcThought`) to the tick, and a DEV-only `__wh.ai` verification bridge.
+  - **Systems / functions:** new save keys `wildhearth-ai-antirep/backstory/arcs/
+    devnotes-v1`; `AntiRepetition`, `Backstory`, `Thoughts`, `DialogueVariation`,
+    `NpcSheet` interfaces; the AI-off path calls no provider and writes no store.
+  - **Behavior:** With AI off, dialogue is byte-identical to before, PLUS every NPC
+    now offers "Tell me about yourself" (authored backstory, paged) and "What's on
+    your mind?" (template thought reactive to season/weather). With AI on (`?aimock`
+    or a real key + master toggle): opening lines get re-voiced per NPC once a
+    variation is prefetched (never a spinner — scripted shows instantly, the varied
+    line swaps in on a later occurrence); lingering near an NPC prefetches their
+    opening; each NPC's backstory is enriched once and frozen; thoughts refresh once
+    per in-game day and occasionally surface as an ambient bubble; no line repeats.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright (`?aimock` for AI-on + a run with AI off),
+  25/25 checks: AI-off dialogue opens instantly with scripted text and identical
+  choices, backstory choice shows authored text, thought shows a template, stores
+  stay empty; AI-on backstory generated once + persisted + not rerolled, variation
+  staged by prefetch and swapped in on the next open (differs from scripted),
+  anti-repetition grows, thought stable within a day and recomputes on rollover,
+  New Game wipes anti-rep + backstory stores, devNotes off by default, zero page
+  errors in both runs.
+- **Commit:** <hash> — AI features I — backstories, dialogue variation, inner thoughts, anti-repetition
+- **Follow-ups:** Story-arc notes feed the dialogue-variation prompt but are empty
+  until commit 2 wires `arcNotesFor`. Commit 2 adds event narration, the arc
+  tracker, the quest-generation stub, and dev observations.
+
 <!--
 ## [BLOCK-ID] Short title
 - **Date:** YYYY-MM-DD

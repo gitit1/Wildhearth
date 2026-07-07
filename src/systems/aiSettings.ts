@@ -49,6 +49,9 @@ export interface AiSettings {
 function freshFeatures(on: boolean): Record<AiFeatureId, boolean> {
   const f = {} as Record<AiFeatureId, boolean>;
   for (const feat of AI_FEATURES) f[feat.id] = on;
+  // Improvement-observation (#8) is dev-facing — off by default even when the
+  // master toggle is on, per AI_ARCHITECTURE §D8. She opts into it explicitly.
+  f.improve = false;
   return f;
 }
 
@@ -94,8 +97,13 @@ export function loadAiSettings(): AiSettings {
 }
 
 export function saveAiSettings(patch: Partial<AiSettings>) {
-  cached = { ...loadAiSettings(), ...patch, version: AI_SETTINGS_VERSION };
-  try { localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(cached)); } catch { /* private mode */ }
+  // Mutate the cached object IN PLACE (rather than replacing it) so any live
+  // holder of the reference — notably the AI facade built in main.ts — sees the
+  // change without being rebuilt. `features` is replaced wholesale by callers.
+  const cur = loadAiSettings();
+  Object.assign(cur, patch, { version: AI_SETTINGS_VERSION });
+  cached = cur;
+  try { localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(cur)); } catch { /* private mode */ }
 }
 
 /** Toggle one feature and persist. */

@@ -71,6 +71,10 @@ export interface DialogueChoice {
   effect?: ChoiceEffect;
   next?: string;        // id into `nodes` for a follow-up turn of choices
   end?: boolean;        // closes the conversation (Farewell)
+  // Engine-level meta choices present on EVERY NPC (not authored per-file): show
+  // the NPC's backstory / current thought (Part D features #1, #4). The UI layer
+  // (ui/dialoguebox.ts) resolves the text — flat-fallback authored when AI is off.
+  special?: "backstory" | "thought";
 }
 
 export interface DialogueNode {
@@ -129,7 +133,7 @@ const FALLBACK_LINE = "Good day to you.";
  * selects one — so two conversations in identical conditions surface different
  * generics as long as more than one exists.
  */
-export function pickLine(set: LineSet, wc: WorldContext, rotation: number): string {
+export function pickLine(set: LineSet, wc: WorldContext, rotation: number, avoid?: ReadonlySet<string>): string {
   let best = -1;
   const winners: string[] = [];
   for (const e of set) {
@@ -139,6 +143,14 @@ export function pickLine(set: LineSet, wc: WorldContext, rotation: number): stri
     else if (s === best) winners.push(e.text);
   }
   if (winners.length === 0) return FALLBACK_LINE;
+  // Anti-repetition (feature #7, consumer b): among tied winners, skip lines this
+  // NPC said recently (persisted across sessions) so scripted variety survives a
+  // reload. When `avoid` is empty/absent this is EXACTLY the old rotation pick —
+  // the AI-off path is unchanged.
+  if (avoid && avoid.size && winners.length > 1) {
+    const fresh = winners.filter((w) => !avoid.has(w));
+    if (fresh.length > 0) return fresh[((rotation % fresh.length) + fresh.length) % fresh.length]!;
+  }
   const i = ((rotation % winners.length) + winners.length) % winners.length;
   return winners[i]!;
 }

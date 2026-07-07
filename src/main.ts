@@ -78,8 +78,21 @@ import {
   loadRelationships, resetRelationships, decayRelationships, giveGift, applyInteraction,
   markContact, relationshipSummary, dialogueBump, saveRelationships,
 } from "./systems/relationships";
-import { initDialogue, openDialogue, isDialogueOpen, closeDialogue } from "./ui/dialoguebox";
+import { initDialogue, openDialogue, isDialogueOpen, closeDialogue, peekOpeningText } from "./ui/dialoguebox";
 import type { ChoiceEffect } from "./systems/dialogue";
+// AI features layer (Part D). The whole layer is inert with the master toggle
+// off (aiSettings.enabled === false, the default) — every feature falls back to
+// authored/template content. See docs/AI_ARCHITECTURE.md.
+import {
+  AI_PREFETCH_DWELL_SECONDS, AI_PREFETCH_COOLDOWN_MS,
+  AI_THOUGHT_BUBBLE_CHANCE, AI_THOUGHT_BUBBLE_COOLDOWN,
+} from "./config";
+import { loadAiSettings, saveAiSettings } from "./systems/aiSettings";
+import { createAiCtx } from "./systems/ai/aiCtx";
+import { createAntiRepetition } from "./systems/ai/antiRepetition";
+import { createBackstory } from "./systems/ai/features/backstory";
+import { createThoughts } from "./systems/ai/features/thoughts";
+import { createDialogueVariation } from "./systems/ai/features/dialogueVariation";
 import type { NpcDef } from "./data/npcs";
 import { heartEvent } from "./systems/heartEvents";
 import { isGiftable } from "./data/traitPreferences";
@@ -406,20 +419,87 @@ if (import.meta.env.DEV)
 
 initBackpack(economy, eatItem);
 initGiftChooser(economy);
-// the dialogue bottom-box: each turn reads ONE npc-scoped world snapshot, routes
-// the line through renderNpcLine (the AI seam), and hands effects/close back here
-initDialogue({
-  worldFor: (npcId) => getWorldContext(
+// ---- AI features layer (Part D) --------------------------------------------
+// One facade + one instance of each feature, wired with explicit callbacks (no
+// singletons). With the master toggle off every `enabled()` is false, so the
+// hooks below resolve to authored/template content and no call is ever made.
+const aiSettings = loadAiSettings();
+const aiCtx = createAiCtx(aiSettings, { onToast: toast });
+const antiRep = createAntiRepetition();       // feature #7 (per-playthrough, GAME_KEYS)
+const backstory = createBackstory(aiCtx);      // feature #1
+const thoughts = createThoughts(aiCtx);        // feature #4
+// feature #6 story-arc notes are wired in commit 2; empty until then.
+let arcNotesFor: (id: string) => string[] = () => [];
+const dlgVar = createDialogueVariation({        // feature #2 (the flagship)
+  ai: aiCtx,
+  antiRep,
+  sheetFor: (id) => {
+    const n = npcById(npcs, id);
+    return n ? {
+      name: n.def.name, profession: n.def.profession,
+      personality: n.def.personality, backstory: backstory.text(n.def),
+    } : null;
+  },
+  thoughtHint: (id) => thoughts.peek(id),
+  arcNotes: (id) => arcNotesFor(id),
+});
+
+/** One npc-scoped world snapshot — shared by the dialogue box + the thought/
+ *  prefetch hooks so they all read the same "what's true right now". */
+function worldForNpc(npcId: string) {
+  return getWorldContext(
     { economy, skills, farm, calendar, weather, flags: worldFlags, needs, relationships, location: playerRegion() },
     { npcId },
-  ),
+  );
+}
+
+// the dialogue bottom-box: each turn reads ONE npc-scoped world snapshot, routes
+// the line through the AI variation seam (scripted verbatim when AI is off), and
+// hands effects/close back here. The two meta choices (backstory/thought) resolve
+// through the hooks below, with authored/template flat fallbacks.
+initDialogue({
+  worldFor: worldForNpc,
   applyEffect: applyDialogueEffect,
-  onOpen: (def) => { const n = npcById(npcs, def.id); if (n) startTalking(n, player.x, player.y); },
+  renderLine: (req) => dlgVar.render(req),
+  backstoryText: (def) => backstory.text(def),
+  thoughtText: (def) => thoughts.current(def, worldForNpc(def.id)),
+  // anti-repetition consumer (b): scripted variety persists across sessions, but
+  // ONLY when the memory feature is on — with AI off this is exactly today's
+  // session-only rotation (empty set / no-op record).
+  recentScripted: (id) => aiCtx.enabled("memory") ? antiRep.recentScripted(id) : new Set<string>(),
+  recordScripted: (id, text) => { if (aiCtx.enabled("memory")) antiRep.recordScripted(id, text); },
+  onOpen: (def) => {
+    const n = npcById(npcs, def.id);
+    if (n) startTalking(n, player.x, player.y);
+    backstory.ensureGenerated(def);   // first meaningful interaction → generate once (background)
+  },
   onClose: (def) => {
     socialContact(needs, def.id, absoluteDay(calendar));   // company feeds the Social need
     markContact(relationships, def.id, absoluteDay(calendar));   // any contact holds off decay
   },
 });
+
+// Dev-only AI verification bridge — attached to the existing __wh object so the
+// Playwright harness can drive the AI paths deterministically under ?aimock.
+// Dead-code-eliminated from the shipped build (import.meta.env.DEV === false).
+if (import.meta.env.DEV) {
+  const wh = (window as unknown as { __wh: Record<string, unknown> }).__wh;
+  if (wh) wh.ai = {
+    provider: () => aiCtx.providerKind,
+    enabled: (f: string) => aiCtx.enabled(f as never),
+    setImprove: (on: boolean) => saveAiSettings({ features: { ...loadAiSettings().features, improve: on } }),
+    antiRepSize: () => antiRep.size(),
+    backstoryGenerated: (id: string) => backstory.isGenerated(id),
+    backstoryText: (id: string) => { const n = npcById(npcs, id); return n ? backstory.text(n.def) : null; },
+    ensureBackstory: (id: string) => { const n = npcById(npcs, id); if (n) backstory.ensureGenerated(n.def); },
+    thought: (id: string) => { const n = npcById(npcs, id); return n ? thoughts.current(n.def, worldForNpc(id)) : null; },
+    peekOpening: (id: string) => { const n = npcById(npcs, id); return n ? peekOpeningText(n.def, worldForNpc(id)) : null; },
+    prefetchOpening: (id: string) => { const n = npcById(npcs, id); if (n) { const wc = worldForNpc(id); dlgVar.prefetch(id, "opening", peekOpeningText(n.def, wc), wc); } },
+    varReady: (id: string, purpose: "opening" | "reply", scripted: string) => dlgVar.isReady(id, purpose, scripted, worldForNpc(id)),
+    dlgLine: () => document.getElementById("dlgText")?.textContent ?? null,
+    dlgButtons: () => Array.from(document.querySelectorAll("#dlgChoices .dlg-choice")).map((b) => (b.textContent ?? "")),
+  };
+}
 initMinimap();
 initSkillsUI(skills);
 initMemoryBook(collections, memories);
@@ -534,6 +614,11 @@ let minuteAccum = 0;   // real seconds banked toward the next in-game minute
 let timeSkipping = false;   // true during a sleep/collapse fade — world time PAUSES (never teleports)
 let lastDist = player.dist; // player travel last frame, for charging walking energy
 const npcCommentDay: Record<string, number> = {};   // needId -> absoluteDay an NPC last remarked on it
+// AI dialogue prefetch + ambient thought bookkeeping (Part D #2, #4).
+let dwellNpcId: string | null = null;                // the NPC the player is currently lingering by
+let dwellSeconds = 0;                                 // how long she's lingered (drives opening prefetch)
+const npcPrefetchAt: Record<string, number> = {};    // ms of the last opening prefetch per NPC
+const npcThoughtDay: Record<string, number> = {};    // absoluteDay an NPC last voiced an ambient thought
 let festivalGreetedDay = -1;   // absoluteDay the market-entry festival toast last fired
 
 /** One in-game minute: roll the clock, fire the daily hooks on a new day, drain
@@ -695,6 +780,42 @@ function maybeNpcComment(npcTagId: string) {
   toast(`${npc.def.name}: “${npcNeedComment(npc.def, target)}”`);
 }
 
+/** Proximity prefetch (Part D #2): when the player lingers ~2s within talk range,
+ *  prefetch a variation of this NPC's most-likely opening for the current moment,
+ *  so the NEXT conversation opens already varied. Non-blocking, per-NPC cooldown. */
+function maybeNpcPrefetch(npcTagId: string, dt: number) {
+  const id = npcTagId.slice("npc-".length);
+  if (!aiCtx.enabled("dialogue")) { dwellNpcId = null; dwellSeconds = 0; return; }
+  if (dwellNpcId !== id) { dwellNpcId = id; dwellSeconds = 0; }
+  dwellSeconds += dt;
+  if (dwellSeconds < AI_PREFETCH_DWELL_SECONDS) return;
+  const nowMs = performance.now();
+  if (nowMs - (npcPrefetchAt[id] ?? -Infinity) < AI_PREFETCH_COOLDOWN_MS) return;
+  const n = npcById(npcs, id);
+  if (!n) return;
+  npcPrefetchAt[id] = nowMs;
+  const wc = worldForNpc(id);
+  dlgVar.prefetch(id, "opening", peekOpeningText(n.def, wc), wc);
+}
+
+/** Ambient thought bubble (Part D #4): occasionally, when the player walks close
+ *  to an NPC idling at work/socializing, they voice their current thought — at
+ *  most once per NPC per day. Flat fallback thoughts still apply with AI off, but
+ *  the ambient bubble itself is an AI-thoughts-feature flourish (gated). */
+function maybeNpcThought(npcTagId: string) {
+  if (!aiCtx.enabled("thoughts")) return;
+  const id = npcTagId.slice("npc-".length);
+  const npc = npcs.find((n) => n.def.id === id);
+  if (!npc || npc.moving || npc.talkTimer > 0) return;
+  if (!(npc.state === "atWork" || npc.state === "socializing" || npc.state === "festival")) return;
+  const day = absoluteDay(calendar);
+  if (npcThoughtDay[id] === day) return;                 // one ambient thought per NPC per day
+  if (Math.random() > AI_THOUGHT_BUBBLE_COOLDOWN) return; // occasional per-frame trigger
+  if (Math.random() > AI_THOUGHT_BUBBLE_CHANCE) return;   // ~15% of those actually speak
+  npcThoughtDay[id] = day;
+  toast(`${npc.def.name}: “${thoughts.current(npc.def, worldForNpc(id))}”`);
+}
+
 function beginPlay() {
   hideOpening();
   openingActive = false;
@@ -849,6 +970,11 @@ function newGameReset(character: Character, mode: Guidance) {
   resetWorldFlags(worldFlags);
   resetNeeds(needs);                  // a new life starts rested, fed, content
   resetRelationships(relationships);  // a new life knows no one yet
+  // AI feature stores are per-playthrough: a new life meets everyone fresh, with
+  // no said-history, no generated backstories, no current thoughts.
+  antiRep.reset();
+  backstory.reset();
+  thoughts.reset();
   resetLivestock(livestock);
   cows.length = 0; hens.length = 0;   // the yard empties with the new life
   initNpcPositions(npcs, calendar, weather);   // re-snap townsfolk to fresh day-1 morning
@@ -1103,7 +1229,11 @@ function tick(now: number) {
 
   const near = reachable(player.x, player.y, scene);
   nearReach = near;
-  if (near && near.id.startsWith("npc-")) maybeNpcComment(near.id);   // "you look tired"
+  if (near && near.id.startsWith("npc-")) {
+    maybeNpcComment(near.id);    // "you look tired" (needs)
+    maybeNpcThought(near.id);    // ambient current-thought bubble (AI #4)
+    maybeNpcPrefetch(near.id, dt);   // linger → prefetch opening variation (AI #2)
+  } else { dwellNpcId = null; dwellSeconds = 0; }
   if (fishing.casting) setPrompt("Waiting for a bite...");
   else if (foraging.picking) setPrompt("Picking berries...");
   else if (farmwork.working)

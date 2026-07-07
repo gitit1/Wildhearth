@@ -1,4 +1,4 @@
-import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY, PLOTS_KEY, GARDEN_KEY, COLLECTIONS_KEY, MEMORIES_KEY, NEEDS_KEY, RELATIONSHIPS_KEY, SLOT_KEY, GUIDANCE_KEY } from "../config";
+import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY, PLOTS_KEY, GARDEN_KEY, COLLECTIONS_KEY, MEMORIES_KEY, NEEDS_KEY, RELATIONSHIPS_KEY, SLOT_KEY, GUIDANCE_KEY, AI_ANTIREP_KEY, AI_BACKSTORY_KEY, AI_ARCS_KEY, AI_DEVNOTES_KEY } from "../config";
 
 /**
  * Persistence hub (Step 9 save hardening). Each store keeps its own versioned
@@ -14,7 +14,11 @@ import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_K
 // The keys that together make up one saved game. The slot manifest
 // (saveSlots.ts) rides along here too — a New Game should look un-continuable,
 // not show a stale "last saved" stamp from the life that just ended.
-const GAME_KEYS = [SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY, PLOTS_KEY, GARDEN_KEY, COLLECTIONS_KEY, MEMORIES_KEY, NEEDS_KEY, RELATIONSHIPS_KEY, SLOT_KEY, GUIDANCE_KEY];
+// The AI feature stores (anti-repetition, generated backstories, story-arc
+// tracker, dev observations) are per-playthrough, so they ride along here — a
+// New Game meets everyone fresh. The AI budget ledger + response cache are
+// per-machine and deliberately NOT here.
+const GAME_KEYS = [SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY, PLOTS_KEY, GARDEN_KEY, COLLECTIONS_KEY, MEMORIES_KEY, NEEDS_KEY, RELATIONSHIPS_KEY, SLOT_KEY, GUIDANCE_KEY, AI_ANTIREP_KEY, AI_BACKSTORY_KEY, AI_ARCS_KEY, AI_DEVNOTES_KEY];
 
 /**
  * True when there's a continuable game. Anchored on the economy save (the

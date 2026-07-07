@@ -198,6 +198,48 @@ export const AI_TOKEN_BUDGET_DEFAULT = 200000;   // monthly token cap default
 export const AI_BUDGET_KEY = "wildhearth-ai-budget-v1";  // monthly token ledger (own key)
 export const AI_CACHE_KEY = "wildhearth-ai-cache-v1";    // response cache (own key)
 
+// AI feature stores (Part D features). Unlike the budget/cache above, these ARE
+// per-playthrough — they live in saves.ts's GAME_KEYS so a New Game wipes them.
+export const AI_ANTIREP_KEY = "wildhearth-ai-antirep-v1";     // per-NPC said-history (feature #7)
+export const AI_BACKSTORY_KEY = "wildhearth-ai-backstory-v1"; // generated backstories, frozen once (#1)
+export const AI_ARCS_KEY = "wildhearth-ai-arcs-v1";           // play-pattern tracker (#6)
+export const AI_DEVNOTES_KEY = "wildhearth-ai-devnotes-v1";   // dev observations (#8)
+
+// Anti-repetition (#7): how many recent items to keep + feed the "don't reuse" block.
+export const AI_ANTIREP_LINES = 8;        // recent AI-line gists kept per NPC
+export const AI_ANTIREP_SCRIPTED = 6;     // recent scripted line texts kept per NPC (cross-session variety)
+export const AI_ANTIREP_PROMPT_LINES = 4; // how many gists go into a prompt's exclusion block
+export const AI_DEDUP_OVERLAP = 0.6;      // token-set overlap at/above which a new line reads as a repeat
+
+// Dialogue variation (#2) — prefetch + prompt sizing.
+export const AI_PREFETCH_DWELL_SECONDS = 2;   // linger this long in talk range before prefetching an opening
+export const AI_PREFETCH_COOLDOWN_MS = 20_000; // min gap between proximity prefetches of the SAME npc
+export const AI_DIALOGUE_MAX_TOKENS = 120;    // a rephrased line is short
+export const AI_DIALOGUE_LINE_MAX = 240;      // hard length cap on a variation (chars)
+
+// NPC inner thoughts (#4).
+export const AI_THOUGHT_MAX_TOKENS = 60;
+export const AI_THOUGHT_MAX = 160;            // a thought is one short sentence
+export const AI_THOUGHT_BUBBLE_CHANCE = 0.15; // odds an idle NPC voices a thought when the player lingers
+export const AI_THOUGHT_BUBBLE_COOLDOWN = 0.006; // per-frame gate (like need comments) so it's occasional
+
+// Backstories (#1).
+export const AI_BACKSTORY_MAX_TOKENS = 320;
+export const AI_BACKSTORY_MAX = 600;          // generated backstory length cap (chars)
+export const AI_BACKSTORY_PAGE_CHARS = 200;   // split a long backstory into pages of about this size
+
+// World-event narration (#5).
+export const AI_NARRATION_MAX_TOKENS = 80;
+export const AI_NARRATION_MAX = 200;
+
+// Quest generation stub (#3) — v2 preview only, never shown to the player.
+export const AI_QUEST_MAX_TOKENS = 220;
+export const AI_QUEST_MIN_INTERVAL_DAYS = 1;  // at most one quest-offer attempt per in-game day
+
+// Story-arc detector (#6) — plain-code thresholds for emitting an "arc note".
+export const AI_ARC_VISIT_NOTE_MIN = 3;       // talks to one NPC on the same weekday before "she visits X on <day>s"
+export const AI_ARC_LIVELIHOOD_MIN = 12;      // activity count before it reads as the player's "main livelihood"
+
 // Browser-direct transport (BYOK). Plain fetch, not the SDK, to keep the bundle
 // lean (deviation from AI_ARCHITECTURE §2, which sketches the @anthropic-ai/sdk).
 export const AI_ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
