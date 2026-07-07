@@ -1362,6 +1362,19 @@ function tick(now: number) {
   // walking away from whichever stall is open closes the trade window
   if (isShopOpen() && openStallRect && !nearRect(player.x, player.y, openStallRect)) closeShopWindow();
 
+  // A queued "walk there, then act" click fires once the player arrives in
+  // reach. MUST run before this frame's left/right-click handling below: a
+  // click that just queued a fresh `pending` hasn't had a chance to move the
+  // player yet (updatePlayer() already ran earlier this tick with the OLD
+  // moveTarget), so checking it here — using last frame's already-settled
+  // player.moving/position — never mistakes a brand-new pending for one that
+  // "stopped short" before it ever got to walk anywhere.
+  if (pending) {
+    const obj = byId(pending.objId);
+    if (obj && obj.inReach(player.x, player.y)) { runAction(obj, pending.actionId, ictx); pending = null; }
+    else if (!player.moving) pending = null;   // stopped short (blocked / unreachable)
+  }
+
   const ps = getPointerScreen();
   hovered = ps ? hitTest(...screenToWorld(ps[0], ps[1]), scene) : null;
   cv.style.cursor = hovered ? "pointer" : "default";
@@ -1414,13 +1427,6 @@ function tick(now: number) {
   // action button / E key: use whatever is in reach
   if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working && !busking.playing && !cooking.cooking)
     runDefault(near, ictx);
-
-  // a queued action fires once the player arrives in reach
-  if (pending) {
-    const obj = byId(pending.objId);
-    if (obj && obj.inReach(player.x, player.y)) { runAction(obj, pending.actionId, ictx); pending = null; }
-    else if (!player.moving) pending = null;   // stopped short (blocked / unreachable)
-  }
 
   if (updateFishing(fishing, dt)) {
     player.fishing = false;

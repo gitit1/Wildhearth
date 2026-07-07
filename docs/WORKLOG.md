@@ -29,6 +29,32 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Integration pass — v1 smoke fixes (queued-action ordering + pause Esc leak)
+- **Date:** 2026-07-08 (v1-foundation, session 2 start)
+- **Block given:** whole-game integration smoke after the v1-foundation
+  sprint. The smoke run was interrupted by the product owner's pause; its
+  two verified bug fixes were left in the working tree and are committed
+  here (its temp harness files `_smoke*.mjs`/`_smoke_shots/` were deleted).
+- **Done:**
+  - **Files:**
+    - `src/main.ts`: the queued "walk there, then act" click now resolves
+      BEFORE this frame's click handling instead of after — a click that
+      just queued a fresh `pending` could previously be mis-read as
+      "stopped short" and dropped (using the old frame's `player.moving`),
+      making walk-to-act clicks unreliable.
+    - `src/ui/pausescreen.ts`: the Esc-to-resume capture listener leaked
+      whenever Pause was dismissed by any BUTTON (Resume/Settings/Return/
+      Exit) rather than Esc — each leak silently swallowed one future Esc
+      press game-wide. All navigating buttons now drop the listener first
+      (`leaving()` wrapper); Save stays on Pause and keeps it.
+  - **Behavior:** click-to-act on a distant object works consistently;
+    Esc reliably reopens Pause no matter how the previous Pause closed.
+- **Build:** `npm run build` — ✅ passing.
+- **Commit:** Integration pass — v1 smoke fixes (queued-action ordering + pause Esc leak)
+- **Follow-ups:** the full smoke checklist (docs status refresh in
+  GAME_OVERVIEW/WORLD_MAP) remains open — superseded for now by the
+  session-2 work order (window system + PixelLab assets).
+
 ## Content — farm animals, outfits, tool & accessory painters
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part C content-library commit 2 — pig/sheep/duck rig

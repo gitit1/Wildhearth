@@ -31,8 +31,28 @@ export function showPause(ctx: PauseCtx) {
   const col = document.createElement("div");
   col.className = "menu-buttons pause-buttons";
 
+  // Esc resumes. Declared before the buttons below so every OTHER way of
+  // leaving this screen (Resume/Settings/Return to Menu/Exit, all clicked
+  // with the mouse) can also clean it up — otherwise a pause dismissed by
+  // clicking (rather than Esc) leaked this capture-phase listener forever;
+  // the next Esc press anywhere in the game would be silently swallowed by
+  // it (stopImmediatePropagation + a harmless extra onResume()) instead of
+  // reopening Pause, and it'd take one "wasted" Esc press per leaked
+  // listener before the shortcut worked again.
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.stopImmediatePropagation();
+      removeEventListener("keydown", onKey, true);
+      ctx.onResume();
+    }
+  };
+  addEventListener("keydown", onKey, true);
+  /** Any button that navigates away from THIS pause screen must drop the
+   *  listener above first (Save is the one exception — it stays on Pause). */
+  const leaving = (fn: () => void) => () => { removeEventListener("keydown", onKey, true); fn(); };
+
   const resume = btn("Resume", "pauseResume");
-  resume.addEventListener("click", ctx.onResume);
+  resume.addEventListener("click", leaving(ctx.onResume));
 
   const save = btn("Save", "pauseSave");
   const feedback = document.createElement("div");
@@ -44,29 +64,18 @@ export function showPause(ctx: PauseCtx) {
   });
 
   const settings = btn("Settings", "pauseSettings");
-  settings.addEventListener("click", ctx.onSettings);
+  settings.addEventListener("click", leaving(ctx.onSettings));
 
   const menu = btn("Return to Main Menu", "pauseToMenu");
-  menu.addEventListener("click", ctx.onReturnToMenu);
+  menu.addEventListener("click", leaving(ctx.onReturnToMenu));
 
   const exit = btn("Exit", "pauseExit");
   exit.className = "menu-btn mm-btn menu-btn-ghost";
-  exit.addEventListener("click", ctx.onExit);
+  exit.addEventListener("click", leaving(ctx.onExit));
 
   col.append(resume, save, settings, menu, exit);
   panel.append(h1, col, feedback);
   o.append(panel);
-
-  // Esc resumes. Added during Esc-to-open dispatch, so it won't catch that same
-  // keypress (DOM: listeners added mid-dispatch don't fire for the current event).
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      e.stopImmediatePropagation();
-      removeEventListener("keydown", onKey, true);
-      ctx.onResume();
-    }
-  };
-  addEventListener("keydown", onKey, true);
 
   setTimeout(() => resume.focus(), 0);
 }
