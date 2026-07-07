@@ -130,7 +130,7 @@ project.
   title "🛒 Market stall", buy section visible with 10 stock rows, sell list
   still shows both remaining fish AND farming goods (the union behavior).
 - **Build:** `npm run build` — ✅ passing
-- **Commit:** (filled in below after committing)
+- **Commit:** `88d22e8` — "Fish-stall NPC — Maren buys fish at the market"
 - **Follow-ups:** none for this block. Tobin's produce stall (`farming`
   category) is deliberately NOT built — per the block's own scope note, it's
   meant to be the next additive `NPC_STALL_TRADES` row once a `farming`
