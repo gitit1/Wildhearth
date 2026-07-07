@@ -29,6 +29,166 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Content — farm animals, outfits, tool & accessory painters
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part C content-library commit 2 — pig/sheep/duck rig
+  presets + wiring as purchasable livestock; rabbit/cat/dog presets +
+  painters only; 10 outfit painters (5 per gender, 8 distinct silhouette
+  styles); 15 new tool/accessory icons (plus a rod polish pass).
+- **Done:**
+  - **Files:**
+    - `src/art/animalRig.ts`: two new `EarStyle` values (`"round"` — small
+      nubs, pig; `"lop"` — long drooping ears, rabbit) added to
+      `drawQuadruped()`'s ear switch; a new optional `wool?: string` field on
+      `QuadrupedParams` drawn as 5 overlapping puffy blobs over the torso
+      (sheep fleece); a new optional `billStyle?: "pointed" | "flat"` on
+      `BirdParams`, drawn as a wider flattened ellipse for `"flat"` (duck) vs
+      the hen's existing pointed-triangle beak. Six new presets:
+      `PIG_RIG`/`SHEEP_RIG`/`DUCK_RIG` (wired as livestock — see below) and
+      `RABBIT_RIG`/`CAT_RIG`/`DOG_RIG` (presets + painters ONLY — see below).
+    - `src/art/characters.ts`: `drawPig`/`drawSheep`/`drawDuck` (same thin
+      Cow/Hen-style wrapper pattern) plus `drawRabbit`/`drawCat`/`drawDog`
+      (static-pose wrappers, `moving=false`, `phase=0` — nothing drives them
+      yet). A comment at the rabbit/cat/dog block marks the exact plug-in
+      point for the future Pets block (adoption) and the hutch: give each an
+      entity + spawn/update function in `entities/animals.ts`, call the
+      wrapper from `main.ts`'s depth-sorted ents, done.
+    - `src/entities/animals.ts`: `Duck`/`Pig`/`Sheep` interfaces (same shape
+      as `Cow`/`Hen`), `spawnDuck`/`spawnPig`/`spawnSheep`, `createAnimals()`
+      now also builds ducks/pigs/sheep arrays from `Livestock`'s new flock
+      counters, `updateAnimals()` signature extended to
+      `(cows, hens, ducks, pigs, sheep, dt)` with a wander loop per species
+      (duck wanders the pond edge with the hen's peck pattern; pig/sheep
+      wander barnside patches like the cow, no peck).
+    - `src/config.ts`: `DUCK_SPEED`/`PIG_SPEED`/`SHEEP_SPEED` (26/16/20
+      px/sec) and `DUCK_PRICE`/`PIG_PRICE`/`SHEEP_PRICE` (35/90/110 — the
+      anchor scale between hen 45 and cow 175, per the block spec).
+    - `src/systems/livestock.ts`: `Livestock` gains `ducks`/`pigs`/`sheep`
+      (flock counters, same shape as `hens` — only the cow stays unique/
+      boolean); a shared `count()` helper replaces the inline `hens` parse
+      tolerance so all four counters load/default identically. Old saves
+      missing these keys load as zero of each (verified — see below).
+    - `src/systems/shop.ts`: `ShopEntry.livestock` widened to
+      `"hen"|"cow"|"duck"|"pig"|"sheep"`; three new `SHOP_STOCK` rows;
+      `tryBuyLivestock()` switches on species to increment the right counter
+      (only `"cow"` keeps the pre-purchase uniqueness check).
+    - `src/ui/shopwindow.ts`: the livestock buy-row rendering generalized from
+      a hen/cow-only `if` to read any of the four flock counters for the
+      "(have N)" suffix; `onAnimalBought` callback type and the per-kind
+      arrival toast (`arriveLine` map) extended to all five kinds.
+    - `src/systems/interact.ts`: `registerAnimal()` generalized from a
+      `"cow"|"hen"` union to `AnimalKind` (adds duck/pig/sheep) via a new
+      `ANIMAL_META` lookup table (hit-ellipse size, display name, Feed
+      reaction line) — Feed (and the Husbandry skill gain) now works
+      identically for every owned animal, the "generalizes cheaply" call the
+      block asked for, not cow/hen-only.
+    - `src/systems/inventory.ts`: `ITEM_NAMES` gains `duck`/`pig`/`sheep`
+      (shop-row names) and 15 forward-content tool/accessory names.
+    - `src/art/icons.ts`: `paintDuck`/`paintPig`/`paintSheep` (shop-row
+      icons) + 15 new tool/accessory painters — `paintWateringCan`,
+      `paintBasket`, `paintSeedPouch`, `paintSickle`, `paintAxe`,
+      `paintPickaxe`, `paintSack`, `paintLantern`, `paintFishingNet`,
+      `paintBinoculars`, `paintBaitTin`, `paintBucket`, `paintStrawHat`,
+      `paintBoots`, `paintGiftBox` — registered under ids `watering-can`,
+      `basket`, `seed-pouch`, `sickle`, `axe`, `pickaxe`, `sack`, `lantern`,
+      `fishing-net`, `binoculars`, `bait-tin`, `bucket`, `straw-hat`, `boots`,
+      `gift-box` (kept distinct from the existing junk-catch `boot`/`tin`
+      ids — those are battered junk, these are clean shop goods). `paintRod`
+      got a small polish pass (a grip band + a reel dot). All are forward
+      content: no shop/mechanic wiring, just standardizing the visual
+      language for future gear, per the block spec.
+    - `src/art/rig.ts`: the outfit system's real addition. New `OutfitStyle`
+      type (`dress | tunic-skirt | overalls | shawl-dress | smock |
+      tunic-belt | vest | coat`) on a new `Outfit.style` field (+ a new
+      `Outfit.sleeve` field for a vest's lighter shirt-sleeve color). Two new
+      render passes in `drawRig()`: `drawHem()` (a flared skirt/coat trapezoid
+      drawn over the leg capsules, under the torso, so boots stay visible
+      below the hem — dress/shawl-dress get a long hem in the skirt color,
+      tunic-skirt a short one with a trim stripe, coat a long hem in the
+      TORSO's color since a coat isn't a separate garment) and
+      `drawOutfitAccent()` (bib+straps for overalls, a shawl drape+knot, a
+      flared smock hem + neck-tie, a vest triangle, a coat front-seam +
+      collar flap — apron reuses the existing look). Both are keyed off
+      `outfit.style` and no-op when it's absent, so every NPC/save still on
+      the legacy `torsoStyle` number renders exactly as before (that legacy
+      branch in `drawTorso()` is now gated on `!outfit.style` to prevent
+      double-rendering if both were ever set). `drawArm()`'s sleeve color is
+      now `outfit.sleeve ?? outfit.torso`.
+    - `src/systems/meta.ts`: `reviveAppearance()`'s outfit parsing gains
+      tolerant fields for `style` (validated against the 8 known values) and
+      `sleeve`, so a saved character's outfit round-trips correctly.
+    - `src/ui/charcreation.ts`: replaced the old flat 4-entry `OUTFITS` array
+      with `OUTFITS_FEM`/`OUTFITS_MASC` (5 each, all 8 styles represented,
+      overalls + smock reused across both rows with a different palette per
+      DECISIONS' "unisex where natural is fine"). `outfitGroup()` now takes a
+      `getList()` function and REBUILDS its button row (not just re-
+      highlights) whenever gender changes — pushed into the same `syncers`
+      array Randomize already used, so both paths refresh it. Switching
+      gender snaps the current outfit to that gender's first preset.
+      Randomize now rolls gender before picking from that gender's list.
+    - `src/data/npcs.ts`: 5 NPCs re-flavored with the new `style` field where
+      it fit their role directly (a cheap param swap, not new geometry) —
+      Maren (fish-buyer) → `smock`, Tobin (produce-seller) → `vest` +a
+      lighter sleeve, Henrik (farmer) → `overalls`, Petra (baker) → `dress`,
+      Jonas (peddler, "walks every road") → `coat`. Sera/Liora/Bram/Ada/Finn
+      left unchanged.
+- **Judgment calls:**
+  - Duck/pig/sheep are all flock counters (buyable repeatedly), matching the
+    hen pattern — only the cow stays unique-boolean. The block's price list
+    didn't specify uniqueness, and flock-style is the simpler, more uniform
+    extension of the existing two patterns.
+  - Rabbit is a hutch occupant, cat/dog belong to the future Pets block —
+    none of the three are spawned anywhere; only the rig preset + a thin
+    painter wrapper exist, per the block's explicit "presets + painters
+    only" instruction.
+  - "Overalls" and "smock" are reused as literally the same style geometry
+    across both gender rows (different palette only) — DECISIONS explicitly
+    allows unisex styles, and duplicating geometry for a palette-only
+    difference would be pure repetition.
+  - Feed was generalized to all 5 animal kinds (cheap: same consume-corn/
+    gain-husbandry logic, just parameterized) rather than staying cow/hen-
+    only, since nothing about it was actually cow/hen-specific.
+- **Verification:** `npm run build` green. Playwright against the dev
+  server (`window.__wh` bridge):
+  - **Livestock:** seeded an old-shaped `wildhearth-livestock-v1` blob
+    (`{version:1,cow:true,hens:3}`, no ducks/pigs/sheep keys) — game loaded
+    without a crash. Fresh game, barn repaired, coins bumped via
+    `economy.coins`: bought one duck/pig/sheep at the stall through the real
+    shop UI (clicked the actual Buy buttons) — toasts fired
+    ("A new duck waddles off toward the pond!", etc.), `wildhearth-
+    livestock-v1` showed `{ducks:1,pigs:1,sheep:1,...}`. Screenshots of the
+    yard show the pig (pink, round, snout) and sheep (white fleece cloud
+    over a dark face) near the barn, the duck paddling in the farm pond, and
+    a "Feed" prompt on hover. A second screenshot ~2.5s later shows them in
+    new positions (wandering). Reloaded the page and re-entered play — all
+    three still present in the same counts, confirming persistence.
+  - **Outfits:** opened Character Creation fresh, screenshotted the outfit
+    row (5 distinct gradient swatches) and cycled all 5 for both genders
+    (10 screenshots) — dress shows the apron overlay, tunic-skirt shows a
+    two-tone top/skirt split, overalls shows visible bib straps over a
+    cream shirt, shawl-dress shows a draped shawl over a plum dress, vest
+    shows a triangle vest over lighter sleeves, coat shows a long hem + a
+    front seam + collar flap — all 8 styles read as visually distinct in
+    the live preview. Confirmed switching gender REBUILDS the outfit row
+    (not just re-highlights) to the other gender's 5 presets. Spot-checked
+    Maren/Tobin/Henrik/Jonas in the live market square and at the neighbor
+    farm — new outfit styles render on NPC body builds/ages without
+    clipping or crashes.
+  - **Icons:** rendered all new icons in a temporary standalone gallery page
+    (`icongallery.html` at the repo root, Vite-served, imported the real
+    `art/icons.ts` module) at an enlarged review size, caught and fixed two
+    that didn't read clearly at first pass (binoculars looked like two dark
+    smudges — lightened the casing + enlarged the lenses; the seed pouch
+    read as a piece of fruit — reshaped to a peaked, gathered/tied neck).
+    Re-reviewed after fixes, then deleted the gallery file (never
+    committed). Cross-checked 12 of the new icons at the ACTUAL in-game
+    backpack scale (40px) via the dev bridge's `give()` hook + the real
+    backpack window — all readable at that size.
+- **Follow-ups:** the seed-pouch and sack icons are serviceable but still
+  read a little ambiguously (pouch leans fruit-like, sack leans jug-like) —
+  minor, forward-content-only, no mechanic depends on them yet; worth a
+  second pass whenever a real seed-pouch/sack mechanic lands.
+
 ## Content — crops, seasonal trees & bushes, ambient decorations
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part C content-library commit 1 — 9→18 crops, seasonal

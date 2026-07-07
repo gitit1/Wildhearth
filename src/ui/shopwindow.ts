@@ -36,7 +36,7 @@ let eco: Economy;
 let sk: Skills;
 let farmSt: FarmState;
 let stock: Livestock;
-let onAnimal: (kind: "hen" | "cow") => void = () => {};
+let onAnimal: (kind: "hen" | "cow" | "duck" | "pig" | "sheep") => void = () => {};
 let seasonNow: () => Season = () => "spring";
 let sellableIds: () => string[] = () => [];   // path/category-aware sell list
 let toastFn: (s: string) => void = () => {};
@@ -48,7 +48,7 @@ const buyQty = new Map<string, number>();
 
 export function initShopWindow(
   economy: Economy, skills: Skills, farm: FarmState, livestock: Livestock,
-  onAnimalBought: (kind: "hen" | "cow") => void, currentSeason: () => Season,
+  onAnimalBought: (kind: "hen" | "cow" | "duck" | "pig" | "sheep") => void, currentSeason: () => Season,
   sellable: () => string[],
   toast: (s: string) => void, memory: (key: string, text: string) => void,
   logSale: (coins: number, qty: number) => void = () => {},
@@ -225,17 +225,24 @@ function render() {
   for (const entry of SHOP_STOCK) {
     // seasonal stock (seed packets) only appears in its planting season
     if (entry.seasons && !entry.seasons.includes(seasonNow())) continue;
-    // livestock rows: barn-gated, never enter the backpack, spawn in the yard
+    // livestock rows: barn-gated, never enter the backpack, spawn in the yard.
+    // Only the cow is unique — hen/duck/pig/sheep are all flock counters
+    // (Part C content-library commit 2 generalizes this from hen-only).
     if (entry.livestock) {
       if (entry.livestock === "cow" && stock.cow) continue;   // one cow, like the hoe
       const price = discountedPrice(entry.price, haggling);
       const tag = price < entry.price ? ` (was ${entry.price})` : "";
+      const flockCount = entry.livestock === "hen" ? stock.hens
+        : entry.livestock === "duck" ? stock.ducks
+        : entry.livestock === "pig" ? stock.pigs
+        : entry.livestock === "sheep" ? stock.sheep
+        : 0;
       const row = document.createElement("div");
       row.className = "shop-row";
       const name = document.createElement("span");
       name.className = "shop-name";
-      name.textContent = entry.livestock === "hen" && stock.hens > 0
-        ? `${ITEM_NAMES[entry.id]} (have ${stock.hens})` : ITEM_NAMES[entry.id]!;
+      name.textContent = flockCount > 0
+        ? `${ITEM_NAMES[entry.id]} (have ${flockCount})` : ITEM_NAMES[entry.id]!;
       const total = document.createElement("span");
       total.className = "shop-total";
       total.textContent = `${price}${tag}`;
@@ -249,7 +256,14 @@ function render() {
         if (r === "no-coins") { toastFn(`Not enough coins — that costs ${price}.`); return; }
         if (r === "owned") { render(); return; }
         onAnimal(kind);
-        toastFn(kind === "cow" ? "A cow of your own! She heads for the barn." : "A new hen joins the yard!");
+        const arriveLine: Record<typeof kind, string> = {
+          cow: "A cow of your own! She heads for the barn.",
+          hen: "A new hen joins the yard!",
+          duck: "A new duck waddles off toward the pond!",
+          pig: "A new pig trots off to root around the yard!",
+          sheep: "A new sheep joins the flock!",
+        };
+        toastFn(arriveLine[kind]);
         memoryFn("first_animal", "The yard has a heartbeat now — first animal.");
         logPurchaseFn(price);
         const gained = gainSkill(sk, "haggling");   // every purchase is practice

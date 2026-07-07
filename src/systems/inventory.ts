@@ -24,6 +24,26 @@ export const ITEM_NAMES: Record<string, string> = {
   pail: "Feed pail",        // Animal-Keeper kit — inert until you own an animal to feed
   hen: "Hen",       // livestock: named for shop rows/toasts, never a bag item
   cow: "Cow",
+  duck: "Duck",     // Part C content-library commit 2: three more livestock rows
+  pig: "Pig",
+  sheep: "Sheep",
+  // Part C content-library commit 2: forward-content tool/accessory icons —
+  // no mechanic yet, named now so a future gear system has names ready.
+  "watering-can": "Watering can",
+  basket: "Basket",
+  "seed-pouch": "Seed pouch",
+  sickle: "Sickle",
+  axe: "Axe",
+  pickaxe: "Pickaxe",
+  sack: "Sack",
+  lantern: "Lantern",
+  "fishing-net": "Fishing net",
+  binoculars: "Binoculars",
+  "bait-tin": "Bait tin",
+  bucket: "Bucket",
+  "straw-hat": "Straw hat",
+  boots: "Boots",
+  "gift-box": "Gift box",
   "flower-seeds": "Flower seeds",
   ...Object.fromEntries(FISH.map((s) => [s.id, s.name])),
   ...Object.fromEntries(JUNK.map((j) => [j.id, j.name])),

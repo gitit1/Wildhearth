@@ -31,13 +31,28 @@ export type PoseName =
   | "idle" | "walking" | "fishing" | "hoeing"
   | "foraging" | "busking" | "talking" | "sleeping";
 
+/**
+ * Part C content-library commit 2: 8 distinct outfit-style SILHOUETTES (not
+ * just color swaps) layered onto the rig — a skirt/coat hem drawn over the
+ * legs (drawHem) + a torso-level accent (drawOutfitAccent), both keyed off
+ * this one field. Curated into 10 presets (5 per gender) in ui/charcreation.ts
+ * — "overalls" and "smock" are unisex, appearing in both rows with a
+ * different palette, per DECISIONS' "unisex where natural is fine".
+ */
+export type OutfitStyle =
+  | "dress" | "tunic-skirt" | "overalls" | "shawl-dress" | "smock"
+  | "tunic-belt" | "vest" | "coat";
+
 export interface Outfit {
-  torso: string;         // shirt / tunic / dress body color (also sleeve color)
-  torsoStyle?: number;   // 0 plain, 1 vest/collar, 2 apron
+  torso: string;         // shirt / tunic / dress body color
+  torsoStyle?: number;   // LEGACY numeric (0 plain, 1 vest/collar, 2 apron) — used only
+                         // when `style` is absent (old saves / NPCs not yet migrated)
   legs: string;          // trousers / skirt color
-  legStyle?: number;     // 0 trousers, 1 skirt
-  accent?: string;       // belt / trim color
+  legStyle?: number;     // legacy, unused by rendering (kept for save-data tolerance)
+  accent?: string;       // belt / trim / bib-strap / shawl / coat-seam color
   shoes?: string;        // foot color (defaults to a dark boot)
+  style?: OutfitStyle;   // the 8-style system; supersedes torsoStyle when present
+  sleeve?: string;       // arm color when it differs from torso (e.g. "vest" over a shirt)
 }
 
 export interface RigParams {
@@ -150,7 +165,7 @@ export function drawRig(
     hipLX, hipRX, footY, shLX, shRX, shTopY, armLen, shoulderY,
   });
 
-  const sleeve = p.outfit.torso;
+  const sleeve = p.outfit.sleeve ?? p.outfit.torso;
   const skin = p.skin;
   const shoe = p.outfit.shoes ?? "#4b3a26";
   const trouser = p.outfit.legs;
@@ -160,11 +175,19 @@ export function drawRig(
   drawLeg(g, hipLX, hipY, L.lFoot, legW, trouser, shoe, s);
   drawLeg(g, hipRX, hipY, L.rFoot, legW, trouser, shoe, s);
 
+  // skirt/coat hem (Part C outfit styles) — over the upper legs, under the
+  // torso so its waistband seam is covered; boots stay visible below it
+  drawHem(g, p.outfit, hipLX, hipRX, hipY, footY, L.ux, s);
+
   // ---- BACK ARM (behind torso) ----
   drawArm(g, shLX + L.ux, shTopY + L.uy, L.lHand, armW, sleeve, skin, s);
 
   // ---- TORSO ----
   drawTorso(g, shHalf, shoulderY, hipY, hipHalf, L.ux, L.uy, p, s);
+  // outfit-style accent (bib straps / shawl / apron / vest / coat seam) —
+  // over the torso, under the front arm, same layering the legacy torsoStyle
+  // apron/vest already used
+  drawOutfitAccent(g, shHalf, shoulderY, hipY, hipHalf, L.ux, L.uy, p.outfit, s);
 
   // lute sits across the chest, ON the torso, under the front (strumming) arm
   if (L.tool === "lute") drawLute(g, L.ux, shoulderY + L.uy, s);
@@ -296,8 +319,10 @@ function drawTorso(
   g.fillStyle = "rgba(0,0,0,.10)";
   g.fillRect(-shHalf + ux, top + h * 0.42, shHalf * 2, h * 0.16);
 
-  // outfit style flourishes
-  if (p.outfit.torsoStyle === 2) {                // apron
+  // legacy numeric outfit-style flourishes — old saves / NPCs not yet
+  // migrated to the `style` field (drawOutfitAccent handles those instead)
+  if (p.outfit.style) { /* handled by drawOutfitAccent, called right after this */ }
+  else if (p.outfit.torsoStyle === 2) {                // apron
     g.fillStyle = "rgba(255,255,255,.55)";
     roundR(g, -shHalf * 0.6 + ux, top + h * 0.2, shHalf * 1.2, h * 0.62, 2 * s);
     g.fill(); outline(g);
@@ -313,6 +338,116 @@ function drawTorso(
   if (p.outfit.accent) {
     g.fillStyle = p.outfit.accent;
     g.fillRect(-shHalf + ux, hipY - 1.4 * s + uy, shHalf * 2, 2.4 * s);
+  }
+}
+
+/**
+ * Skirt/coat hem (Part C outfit styles) — a flared trapezoid from the hip
+ * line down to a per-style fraction of the leg, drawn OVER the leg capsules
+ * but UNDER the torso (called between them in drawRig), so boots always
+ * still show below the hem and the torso covers the waistband seam.
+ * Trousers-based styles (overalls/smock/tunic-belt/vest) and any outfit
+ * without a `style` (legacy/NPC) draw nothing here — the plain leg capsules
+ * already drawn are the whole look.
+ */
+function drawHem(
+  g: CanvasRenderingContext2D, outfit: Outfit,
+  hipLX: number, hipRX: number, hipY: number, footY: number, ux: number, s: number,
+) {
+  let frac = 0, color = outfit.legs;
+  if (outfit.style === "dress" || outfit.style === "shawl-dress") frac = 0.82;
+  else if (outfit.style === "tunic-skirt") frac = 0.5;
+  else if (outfit.style === "coat") { frac = 0.86; color = outfit.torso; }
+  else return;
+  const hemY = hipY + (footY - hipY) * frac;
+  const spread = (hipRX - hipLX) * (outfit.style === "coat" ? 0.62 : 0.8);
+  g.fillStyle = color;
+  g.beginPath();
+  g.moveTo(hipLX - 1 * s + ux, hipY);
+  g.lineTo(hipRX + 1 * s + ux, hipY);
+  g.lineTo(hipRX + spread + ux, hemY);
+  g.lineTo(hipLX - spread + ux, hemY);
+  g.closePath();
+  g.fill(); outline(g);
+  if (outfit.accent && outfit.style === "tunic-skirt") {   // a hem trim stripe
+    g.strokeStyle = outfit.accent; g.lineWidth = 1.6 * s;
+    g.beginPath(); g.moveTo(hipLX - spread + ux, hemY - 0.8 * s); g.lineTo(hipRX + spread + ux, hemY - 0.8 * s); g.stroke();
+  }
+}
+
+/**
+ * Torso-level outfit-style accent (Part C outfit styles) — drawn right after
+ * drawTorso, so it's the layer between the plain torso shape and the front
+ * arm. Only fires when `outfit.style` is set (the 10 curated presets); old
+ * saves / NPCs still on the legacy `torsoStyle` number get their apron/vest
+ * drawn inside drawTorso itself, unchanged.
+ */
+function drawOutfitAccent(
+  g: CanvasRenderingContext2D, shHalf: number, shoulderY: number, hipY: number,
+  hipHalf: number, ux: number, uy: number, outfit: Outfit, s: number,
+) {
+  const top = shoulderY + uy;
+  const h = hipY - shoulderY + hipHalf * 1.3;
+  switch (outfit.style) {
+    case "dress":                                    // apron over the dress
+      g.fillStyle = "rgba(255,255,255,.55)";
+      roundR(g, -shHalf * 0.6 + ux, top + h * 0.2, shHalf * 1.2, h * 0.62, 2 * s);
+      g.fill(); outline(g);
+      break;
+    case "overalls": {                                // bib + shoulder straps
+      const bib = outfit.accent ?? "rgba(0,0,0,.2)";
+      g.fillStyle = bib;
+      roundR(g, -shHalf * 0.55 + ux, top, shHalf * 1.1, h * 0.55, 1.4 * s);
+      g.fill(); outline(g);
+      g.strokeStyle = bib; g.lineWidth = 2 * s; g.lineCap = "round";
+      g.beginPath(); g.moveTo(-shHalf * 0.4 + ux, top); g.lineTo(-shHalf * 0.25 + ux, top - 3 * s); g.stroke();
+      g.beginPath(); g.moveTo(shHalf * 0.4 + ux, top); g.lineTo(shHalf * 0.25 + ux, top - 3 * s); g.stroke();
+      break;
+    }
+    case "shawl-dress": {                             // a draped shawl + knot
+      const shawl = outfit.accent ?? "#8a8478";
+      g.fillStyle = shawl;
+      g.beginPath();
+      g.moveTo(-shHalf * 1.05 + ux, top + h * 0.05);
+      g.quadraticCurveTo(ux, top + h * 0.5, shHalf * 1.05 + ux, top + h * 0.05);
+      g.quadraticCurveTo(ux, top + h * 0.3, -shHalf * 1.05 + ux, top + h * 0.05);
+      g.closePath(); g.fill(); outline(g);
+      g.beginPath(); g.arc(ux, top + h * 0.3, 1.6 * s, 0, TAU); g.fill();
+      break;
+    }
+    case "smock": {                                   // a looser flared hem on the tunic itself
+      g.fillStyle = outfit.torso;
+      g.beginPath();
+      g.moveTo(-shHalf + ux, top + h * 0.6);
+      g.lineTo(shHalf + ux, top + h * 0.6);
+      g.lineTo(shHalf * 1.25 + ux, top + h);
+      g.lineTo(-shHalf * 1.25 + ux, top + h);
+      g.closePath(); g.fill(); outline(g);
+      if (outfit.accent) {                            // a drawstring V-neck tie
+        g.strokeStyle = outfit.accent; g.lineWidth = 1.4 * s;
+        g.beginPath(); g.moveTo(-1.6 * s + ux, top + 0.5 * s); g.lineTo(1.6 * s + ux, top + 2.6 * s); g.stroke();
+      }
+      break;
+    }
+    case "vest":                                      // vest over a (possibly lighter-sleeved) shirt
+      g.fillStyle = outfit.accent ?? "rgba(0,0,0,.18)";
+      g.beginPath();
+      g.moveTo(ux, top);
+      g.lineTo(-shHalf * 0.5 + ux, top + h * 0.5);
+      g.lineTo(shHalf * 0.5 + ux, top + h * 0.5);
+      g.closePath(); g.fill();
+      break;
+    case "coat":                                      // a front seam + small collar flap
+      g.strokeStyle = outfit.accent ?? "rgba(0,0,0,.3)"; g.lineWidth = 1.6 * s;
+      g.beginPath(); g.moveTo(ux, top); g.lineTo(ux, top + h * 1.3); g.stroke();
+      g.fillStyle = outfit.accent ?? "#8a7a5a";
+      g.beginPath();
+      g.moveTo(-shHalf * 0.6 + ux, top); g.lineTo(ux, top + h * 0.22); g.lineTo(shHalf * 0.6 + ux, top);
+      g.closePath(); g.fill(); outline(g);
+      break;
+    // "tunic-skirt" and "tunic-belt" add nothing here — the tunic-skirt's hem
+    // trim is drawn in drawHem, and tunic-belt is just the plain torso + the
+    // unconditional accent-belt above, which is the whole look.
   }
 }
 

@@ -26,12 +26,32 @@ const BUILDS: Array<{ id: BodyBuild; label: string }> = [
   { id: "average", label: "Average" },
   { id: "round", label: "Round" },
 ];
-const OUTFITS: Outfit[] = [
-  { torso: "#b0432f", legs: "#4a5d8a", accent: "#7a3020", shoes: "#4b3a26" },                  // rust + slate
-  { torso: "#2f6f7a", legs: "#33414d", accent: "#9c6b3f", shoes: "#3a2f22", torsoStyle: 2 },   // teal, apron
-  { torso: "#5a9a48", legs: "#6b4a2b", accent: "#e2c24a", shoes: "#4b3a26", torsoStyle: 1 },   // green, vest
-  { torso: "#6a4a8a", legs: "#3a4a7a", accent: "#e0be5c", shoes: "#3a2f22", torsoStyle: 1 },   // plum
+/**
+ * 10 curated outfit presets (Part C content-library commit 2), 5 per gender,
+ * each a distinct STYLE silhouette (see art/rig.ts's OutfitStyle), not just a
+ * color swap — "overalls" and "smock" are unisex (DECISIONS: "unisex where
+ * natural is fine"), reappearing in both rows with a different palette.
+ */
+const OUTFITS_FEM: Outfit[] = [
+  { torso: "#9a4a4a", legs: "#9a4a4a", accent: "#6e3535", shoes: "#4b3a26", style: "dress" },        // work dress + apron
+  { torso: "#3f8a6a", legs: "#c9a23a", accent: "#8a6f2a", shoes: "#3a2f22", style: "tunic-skirt" },  // tunic + skirt
+  { torso: "#e8d9b0", legs: "#4a5d8a", accent: "#33415a", shoes: "#3a2f22", style: "overalls" },     // overalls
+  { torso: "#5a3a6e", legs: "#5a3a6e", accent: "#9a8a78", shoes: "#3a2f22", style: "shawl-dress" },  // shawl + dress
+  { torso: "#3f6a7a", legs: "#4a4038", accent: "#c9c2ac", shoes: "#4b3a26", style: "smock" },        // fisher's smock
 ];
+const OUTFITS_MASC: Outfit[] = [
+  { torso: "#5a7a3a", legs: "#5a4632", accent: "#7a5330", shoes: "#4b3a26", style: "tunic-belt" },   // tunic + belt
+  { torso: "#d9cdb0", legs: "#3a4a5a", accent: "#26323f", shoes: "#3a2f22", style: "overalls" },     // overalls
+  { torso: "#8a5c3a", legs: "#4a4038", accent: "#5a3c22", shoes: "#4b3a26", style: "vest", sleeve: "#e0d3ae" }, // vest + shirt
+  { torso: "#4a6d7a", legs: "#3a342a", accent: "#b9b09a", shoes: "#3a2f22", style: "smock" },        // fisher's smock
+  { torso: "#4a3a2a", legs: "#33302a", accent: "#8a6f4a", shoes: "#3a2f22", style: "coat" },         // traveler's coat
+];
+const outfitsFor = (g: Gender): Outfit[] => (g === "female" ? OUTFITS_FEM : OUTFITS_MASC);
+const OUTFIT_LABELS: Record<string, string> = {
+  dress: "Work dress + apron", "tunic-skirt": "Tunic + skirt", overalls: "Overalls",
+  "shawl-dress": "Shawl + dress", smock: "Fisher's smock", "tunic-belt": "Tunic + belt",
+  vest: "Vest + shirt", coat: "Traveler's coat",
+};
 
 const FIRST_F = ["Mira", "Wren", "Rosa", "Elena", "Nell", "Ivy", "Cora", "Sonja", "Lena", "Faye"];
 const FIRST_M = ["Bram", "Cal", "Ivo", "Milo", "Rune", "Anders", "Soren", "Tomas", "Elias", "Pip"];
@@ -69,7 +89,7 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   const state: CCState = {
     firstName: "Robin", lastName: "Vale", nickname: "",
     age: 25, gender: "female",
-    appearance: { ...DEFAULT_APPEARANCE, outfit: { ...OUTFITS[0]! } },
+    appearance: { ...DEFAULT_APPEARANCE, outfit: { ...OUTFITS_FEM[0]! } },
   };
 
   const panel = document.createElement("div");
@@ -144,7 +164,11 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     b.className = "cc-btn";
     b.textContent = gd === "female" ? "Female" : "Male";
     b.dataset.g = gd;
-    b.addEventListener("click", () => { state.gender = gd; syncGender(); });
+    b.addEventListener("click", () => {
+      state.gender = gd;
+      state.appearance.outfit = { ...outfitsFor(gd)[0]! };   // snap to that gender's first curated outfit
+      for (const s of syncers) s();
+    });
     genderBox.append(b);
     gBtns.push({ id: gd, el: b });
   }
@@ -159,7 +183,7 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   const hairColRow = swatchGroup("Hair colour", HAIR_COLORS, () => state.appearance.hairColor, (c) => (state.appearance.hairColor = c), syncers);
   const buildRow = labelGroup("Build", BUILDS.map((b) => ({ v: b.id, label: b.label })),
     () => state.appearance.build, (v) => (state.appearance.build = v as BodyBuild), syncers);
-  const outfitRow = outfitGroup(() => state.appearance.outfit, (o) => (state.appearance.outfit = { ...o }), syncers);
+  const outfitRow = outfitGroup(() => outfitsFor(state.gender), () => state.appearance.outfit, (o) => (state.appearance.outfit = { ...o }), syncers);
 
   right.append(nameField, ageField, genderField, skinRow, hairRow, hairColRow, buildRow, outfitRow);
 
@@ -179,8 +203,8 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     state.appearance.hair = pick(HAIR_STYLES).id;
     state.appearance.hairColor = pick(HAIR_COLORS);
     state.appearance.build = pick(BUILDS).id;
-    state.appearance.outfit = { ...pick(OUTFITS) };
     state.gender = Math.random() < 0.5 ? "female" : "male";
+    state.appearance.outfit = { ...pick(outfitsFor(state.gender)) };
     state.firstName = pick(state.gender === "female" ? FIRST_F : FIRST_M);
     state.lastName = pick(LAST);
     state.nickname = pick(NICKS);
@@ -298,23 +322,35 @@ function labelGroup(
   return field;
 }
 
-function outfitGroup(get: () => Outfit, set: (o: Outfit) => void, syncers: Array<() => void>): HTMLElement {
+/** Outfit picker (Part C content-library commit 2): the 5 presets shown
+ *  depend on the currently-chosen gender (`getList`), so the whole row
+ *  rebuilds — not just re-highlights — whenever gender changes; `rebuild` is
+ *  pushed into `syncers` so gender-switch and Randomize both refresh it. */
+function outfitGroup(getList: () => Outfit[], get: () => Outfit, set: (o: Outfit) => void, syncers: Array<() => void>): HTMLElement {
   const field = document.createElement("div");
   field.className = "cc-field";
   const row = document.createElement("div");
   row.className = "cc-row";
-  const btns: HTMLButtonElement[] = [];
-  OUTFITS.forEach((o) => {
-    const b = document.createElement("button");
-    b.className = "cc-swatch cc-outfit";
-    b.style.background = `linear-gradient(160deg, ${o.torso} 0 58%, ${o.legs} 58% 100%)`;
-    b.addEventListener("click", () => { set(o); sync(); });
-    row.append(b);
-    btns.push(b);
-  });
-  const sync = () => btns.forEach((b, i) => b.classList.toggle("sel", OUTFITS[i]!.torso === get().torso && OUTFITS[i]!.legs === get().legs));
-  syncers.push(sync);
-  sync();
+  let list: Outfit[] = [];
+  const rebuild = () => {
+    list = getList();
+    row.replaceChildren();
+    list.forEach((o) => {
+      const b = document.createElement("button");
+      b.className = "cc-swatch cc-outfit";
+      b.title = OUTFIT_LABELS[o.style ?? ""] ?? "";
+      b.style.background = `linear-gradient(160deg, ${o.torso} 0 58%, ${o.legs} 58% 100%)`;
+      b.addEventListener("click", () => { set(o); sync(); });
+      row.append(b);
+    });
+    sync();
+  };
+  const sync = () => {
+    const btns = Array.from(row.children) as HTMLButtonElement[];
+    btns.forEach((b, i) => b.classList.toggle("sel", list[i]!.torso === get().torso && list[i]!.legs === get().legs && list[i]!.style === get().style));
+  };
+  syncers.push(rebuild);
+  rebuild();
   field.append(fieldLabel("Outfit"), row);
   return field;
 }

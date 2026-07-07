@@ -24,9 +24,9 @@ import { drawBunting, drawLanternPole, drawHarvestCluster } from "./art/festival
 import { activeFestival, isFestivalDay } from "./systems/festival";
 import { FESTIVALS } from "./data/festivals";
 import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse } from "./art/buildings";
-import { drawFarmer, drawCow, drawHen, drawNpc } from "./art/characters";
+import { drawFarmer, drawCow, drawHen, drawDuck, drawPig, drawSheep, drawNpc } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
-import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/animals";
+import { createAnimals, updateAnimals, spawnCow, spawnHen, spawnDuck, spawnPig, spawnSheep } from "./entities/animals";
 import { createWildlife, updateWildlife, type WildlifeInst } from "./entities/wildlife";
 import { drawWildlife } from "./art/wildlife";
 import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcById, npcNeedComment, type Npc } from "./entities/npc";
@@ -171,7 +171,7 @@ document.getElementById("zoomOut")!.addEventListener("click", () => adjustZoom(-
 const ground = paintGround();
 const player = createPlayer();
 const livestock = loadLivestock();
-const { cows, hens } = createAnimals(livestock);   // only what's been bought — no free animals
+const { cows, hens, ducks, pigs, sheep } = createAnimals(livestock);   // only what's been bought — no free animals
 const wildlife: WildlifeInst[] = createWildlife();   // ambient, seasonal — not persisted, not player-owned
 const economy = loadEconomy();
 const fishing = createFishing();
@@ -214,6 +214,9 @@ function expandFarm() {
 }
 for (const c of cows) registerAnimal("cow", c, cows);
 for (const h of hens) registerAnimal("hen", h, hens);
+for (const d of ducks) registerAnimal("duck", d, ducks);
+for (const p of pigs) registerAnimal("pig", p, pigs);
+for (const s of sheep) registerAnimal("sheep", s, sheep);
 
 // The 10 townsfolk: deterministic from the clock (no persistence). Snap them to
 // their scheduled spots for the loaded time, then register each as a "Talk to
@@ -633,6 +636,9 @@ function record(category: "fish" | "forage", id: string): boolean {
 initShopWindow(economy, skills, farm, livestock,
   (kind) => {
     if (kind === "cow") { const c = spawnCow(); cows.push(c); registerAnimal("cow", c, cows); }
+    else if (kind === "duck") { const d = spawnDuck(); ducks.push(d); registerAnimal("duck", d, ducks); }
+    else if (kind === "pig") { const p = spawnPig(); pigs.push(p); registerAnimal("pig", p, pigs); }
+    else if (kind === "sheep") { const s = spawnSheep(); sheep.push(s); registerAnimal("sheep", s, sheep); }
     else { const h = spawnHen(); hens.push(h); registerAnimal("hen", h, hens); }
   },
   () => currentSeason(calendar),
@@ -1105,7 +1111,7 @@ function newGameReset(character: Character, mode: Guidance) {
   devNotes.reset();
   stormNarratedSeason = -1;
   resetLivestock(livestock);
-  cows.length = 0; hens.length = 0;   // the yard empties with the new life
+  cows.length = 0; hens.length = 0; ducks.length = 0; pigs.length = 0; sheep.length = 0;   // the yard empties with the new life
   initNpcPositions(npcs, calendar, weather);   // re-snap townsfolk to fresh day-1 morning
   meta.character = character;
   meta.starterTool = path.tool;       // kept in sync for the systems that still read it
@@ -1302,7 +1308,7 @@ function tick(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now; time += dt;
 
-  updateAnimals(cows, hens, dt);   // ambience runs even behind the opening screens
+  updateAnimals(cows, hens, ducks, pigs, sheep, dt);   // ambience runs even behind the opening screens
   updateWildlife(wildlife, currentSeason(calendar), weather.kind, player, dt);   // seasonal ambient critters
   // Weather visual layer (Part B #8): screen-space rain/fog/lightning keeps
   // drifting through dialogue/menu pauses too — it's ambient atmosphere, not
@@ -1670,6 +1676,9 @@ function draw(dt: number) {
   for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time, currentSeason(calendar)) });
   for (const c of cows) ents.push({ y: c.y + 14, f: () => drawCow(ctx, c, time) });
   for (const h of hens) ents.push({ y: h.y + 6, f: () => drawHen(ctx, h, time) });
+  for (const d of ducks) ents.push({ y: d.y + 6, f: () => drawDuck(ctx, d, time) });
+  for (const p of pigs) ents.push({ y: p.y + 10, f: () => drawPig(ctx, p, time) });
+  for (const s of sheep) ents.push({ y: s.y + 12, f: () => drawSheep(ctx, s, time) });
   for (const w of wildlife) ents.push({ y: w.y + 6, f: () => drawWildlife(ctx, w, time) });
   // townsfolk, unless indoors (asleep / at home). Name label shows only when
   // this NPC is hovered or in reach — same "only when relevant" rule as prompts.

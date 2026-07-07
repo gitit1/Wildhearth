@@ -23,7 +23,7 @@ import { readRelationship, type Relationships } from "./relationships";
 import { INTERACTIONS, type InteractionDef } from "../data/interactions";
 import { isRomantic } from "../data/npcs";
 import { ROMANCE_UNLOCK_FRIENDSHIP } from "../config";
-import type { Cow, Hen } from "../entities/animals";
+import type { Cow, Hen, Duck, Pig, Sheep } from "../entities/animals";
 import type { Npc } from "../entities/npc";
 import { glowEllipse, glowRect } from "../art/highlight";
 import type { Player } from "../entities/player";
@@ -457,17 +457,31 @@ export const INTERACTABLES: Interactable[] = [
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];
 
+export type AnimalKind = "cow" | "hen" | "duck" | "pig" | "sheep";
+
+/** Per-species hit-ellipse size, display name, and Feed reaction line — the
+ *  "generalizes cheaply" call from the Part C content-library commit 2 block:
+ *  Feed (and the Husbandry skill gain it grants) now works identically for
+ *  every owned animal, not just cow/hen. */
+const ANIMAL_META: Record<AnimalKind, { rx: number; ry: number; name: string; eatLine: string }> = {
+  cow:   { rx: 22, ry: 16, name: "Cow",   eatLine: "The cow munches happily. 🐄" },
+  hen:   { rx: 12, ry: 10, name: "Hen",   eatLine: "The hen pecks it up. 🐔" },
+  duck:  { rx: 12, ry: 10, name: "Duck",  eatLine: "The duck gobbles it down. 🦆" },
+  pig:   { rx: 18, ry: 13, name: "Pig",   eatLine: "The pig snuffles it up happily. 🐖" },
+  sheep: { rx: 17, ry: 13, name: "Sheep", eatLine: "The sheep chews it contentedly. 🐑" },
+};
+
 /**
  * Owned animals are feedable (Animal Husbandry, base-skill-set block).
  * They wander, so hit/reach read their live position; membership in the live
  * array guards against animals cleared by a New Game.
  */
-export function registerAnimal(kind: "cow" | "hen", a: Cow | Hen, arr: Array<Cow | Hen>) {
-  const rx = kind === "cow" ? 22 : 12, ry = kind === "cow" ? 16 : 10;
-  const label = kind === "cow" ? "the cow" : "the hen";
+export function registerAnimal(kind: AnimalKind, a: Cow | Hen | Duck | Pig | Sheep, arr: Array<Cow | Hen | Duck | Pig | Sheep>) {
+  const { rx, ry, name, eatLine } = ANIMAL_META[kind];
+  const label = name.toLowerCase();
   INTERACTABLES.push({
     id: `${kind}-${Math.random().toString(36).slice(2, 8)}`,
-    name: kind === "cow" ? "Cow" : "Hen",
+    name,
     get anchor(): [number, number] { return [a.x, a.y + ry + 12]; },
     defaultActionId: "feed",
     hit: (wx, wy) => {
@@ -482,17 +496,17 @@ export function registerAnimal(kind: "cow" | "hen", a: Cow | Hen, arr: Array<Cow
         run: (c) => {
           if (busy(c)) return;
           if (countItem(c.economy.inv, FEED_GAIN_ITEM) === 0) {
-            c.toast(`${kind === "cow" ? "She" : "It"} eyes your empty hands. ${ITEM_NAMES[FEED_GAIN_ITEM]} would do.`);
+            c.toast(`It eyes your empty hands. ${ITEM_NAMES[FEED_GAIN_ITEM]} would do.`);
             return;
           }
           removeItem(c.economy.inv, FEED_GAIN_ITEM, 1);
           saveEconomy(c.economy);
-          c.toast(kind === "cow" ? "The cow munches happily. 🐄" : "The hen pecks it up. 🐔");
+          c.toast(eatLine);
           const gained = gainSkill(c.skills, "husbandry", moodPerfMult(c.needs));
           if (gained > 0) c.skillPopup("husbandry", gained);
         },
       },
-      { id: "look", label: "Look", run: (c) => c.toast(`Your own ${label.replace("the ", "")} — bought, not given.`) },
+      { id: "look", label: "Look", run: (c) => c.toast(`Your own ${label} — bought, not given.`) },
     ],
     drawHover: (g, t) => glowEllipse(g, a.x, a.y - 2, rx + 4, ry + 4, t),
   });

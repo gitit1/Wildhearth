@@ -6,10 +6,13 @@
  * next block they call drawRig directly with their own RigParams.
  */
 import { drawRig, RIG_STRIDE, type RigParams } from "./rig";
-import { drawQuadruped, drawBird, COW_RIG, HEN_RIG, QUAD_STRIDE, BIRD_STRIDE } from "./animalRig";
+import {
+  drawQuadruped, drawBird, COW_RIG, HEN_RIG, QUAD_STRIDE, BIRD_STRIDE,
+  PIG_RIG, SHEEP_RIG, DUCK_RIG, RABBIT_RIG, CAT_RIG, DOG_RIG,
+} from "./animalRig";
 import { roundR, outline } from "./shapes";
 import { DEFAULT_PLAYER_RIG, type Player } from "../entities/player";
-import type { Cow, Hen } from "../entities/animals";
+import type { Cow, Hen, Duck, Pig, Sheep } from "../entities/animals";
 import type { Npc } from "../entities/npc";
 
 /** The player, drawn with her created look. `rig` comes from her saved
@@ -74,4 +77,39 @@ export function drawCow(g: CanvasRenderingContext2D, c: Cow, t: number) {
 
 export function drawHen(g: CanvasRenderingContext2D, h: Hen, t: number) {
   drawBird(g, h.x, h.y, h.flip, HEN_RIG, h.dist / BIRD_STRIDE, h.moving, h.peck, t);
+}
+
+// ---- Part C content-library commit 2: pig/sheep/duck (wired as purchasable
+// livestock, see entities/animals.ts + main.ts) ----------------------------
+
+export function drawPig(g: CanvasRenderingContext2D, p: Pig, t: number) {
+  drawQuadruped(g, p.x, p.y, p.flip, PIG_RIG, p.dist / QUAD_STRIDE, p.moving, t);
+}
+
+export function drawSheep(g: CanvasRenderingContext2D, s: Sheep, t: number) {
+  drawQuadruped(g, s.x, s.y, s.flip, SHEEP_RIG, s.dist / QUAD_STRIDE, s.moving, t);
+}
+
+export function drawDuck(g: CanvasRenderingContext2D, d: Duck, t: number) {
+  drawBird(g, d.x, d.y, d.flip, DUCK_RIG, d.dist / BIRD_STRIDE, d.moving, d.peck, t);
+}
+
+// ---- rabbit/cat/dog: PAINTERS + PRESETS ONLY — nothing spawns these yet.
+// The rabbit is a hutch occupant (a static-prop context, not a wandering
+// yard animal); cat + dog belong to the future Pets block (adoption,
+// companionship — VISION.md Systems #6). This is the one plug-in point:
+// when that block lands, give each a Cow/Hen-style entity + spawn/update
+// function in entities/animals.ts and call these from main.ts's depth-
+// sorted ents, exactly like drawPig/drawSheep/drawDuck above. ----------
+
+export function drawRabbit(g: CanvasRenderingContext2D, x: number, y: number, flip: boolean, t: number) {
+  drawQuadruped(g, x, y, flip, RABBIT_RIG, 0, false, t);
+}
+
+export function drawCat(g: CanvasRenderingContext2D, x: number, y: number, flip: boolean, t: number) {
+  drawQuadruped(g, x, y, flip, CAT_RIG, 0, false, t);
+}
+
+export function drawDog(g: CanvasRenderingContext2D, x: number, y: number, flip: boolean, t: number) {
+  drawQuadruped(g, x, y, flip, DOG_RIG, 0, false, t);
 }

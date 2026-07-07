@@ -1,9 +1,10 @@
 /**
  * Segmented rigs for four-legged and bird animals — the animal counterpart to
  * rig.ts. Same shared OUTLINE + elliptical drop shadow, same distance-keyed
- * walk cycle (phase = dist / stride). Cow and hen are built now; the Part-C
- * animals (pig, sheep, duck, cat, dog, rabbit) are meant to be parameter
- * variants of these two rigs plus tiny overrides — never a new engine.
+ * walk cycle (phase = dist / stride). Cow and hen were built first; pig,
+ * sheep, duck, cat, dog and rabbit (Part C content-library commit 2) are all
+ * parameter variants of these same two rigs plus tiny overrides (a wool
+ * overlay, two new ear styles, a flat duck bill) — never a new engine.
  *
  * Pure art constants live here; movement speeds live in config.ts.
  */
@@ -15,7 +16,7 @@ const TAU = Math.PI * 2;
 export const QUAD_STRIDE = 26;
 export const BIRD_STRIDE = 14;
 
-export type EarStyle = "cow" | "floppy" | "pointy" | "none";
+export type EarStyle = "cow" | "floppy" | "pointy" | "round" | "lop" | "none";
 export type TailStyle = "tuft" | "curly" | "none";
 
 export interface QuadrupedParams {
@@ -34,6 +35,7 @@ export interface QuadrupedParams {
   tail: TailStyle;
   tailColor?: string;
   eye?: string;
+  wool?: string;          // Part C: puffy overlay blobs on the torso (sheep fleece)
 }
 
 export interface BirdParams {
@@ -45,6 +47,7 @@ export interface BirdParams {
   beak: string;
   legColor: string;
   eye: string;
+  billStyle?: "pointed" | "flat";   // Part C: duck gets a wider, flatter bill
 }
 
 function capsule(
@@ -113,6 +116,17 @@ export function drawQuadruped(
     g.beginPath(); g.ellipse(-bw * 0.35, -bh * 0.15, bw * 0.4, bh * 0.5, 0.4, 0, TAU); g.fill();
     g.beginPath(); g.ellipse(bw * 0.45, bh * 0.15, bw * 0.3, bh * 0.42, -0.4, 0, TAU); g.fill();
   }
+  if (p.wool) {
+    // a fleece of overlapping puffy blobs over the torso (sheep) — same
+    // "cloud of circles" technique as the tree canopy, just body-sized
+    g.fillStyle = p.wool;
+    const puffs: Array<[number, number, number]> = [
+      [-bw * 0.55, -bh * 0.35, bh * 0.62], [bw * 0.05, -bh * 0.62, bh * 0.66],
+      [bw * 0.62, -bh * 0.3, bh * 0.56], [-bw * 0.1, bh * 0.05, bh * 0.58],
+      [bw * 0.35, bh * 0.1, bh * 0.5],
+    ];
+    for (const [ox, oy, r] of puffs) { g.beginPath(); g.arc(ox, oy, r, 0, TAU); g.fill(); outline(g); }
+  }
   g.restore();
 
   // ---- head at the front (right side), gentle graze bob ----
@@ -132,6 +146,16 @@ export function drawQuadruped(
     g.fillStyle = p.headColor;
     g.beginPath(); g.moveTo(hx - hr * 0.6, hy - hr * 0.6); g.lineTo(hx - hr * 0.2, hy - hr * 1.2); g.lineTo(hx, hy - hr * 0.5); g.closePath(); g.fill(); outline(g);
     g.beginPath(); g.moveTo(hx + hr * 0.6, hy - hr * 0.6); g.lineTo(hx + hr * 0.2, hy - hr * 1.2); g.lineTo(hx, hy - hr * 0.5); g.closePath(); g.fill(); outline(g);
+  } else if (p.ears === "round") {
+    // small rounded nubs (pig/bear style) — closer to the head than "cow"
+    g.fillStyle = p.headColor;
+    g.beginPath(); g.ellipse(hx - hr * 0.55, hy - hr * 0.78, hr * 0.32, hr * 0.28, 0, 0, TAU); g.fill(); outline(g);
+    g.beginPath(); g.ellipse(hx + hr * 0.55, hy - hr * 0.78, hr * 0.32, hr * 0.28, 0, 0, TAU); g.fill(); outline(g);
+  } else if (p.ears === "lop") {
+    // long ears hanging down beside the face (lop rabbit)
+    g.fillStyle = p.headColor;
+    g.beginPath(); g.ellipse(hx - hr * 0.55, hy + hr * 0.45, hr * 0.28, hr * 1.05, 0.14, 0, TAU); g.fill(); outline(g);
+    g.beginPath(); g.ellipse(hx + hr * 0.55, hy + hr * 0.45, hr * 0.28, hr * 1.05, -0.14, 0, TAU); g.fill(); outline(g);
   }
   if (p.horns) {
     g.fillStyle = "#e6dcc4";
@@ -214,9 +238,14 @@ export function drawBird(
     g.beginPath(); g.arc(hx, hy - r * 0.55, r * 0.22, 0, TAU); g.fill();
   }
   g.fillStyle = p.beak;
-  g.beginPath();
-  g.moveTo(hx + r * 0.45, hy); g.lineTo(hx + r * 0.9, hy + r * 0.12); g.lineTo(hx + r * 0.45, hy + r * 0.28);
-  g.closePath(); g.fill();
+  if (p.billStyle === "flat") {
+    // duck: a wider, flatter, rounded bill (distinct silhouette from the hen's beak)
+    g.beginPath(); g.ellipse(hx + r * 0.62, hy + r * 0.1, r * 0.5, r * 0.26, 0, 0, TAU); g.fill(); outline(g);
+  } else {
+    g.beginPath();
+    g.moveTo(hx + r * 0.45, hy); g.lineTo(hx + r * 0.9, hy + r * 0.12); g.lineTo(hx + r * 0.45, hy + r * 0.28);
+    g.closePath(); g.fill();
+  }
   g.fillStyle = p.eye;
   g.beginPath(); g.arc(hx + r * 0.15, hy - r * 0.05, 1 * s, 0, TAU); g.fill();
 
@@ -224,7 +253,15 @@ export function drawBird(
   g.restore();
 }
 
-// ---- ready-made presets (cow + hen now; the rest land in Part C) ----------
+// ---- ready-made presets (cow + hen; Part C content-library commit 2 adds
+// pig/sheep/duck — wired as purchasable livestock, see systems/livestock.ts +
+// systems/shop.ts + entities/animals.ts — plus rabbit/cat/dog, which are
+// PRESETS + PAINTERS ONLY: cat/dog belong to the future Pets block (adoption,
+// companionship — see VISION.md Systems #6), and the rabbit is a hutch
+// occupant, not a wandering yard animal. None of the three are spawned
+// anywhere yet; see art/characters.ts's drawCat/drawDog/drawRabbit for the
+// (currently unused outside verification) painter wrappers and a comment
+// marking where the Pets block would plug them in. ----------------------
 
 export const COW_RIG: QuadrupedParams = {
   scale: 1, bodyColor: "#f2efe8", bodyW: 18, bodyH: 10, legColor: "#e0dccf",
@@ -235,4 +272,45 @@ export const COW_RIG: QuadrupedParams = {
 export const HEN_RIG: BirdParams = {
   scale: 1, bodyColor: "#f5f2ea", bodyR: 7, wingColor: "#e6e0d2",
   comb: "#d94a3a", beak: "#e8a83a", legColor: "#e8a83a", eye: "#2a2a30",
+};
+
+/** Pink, round, snout + a curly tail — purchasable livestock (barn-gated). */
+export const PIG_RIG: QuadrupedParams = {
+  scale: 0.85, bodyColor: "#eeb3ab", bodyW: 15, bodyH: 9.5, legColor: "#dda297",
+  legLen: 5, headColor: "#eeb3ab", snout: "#c9847a", ears: "round",
+  tail: "curly", tailColor: "#dda297", eye: "#2a2a30",
+};
+
+/** A woolly fleece blob body over a dark face/legs — purchasable livestock. */
+export const SHEEP_RIG: QuadrupedParams = {
+  scale: 0.9, bodyColor: "#f2efe4", bodyW: 16, bodyH: 10, legColor: "#3a2f22",
+  legLen: 6, headColor: "#463b2c", ears: "floppy", tail: "tuft", tailColor: "#f2efe4",
+  eye: "#2a2a30", wool: "#f7f4ea",
+};
+
+/** Bird rig with a flat bill + a slow waddling gait (the shared walk cycle
+ *  already reads as a waddle at this stride) — purchasable livestock. */
+export const DUCK_RIG: BirdParams = {
+  scale: 0.8, bodyColor: "#f5eddb", bodyR: 6.5, wingColor: "#e0d6bc",
+  beak: "#e0a12f", legColor: "#e0a12f", eye: "#2a2a30", billStyle: "flat",
+};
+
+/** Lop rabbit — long drooping ears, small round body. Hutch occupant (a
+ *  static prop context, not a wandering yard animal) — preset + painter only. */
+export const RABBIT_RIG: QuadrupedParams = {
+  scale: 0.55, bodyColor: "#e8e2d4", bodyW: 10, bodyH: 7, legColor: "#d8d0bc",
+  legLen: 3.5, headColor: "#e8e2d4", ears: "lop", tail: "tuft", tailColor: "#f5f2ea", eye: "#2a2a30",
+};
+
+/** Cat — pointy ears, curled tail. Pets block (future) — preset + painter only. */
+export const CAT_RIG: QuadrupedParams = {
+  scale: 0.6, bodyColor: "#8a7362", bodyW: 10, bodyH: 6.5, legColor: "#7a6455",
+  legLen: 5, headColor: "#8a7362", ears: "pointy", tail: "curly", tailColor: "#7a6455", eye: "#c9a23a",
+};
+
+/** Dog — floppy ear, tufted tail, a snout patch. Pets block (future) —
+ *  preset + painter only. */
+export const DOG_RIG: QuadrupedParams = {
+  scale: 0.75, bodyColor: "#c9975a", bodyW: 12, bodyH: 7.5, legColor: "#b8854a",
+  legLen: 6, headColor: "#c9975a", snout: "#e0c9a0", ears: "floppy", tail: "tuft", tailColor: "#b8854a", eye: "#2a2a30",
 };

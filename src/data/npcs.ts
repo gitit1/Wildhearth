@@ -176,7 +176,9 @@ export const NPCS: NpcDef[] = [
     rig: {
       scale: 1, build: "average", legLength: 1, armLength: 1, skin: "#e3ac83",
       hair: "ponytail", hairColor: "#3a2a1a", age: "adult",
-      outfit: { torso: "#2f6f7a", torsoStyle: 2, legs: "#33414d", accent: "#9c6b3f" },
+      // Part C content-library commit 2: fisher's smock fits Maren's role
+      // better than the old generic apron (torsoStyle) — a cheap param swap.
+      outfit: { torso: "#2f6f7a", style: "smock", legs: "#33414d", accent: "#9c6b3f" },
     },
   },
   {
@@ -189,7 +191,7 @@ export const NPCS: NpcDef[] = [
     rig: {
       scale: 1, build: "round", legLength: 1, armLength: 1, skin: "#e8b48a",
       hair: "short", hairColor: "#3a2a1a", age: "adult",
-      outfit: { torso: "#5a9a48", torsoStyle: 1, legs: "#6b4a2b", accent: "#e2c24a" },
+      outfit: { torso: "#5a9a48", style: "vest", sleeve: "#e2d9a8", legs: "#6b4a2b", accent: "#e2c24a" },
     },
   },
   {
@@ -215,7 +217,8 @@ export const NPCS: NpcDef[] = [
     rig: {
       scale: 1, build: "average", legLength: 1, armLength: 1, skin: "#cf9f74",
       hair: "hat", hairColor: "#8a8172", hatColor: "#b59a5a", age: "elder",
-      outfit: { torso: "#7a5330", legs: "#4a4a3a", accent: "#5d4630" },
+      // Part C content-library commit 2: overalls fit a farmer, cheap swap.
+      outfit: { torso: "#e0d3ae", style: "overalls", legs: "#4a4a3a", accent: "#5d4630" },
     },
   },
   {
@@ -228,7 +231,8 @@ export const NPCS: NpcDef[] = [
     rig: {
       scale: 1, build: "round", legLength: 1, armLength: 1, skin: "#e8b48a",
       hair: "bun", hairColor: "#5b3b22", age: "adult",
-      outfit: { torso: "#c26b4a", torsoStyle: 2, legs: "#7a5330", accent: "#b5843c" },
+      // Part C content-library commit 2: work dress + apron for the baker.
+      outfit: { torso: "#c26b4a", style: "dress", legs: "#c26b4a", accent: "#b5843c" },
     },
   },
   {
@@ -293,7 +297,9 @@ export const NPCS: NpcDef[] = [
     rig: {
       scale: 1, build: "average", legLength: 1, armLength: 1, skin: "#d9a878",
       hair: "hat", hairColor: "#3a2a1a", hatColor: "#7a4e20", age: "adult",
-      outfit: { torso: "#9a5a3a", torsoStyle: 1, legs: "#4a4038", accent: "#e2c24a" },
+      // Part C content-library commit 2: a traveler's coat for the peddler
+      // who "walks every road and carries every rumour" — an obvious fit.
+      outfit: { torso: "#9a5a3a", style: "coat", legs: "#4a4038", accent: "#e2c24a" },
     },
   },
 ];

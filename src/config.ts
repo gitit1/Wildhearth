@@ -11,6 +11,9 @@ export const PLAYER_SPEED = 150;        // px/sec
 
 export const STARTING_COINS = 50;       // a new life's purse (VISION price anchor table)
 export const COW_SPEED = 22, HEN_SPEED = 30;
+// Part C content-library commit 2: pig/sheep/duck wander speeds (px/sec) —
+// duck paddles about like a hen, pig plods slower than the cow, sheep between.
+export const DUCK_SPEED = 26, PIG_SPEED = 16, SHEEP_SPEED = 20;
 
 // NPCs (10 townsfolk, weekly schedules — NPC-engine block). Deterministic from
 // the clock, so no persistence; these are pure feel/tuning knobs.
@@ -44,6 +47,9 @@ export const REPAIR_COST = { roof: 25, window: 15, barn: 30, fence: 10 } as cons
 
 export const HEN_PRICE = 45;            // livestock (price anchor: first hen 40-50)
 export const COW_PRICE = 175;           // livestock (price anchor: first cow 150-200)
+// Part C content-library commit 2: three more barn-gated animals, priced on
+// the same anchor scale between the hen (45) and the cow (175).
+export const DUCK_PRICE = 35, PIG_PRICE = 90, SHEEP_PRICE = 110;
 // Farm plot expansions: above fence-repair scale (10), at animal-tier spends —
 // tier 1 lands between hen and cow, tier 2 at cow tier. Each adds 22 tiles (+20%).
 export const PLOT_EXPANSION_PRICES = [120, 180] as const;

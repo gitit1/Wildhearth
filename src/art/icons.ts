@@ -5,6 +5,7 @@ import { FISH } from "../data/fish";
 import { CROPS } from "../data/crops";
 import { FORAGE } from "../data/forage";
 import { RECIPES } from "../data/recipes";
+import { roundR } from "./shapes";
 
 /** A cooked dish: steaming bowl, contents tinted per recipe. */
 function paintDish(g: CanvasRenderingContext2D, s: number, color: string) {
@@ -275,9 +276,14 @@ function paintGlassGemCorn(g: CanvasRenderingContext2D, s: number) {
 }
 
 function paintRod(g: CanvasRenderingContext2D, s: number) {
-  // rod
+  // rod (polish pass, Part C content-library commit 2: a grip + reel so the
+  // silhouette reads as a fishing rod even without the line/hook detail)
   g.strokeStyle = "#8a6a42"; g.lineWidth = Math.max(2, s * 0.07); g.lineCap = "round";
   g.beginPath(); g.moveTo(s * 0.2, s * 0.82); g.lineTo(s * 0.74, s * 0.2); g.stroke();
+  g.strokeStyle = "#5e4025"; g.lineWidth = Math.max(3, s * 0.11); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.2, s * 0.82); g.lineTo(s * 0.29, s * 0.72); g.stroke();
+  g.fillStyle = "#9aa2ab";
+  g.beginPath(); g.arc(s * 0.3, s * 0.68, s * 0.06, 0, 7); g.fill();
   // line + hook
   g.strokeStyle = "#d8d2c0"; g.lineWidth = Math.max(1, s * 0.025);
   g.beginPath(); g.moveTo(s * 0.74, s * 0.2); g.lineTo(s * 0.78, s * 0.6); g.stroke();
@@ -343,6 +349,54 @@ function paintCow(g: CanvasRenderingContext2D, s: number) {
   g.fillRect(s * 0.56, s * 0.68, s * 0.05, s * 0.14);
 }
 
+/** A duck — cream body, flat orange bill (Part C content-library commit 2:
+ *  shop-row icon for the new livestock). */
+function paintDuck(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#f5eddb";
+  g.beginPath(); g.ellipse(s * 0.46, s * 0.56, s * 0.24, s * 0.19, 0, 0, 7); g.fill();
+  g.beginPath(); g.arc(s * 0.68, s * 0.4, s * 0.11, 0, 7); g.fill();
+  g.fillStyle = "#e0a12f";
+  g.beginPath(); g.ellipse(s * 0.8, s * 0.42, s * 0.09, s * 0.05, 0, 0, 7); g.fill();
+  g.fillStyle = "#22303a";
+  g.beginPath(); g.arc(s * 0.7, s * 0.38, s * 0.02, 0, 7); g.fill();
+  g.fillStyle = "#e0d6bc";
+  g.beginPath(); g.ellipse(s * 0.42, s * 0.56, s * 0.13, s * 0.1, 0.2, 0, 7); g.fill();
+  g.strokeStyle = "#e0a12f"; g.lineWidth = Math.max(1, s * 0.03);
+  g.beginPath(); g.moveTo(s * 0.4, s * 0.74); g.lineTo(s * 0.4, s * 0.82); g.stroke();
+  g.beginPath(); g.moveTo(s * 0.52, s * 0.74); g.lineTo(s * 0.52, s * 0.82); g.stroke();
+}
+
+/** A pig — pink round body, snout, curly tail. */
+function paintPig(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#eeb3ab";
+  g.beginPath(); g.ellipse(s * 0.46, s * 0.54, s * 0.26, s * 0.2, 0, 0, 7); g.fill();
+  g.beginPath(); g.arc(s * 0.74, s * 0.42, s * 0.13, 0, 7); g.fill();
+  g.fillStyle = "#c9847a";
+  g.beginPath(); g.ellipse(s * 0.79, s * 0.46, s * 0.08, s * 0.06, 0, 0, 7); g.fill();
+  g.fillStyle = "#22303a";
+  for (const ox of [0.68, 0.86]) { g.beginPath(); g.arc(s * ox, s * 0.44, s * 0.016, 0, 7); g.fill(); }
+  g.strokeStyle = "#dda297"; g.lineWidth = Math.max(1, s * 0.04); g.lineCap = "round";
+  g.beginPath(); g.arc(s * 0.2, s * 0.5, s * 0.05, 0, 4.5); g.stroke();
+  g.fillStyle = "#eeb3ab";
+  g.beginPath(); g.ellipse(s * 0.63, s * 0.3, s * 0.05, s * 0.04, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(s * 0.79, s * 0.3, s * 0.05, s * 0.04, 0, 0, 7); g.fill();
+}
+
+/** A sheep — a puffy cream wool cloud over a small dark face + legs. */
+function paintSheep(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#f2efe4";
+  for (const [ox, oy, r] of [[0.36, 0.5, 0.15], [0.5, 0.42, 0.17], [0.62, 0.5, 0.14], [0.46, 0.6, 0.15]] as const) {
+    g.beginPath(); g.arc(s * ox, s * oy, s * r, 0, 7); g.fill();
+  }
+  g.fillStyle = "#463b2c";
+  g.beginPath(); g.arc(s * 0.76, s * 0.48, s * 0.1, 0, 7); g.fill();
+  g.fillStyle = "#22303a";
+  g.beginPath(); g.arc(s * 0.78, s * 0.45, s * 0.018, 0, 7); g.fill();
+  g.strokeStyle = "#3a2f22"; g.lineWidth = Math.max(1, s * 0.04);
+  g.beginPath(); g.moveTo(s * 0.42, s * 0.76); g.lineTo(s * 0.42, s * 0.84); g.stroke();
+  g.beginPath(); g.moveTo(s * 0.56, s * 0.76); g.lineTo(s * 0.56, s * 0.84); g.stroke();
+}
+
 /** A feed pail — a metal bucket with a hoop handle (Animal-Keeper kit). */
 function paintPail(g: CanvasRenderingContext2D, s: number) {
   // tapered bucket body
@@ -383,6 +437,245 @@ function paintPot(g: CanvasRenderingContext2D, s: number) {
   g.beginPath(); g.ellipse(s * 0.42, s * 0.55, s * 0.06, s * 0.03, -0.4, 0, 7); g.fill();
 }
 
+// ===========================================================================
+//  Part C content-library commit 2 — 15 forward-content tool/accessory icons
+//  (backpack/shop scale). Most have no mechanic yet; they standardize the
+//  visual language for v2 gear (a tool handle + a distinct head/body shape,
+//  2-3 flat color layers, a small highlight — the same recipe every existing
+//  icon above already follows). "boots"/"bait-tin" are deliberately separate
+//  ids from the existing junk-catch "boot"/"tin" (Old boot / Empty tin) —
+//  those are battered junk, these are clean shop goods.
+// ===========================================================================
+
+function paintWateringCan(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#7f868f";
+  g.beginPath(); g.ellipse(s * 0.42, s * 0.58, s * 0.2, s * 0.16, 0, 0, 7); g.fill();
+  g.fillStyle = "#9aa2ab";
+  g.beginPath(); g.ellipse(s * 0.42, s * 0.5, s * 0.16, s * 0.06, 0, 0, 7); g.fill();
+  g.strokeStyle = "#7f868f"; g.lineWidth = Math.max(2, s * 0.06); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.58, s * 0.5); g.lineTo(s * 0.8, s * 0.36); g.stroke();
+  g.fillStyle = "#9aa2ab";
+  g.beginPath(); g.ellipse(s * 0.82, s * 0.33, s * 0.08, s * 0.045, -0.3, 0, 7); g.fill();
+  g.strokeStyle = "#6f767f"; g.lineWidth = Math.max(1, s * 0.04);
+  g.beginPath(); g.arc(s * 0.42, s * 0.42, s * 0.14, Math.PI * 1.1, Math.PI * 1.9); g.stroke();
+  g.strokeStyle = "rgba(150,180,210,.8)"; g.lineWidth = Math.max(1, s * 0.02);
+  for (const dx of [-0.03, 0.02, 0.07]) {
+    g.beginPath(); g.moveTo(s * (0.86 + dx), s * 0.3); g.lineTo(s * (0.84 + dx), s * 0.38); g.stroke();
+  }
+}
+
+function paintBasket(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#b98a4e";
+  g.beginPath();
+  g.moveTo(s * 0.28, s * 0.5); g.lineTo(s * 0.72, s * 0.5);
+  g.lineTo(s * 0.64, s * 0.82); g.lineTo(s * 0.36, s * 0.82);
+  g.closePath(); g.fill();
+  g.strokeStyle = "rgba(110,74,32,.55)"; g.lineWidth = Math.max(1, s * 0.025);
+  for (const fy of [0.6, 0.68, 0.76]) { g.beginPath(); g.moveTo(s * 0.3, s * fy); g.lineTo(s * 0.7, s * fy); g.stroke(); }
+  g.strokeStyle = "#8a6636"; g.lineWidth = Math.max(2, s * 0.05);
+  g.beginPath(); g.arc(s * 0.5, s * 0.48, s * 0.2, Math.PI, 0); g.stroke();
+  g.fillStyle = "#6fae3e";
+  g.beginPath(); g.ellipse(s * 0.42, s * 0.48, s * 0.06, s * 0.1, -0.3, 0, 7); g.fill();
+  g.fillStyle = "#c2385a";
+  g.beginPath(); g.arc(s * 0.55, s * 0.45, s * 0.045, 0, 7); g.fill();
+}
+
+/** A drawstring cloth pouch, distinct from the coin pouch and the seed
+ *  packet: a gathered, peaked tie at the neck (not a straight-cut rectangle),
+ *  so the silhouette reads as a cinched pouch rather than a piece of fruit. */
+function paintSeedPouch(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#8a9a5a";
+  g.beginPath();
+  g.moveTo(s * 0.32, s * 0.4); g.quadraticCurveTo(s * 0.24, s * 0.62, s * 0.34, s * 0.78);
+  g.lineTo(s * 0.66, s * 0.78); g.quadraticCurveTo(s * 0.76, s * 0.62, s * 0.68, s * 0.4);
+  g.closePath(); g.fill();
+  // gathered, peaked neck (a cinch, not a flat cut) + a tie band
+  g.fillStyle = "#6f7f42";
+  g.beginPath(); g.moveTo(s * 0.4, s * 0.4); g.lineTo(s * 0.5, s * 0.22); g.lineTo(s * 0.6, s * 0.4); g.closePath(); g.fill();
+  g.strokeStyle = "#4f5c2e"; g.lineWidth = Math.max(1, s * 0.035);
+  g.beginPath(); g.moveTo(s * 0.38, s * 0.42); g.lineTo(s * 0.62, s * 0.42); g.stroke();
+  // seeds spilling from the tie gap
+  g.fillStyle = "#7a5c2e";
+  const dots: Array<[number, number]> = [[0.46, 0.36], [0.54, 0.32], [0.5, 0.4]];
+  for (const [ox, oy] of dots) { g.beginPath(); g.ellipse(s * ox, s * oy, s * 0.035, s * 0.024, 0.4, 0, 7); g.fill(); }
+}
+
+function paintSickle(g: CanvasRenderingContext2D, s: number) {
+  g.strokeStyle = "#7a5230"; g.lineWidth = Math.max(2, s * 0.08); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.28, s * 0.8); g.lineTo(s * 0.42, s * 0.56); g.stroke();
+  g.fillStyle = "#c4cad2";
+  g.beginPath();
+  g.arc(s * 0.5, s * 0.46, s * 0.26, 0.4, 3.6);
+  g.closePath(); g.fill();
+  g.fillStyle = "#e8e0cc";
+  g.beginPath(); g.arc(s * 0.5, s * 0.46, s * 0.2, 0.5, 3.3); g.fill();
+}
+
+function paintAxe(g: CanvasRenderingContext2D, s: number) {
+  g.strokeStyle = "#7a5230"; g.lineWidth = Math.max(2, s * 0.08); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.32, s * 0.82); g.lineTo(s * 0.6, s * 0.24); g.stroke();
+  g.fillStyle = "#9aa2ab";
+  g.beginPath();
+  g.moveTo(s * 0.56, s * 0.16); g.lineTo(s * 0.82, s * 0.28); g.lineTo(s * 0.68, s * 0.5); g.lineTo(s * 0.5, s * 0.36);
+  g.closePath(); g.fill();
+  g.fillStyle = "rgba(255,255,255,.35)";
+  g.beginPath(); g.moveTo(s * 0.58, s * 0.2); g.lineTo(s * 0.72, s * 0.28); g.lineTo(s * 0.62, s * 0.36); g.closePath(); g.fill();
+}
+
+function paintPickaxe(g: CanvasRenderingContext2D, s: number) {
+  g.strokeStyle = "#7a5230"; g.lineWidth = Math.max(2, s * 0.07); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.36, s * 0.82); g.lineTo(s * 0.58, s * 0.34); g.stroke();
+  g.strokeStyle = "#8f8a80"; g.lineWidth = Math.max(3, s * 0.09); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.3, s * 0.24); g.quadraticCurveTo(s * 0.58, s * 0.16, s * 0.82, s * 0.34); g.stroke();
+  g.fillStyle = "rgba(255,255,255,.3)";
+  g.beginPath(); g.ellipse(s * 0.58, s * 0.2, s * 0.05, s * 0.02, 0, 0, 7); g.fill();
+}
+
+function paintSack(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#a9825a";
+  g.beginPath();
+  g.moveTo(s * 0.3, s * 0.42); g.quadraticCurveTo(s * 0.22, s * 0.7, s * 0.36, s * 0.84);
+  g.lineTo(s * 0.64, s * 0.84); g.quadraticCurveTo(s * 0.78, s * 0.7, s * 0.7, s * 0.42);
+  g.closePath(); g.fill();
+  // a narrower roped/tied top (not a wide flat mouth, or it reads as a jug)
+  g.fillStyle = "#8a6c42";
+  g.beginPath(); g.moveTo(s * 0.4, s * 0.42); g.lineTo(s * 0.44, s * 0.24); g.lineTo(s * 0.56, s * 0.24); g.lineTo(s * 0.6, s * 0.42); g.closePath(); g.fill();
+  g.strokeStyle = "#5e4025"; g.lineWidth = Math.max(1, s * 0.035);
+  g.beginPath(); g.moveTo(s * 0.42, s * 0.3); g.lineTo(s * 0.58, s * 0.3); g.stroke();
+  g.strokeStyle = "rgba(90,60,30,.35)"; g.lineWidth = Math.max(1, s * 0.02);
+  g.beginPath(); g.moveTo(s * 0.34, s * 0.56); g.lineTo(s * 0.66, s * 0.56); g.stroke();
+}
+
+function paintLantern(g: CanvasRenderingContext2D, s: number) {
+  g.strokeStyle = "#5a5048"; g.lineWidth = Math.max(1, s * 0.03);
+  g.beginPath(); g.moveTo(s * 0.5, s * 0.18); g.lineTo(s * 0.5, s * 0.26); g.stroke();
+  g.fillStyle = "#3a3630";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.27, s * 0.1, s * 0.04, 0, 0, 7); g.fill();
+  g.fillStyle = "#e8c34f";
+  roundR(g, s * 0.36, s * 0.3, s * 0.28, s * 0.36, s * 0.06); g.fill();
+  g.fillStyle = "rgba(255,240,190,.7)";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.48, s * 0.09, s * 0.13, 0, 0, 7); g.fill();
+  g.strokeStyle = "#3a3630"; g.lineWidth = Math.max(1, s * 0.03);
+  for (const fx of [0.36, 0.5, 0.64]) { g.beginPath(); g.moveTo(s * fx, s * 0.3); g.lineTo(s * fx, s * 0.66); g.stroke(); }
+  g.fillStyle = "#3a3630";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.68, s * 0.14, s * 0.04, 0, 0, 7); g.fill();
+}
+
+function paintFishingNet(g: CanvasRenderingContext2D, s: number) {
+  g.strokeStyle = "#8a6a42"; g.lineWidth = Math.max(2, s * 0.06); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.24, s * 0.82); g.lineTo(s * 0.44, s * 0.5); g.stroke();
+  g.strokeStyle = "#b98a4e"; g.lineWidth = Math.max(2, s * 0.05);
+  g.beginPath(); g.arc(s * 0.58, s * 0.36, s * 0.24, 0, 7); g.stroke();
+  // netting: a simple crosshatch clipped to the hoop
+  g.save();
+  g.beginPath(); g.arc(s * 0.58, s * 0.36, s * 0.24, 0, 7); g.clip();
+  g.strokeStyle = "rgba(216,210,192,.85)"; g.lineWidth = Math.max(1, s * 0.014);
+  for (let i = -3; i <= 3; i++) {
+    g.beginPath(); g.moveTo(s * (0.34 + (i + 3) * 0.08), s * 0.12); g.lineTo(s * (0.34 + (i + 3) * 0.08) - s * 0.16, s * 0.6); g.stroke();
+    g.beginPath(); g.moveTo(s * (0.34 + (i + 3) * 0.08), s * 0.12); g.lineTo(s * (0.34 + (i + 3) * 0.08) + s * 0.16, s * 0.6); g.stroke();
+  }
+  g.restore();
+}
+
+function paintBinoculars(g: CanvasRenderingContext2D, s: number) {
+  // neck strap, behind the barrels
+  g.strokeStyle = "#3a3226"; g.lineWidth = Math.max(1, s * 0.025);
+  g.beginPath(); g.moveTo(s * 0.3, s * 0.3); g.quadraticCurveTo(s * 0.5, s * 0.16, s * 0.7, s * 0.3); g.stroke();
+  // two barrels, a lighter casing so it reads against a dark slot background
+  g.fillStyle = "#5a6a78";
+  roundR(g, s * 0.22, s * 0.34, s * 0.24, s * 0.36, s * 0.07); g.fill();
+  roundR(g, s * 0.54, s * 0.34, s * 0.24, s * 0.36, s * 0.07); g.fill();
+  // bridge connecting them
+  g.fillStyle = "#465662";
+  g.fillRect(s * 0.44, s * 0.42, s * 0.12, s * 0.12);
+  // lenses — big enough to read, with a glint each
+  g.fillStyle = "#232b32";
+  g.beginPath(); g.arc(s * 0.34, s * 0.44, s * 0.1, 0, 7); g.fill();
+  g.beginPath(); g.arc(s * 0.66, s * 0.44, s * 0.1, 0, 7); g.fill();
+  g.fillStyle = "rgba(160,205,230,.8)";
+  g.beginPath(); g.arc(s * 0.31, s * 0.41, s * 0.03, 0, 7); g.fill();
+  g.beginPath(); g.arc(s * 0.63, s * 0.41, s * 0.03, 0, 7); g.fill();
+}
+
+/** A small tin of bait — clean shop good, distinct from the battered "Empty
+ *  tin" junk catch (which reuses the "tin" id). */
+function paintBaitTin(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#8a9aab";
+  g.fillRect(s * 0.34, s * 0.34, s * 0.32, s * 0.4);
+  g.fillStyle = "#a8b6c4";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.34, s * 0.16, s * 0.05, 0, 0, 7); g.fill();
+  g.strokeStyle = "#5a6a78"; g.lineWidth = Math.max(1, s * 0.025);
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.34, s * 0.16, s * 0.05, 0, 0, 7); g.stroke();
+  g.fillStyle = "#c9502e";
+  g.fillRect(s * 0.36, s * 0.46, s * 0.28, s * 0.14);
+  g.fillStyle = "#8a6c42";
+  g.beginPath(); g.ellipse(s * 0.44, s * 0.6, s * 0.05, s * 0.03, 0.5, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(s * 0.56, s * 0.64, s * 0.045, s * 0.025, -0.4, 0, 7); g.fill();
+}
+
+/** A plain empty bucket — distinct silhouette from the feed pail (no grain,
+ *  straighter sides, a wire-thin handle). */
+function paintBucket(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#9aa2ab";
+  g.beginPath();
+  g.moveTo(s * 0.32, s * 0.38); g.lineTo(s * 0.68, s * 0.38);
+  g.lineTo(s * 0.62, s * 0.8); g.lineTo(s * 0.38, s * 0.8);
+  g.closePath(); g.fill();
+  g.fillStyle = "#c4cad2";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.38, s * 0.18, s * 0.055, 0, 0, 7); g.fill();
+  g.strokeStyle = "rgba(120,128,140,.6)"; g.lineWidth = Math.max(1, s * 0.02);
+  g.beginPath(); g.moveTo(s * 0.4, s * 0.44); g.lineTo(s * 0.36, s * 0.74); g.stroke();
+  g.beginPath(); g.moveTo(s * 0.6, s * 0.44); g.lineTo(s * 0.64, s * 0.74); g.stroke();
+  g.strokeStyle = "#6f767f"; g.lineWidth = Math.max(1, s * 0.025);
+  g.beginPath(); g.arc(s * 0.5, s * 0.38, s * 0.19, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+}
+
+function paintStrawHat(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#d8b25a";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.56, s * 0.32, s * 0.14, 0, 0, 7); g.fill();
+  g.fillStyle = "#c9a23a";
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.4, s * 0.19, s * 0.16, 0, 0, 7); g.fill();
+  g.strokeStyle = "rgba(140,105,40,.5)"; g.lineWidth = Math.max(1, s * 0.02);
+  for (let a = 0.2; a < Math.PI - 0.2; a += 0.35) {
+    g.beginPath(); g.moveTo(s * 0.5 + Math.cos(Math.PI + a) * s * 0.3, s * 0.56); g.lineTo(s * 0.5 + Math.cos(Math.PI + a) * s * 0.32, s * 0.58); g.stroke();
+  }
+  g.fillStyle = "#8a3f30";
+  g.fillRect(s * 0.36, s * 0.48, s * 0.28, s * 0.04);
+}
+
+/** A pair of tall work boots — clean shop good, distinct from the single
+ *  battered "Old boot" junk catch (which reuses the "boot" id). */
+function paintBoots(g: CanvasRenderingContext2D, s: number) {
+  for (const dx of [-0.11, 0.11]) {
+    g.fillStyle = "#6f5334";
+    g.beginPath();
+    g.moveTo(s * (0.5 + dx) - s * 0.07, s * 0.26); g.lineTo(s * (0.5 + dx) + s * 0.07, s * 0.26);
+    g.lineTo(s * (0.5 + dx) + s * 0.07, s * 0.58); g.lineTo(s * (0.5 + dx) + s * 0.17, s * 0.64);
+    g.quadraticCurveTo(s * (0.5 + dx) + s * 0.2, s * 0.74, s * (0.5 + dx) + s * 0.1, s * 0.78);
+    g.lineTo(s * (0.5 + dx) - s * 0.07, s * 0.78);
+    g.closePath(); g.fill();
+    g.fillStyle = "#57402a";
+    g.fillRect(s * (0.5 + dx) - s * 0.07, s * 0.74, s * 0.27, s * 0.05);
+    g.strokeStyle = "rgba(40,28,14,.5)"; g.lineWidth = Math.max(1, s * 0.02);
+    g.beginPath(); g.moveTo(s * (0.5 + dx) - s * 0.05, s * 0.32); g.lineTo(s * (0.5 + dx) + s * 0.05, s * 0.34); g.stroke();
+  }
+}
+
+/** A wrapped gift box with a ribbon bow — for the gift chooser UI. */
+function paintGiftBox(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#8a5ec2";
+  g.fillRect(s * 0.28, s * 0.42, s * 0.44, s * 0.36);
+  g.fillStyle = "#7449a8";
+  g.fillRect(s * 0.28, s * 0.42, s * 0.44, s * 0.1);
+  g.fillStyle = "#e8c34f";
+  g.fillRect(s * 0.46, s * 0.42, s * 0.08, s * 0.36);
+  g.fillRect(s * 0.28, s * 0.5, s * 0.44, s * 0.06);
+  g.beginPath(); g.ellipse(s * 0.42, s * 0.4, s * 0.07, s * 0.05, -0.5, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(s * 0.58, s * 0.4, s * 0.07, s * 0.05, 0.5, 0, 7); g.fill();
+  g.fillStyle = "#c9a23a";
+  g.beginPath(); g.arc(s * 0.5, s * 0.41, s * 0.04, 0, 7); g.fill();
+}
+
 const PAINTERS: Record<string, IconPainter> = {
   fish: paintFish,
   coins: paintCoinPouch,
@@ -396,9 +689,28 @@ const PAINTERS: Record<string, IconPainter> = {
   pail: paintPail,
   hen: paintHen,
   cow: paintCow,
+  duck: paintDuck,
+  pig: paintPig,
+  sheep: paintSheep,
   boot: paintBoot,
   tin: paintTin,
   rope: paintRope,
+  // Part C content-library commit 2: 15 forward-content tool/accessory icons
+  "watering-can": paintWateringCan,
+  basket: paintBasket,
+  "seed-pouch": paintSeedPouch,
+  sickle: paintSickle,
+  axe: paintAxe,
+  pickaxe: paintPickaxe,
+  sack: paintSack,
+  lantern: paintLantern,
+  "fishing-net": paintFishingNet,
+  binoculars: paintBinoculars,
+  "bait-tin": paintBaitTin,
+  bucket: paintBucket,
+  "straw-hat": paintStrawHat,
+  boots: paintBoots,
+  "gift-box": paintGiftBox,
   // every fish species shares the tinted silhouette painter
   ...Object.fromEntries(FISH.map((sp) => [sp.id, ((g, s) => paintFishSpecies(g, s, sp.palette)) as IconPainter])),
   "glass-gem-corn": paintGlassGemCorn,

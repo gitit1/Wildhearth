@@ -1,5 +1,5 @@
 import { META_KEY } from "../config";
-import type { HairStyle, BodyBuild, Outfit } from "../art/rig";
+import type { HairStyle, BodyBuild, Outfit, OutfitStyle } from "../art/rig";
 
 /**
  * Playthrough meta — one-time origin facts chosen at New Game (Character
@@ -83,6 +83,9 @@ const isHair = (v: unknown): v is HairStyle =>
   v === "short" || v === "ponytail" || v === "bun" || v === "bald" || v === "hat";
 const isBuild = (v: unknown): v is BodyBuild =>
   v === "slim" || v === "average" || v === "round";
+const isOutfitStyle = (v: unknown): v is OutfitStyle =>
+  v === "dress" || v === "tunic-skirt" || v === "overalls" || v === "shawl-dress" ||
+  v === "smock" || v === "tunic-belt" || v === "vest" || v === "coat";
 
 const str = (v: unknown, fallback: string) =>
   typeof v === "string" && v.trim() ? v.slice(0, NAME_MAX) : fallback;
@@ -109,6 +112,8 @@ function reviveAppearance(a: Partial<Appearance> | undefined): Appearance {
       shoes: typeof o.shoes === "string" ? o.shoes : DEFAULT_APPEARANCE.outfit.shoes,
       torsoStyle: typeof o.torsoStyle === "number" ? o.torsoStyle : undefined,
       legStyle: typeof o.legStyle === "number" ? o.legStyle : undefined,
+      style: isOutfitStyle(o.style) ? o.style : undefined,
+      sleeve: typeof o.sleeve === "string" ? o.sleeve : undefined,
     },
   };
 }

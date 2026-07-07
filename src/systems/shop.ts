@@ -1,4 +1,7 @@
-import { HOE_PRICE, ROD_PRICE, HEN_PRICE, COW_PRICE, FLOWER_SEEDS_PRICE, HAGGLE_MAX_DISCOUNT } from "../config";
+import {
+  HOE_PRICE, ROD_PRICE, HEN_PRICE, COW_PRICE, DUCK_PRICE, PIG_PRICE, SHEEP_PRICE,
+  FLOWER_SEEDS_PRICE, HAGGLE_MAX_DISCOUNT,
+} from "../config";
 import { CROPS } from "../data/crops";
 import { addItem, countItem } from "./inventory";
 import { saveEconomy, type Economy } from "./economy";
@@ -19,7 +22,7 @@ export interface ShopEntry {
   id: string;
   price: number;
   unique?: boolean;
-  livestock?: "hen" | "cow";
+  livestock?: "hen" | "cow" | "duck" | "pig" | "sheep";
   seasons?: Season[];        // stocked only in these seasons (seed packets)
 }
 
@@ -31,6 +34,11 @@ export const SHOP_STOCK: ShopEntry[] = [
   ...CROPS.map((c): ShopEntry => ({ id: c.seedId, price: c.seedPrice, seasons: c.seasons })),
   { id: "flower-seeds", price: FLOWER_SEEDS_PRICE },   // ornamental gardening
   { id: "hen", price: HEN_PRICE, livestock: "hen" },
+  // Part C content-library commit 2: duck/pig/sheep — flock animals like the
+  // hen (no per-species uniqueness), priced between the hen and the cow.
+  { id: "duck", price: DUCK_PRICE, livestock: "duck" },
+  { id: "pig", price: PIG_PRICE, livestock: "pig" },
+  { id: "sheep", price: SHEEP_PRICE, livestock: "sheep" },
   { id: "cow", price: COW_PRICE, livestock: "cow", unique: true },
 ];
 
@@ -77,7 +85,9 @@ export const NPC_STALL_TRADES: NpcStallTrade[] = [
 
 export type LivestockBuyResult = "ok" | "no-coins" | "no-barn" | "owned";
 
-/** Buys an animal: needs the barn mended, doesn't touch the backpack. */
+/** Buys an animal: needs the barn mended, doesn't touch the backpack. Only
+ *  the cow is unique — hen/duck/pig/sheep are all flock counters, buyable
+ *  again and again like the hen always was. */
 export function tryBuyLivestock(
   e: Economy, entry: ShopEntry, farm: FarmState, ls: Livestock, hagglingSkill = 0,
 ): LivestockBuyResult {
@@ -87,8 +97,13 @@ export function tryBuyLivestock(
   if (e.coins < price) return "no-coins";
   e.coins -= price;
   saveEconomy(e);
-  if (entry.livestock === "cow") ls.cow = true;
-  else ls.hens += 1;
+  switch (entry.livestock) {
+    case "cow": ls.cow = true; break;
+    case "duck": ls.ducks += 1; break;
+    case "pig": ls.pigs += 1; break;
+    case "sheep": ls.sheep += 1; break;
+    default: ls.hens += 1; break;   // "hen"
+  }
   saveLivestock(ls);
   return "ok";
 }
