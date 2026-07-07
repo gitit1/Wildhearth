@@ -170,6 +170,48 @@ files (`DECISIONS.md`, `FABLE_PROMPT.md`). Resolution:
 | Finn | fisher apprentice (kid) | eager-apprentice | never (kid) |
 | Jonas | wandering peddler | gossipy-connector | — |
 
+### Part D — AI integration (complete)
+- **AI foundation** (`4877c31`) — `src/systems/ai/`: provider (browser-
+  direct Anthropic via plain fetch + mock `?aimock` + none), monthly
+  budget ledger, per-NPC/global rate limits, persisted LRU cache,
+  closed NpcAction schema + strict validator, `createAiCtx` facade,
+  depth dial (haiku→sonnet→opus tiers), Settings "Test connection"
+  live. Game byte-identical with AI off.
+- **AI features I** (`c4242c0`) — authored backstory seeds for all 10
+  NPCs + generate-once AI backstories ("Tell me about yourself"
+  choice), dialogue variation through the `renderNpcLine` seam
+  (prefetch-on-proximity, never blocks), daily NPC inner thoughts
+  ("What's on your mind?" + ambient bubbles; template fallbacks),
+  persisted anti-repetition store.
+- **AI features II** (`a30ca7e`) — world-event narration (enriched
+  follow-up toast; canonical text untouched), plain-code play-pattern
+  arc tracker feeding prompts, quest-generation validated STUB (debug
+  panel only — v2 preview; no quest system in v1), improvement-notes
+  observer (token-free, default off, debug panel).
+
+### Part B — visual foundation (complete)
+- **Day/night + weather visuals** (`a5f6ca5`) — continuous time-of-day
+  color grade; rain streaks, storm lightning + dark beats, drifting fog
+  banks, per-weather ground tints; interior milder; menu vista exempt.
+- **Parallax + particles** (`e27d99d`) — pre-baked northern skyline
+  band at 0.3x scroll (distant mountains hint at the future mine);
+  pooled ambient particles (petals/motes/fireflies/leaves/snow) +
+  `burst()` wired to catch/harvest/skill-gain.
+- **Cast shadows + audit** (`05da090`) — shared `castShadow()` on
+  buildings/trees/dock/rig (sun upper-left, length varies with time,
+  fades at night); outline+ellipse audit swept all session entities
+  (one gap fixed); canopies/ground texture confirmed across regions.
+
+### Part C — content library (complete)
+- **Crops/trees/decorations** (`5f77289`) — 18 crops (winter 1→4,
+  premium floor-50/60 entries, growth-shape silhouettes), 4 tree
+  species × 4 seasons (pine evergreen, winter bare-branch), bushes
+  season-tinted, ambient scatter 3→24 kinds region-gated.
+- **Animals/outfits/tools** (`c924e5a`) — pig/sheep/duck purchasable
+  (35/90/110, barn-gated, feedable), rabbit/cat/dog painters ready for
+  the Pets block, 10 outfit styles wired into creation (+5 NPCs
+  re-flavored), 15 forward tool/accessory icons.
+
 ### Session planning docs
 - **docs/ROADMAP_TO_V5.md** — full v1→v5 product arc (17-system matrix
   per version, gaps, dependencies, scope estimates, risks).
@@ -226,6 +268,10 @@ Decisions 17-22:
 | Fish stall + wildlife (A9/A8b) | Sonnet | ✅ 2 commits `88d22e8`/`577f242` | ~369k tok, ~38 min |
 | Char creation + Guidance (A10/A5) | Opus | ✅ 2 commits `d65b87e`/`ee2fe8d` | ~393k tok, ~45 min; 37/37 + 36/36 checks, real-action tutorial |
 | Main menu + screens (Part E) | Opus | ✅ 3 commits `4827325`/`8259b09`/`ee96377` | ~336k tok, ~37 min; 60 checks + reviewed vista screenshots |
+| AI foundation (D) | Opus | ✅ committed `4877c31` | ~346k tok, ~18 min; 37/37 harness checks |
+| AI features I+II (D) | Opus | ✅ 2 commits `c4242c0`/`a30ca7e` | ~333k tok, ~41 min; 47 checks AI-off + `?aimock` |
+| Visual atmosphere (B 1-3,7-10) | Sonnet | ✅ 3 commits `a5f6ca5`/`e27d99d`/`05da090` | ~530k tok, ~66 min; pixel-sampled verification |
+| Content library (C) | Sonnet | ✅ 2 commits `5f77289`/`c924e5a` | ~530k tok, ~65 min; icon gallery + season screenshots reviewed |
 | ROADMAP_TO_V5.md | Opus | ✅ delivered | ~135k tok; judgment calls in decision #8 |
 | AI_ARCHITECTURE.md | Opus | ✅ delivered | ~273k tok; judgment calls in decision #9 |
 | PROPOSALS.md | Sonnet | ✅ delivered | ~101k tok; 22 proposals |
@@ -242,18 +288,17 @@ Decisions 17-22:
 
 - **OWNER PLEASE CONFIRM:** starting coins = 50 (kept). See Doc sync #2.
 
-## Session status at the pause point (2026-07-07)
+## Session status (2026-07-07, post-resume)
 
-The product owner asked to pause mid-session. State: **Parts A and E are
-COMPLETE** (all 11 Part-A engines + all 7 Part-E screens, every block
-committed, verified in-browser, and pushed). Part B item 6 (the rig) is
-done. **Remaining:** Part D (the AI layer — foundation + the 8
-features; the Settings AI surface already exists and waits for it),
-Part B remainder (day/night tint, weather visuals, parallax, ambient
-particles, diagonal cast shadows, outline/shadow audits), Part C
-(content library: more crops/trees/decorations/animals/buildings/
-outfits/tools). After those: the user's standing instruction is to
-continue into next-version work per ROADMAP_TO_V5.md if budget remains.
+**ALL FIVE FABLE_PROMPT PARTS (A, B, C, D, E) ARE COMPLETE** — every
+block committed with a WORKLOG entry, verified in-browser, and pushed
+to `v1-foundation`. The v1 foundation defined by FABLE_PROMPT.md is
+done. Per the product owner's standing instruction ("continue running
+on next version according to your plan"), the session continues into
+v2 work per docs/ROADMAP_TO_V5.md: (1) a whole-game integration smoke +
+docs status refresh, then v2 blocks in value/dependency order — real
+sell menu, customers + reputation, parchment minimap + fast travel,
+the Riverside Fisherwoman.
 
 ## How to continue
 
