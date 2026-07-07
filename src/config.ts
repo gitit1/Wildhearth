@@ -189,6 +189,58 @@ export const AI_SETTINGS_KEY = "wildhearth-ai-v1";
 export const AI_TOKEN_BUDGET_DEFAULT = 200000;   // monthly token cap default
 
 // ===========================================================================
+//  AI foundation (Part D commit 1) — provider / budget / cache / rate knobs.
+//  See docs/AI_ARCHITECTURE.md. The whole layer is inert with the master
+//  toggle off (aiSettings.enabled === false, the default); nothing below runs.
+//  These two keys are ALSO deliberately outside saves.ts's GAME_KEYS — the
+//  spend ledger and the response cache are per-machine, not per-save-slot.
+// ===========================================================================
+export const AI_BUDGET_KEY = "wildhearth-ai-budget-v1";  // monthly token ledger (own key)
+export const AI_CACHE_KEY = "wildhearth-ai-cache-v1";    // response cache (own key)
+
+// Browser-direct transport (BYOK). Plain fetch, not the SDK, to keep the bundle
+// lean (deviation from AI_ARCHITECTURE §2, which sketches the @anthropic-ai/sdk).
+export const AI_ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+export const AI_ANTHROPIC_VERSION = "2023-06-01";
+export const AI_REQUEST_TIMEOUT_MS = 8000;   // per-call wall clock before abort
+export const AI_MAX_RETRIES = 1;             // one retry on 429/5xx with backoff
+export const AI_RETRY_BACKOFF_MS = 600;      // base backoff before the single retry
+
+// Depth/cost dial (aiSettings.depth) → model tier. Request shape is identical on
+// every tier (no temperature/top_p/thinking — those 400 on Opus 4.8 / Sonnet 5),
+// so the dial is a one-line model swap. Model IDs verified against the claude-api
+// reference (cached 2026-06-24).
+export const AI_MODEL_BY_DEPTH = {
+  standard: "claude-haiku-4-5-20251001",  // default: cheap, fast, low latency
+  rich:     "claude-sonnet-5",            // narrative-rich features
+  deepest:  "claude-opus-4-8",            // top dial, opt-in
+} as const;
+
+// Response cache: LRU cap + per-feature TTLs (ms). Repeated identical moments
+// (a player mashing the same choice) return the last result instead of re-billing.
+export const AI_CACHE_MAX = 200;
+export const AI_CACHE_TTL_MS = {
+  dialogue: 2 * 60_000, narration: 2 * 60_000, thoughts: 10 * 60_000,
+  quests: 60 * 60_000, arcs: 60 * 60_000, backstories: 24 * 60 * 60_000,
+  memory: 10 * 60_000, improve: 60 * 60_000,
+} as const;
+export const AI_CACHE_TTL_DEFAULT = 5 * 60_000;
+
+// Rate discipline (VISION cost-pitfalls): per-key session cap + global per-minute
+// cap. "Key" is an npcId for NPC features, or the feature name otherwise.
+export const AI_RATE_KEY_PER_SESSION = 12;   // calls per npc/feature this session
+export const AI_RATE_GLOBAL_PER_MIN = 20;    // calls/min across everything
+
+// Validation caps (schema.ts). Prose is capped; actions REJECT oversized text.
+export const AI_ACTION_TEXT_MAX = 280;       // say/sell/haggle/quest/gossip/teach line
+export const AI_NOTE_MAX = 200;              // memory_update note
+export const AI_QUEST_TITLE_MAX = 80;
+export const AI_PROSE_MAX = 400;             // default validateText() cap
+export const AI_REWARD_COINS_MAX = 500;      // offer_quest reward bound
+export const AI_PRICE_MAX = 999;             // sell price / haggle counter-offer bound
+export const AI_ID_MAX = 48;                 // itemId/questId/skillId/aboutNpcId length
+
+// ===========================================================================
 //  Guidance Mode engine (Part A #5) — Tutorial / Aspiration / None. Tutorial
 //  freezes the in-game clock while a step bubble is up (DECISIONS). All content
 //  (step wording, aspiration chains) lives in data/guidance.ts; the knobs here.

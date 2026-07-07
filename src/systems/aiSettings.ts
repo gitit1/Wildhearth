@@ -26,11 +26,23 @@ export const AI_FEATURES = [
 
 export type AiFeatureId = (typeof AI_FEATURES)[number]["id"];
 
+/** Depth/cost dial (AI_ARCHITECTURE §4) — maps to a model tier in config's
+ *  AI_MODEL_BY_DEPTH. Higher = richer + pricier. Default "standard" (Haiku). */
+export type AiDepth = "standard" | "rich" | "deepest";
+export const AI_DEPTHS: ReadonlyArray<{ id: AiDepth; label: string; note: string }> = [
+  { id: "standard", label: "Standard", note: "Fast & thrifty" },
+  { id: "rich", label: "Rich", note: "Warmer, more varied" },
+  { id: "deepest", label: "Deepest", note: "The most depth" },
+];
+
+const AI_SETTINGS_VERSION = 2;   // v2 adds the depth dial
+
 export interface AiSettings {
   version: number;
   enabled: boolean;                          // master switch (default off)
   apiKey: string;                            // BYOK, stored only in this browser
   monthlyTokenBudget: number;                // soft monthly cap
+  depth: AiDepth;                            // depth/cost dial (default "standard")
   features: Record<AiFeatureId, boolean>;    // per-feature opt-ins
 }
 
@@ -40,11 +52,14 @@ function freshFeatures(on: boolean): Record<AiFeatureId, boolean> {
   return f;
 }
 
+const AI_DEPTH_IDS = new Set<AiDepth>(["standard", "rich", "deepest"]);
+
 const DEFAULTS: AiSettings = {
-  version: 1,
+  version: AI_SETTINGS_VERSION,
   enabled: false,
   apiKey: "",
   monthlyTokenBudget: AI_TOKEN_BUDGET_DEFAULT,
+  depth: "standard",
   features: freshFeatures(true),   // all on, but gated behind `enabled`
 };
 
@@ -62,12 +77,14 @@ export function loadAiSettings(): AiSettings {
           features[feat.id] = (p.features as Record<string, boolean>)[feat.id]!;
     }
     cached = {
-      version: 1,
+      version: AI_SETTINGS_VERSION,
       enabled: p.enabled === true,
       apiKey: typeof p.apiKey === "string" ? p.apiKey : "",
       monthlyTokenBudget:
         typeof p.monthlyTokenBudget === "number" && p.monthlyTokenBudget >= 0
           ? Math.round(p.monthlyTokenBudget) : AI_TOKEN_BUDGET_DEFAULT,
+      // v1 saves had no depth → migrate to the default tier
+      depth: AI_DEPTH_IDS.has(p.depth as AiDepth) ? (p.depth as AiDepth) : "standard",
       features,
     };
   } catch {
@@ -77,7 +94,7 @@ export function loadAiSettings(): AiSettings {
 }
 
 export function saveAiSettings(patch: Partial<AiSettings>) {
-  cached = { ...loadAiSettings(), ...patch, version: 1 };
+  cached = { ...loadAiSettings(), ...patch, version: AI_SETTINGS_VERSION };
   try { localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(cached)); } catch { /* private mode */ }
 }
 

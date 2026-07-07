@@ -5,7 +5,10 @@ import {
   loadSettings, saveSettings, setGuidance,
   type EndOfDaySummary, type Guidance, type FontSize, type Colorblind,
 } from "../systems/settings";
-import { loadAiSettings, saveAiSettings, setAiFeature, AI_FEATURES } from "../systems/aiSettings";
+import {
+  loadAiSettings, saveAiSettings, setAiFeature, AI_FEATURES, AI_DEPTHS, type AiDepth,
+} from "../systems/aiSettings";
+import { createAiCtx, type AiErrorKind } from "../systems/ai";
 import { DAY_LENGTH_MIN_MIN, DAY_LENGTH_MAX_MIN } from "../config";
 import type { SlotManifest } from "../systems/saveSlots";
 
@@ -38,6 +41,20 @@ function savedAgo(ms: number): string {
   const h = Math.round(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.round(h / 24)}d ago`;
+}
+
+/** Friendly inline copy for a failed connection test, by typed error kind. */
+function testErrorMessage(error: AiErrorKind, message: string): string {
+  switch (error) {
+    case "ai-off":   return "Enter your API key first.";
+    case "auth":     return "That key was rejected — check it and try again.";
+    case "network":  return "Couldn't reach the service (network or browser block).";
+    case "timeout":  return "The request timed out. Try again.";
+    case "rate-limit": return "Too many requests just now — wait a moment.";
+    case "server":   return "The service had a hiccup. Try again shortly.";
+    case "budget":   return "This month's AI budget is used up.";
+    default:         return `Couldn't connect${message ? ` — ${message}` : "."}`;
+  }
 }
 
 export function showSettings(ctx: SettingsCtx) {
@@ -179,6 +196,15 @@ export function showSettings(ctx: SettingsCtx) {
     budget.addEventListener("keydown", (e) => e.stopPropagation());
     sec.append(row("Monthly token budget", budget, "A soft cap — the AI stops for the month when reached."));
 
+    // Depth / cost dial — maps to a model tier (Standard = fast & thrifty).
+    sec.append(segmentedRow<AiDepth>(
+      "Response depth",
+      AI_DEPTHS.map((d) => ({ id: d.id, label: d.label })),
+      ai.depth,
+      (v) => saveAiSettings({ depth: v }),
+      "Higher depth is richer and costs more per reply.",
+    ));
+
     // 8 per-feature checkboxes in a grid
     const grid = document.createElement("div");
     grid.className = "set-ai-grid";
@@ -196,14 +222,34 @@ export function showSettings(ctx: SettingsCtx) {
     sec.append(gridWrap);
     setFeaturesEnabled(ai.enabled);
 
-    // Test connection — disabled until the AI layer lands
+    // Test connection — one tiny real (or mock) call through the AI facade.
     const test = document.createElement("button");
     test.className = "set-btn";
     test.id = "setTestConn";
     test.textContent = "Test connection";
-    test.disabled = true;
-    test.title = "arrives with the AI layer";
-    sec.append(row("", test));
+    const testResult = document.createElement("span");
+    testResult.className = "set-feedback";
+    testResult.id = "setTestResult";
+    test.addEventListener("click", async () => {
+      test.disabled = true;
+      testResult.classList.remove("set-ok", "set-err");
+      testResult.textContent = "Testing…";
+      // Fresh settings so the just-typed key is used; no toast wiring needed here.
+      const ctx = createAiCtx(loadAiSettings());
+      const res = await ctx.testConnection();
+      if (res.ok) {
+        testResult.textContent = "Connected — the hearth is warm.";
+        testResult.classList.add("set-ok");
+      } else {
+        testResult.textContent = testErrorMessage(res.error, res.message);
+        testResult.classList.add("set-err");
+      }
+      test.disabled = false;
+    });
+    const testWrap = document.createElement("div");
+    testWrap.className = "set-inline";
+    testWrap.append(test, testResult);
+    sec.append(row("Connection", testWrap, "Sends one tiny request to check your key."));
   }
 
   // ---------- Save management ----------

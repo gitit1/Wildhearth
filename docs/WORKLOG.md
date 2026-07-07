@@ -42,6 +42,97 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## AI foundation — provider, budget, cache, validator, test connection
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part D commit 1 — build the AI infrastructure ONLY (no
+  gameplay feature wiring; the next block does that), following
+  docs/AI_ARCHITECTURE.md. Three providers behind one interface (anthropic
+  browser-direct via plain fetch, deterministic mock, off), a monthly token
+  budget ledger on its own key, per-NPC/per-session + global rate caps, a
+  persisted response cache, the closed NpcAction schema + validators, a facade
+  that wires them, an enabled Settings "Test connection" button, and a `?aimock`
+  deterministic mode. The game must behave identically with AI off (default).
+- **Done:**
+  - **Files:**
+    - `src/systems/ai/provider.ts` (NEW): `AiProvider { complete(req): Promise<AiResult> }`
+      with three factories — `anthropicProvider(key, depth)` (browser-direct
+      `fetch` to `api.anthropic.com/v1/messages`, headers `x-api-key` /
+      `anthropic-version: 2023-06-01` / `anthropic-dangerous-direct-browser-access:
+      true`; minimal `{model,max_tokens,system,messages}` body — no
+      temperature/top_p/thinking so one shape works on every tier; 8s abort
+      timeout, one retry on 429/5xx with backoff, typed `AiErrorKind` results,
+      never throws), `mockProvider(deterministic)` (seeded mulberry32 canned
+      lines, zero network, answers the connection test with "The hearth is
+      warm."), `noneProvider()` (instant `ai-off`). Plus `estimateTokens()` and
+      `aiMockRequested()` (`?aimock`). **Deviation from AI_ARCHITECTURE §2:** plain
+      fetch, not `@anthropic-ai/sdk`, to keep the bundle lean.
+    - `src/systems/ai/budget.ts` (NEW): `createBudget(monthlyTokenBudget, now)` →
+      `{ canSpend, record, snapshot }`; ledger `{monthKey,inputTokens,outputTokens,
+      callCount}` persisted on its OWN key `AI_BUDGET_KEY` (not GAME_KEYS), resets
+      on month change; budget 0 = unlimited (a zeroed value must never brick AI).
+    - `src/systems/ai/rateLimit.ts` (NEW): `createRateLimiter(keyPerSession,
+      globalPerMin, now)` — per-key (npcId or feature) session cap + a sliding
+      60s global cap; only counts a call when it's allowed.
+    - `src/systems/ai/cache.ts` (NEW): `createCache(max, now)` — persisted LRU
+      (own key `AI_CACHE_KEY`) with per-entry TTL; `cacheKey(feature,npcId,salient)`
+      FNV-1a hash. De-dupes identical moments so a mashed choice doesn't re-bill.
+    - `src/systems/ai/schema.ts` (NEW): the closed `NpcAction` union
+      (say / sell / haggle_response / offer_quest / gossip / teach / memory_update)
+      + `validateNpcAction(input, refs?)` (strict type/enum/extra-field/bounds/id
+      checks, rejects oversized text, sanitizes markup, cheap off-character
+      heuristic; optional referential checkers for when catalogs land) and
+      `validateText(raw, maxLen)` (sanitize + cap for prose). Pure, no I/O.
+      **Deviation from §5:** `offer_quest.reward` is a bounded coin count, not a
+      structured Reward object (no reward-item catalog yet).
+    - `src/systems/ai/aiCtx.ts` (NEW): the facade `createAiCtx(settings, opts)` →
+      `{ enabled(feature), request(feature,spec), requestAction(feature,spec),
+      testConnection() }`. Pipeline: `enabled()` gate → cache → rate → budget →
+      provider → record → validate. With AI off `enabled()` is false and callers
+      never await. `testConnection()` builds a provider directly so a key can be
+      validated before the master toggle is flipped on; a single budget toast per
+      month via an injected `onToast`. Explicit-passing, no singletons.
+    - `src/systems/ai/index.ts` (NEW): barrel for the public surface.
+    - `src/config.ts`: AI knobs — `AI_BUDGET_KEY`, `AI_CACHE_KEY` (own keys),
+      `AI_ANTHROPIC_URL`/`_VERSION`, timeout/retry, `AI_MODEL_BY_DEPTH`
+      (standard→`claude-haiku-4-5-20251001`, rich→`claude-sonnet-5`,
+      deepest→`claude-opus-4-8`), cache size + per-feature TTLs, rate caps, and
+      validation bounds.
+    - `src/systems/aiSettings.ts`: added the depth dial `depth: "standard" |
+      "rich" | "deepest"` (+ `AI_DEPTHS`), migrated the store v1→v2 (old saves
+      default to "standard").
+    - `src/ui/settingsscreen.ts`: added the "Response depth" segmented row; enabled
+      the previously-disabled "Test connection" button (builds a fresh facade,
+      awaits `testConnection()`, shows "Connected — the hearth is warm." or a typed
+      inline error via `testErrorMessage()`).
+    - `index.html`: `.set-feedback.set-ok/.set-err` colors; `.set-inline` wraps.
+  - **Systems / functions:** two new localStorage keys deliberately OUTSIDE
+    saves.ts GAME_KEYS (spend ledger + response cache are per-machine, survive New
+    Game, like aiSettings). No gameplay system calls the layer yet.
+  - **Behavior:** unchanged with AI off (the default) — zero calls, no console
+    noise, bundle grows only by the new modules. In Settings, the AI section now
+    has a working depth dial and a live "Test connection" button (real request
+    with a key; instant success under `?aimock`; clean typed error for a bad
+    key / network / no key).
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** temporary esbuild-bundled Node harness (stubbed
+  localStorage/fetch, then removed): 37/37 assertions — schema accepts a valid
+  say-action and rejects wrong-enum / extra-field / oversized-text /
+  off-character / bad-reward, sanitizes markup, parses JSON strings, and
+  `validateText` caps; budget accumulates and gates at the cap and rolls over on
+  month change (0 = unlimited); a cache hit avoids the provider call (1 call for
+  3 identical requests) and expires past TTL, LRU caps size; rate limiter trips on
+  both per-key and global caps; with AI off `enabled()` is false and `request`
+  short-circuits to `ai-off`; `?aimock` + `testConnection()` returns "The hearth
+  is warm."; the facade caches an identical second request and gates on budget
+  with exactly one toast; a garbage key surfaces a clean `auth` error and a fetch
+  throw a `network` error (no uncaught rejections). Vite dev transforms of
+  main.ts / settingsscreen.ts / aiCtx.ts all 200 (no page errors).
+- **Commit:** <hash + message — fill in after committing>
+- **Follow-ups:** next block wires real features (backstory/dialogue/thoughts/
+  narration) onto this layer; anti-repetition store (D7) and referential
+  `ActionRefs` checkers arrive with the NPC/quest catalogs; prompt-caching
+  breakpoints (stable system+sheet prefix) to add once prompt builders exist.
+
 ## Pause screen + Exit dialog + return to main menu
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part E #6-7, third of three commits. A Pause screen (Esc + a
