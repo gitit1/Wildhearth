@@ -6,15 +6,16 @@ import { DEFAULT_APPEARANCE, type Appearance, type Character } from "../systems/
 
 export interface Player {
   x: number; y: number;
-  dir: 0 | 1 | 2 | 3;          // up / right / down / left
+  dir: 0 | 1 | 2 | 3;          // up / right / down / left (4-way; rig facing + bobber dir)
   moving: boolean;
   fishing: boolean;            // arms hold a rod while true
   pose: PoseName;              // action-pose the rig draws (set each frame in main.ts)
   dist: number;                // accumulated travel px — drives the distance-keyed walk cycle
+  mvx: number; mvy: number;    // last movement UNIT vector, held when idle — drives the 8-dir sprite facing
 }
 
 export function createPlayer(): Player {
-  return { x: 13 * T, y: 9.2 * T, dir: 2, moving: false, fishing: false, pose: "idle", dist: 0 };
+  return { x: 13 * T, y: 9.2 * T, dir: 2, moving: false, fishing: false, pose: "idle", dist: 0, mvx: 0, mvy: 1 };
 }
 
 /**
@@ -72,4 +73,8 @@ export function updatePlayer(p: Player, dt: number) {
   if (!movedX && !movedY) clearMoveTarget(); // wall on both axes -> abandon unreachable target
   p.dist += Math.hypot(p.x - px, p.y - py); // travel banked for the walk cycle (phase = dist/stride)
   p.dir = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 1 : 3) : vy > 0 ? 2 : 0;
+  // hold the normalised movement vector for the 8-direction sprite facing
+  // (untouched while idle, so the heroine keeps looking the way she last moved)
+  const mag = Math.hypot(vx, vy) || 1;
+  p.mvx = vx / mag; p.mvy = vy / mag;
 }

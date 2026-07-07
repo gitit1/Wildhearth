@@ -327,6 +327,32 @@ export const WILDLIFE_FLEE_SPEED_MULT = 2.4;  // fleeing speed = the species' ba
 export const WILDLIFE_WANDER_RADIUS = 60;     // px: how far ambient wander picks a new target from home
 export const WILDLIFE_DESPAWN_SECONDS = 0.5;  // fly-off/fade-out duration before removal
 
+// ===========================================================================
+//  PixelLab sprite integration (dual-path) — the heroine player + static
+//  building/interior sprites (src/assets/pixellab/). CLAUDE.md hard rule #1:
+//  every sprite-backed visual keeps its code-drawn painter as a runtime
+//  fallback (PNG when present+loaded, painter otherwise), so the game runs
+//  fully with zero sprite files. These knobs tune the sprite path when active.
+//  See docs/PIXELLAB_ASSETS.md.
+// ===========================================================================
+// --- Player heroine sprite (art/spriteChar.ts). The generated sheet is 84x84
+//     with the character ~42-44px tall — the SAME apparent height as the code
+//     rig (hat-top to boot ≈ 43px), so native 1:1 world pixels (scale 1) plant
+//     her feet on the rig's exact ground line. ---
+export const SPRITE_PLAYER_SCALE = 1.0;       // world px per sprite px (1 = native 1:1, matches the rig's height)
+export const SPRITE_PLAYER_FOOT_DY = 15;      // world y below player.y where the sprite's foot row plants (rig boots ≈ y+15.8)
+export const SPRITE_WALK_STRIDE = 7;          // px of travel per walk frame (6-frame loop ≈ 42px; keyed to player.dist like the rig)
+export const SPRITE_IDLE_FPS = 4;             // breathing idle cadence (4-frame loop = 1s)
+export const SPRITE_FACING_HYSTERESIS = 0.14; // rad past a sector edge before the 8-dir facing flips (kills near-diagonal flicker)
+// --- Static building/interior sprites (art/buildings.ts, art/interior.ts).
+//     Scale is world px per sprite px; each sprite is aligned base-on-ground,
+//     centred on its zone rect. The 192x176 / 208x176 / 64x80 sheets were sized
+//     to the HOUSE / BARN / R_HEARTH rects, so ~1.0 fits with a little roof
+//     overhang (as the painter already overhangs today). ---
+export const SPRITE_HOUSE_SCALE = 1.0;
+export const SPRITE_BARN_SCALE = 1.0;
+export const SPRITE_HEARTH_SCALE = 1.0;
+
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";

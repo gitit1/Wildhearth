@@ -29,6 +29,72 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Sprite pipeline — loader, manifest, dual-path; the heroine walks Wildhearth
+- **Date:** 2026-07-07 (v1-foundation, PixelLab integration commit 1 of 2)
+- **Block given:** Integrate the PixelLab-generated heroine sprite (8-direction
+  rotations + walk + idle) into the player draw path behind a growable sprite
+  loader, dual-path with the code rig (CLAUDE.md hard rule #1 as amended: PNG
+  when present+loaded, painter fallback otherwise; the game must run fully with
+  zero sprite files).
+- **Done:**
+  - **Assets** — committed the generated heroine sheet under
+    `src/assets/pixellab/characters/heroine/` (88 PNGs, 84×84 each: 8 `rot_<dir>`
+    rotations, 48 `walk_<dir>_0..5`, 32 `idle_<dir>_0..3`, `<dir>` ∈ the 8
+    compass names) plus `buildings/farmhouse.png`, `buildings/barn.png`,
+    `interior/hearth.png` (used in commit 2). PixelLab character id
+    `0f0c45b6-1502-4088-8183-3293b4eec8fa`; the recorded prompt is in
+    docs/PIXELLAB_ASSETS.md (commit 2). ~484 KB total; small, belongs in the repo.
+  - **Manifest** (`src/assets/pixellab/manifest.ts`) — one eager URL glob
+    (`import.meta.glob("./**/*.png", { query:"?url", import:"default" })`) →
+    `SPRITE_MANIFEST: {id,url}[]`, id = path under the folder minus ext (e.g.
+    `characters/heroine/walk_south_0`, `buildings/farmhouse`). Adding a category
+    = drop PNGs + rebuild; no code change. Empty folder → `[]` → all painters.
+  - **Loader** (`src/art/sprites.ts`) — `loadSprites()` kicked off NON-BLOCKING
+    at boot (main.ts), starts every `Image` decoding; `sprite(id)` returns the
+    decoded `HTMLImageElement` or `null` until ready (or forever if absent);
+    `spritesReady()`/`spriteLoadProgress()` for verification. A slow/missing
+    asset can never delay or break boot.
+  - **Player bridge** (`src/art/spriteChar.ts`) — `drawPlayerSprite(g,p,t)`:
+    8-direction facing from the player's held movement vector (new `Player.mvx/
+    mvy`, set in `updatePlayer`) via `atan2` sector + hysteresis
+    (`SPRITE_FACING_HYSTERESIS`) so near-diagonals don't flicker; walk frames
+    keyed to the existing `player.dist` accumulator (`SPRITE_WALK_STRIDE`,
+    6-frame loop), idle = 4-frame breathing on a `t`-timer (`SPRITE_IDLE_FPS`).
+    Poses WITHOUT coverage (fishing/hoeing/foraging/busking/sleeping) and any
+    not-yet-decoded frame return `false` → the caller draws the rig (pose-level
+    dual path). Draws the same under-ellipse + cast shadow the rig would, beneath
+    the sprite; `imageSmoothingEnabled=false` for crisp pixels at any zoom. Sheet
+    geometry (anchor col 42, foot row 62, native scale 1.0) measured from the
+    alpha bbox; feet plant on the rig's exact ground line.
+  - **Coverage** — `spriteCoversCharacter(c)`: the sprite is the DEFAULT female
+    heroine only. `null` (pre-creation/old save) → covered; female + appearance
+    equal to `DEFAULT_APPEARANCE` (old-farmer red/blue) OR the New-Game rust
+    "work dress + apron" (`OUTFITS_FEM[0]`) → covered; male or any customised
+    hair/skin/build/hair-colour/outfit → rig (owner preference: clean fallback
+    over a mismatched sprite). Palette-swap stretch NOT attempted (dropped as
+    too risky per the brief).
+  - **Wiring** (`src/art/characters.ts`, `src/main.ts`) — `drawFarmer(...,
+    useSprite)` routes to the sprite when `useSprite` (main's `playerUsesSprite
+    = spriteCoversCharacter(meta.character)`, recomputed on New Game) and the
+    frame draws; both the world and interior draw calls pass it. `loadSprites()`
+    runs at boot. Dev bridge (`__wh`): `spriteMode(on/off)` A/B toggle,
+    `usesSprite()`, `coversChar(c)`, `spritesReady()`, `spriteProgress()`.
+  - **Config knobs** (`src/config.ts`) — `SPRITE_PLAYER_SCALE 1.0`,
+    `SPRITE_PLAYER_FOOT_DY 15`, `SPRITE_WALK_STRIDE 7`, `SPRITE_IDLE_FPS 4`,
+    `SPRITE_FACING_HYSTERESIS 0.14` (+ house/barn/hearth scales for commit 2).
+- **Verified** (Playwright, screenshots reviewed): heroine walks all 8
+  directions with correct per-direction facing (back+ponytail on north, mirrored
+  E/W, 3/4 diagonals); walk legs animate across all 6 frames; feet plant on the
+  rig's ground line within ~2px (A/B `spriteMode` on vs off at the same spot);
+  fishing shows the rig cleanly at the same anchor (no pop); shadows present;
+  max-zoom crisp (no smoothing blur); coverage returns true only for the default
+  female (null/default), false for male + any customisation; game boots + runs
+  with the manifest emptied (0 sprites, player + buildings all code-drawn, no
+  errors). `npm run build` green.
+- **Follow-ups:** buildings + hearth sprites and docs/PIXELLAB_ASSETS.md land in
+  commit 2. Coverage is conservative v1 (exact default only); widening it
+  (palette-swap or per-part sprites) is a future call.
+
 ## Windows migration II — dialogue, debug, day summary, in-game settings + polish
 - **Date:** 2026-07-09 (v1-foundation, session 3)
 - **Block given:** Session-3 Task 1, commit 2 of 2 — migrate the dialogue box,

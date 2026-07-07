@@ -149,6 +149,8 @@ import { setSunFactors, getSunFactors } from "./art/shapes";
 import { updateWeatherFx, drawWeatherFx } from "./art/weatherfx";
 import { drawParallaxBand } from "./art/parallax";
 import { updateParticles, drawParticles, burst, debugParticleCounts } from "./art/particles";
+import { loadSprites, spriteLoadProgress, spritesReady } from "./art/sprites";
+import { spriteCoversCharacter, setSpriteMode, spriteModeOn } from "./art/spriteChar";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -178,6 +180,10 @@ cv.addEventListener("wheel", (e) => {
 }, { passive: false });
 document.getElementById("zoomIn")!.addEventListener("click", () => adjustZoom(1));
 document.getElementById("zoomOut")!.addEventListener("click", () => adjustZoom(-1));
+// Kick off PixelLab sprite decoding at boot — NON-BLOCKING. Nothing awaits it;
+// sprite() returns null (→ code-drawn painter) for any frame not yet decoded,
+// so a slow or entirely-missing asset can never delay or break boot.
+loadSprites();
 const ground = paintGround();
 const player = createPlayer();
 const livestock = loadLivestock();
@@ -207,6 +213,9 @@ const guidance = loadGuidance();   // per-playthrough tutorial/aspiration progre
 // the player's drawn look, built from her created Character (rebuilt on New
 // Game). Old / pre-character saves fall back to the default farmer rig.
 let playerRigParams: RigParams = rigFromCharacter(meta.character);
+// Does the heroine sprite cover this Character (default female look)? If not
+// (male / customised), the code rig draws her — recomputed on New Game below.
+let playerUsesSprite = spriteCoversCharacter(meta.character);
 /** The Starting Path drives which guidance content applies. */
 const curPath = (): Path => meta.character?.path ?? "fisher";
 registerBushes(bushes);
@@ -361,6 +370,14 @@ if (import.meta.env.DEV)
     sleep: sleepUntilMorning, nap: napAnHour,
     scene: () => scene, leave: () => leaveHouse(), enter: () => enterHouse(),
     particleCounts: () => debugParticleCounts(),
+    // sprite-integration bridge: force the rig path for A/B alignment shots,
+    // read whether this Character uses the sprite, and poll load progress.
+    spriteMode: (on: boolean) => setSpriteMode(on),
+    spriteModeOn: () => spriteModeOn(),
+    usesSprite: () => playerUsesSprite,
+    coversChar: (c: Character | null) => spriteCoversCharacter(c),
+    spritesReady: () => spritesReady(),
+    spriteProgress: () => spriteLoadProgress(),
     shadowFactorsNow: () => shadowFactors(calendar.hour, calendar.minute),
     sunFactorsRaw: () => getSunFactors(),
     worldToCanvasPx: (wx: number, wy: number) => {
@@ -1138,6 +1155,7 @@ function newGameReset(character: Character, mode: Guidance) {
   meta.starterTool = path.tool;       // kept in sync for the systems that still read it
   saveMeta(meta);
   playerRigParams = rigFromCharacter(character);   // she now looks like the person she made
+  playerUsesSprite = spriteCoversCharacter(character);   // sprite for the default heroine, else the rig
   setGuidance(mode);                  // the Guidance Mode is a setting (kept across a New Game)
   resetGuidance(guidance);            // per-playthrough tutorial/aspiration progress starts fresh
 }
@@ -1703,7 +1721,7 @@ function draw(dt: number) {
     { y: OUTHOUSE.y + OUTHOUSE.h, f: () => drawOuthouse(ctx, OUTHOUSE) },
     { y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
-    { y: player.y + 13, f: () => drawFarmer(ctx, player, time, playerRigParams) },
+    { y: player.y + 13, f: () => drawFarmer(ctx, player, time, playerRigParams, playerUsesSprite) },
     // the neighbour farm (cared-for: repaired roof/window/barn) — decorative
     { y: NEIGHBOR.house.y + NEIGHBOR.house.h, f: () => drawHouse(ctx, true, true, NEIGHBOR.house) },
     { y: NEIGHBOR.barn.y + NEIGHBOR.barn.h, f: () => drawBarn(ctx, true, NEIGHBOR.barn) },
@@ -1775,7 +1793,7 @@ function drawInteriorScene() {
   ctx.fillStyle = "#171209";                     // beyond-the-walls darkness
   ctx.fillRect(camx, camy, vw, vh);
   drawInterior(ctx, time, currentPhase(calendar));
-  drawFarmer(ctx, player, time, playerRigParams);
+  drawFarmer(ctx, player, time, playerRigParams, playerUsesSprite);
   if (hovered) hovered.drawHover(ctx, time);
   // Day/night tint indoors: the same continuous clock, milder (DECISIONS-
   // grounded call: a room with a fire/lamp shouldn't go as dark as the yard).

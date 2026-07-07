@@ -6,6 +6,7 @@
  * next block they call drawRig directly with their own RigParams.
  */
 import { drawRig, RIG_STRIDE, type RigParams } from "./rig";
+import { drawPlayerSprite } from "./spriteChar";
 import {
   drawQuadruped, drawBird, COW_RIG, HEN_RIG, QUAD_STRIDE, BIRD_STRIDE,
   PIG_RIG, SHEEP_RIG, DUCK_RIG, RABBIT_RIG, CAT_RIG, DOG_RIG,
@@ -17,8 +18,16 @@ import type { Npc } from "../entities/npc";
 
 /** The player, drawn with her created look. `rig` comes from her saved
  *  Character (main owns it, rebuilt on New Game); falls back to the default
- *  farmer when a caller has none. */
-export function drawFarmer(g: CanvasRenderingContext2D, p: Player, t: number, rig: RigParams = DEFAULT_PLAYER_RIG) {
+ *  farmer when a caller has none. When `useSprite` is set (the Character is the
+ *  default female heroine — main computes this via spriteCoversCharacter) the
+ *  PixelLab heroine sprite is drawn for the walk/idle poses; every other pose,
+ *  and any frame whose sprite hasn't loaded, falls through to the code rig
+ *  (which paints its own shadow), so switching is seamless. */
+export function drawFarmer(
+  g: CanvasRenderingContext2D, p: Player, t: number,
+  rig: RigParams = DEFAULT_PLAYER_RIG, useSprite = false,
+) {
+  if (useSprite && drawPlayerSprite(g, p, t)) return;
   drawRig(g, p.x, p.y, p.dir, rig, p.pose, p.dist / RIG_STRIDE, t);
 }
 
