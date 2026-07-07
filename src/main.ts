@@ -142,6 +142,8 @@ import {
 import { rigFromCharacter } from "./entities/player";
 import type { RigParams } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
+import { paintDayNightTint } from "./art/daynight";
+import { updateWeatherFx, drawWeatherFx } from "./art/weatherfx";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -340,7 +342,7 @@ if (import.meta.env.DEV)
     eat: eatItem, drink: () => drink(needs), wash: () => wash(needs),
     outhouse: () => useOuthouse(needs), sitRest: () => rest(needs),
     sleep: sleepUntilMorning, nap: napAnHour,
-    scene: () => scene, leave: () => leaveHouse(),
+    scene: () => scene, leave: () => leaveHouse(), enter: () => enterHouse(),
     give: (id: string, n = 1) => { addItem(economy.inv, id, n); saveEconomy(economy); },
     // relationship verification bridge — drive gifts/interactions/decay without UI
     relationships,
@@ -1252,6 +1254,10 @@ function tick(now: number) {
 
   updateAnimals(cows, hens, dt);   // ambience runs even behind the opening screens
   updateWildlife(wildlife, currentSeason(calendar), weather.kind, player, dt);   // seasonal ambient critters
+  // Weather visual layer (Part B #8): screen-space rain/fog/lightning keeps
+  // drifting through dialogue/menu pauses too — it's ambient atmosphere, not
+  // simulated game-time (a look-and-feel call, not a game-state one).
+  updateWeatherFx(dt, weather.kind);
   updateQuickSummary(dt);          // the "quick" end-of-day pill fades on its own, even while paused
   // auto-pause: a conversation OR the full end-of-day panel freezes game-time
   // AND the townsfolk (they're "in conversation" / the day is officially over)
@@ -1618,6 +1624,13 @@ function draw() {
     ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill();
   }
 
+  // Day/night tint (Part B #9) + weather visual layer (Part B #8): both are
+  // screen-space composite passes over the finished world render, BEFORE the
+  // HUD (the HUD is DOM, outside this canvas, so it's unaffected either way).
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  paintDayNightTint(ctx, cv.width, cv.height, calendar.hour, calendar.minute);
+  drawWeatherFx(ctx, cv.width, cv.height, weather.kind);
+
   drawVignette();
 }
 
@@ -1642,6 +1655,10 @@ function drawInteriorScene() {
   drawInterior(ctx, time, currentPhase(calendar));
   drawFarmer(ctx, player, time, playerRigParams);
   if (hovered) hovered.drawHover(ctx, time);
+  // Day/night tint indoors: the same continuous clock, milder (DECISIONS-
+  // grounded call: a room with a fire/lamp shouldn't go as dark as the yard).
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  paintDayNightTint(ctx, cv.width, cv.height, calendar.hour, calendar.minute, true);
   drawVignette("rgba(60,45,25,0)", "rgba(15,10,5,.42)");   // dimmer indoors
 }
 

@@ -339,3 +339,70 @@ export const RELATIONSHIPS_KEY = "wildhearth-relationships-v1"; // per-NPC Frien
 export const SLOT_KEY = "wildhearth-slot-v1";        // save-slot manifest (Save system, Part A #11)
 export const GUIDANCE_KEY = "wildhearth-guidance-v1"; // tutorial/aspiration progress (Guidance Mode engine)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)
+
+// ===========================================================================
+//  Visual foundation (Part B, v1-foundation branch) — day/night, weather fx,
+//  parallax skyline, ambient particles, cast shadows. Every magnitude here is
+//  a knob; art/*.ts only ever receives plain numbers (hour/minute/season/
+//  weather already resolved by main.ts) so the art layer never imports
+//  systems/calendar.ts or systems/weather.ts directly.
+// ===========================================================================
+
+// ---- Day/night tint (commit 1, item 9) — continuous color grade, keyed to
+// hour+minute (not the 4 stepped phases), blended across named keyframes.
+export const DAYNIGHT_NIGHT_COLOR = [8, 14, 42] as const;     // deep blue, dark enough to actually darken
+export const DAYNIGHT_NIGHT_ALPHA = 0.4;                      // ~35-40% darkening (DECISIONS aesthetic)
+export const DAYNIGHT_DAWN_COLOR = [255, 178, 120] as const;  // warm peach lift
+export const DAYNIGHT_DAWN_ALPHA = 0.16;
+export const DAYNIGHT_DUSK_COLOR = [225, 130, 55] as const;   // amber
+export const DAYNIGHT_DUSK_ALPHA = 0.20;
+export const DAYNIGHT_INTERIOR_MULT = 0.45;                   // interiors get a milder version
+
+// ---- Weather visual layer (commit 1, item 8) — rain/storm/fog. "cloudy" is
+// named in DECISIONS' full weather list but WeatherKind (systems/weather.ts)
+// doesn't have it yet (Part A #8 scope, not this batch) — see WORKLOG.
+export const WEATHER_RAIN_COUNT = 120;              // screen-space pooled droplets
+export const WEATHER_STORM_COUNT = 200;             // heavier rain in a storm
+export const WEATHER_RAIN_FALL_SPEED = [0.55, 0.85] as const;  // screen-heights/sec
+export const WEATHER_STORM_FALL_SPEED = [0.95, 1.35] as const;
+export const WEATHER_RAIN_SLANT = 0.10;             // screen-widths/sec sideways wind-drift
+export const WEATHER_STORM_SLANT = 0.30;            // storm wind bends streaks harder
+export const WEATHER_RAIN_STREAK_LEN = 0.017;       // fraction of screen height per streak
+export const WEATHER_STORM_STREAK_LEN = 0.028;
+export const WEATHER_FOG_BANKS = 3;                 // drifting soft ellipses
+export const WEATHER_FOG_SPEED = 0.014;             // screen-widths/sec drift
+export const WEATHER_FOG_ALPHA = 0.16;
+export const WEATHER_FOG_RADIUS = 0.42;             // fraction of screen width
+export const WEATHER_LIGHTNING_CHANCE_PER_SEC = 0.045; // storm-only, occasional
+export const WEATHER_LIGHTNING_FLASH_UP = 0.04;     // seconds to full white
+export const WEATHER_LIGHTNING_FLASH_DOWN = 0.16;   // seconds fading back
+export const WEATHER_LIGHTNING_DARK_BEAT = 0.32;    // a beat of extra darkness right after
+export const WEATHER_LIGHTNING_DARK_ALPHA = 0.22;
+export const WEATHER_TINT_ALPHA = { clear: 0, rain: 0.07, storm: 0.16, fog: 0.14 } as const; // ground-tone shift
+
+// ---- Parallax background band (commit 2, item 7)
+export const CAM_NORTH_SKY_MARGIN = 260;   // px of sky the camera may reveal beyond the world's north edge
+export const PARALLAX_FACTOR = 0.3;        // background band scroll speed vs. the camera (< 1 = distant)
+
+// ---- Ambient particle system (commit 2, item 10) — one pooled system,
+// allocation-free per frame; drift emitters keyed to season/time, plus a
+// `burst(kind,x,y)` API any painter/system can trigger for feedback sparkle.
+export const PARTICLE_POOL_MAX = 160;          // total pool size (ambient + bursts share it)
+export const PARTICLE_AMBIENT_MAX = 22;        // sparse cap for the active seasonal drift kind
+export const PARTICLE_FIREFLY_MAX = 10;        // summer dusk/night only
+export const PARTICLE_BURST_COUNTS = { splash: 8, leafpuff: 7, glint: 6 } as const;
+export const PARTICLE_VIEWPORT_PAD = 40;       // px beyond the viewport edge before a drift particle recycles
+
+// ---- Diagonal cast shadows (commit 3, item 3) — distinct from the under-
+// entity ellipse (shapes.ts's `shadow()`); a skewed dark shape thrown toward
+// the lower-right (fixed upper-left sun). Length/alpha read the same
+// continuous clock as the day/night tint (main.ts computes it, art/ never
+// imports the calendar).
+export const CAST_SHADOW_ALPHA = 0.16;         // base alpha (spec: ~12-18%)
+export const CAST_SHADOW_SKEW_X = 0.62;        // horizontal throw per unit of "rise" (object height)
+export const CAST_SHADOW_SKEW_Y = 0.30;        // vertical throw per unit of "rise"
+export const CAST_SHADOW_LEN_NOON = 0.55;      // shortest — solar noon
+export const CAST_SHADOW_LEN_EDGE = 1.6;       // longest — dawn/dusk (low sun)
+export const CAST_SHADOW_LEN_NIGHT = 0.3;      // moot — alpha fades to ~0 anyway
+export const CAST_SHADOW_ALPHA_NIGHT = 0.05;   // near-invisible at night
+export const CAST_SHADOW_ALPHA_DAY = 0.9;      // full strength by day (× CAST_SHADOW_ALPHA)

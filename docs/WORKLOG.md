@@ -29,6 +29,122 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Day/night tint + weather visual layer
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part B commit 1 — a continuous (hour+minute, not the 4 stepped
+  phases) full-screen day/night color grade, plus rain/storm/fog visual effects
+  (streaks, a lightning flash + dark beat, drifting fog banks, a ground-tone
+  weather tint), all screen-space composite passes over the finished world
+  render, before the HUD.
+- **Done:**
+  - **Files:**
+    - `src/art/daynight.ts` (NEW): `dayNightTint(hour,minute)` blends across
+      named color keyframes (deep-blue night -> warm-peach dawn -> neutral day
+      -> amber dusk -> night again), continuous across the whole 24h clock, not
+      stepped by `currentPhase()`. `paintDayNightTint(g,w,h,hour,minute,milder?)`
+      is the one screen-space painter (one `fillRect`, cheap); `milder` (used by
+      the house interior) multiplies alpha by `DAYNIGHT_INTERIOR_MULT`.
+      `shadowFactors(hour,minute)` — a second keyframe table (shares the same
+      `sampleAt()` interpolator) returning `{lenMult,alphaMult}` for Part B #3's
+      cast shadows (commit 3): shortest+full at solar noon, longest at dawn/dusk,
+      near-invisible at night. Pure functions of numbers — never imports
+      `systems/calendar.ts`, so art/ stays decoupled from systems/ per the
+      architecture map; main.ts is the only seam reading the live clock.
+    - `src/art/weatherfx.ts` (NEW): a fixed-size droplet pool (`MAX_DROPS =
+      max(rain,storm count)`, normalized screen-space `nx,ny`, recycled on
+      overflow — zero per-frame allocation) + a 3-bank fog array + a lightning
+      state machine (`lightningT`/`darkBeatT`). `updateWeatherFx(dt, kind)`
+      advances all of it; `drawWeatherFx(g,w,h,kind)` paints (in order) the
+      ground-tone tint -> fog banks (radial-gradient ellipses via `g.ellipse()`,
+      not a transform trick — canvas gradients are fixed to the CTM active at
+      *creation*, so repositioning via translate/scale silently breaks them; the
+      earlier version of this file had exactly that bug, caught and fixed during
+      verification, see Rough edges) -> rain/storm streaks (wind-slanted,
+      storm heavier + more slant) -> the lightning flash + dark beat (storm
+      only; no screen shake, per the brief).
+    - `src/config.ts`: new "Visual foundation" section — `DAYNIGHT_*` (night/
+      dawn/dusk colors+alphas, interior mult), `WEATHER_RAIN_*`/`WEATHER_STORM_*`
+      (counts, fall speed, slant, streak length), `WEATHER_FOG_*`,
+      `WEATHER_LIGHTNING_*`, `WEATHER_TINT_ALPHA`. (Also pre-added this
+      commit's siblings' knobs — `CAM_NORTH_SKY_MARGIN`, `PARALLAX_FACTOR`,
+      `PARTICLE_*`, `CAST_SHADOW_*` — since all three commits' tuning was
+      planned together; only this commit's knobs are exercised by this diff.)
+    - `src/main.ts`: `updateWeatherFx(dt, weather.kind)` runs unconditionally
+      every frame (alongside `updateAnimals`/`updateWildlife`, which already ran
+      "even behind the opening screens") — a **judgment call**: weather keeps
+      gently drifting through dialogue/menu pauses rather than freezing, since
+      it reads as ambient atmosphere, not simulated game-time. `draw()` and
+      `drawInteriorScene()` each reset the transform and call
+      `paintDayNightTint()` (interior passes `milder=true`) right before their
+      existing `drawVignette()`; `draw()` (the world scene) also calls
+      `drawWeatherFx()`. Dev bridge: added `enter: () => enterHouse()` (mirrors
+      the existing `leave`) so verification can reach the interior scene.
+  - **Behavior:** The world (and, milder, the house interior) now visibly
+    darkens/warms/cools across the day: cool near-black-blue at night, a warm
+    lift at dawn, neutral midday, amber at dusk — continuously, not in 4 jumps.
+    Rain and storms show wind-slanted streaks (storm: denser + more slanted +
+    an occasional lightning flash with a beat of extra darkness after);
+    fog shows 2-3 slow drifting haze banks + an overall grey-out. The title
+    menu is unaffected (it paints to its own separate `.menu-vista` canvas, not
+    `#cv`); the HUD (DOM, outside the canvas) is unaffected either way.
+- **Build:** `npm run build` — passing.
+- **Verification:** headless Playwright against the Vite dev server (`npx`-
+  cached, not added to package.json/package-lock — same ad-hoc approach prior
+  WORKLOG entries describe). Forced every weather kind + several times of day
+  via the dev bridge (`__wh.calendar.hour/minute`, `__wh.weather.kind` — both
+  already live-object references in the bridge, no new setter needed).
+  - Screenshots reviewed at dawn/noon/dusk/night and rain/storm/fog — **my own
+    verdict:** legible and charming; NOT distracting; HUD/backpack/minimap
+    crisp and untouched in every shot.
+  - Because the tint reads subtly against the game's already-warm palette at a
+    glance, I additionally sampled exact pixel RGBA (not just eyeballed PNGs) at
+    a fixed grass point across conditions to confirm the math, e.g. (clear)
+    noon `(74,96,45)` -> night `(53,72,48)` (clearly darker, per DECISIONS'
+    "~35% darkening" — retuned from a first pass that used too light a night
+    color and under-delivered, see Rough edges) -> dawn `(105,117,60)` (a real
+    warm lift) -> dusk `(102,105,51)`; rain `(82,108,57)` (cooler) vs clear;
+    fog `(104,123,84)` (lighter/desaturated, blue channel jumps furthest).
+  - Interior milder tint confirmed the same way: noon `(125,138,153)` -> night
+    `(103,116,133)`, a ~20-unit drop vs. the ~45-unit drop the same alpha would
+    give at full (non-milder) strength — matches `DAYNIGHT_INTERIOR_MULT=0.45`
+    almost exactly.
+  - Lightning: probabilistic (~4.5%/sec while storming), so I sampled average
+    canvas brightness every 0.5s for 20s during a storm — caught both a bright
+    spike (the flash, partially — 0.5s sampling under-catches a 0.2s event's
+    true peak) and a dip below baseline (the dark beat), confirming the
+    up-ramp/down-ramp/dark-beat state machine actually fires and reads as
+    distinct from steady rain.
+  - Perf: sampled 120 `requestAnimationFrame` deltas during a storm (the
+    heaviest configuration — 200 streaks + fog/lightning logic all disabled
+    except the storm's own): avg 16.6ms, max ~19ms — at/near the 60fps (16.7ms)
+    budget on this machine; no long-task console warnings; no page errors in
+    any screenshot pass.
+- **Commit:** <hash> — Day/night tint + weather visual layer
+- **Follow-ups / rough edges:**
+  - DECISIONS.md's "Weather v1: full — clear/cloudy/rain/storm/fog" lists
+    "cloudy", but `systems/weather.ts`'s `WeatherKind` only has clear/rain/
+    storm/fog — there's no "cloudy" state to hang a visual on. Adding a new
+    weather STATE (table entries, `MOOD_WEATHER_DRAG`, wildlife
+    season/weather lists, etc.) is Part A #8 (weather integration) scope, not
+    this visual-foundation batch, so cloudy's "drifting soft cloud shadows"
+    item is a documented gap, not implemented.
+  - The fog-bank draw originally tried to reuse one pre-created gradient via
+    `translate`/`scale` (to avoid recreating a `CanvasGradient` every frame).
+    That's wrong: gradient coordinates are fixed to the transform active at
+    *creation* time, not re-evaluated at fill time, so the reused gradient
+    silently painted in the wrong place (nothing visible). Fixed by creating
+    the (cheap — 3 max) gradient fresh per bank per frame at its actual
+    on-screen position, using `g.ellipse()` for the non-circular shape instead
+    of a transform trick.
+  - The first tint tuning pass used `DAYNIGHT_NIGHT_COLOR=[18,26,58]` at 0.35
+    alpha; because that blue value was brighter than the grass's own blue
+    channel, night barely darkened (and the blue channel briefly went *up*).
+    Retuned to `[8,14,42]` at 0.4 alpha — reads clearly as night now while
+    staying fully legible (DECISIONS: "can act at night").
+  - Weather particles/tint update unconditionally, even while paused
+    (dialogue/menus/day-end panel) — a look-and-feel judgment call, noted
+    above, not exercised by an automated pause-state assertion.
+
 ## AI features II — event narration, story arcs, quest stub, improvement notes
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part D commit 2 — the remaining four AI features, each additive
