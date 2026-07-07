@@ -126,6 +126,31 @@ branch `v1-foundation`.
   parallel delegated batch with review gates. Applied from the
   feasibility check onward.
 
+## Path-A execution log (owner approved "Path A go")
+
+- **S2-10 (crop/tree path):** inpainting gate verdict — trees PARTIAL-PASS
+  via inpainting (~1 gen, trunk holds; spot-check each), crops FAIL
+  inpainting (clump layout dissolves) → **approved MIX path**: tree
+  seasons via inpainting, crop stages via object-states; projected
+  1,280-1,600 gens; runs as its own gated batch NEXT session (owner
+  priority order puts animals before trees/crops).
+- **Drift-gate scoreboard:** navy-trousers drift caught on 2 hairstyle
+  bases pre-ship → regenerated with hardened wording, all 3 regens
+  PASS (cropped pixel-perfect; ponytail needed one direction re-roll);
+  ponytail v1 had failed server-side. All 5 hairstyles now have clean
+  bases + walk + idle. Old failed character ids noted in the batch
+  report; harmless to leave in the account.
+- **NPC sprites SHIPPED** (`a3eb122` atlas packer + `43a7ae8` town
+  faces): all 10 NPCs incl. Jonas; per-NPC scale/anchor table in the
+  WORKLOG; Finn keeps a code rod overlay, Liora gets music notes;
+  bundle 665KB→398KB (atlas fix), rig fallback proven two ways.
+- **Building variety SHIPPED** (`c16e452`): 4 flat-front replacements
+  (damage overlays re-derived for the new farmhouse art), 4 themed
+  stalls, 6/8 distinct cottages (2 spare), whitewash-slate neighbor
+  farmhouse, 11 spares banked under buildings/spare/ for v2.
+- Generation spend at this point: ~424/5,000 used total (incl. all
+  probes + pre-session tests) — 4,576 remaining.
+
 ## Session-2 owner feedback log (live)
 1. "Characters don't match the design the player defined" → coverage
    to be tightened (rig for customized looks) + 4 hairstyle bases
