@@ -1,6 +1,6 @@
 import {
   WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE,
-  DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS,
+  DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS, AUTOSAVE_SECONDS,
 } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
@@ -23,7 +23,7 @@ import { drawFarmer, drawCow, drawHen, drawNpc } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen } from "./entities/animals";
 import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcById, npcNeedComment, type Npc } from "./entities/npc";
-import { loadLivestock, resetLivestock } from "./systems/livestock";
+import { loadLivestock, resetLivestock, saveLivestock } from "./systems/livestock";
 import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
@@ -36,30 +36,31 @@ import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/bus
 import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
 import { recipeById } from "./data/recipes";
 import { loadGarden, resetGarden, saveGarden, updateGarden } from "./systems/gardening";
-import { loadCollections, resetCollections, discover, discoveredName } from "./systems/collections";
+import { loadCollections, resetCollections, discover, discoveredName, saveCollections } from "./systems/collections";
 import { sellableGoodIds } from "./systems/sellCategories";
-import { loadMemories, resetMemories, addMemory } from "./systems/memories";
+import { loadMemories, resetMemories, addMemory, saveMemories } from "./systems/memories";
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
 import { saveSettings, isGuided, dayLengthSeconds } from "./systems/settings";
-import { loadFarm, resetFarm } from "./systems/renovation";
+import { loadFarm, resetFarm, saveFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
-import { loadWeather, resetWeather, rollDailyWeather, isRaining } from "./systems/weather";
-import { loadWorldFlags, resetWorldFlags, pruneExpired, setFlag as setWorldFlag } from "./systems/worldFlags";
+import { loadWeather, resetWeather, rollDailyWeather, isRaining, saveWeather } from "./systems/weather";
+import { loadWorldFlags, resetWorldFlags, pruneExpired, setFlag as setWorldFlag, saveWorldFlags } from "./systems/worldFlags";
 import {
   loadNeeds, resetNeeds, decayNeeds, recomputeMood, moodPerfMult, applyExertion, applyWalk,
   socialContact, collectWarnings, criticalNeed, applyAccident, collapseRecover,
   restore, edibleHunger, needsRecord, drink, wash, useOuthouse, rest,
-  PHYSICAL_NEEDS, type NeedId,
+  PHYSICAL_NEEDS, type NeedId, saveNeeds,
 } from "./systems/needs";
 import { loadMeta, saveMeta } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
+import { stampSave } from "./systems/saveSlots";
 import { getWorldContext } from "./systems/worldContext";
 import {
   loadRelationships, resetRelationships, decayRelationships, giveGift, applyInteraction,
-  markContact, relationshipSummary, dialogueBump,
+  markContact, relationshipSummary, dialogueBump, saveRelationships,
 } from "./systems/relationships";
 import { initDialogue, openDialogue, isDialogueOpen, closeDialogue } from "./ui/dialoguebox";
 import type { ChoiceEffect } from "./systems/dialogue";
@@ -293,6 +294,11 @@ if (import.meta.env.DEV)
     repairFarm: () => { farm.roof = true; farm.window = true; farm.barn = true; farm.fence = true; },
     begin: () => beginPlay(),                     // skip the title screens into live play
     newGame: () => { newGameReset(meta.starterTool as StarterTool, isGuided()); beginPlay(); },
+    // save-system verification bridge — force the two save paths and shrink
+    // the autosave interval instead of waiting 10 real minutes
+    saveNow: manualSave,
+    autosaveNow: autosaveTick,
+    setAutosaveSeconds: (s: number) => { autosaveSeconds = s; autosaveAccum = 0; },
   };
 
 initBackpack(economy, eatItem);
@@ -553,6 +559,46 @@ function newGameReset(tool: StarterTool, guided: boolean) {
   saveSettings({ guided });         // settings are not game state — kept across a New Game
 }
 
+// ---- Save system (Part A #11): every store already saves itself on every
+// mutation (the codebase's continuous-save convention) — this is the belt-
+// and-braces "force everything to disk right now" path used by the manual
+// save icon and the periodic autosave, plus the slot manifest that stamps
+// WHEN and records a glance-able summary (season/day/coins) for a future
+// Continue screen. `autosaveSeconds` is a `let`, not the raw config constant,
+// so the dev bridge can shrink it for automated verification without editing
+// config.ts.
+function saveAllStores() {
+  saveEconomy(economy);
+  saveSkills(skills);
+  saveFarm(farm);
+  savePlots(plots);
+  saveGarden(garden);
+  saveLivestock(livestock);
+  saveCalendar(calendar);
+  saveWeather(weather);
+  saveWorldFlags(worldFlags);
+  saveNeeds(needs);
+  saveRelationships(relationships);
+  saveCollections(collections);
+  saveMemories(memories);
+}
+
+function manualSave() {
+  saveAllStores();
+  stampSave(calendar, economy.coins, isGuided());
+  toast("Game saved. 💾");
+}
+
+let autosaveSeconds = AUTOSAVE_SECONDS;
+let autosaveAccum = 0;
+function autosaveTick() {
+  saveAllStores();
+  stampSave(calendar, economy.coins, isGuided());
+  toast("Autosaved.");
+}
+
+document.getElementById("saveBtn")!.addEventListener("click", manualSave);
+
 showTitle(
   hasSavedGame(),
   () => showIntro(() => showReveal(() => showStarterChoice((tool) =>
@@ -577,6 +623,11 @@ function tick(now: number) {
   if (!dialoguePaused) updateNpcs(npcs, calendar, weather, player, dt);
 
   if (!openingActive && !dialoguePaused) {
+  // autosave: counts real seconds of actual play (paused whenever the block
+  // above is skipped — title screen / dialogue), fires + resets on the knob.
+  autosaveAccum += dt;
+  if (autosaveAccum >= autosaveSeconds) { autosaveAccum = 0; autosaveTick(); }
+
   const wasMoving = player.moving;
   updatePlayer(player, dt);
   if (player.moving && !wasMoving) {

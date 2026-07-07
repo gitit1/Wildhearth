@@ -42,6 +42,56 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Save system — manifest, manual save icon, 10-minute autosave
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (Part A #11) Save/load system. Every store already writes
+  localStorage continuously on change; add on top: a slot manifest (v5-multi-
+  slot-forward-compat, one slot in v1), a manual save via a HUD icon, and an
+  autosave every 10 real minutes (paused while game-time is paused). The
+  tutorial-in-progress marker rides along in the manifest for a future load
+  prompt, no UI yet.
+- **Done:**
+  - **Files:**
+    - `src/systems/saveSlots.ts` (new) — `SlotManifest` { version, slot (always
+      1 in v1), lastSavedAt (real epoch ms), calendarStamp {season, day},
+      coins, guided? }; `loadSlot()` (tolerant read) and `stampSave(cal, coins,
+      guided)`. Comments spell out the v5 path (array of manifests + `-slotN`
+      key suffixes) without building it.
+    - `src/config.ts` — new `AUTOSAVE_SECONDS = 600` and `SLOT_KEY =
+      "wildhearth-slot-v1"`.
+    - `src/systems/saves.ts` — `SLOT_KEY` added to `GAME_KEYS` so New Game
+      wipes the manifest (no stale "last saved" stamp from the ended life).
+    - `index.html` — a 💾 `#saveBtn` joins the `#tools` icon row (same
+      `.tool-btn` chrome as map/skills/book/bag).
+    - `src/main.ts` — `saveAllStores()` force-calls every store's save
+      function (economy/skills/farm/plots/garden/livestock/calendar/weather/
+      flags/needs/relationships/collections/memories); `manualSave()` runs it
+      + `stampSave()` + a "Game saved." toast, wired to `#saveBtn` click;
+      `autosaveTick()` is the same path with a quieter "Autosaved." toast. A
+      real-seconds accumulator (`autosaveAccum` against a mutable
+      `autosaveSeconds`, seeded from the config constant) ticks only inside
+      the same gated block that already pauses on the title screen/dialogue,
+      so the timer holds while game-time is paused. Dev bridge additions:
+      `saveNow`, `autosaveNow`, `setAutosaveSeconds` (lets verification shrink
+      the interval without touching config.ts).
+  - **Systems / functions:** new save key `wildhearth-slot-v1`; no changes to
+    any existing store's on-disk shape (the manifest is a new, independent key).
+  - **Behavior:** clicking 💾 (or the dev bridge) saves every live store at
+    once, stamps the manifest, and toasts "Game saved."; the same path fires
+    automatically every 10 real minutes of active play (not while the title
+    screen or a dialogue has time paused) with a quieter toast; New Game wipes
+    the manifest along with the rest of the game-state keys.
+- **Build:** `npm run build` — ✅ passing
+- **Commit:** (filled in below after committing)
+- **Verification:** Playwright against the Vite dev server, driven through
+  the dev bridge (`window.__wh`) plus a real click on `#saveBtn`: New Game →
+  manifest absent; click 💾 → manifest present with `lastSavedAt`/season/day/
+  coins/guided and the "Game saved." toast text; `setAutosaveSeconds(0.3)` +
+  a ~0.7s wait → manifest re-stamped with a newer `lastSavedAt` (autosave
+  fired on its own); New Game again → manifest absent again.
+- **Follow-ups:** none — v5 multi-slot and the "Continue Tutorial?" load
+  prompt are deliberately left as comments/an unused manifest field, not code.
+
 ## Dialogue engine — condition-keyed lines, choice turns, bottom-box
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (Part A #4, mechanical layer) The Dialogue engine. Condition-

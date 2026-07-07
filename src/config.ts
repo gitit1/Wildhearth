@@ -168,6 +168,12 @@ export const CAM_USER_ZOOM_MIN = 0.6;   // player zoom factor bounds (wheel / +â
 export const CAM_USER_ZOOM_MAX = 2.4;
 export const CAM_USER_ZOOM_STEP = 0.15; // ...changed by this much per wheel notch / button press
 
+// ===========================================================================
+//  Save system (Part A #11) â€” continuous per-store saves already happen on
+//  every mutation; these are the extra "force everything now" moments.
+// ===========================================================================
+export const AUTOSAVE_SECONDS = 600;    // 10 real minutes between autosaves (DECISIONS: "Save")
+
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";
@@ -183,4 +189,5 @@ export const COLLECTIONS_KEY = "wildhearth-collections-v1"; // Memory Book: disc
 export const MEMORIES_KEY = "wildhearth-memories-v1";       // Memory Book: life events
 export const NEEDS_KEY = "wildhearth-needs-v1";             // 7 needs (hunger/thirst/energy/hygiene/bathroom/mood/social)
 export const RELATIONSHIPS_KEY = "wildhearth-relationships-v1"; // per-NPC Friendship/Romance (Relationship engine)
+export const SLOT_KEY = "wildhearth-slot-v1";        // save-slot manifest (Save system, Part A #11)
 export const UI_KEY = "wildhearth-ui-v2";    // panel positions/sizes (not game state; v2: sidebar layout)

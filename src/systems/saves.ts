@@ -1,4 +1,4 @@
-import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY, PLOTS_KEY, GARDEN_KEY, COLLECTIONS_KEY, MEMORIES_KEY, NEEDS_KEY, RELATIONSHIPS_KEY } from "../config";
+import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY, PLOTS_KEY, GARDEN_KEY, COLLECTIONS_KEY, MEMORIES_KEY, NEEDS_KEY, RELATIONSHIPS_KEY, SLOT_KEY } from "../config";
 
 /**
  * Persistence hub (Step 9 save hardening). Each store keeps its own versioned
@@ -11,8 +11,10 @@ import { SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_K
  * game state: a New Game keeps them, so their keys are absent here.
  */
 
-// The keys that together make up one saved game.
-const GAME_KEYS = [SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY, PLOTS_KEY, GARDEN_KEY, COLLECTIONS_KEY, MEMORIES_KEY, NEEDS_KEY, RELATIONSHIPS_KEY];
+// The keys that together make up one saved game. The slot manifest
+// (saveSlots.ts) rides along here too — a New Game should look un-continuable,
+// not show a stale "last saved" stamp from the life that just ended.
+const GAME_KEYS = [SAVE_KEY, SKILLS_KEY, RENOVATION_KEY, META_KEY, CALENDAR_KEY, WEATHER_KEY, WORLD_FLAGS_KEY, LIVESTOCK_KEY, PLOTS_KEY, GARDEN_KEY, COLLECTIONS_KEY, MEMORIES_KEY, NEEDS_KEY, RELATIONSHIPS_KEY, SLOT_KEY];
 
 /**
  * True when there's a continuable game. Anchored on the economy save (the
