@@ -522,7 +522,9 @@ function drawHair(
 
 // ---- held tools (minimal code shapes; full tool painters land in Part C) --
 
-function drawRod(g: CanvasRenderingContext2D, hand: [number, number], t: number, s: number) {
+/** The fishing rod (also reused as a sprite-path prop overlay for Finn at the
+ *  dock — art/spriteNpc.ts). `hand` is a world point; tip angles up-and-out. */
+export function drawRod(g: CanvasRenderingContext2D, hand: [number, number], t: number, s: number) {
   const [hx, hy] = hand;
   const tipX = hx + 15 * s, tipY = hy - 15 * s;
   g.strokeStyle = "#6b4a2b"; g.lineWidth = 2.4 * s; g.lineCap = "round";

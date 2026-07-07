@@ -29,6 +29,67 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## The town gets faces — 10 NPC sprite sets on the shared bridge
+- **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 3)
+- **Block given:** Integrate the 10 generated townsfolk sprite sets (8 rotations
+  + an 8-direction walk each) onto the same dual-path bridge as the heroine, so
+  the market/square/forest/dock read as a peopled world, with a clean rig
+  fallback and no sprite↔rig identity popping.
+- **Done:**
+  - **Assets** — packed all 10 NPCs into `src/assets/pixellab/characters/
+    <id>.sheet.png` + `.sheet.json` via `scripts/packsheets.mjs` (from commit 1).
+    Each is an 8×7 grid (row 0 = 8 rotations, rows 1-6 = the walk frames) at the
+    generation's native cell (72–92px). The raw downloads live in untracked
+    staging (scratchpad `npcs/`), NOT the repo — re-pack path documented in
+    PIXELLAB_ASSETS.md §4. Character ids + prompts logged in §2 (wave 3). Jonas's
+    walk (the one animation still rendering at launch) finished and downloaded
+    cleanly — all 10 are sprite-backed, none fell to the rig.
+  - **Shared facing/anim** (`src/art/spriteFacing.ts`, NEW) — extracted the
+    8-direction sector model out of spriteChar.ts: `DIR8`, `nextSector(cur,
+    mvx, mvy, hyst)` (hysteresis flip), `walkFrame(dist, stride, frames)`,
+    `cardinalSector(facing)`. spriteChar.ts now consumes these (no behavior
+    change; the heroine bridge is the same, just DRY).
+  - **NPC bridge** (`src/art/spriteNpc.ts`, NEW) — `drawNpcSprite(g, n, t)`
+    keyed by `characters/<npc.id>`. Facing: the movement vector while walking
+    (per-NPC held sector + last-position delta, hysteresis via spriteFacing),
+    the stored cardinal facing when standing (so a talked-to NPC turns to the
+    player). Frame: the 6-frame walk cycle on `npc.dist` while moving, else the
+    static `rot_<dir>` (decision S2-8 — NO breathing idle). Shadow + foot line
+    match the rig exactly (keyed to `rig.scale`), so the fallback doesn't pop.
+    Per-NPC scale (`config.ts` `SPRITE_NPC_SCALES`) calibrates each sprite's
+    character height to the heroine's (~45px = "player height"); the two elders
+    a touch shorter, Finn (kid) clearly smaller — computed from each sheet's
+    measured silhouette height. Anchors (cx, footY) come from the sheet json.
+  - **Prop overlays (sprite path only, `drawNpcProps`)** — the static sprite
+    takes over the rig's work poses, so where an action must read, a MINIMAL
+    code prop overlays it: **Finn** — the existing `rig.ts` `drawRod` (now
+    exported) angled from his hands while his pose is "fishing" at the dock;
+    **Liora** — `props.ts` `drawMusicNotes` above her head while "busking" (her
+    sprite already holds the lute — no instrument drawn). Ada, Bram, the
+    stallkeepers, everyone else: static sprite, no overlay.
+  - **Wiring** — `art/characters.ts` `drawNpc` now draws the sprite when present
+    else the rig (mirrors `drawFarmer`); the name pill + ♥/⚭ readout unchanged.
+    `rig.ts` exports `drawRod`. `main.ts` __wh bridge gains `npcSpriteMode(on)`
+    (force all-rig A/B), `npcSpriteModeOn()`, `npcSprited()` (which NPCs are
+    sprite-backed). New knobs in `config.ts`: `SPRITE_NPC_SCALE`,
+    `SPRITE_NPC_FOOT_DY`, `SPRITE_NPC_WALK_STRIDE`, `SPRITE_NPC_SCALES`.
+  - **Bundle** — the 10 NPC sheets emit as separate hashed PNGs (78–159KB each,
+    fetched not inlined); the JS bundle went 371→398KB (gzip 129→132KB), still
+    far under the 500KB warning. (Loose NPC frames would have base64-inlined
+    ~1MB+ into the JS — the reason commit 1's atlas came first.)
+- **Verify:** `npm run build` green (no warning). In-browser (Playwright, new
+  game, screenshots reviewed): `npcSprited()` = all 10; market mid-day (a real
+  weekday) shows Maren/Tobin/Sera distinct + readable behind their stalls;
+  Liora busks with lute + note overlay at the square; Ada forages in the forest;
+  Finn (clearly kid-sized) fishes at the dock with the rod overlay; Jonas walks
+  the road facing east, mid-stride, leg frames varying (5→3→5→1); talking to
+  Tobin + Sera opens the dialogue box and turns them to face the player; night
+  → all 10 indoors (market empty); `npcSpriteMode(false)` → all render as rigs
+  at the same positions (no pop); **0 page/console errors** across every scene.
+- **Follow-ups:** the flat-front sprite regeneration + crop/tree/prop batches
+  from SCALING_DECISION are still parked pending the owner's go — unaffected by
+  this pass (NPCs shipped from already-generated, fully-reversible assets).
+
 ## Sprite sheets — pack per-character frames into atlases (heroine repacked)
 - **Date:** 2026-07-07 (v1-foundation, PixelLab integration — atlas foundation)
 - **Block given:** Before landing 10 NPC sprite sets (56 frames each), fix the

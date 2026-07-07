@@ -17,7 +17,8 @@ the asset/manifest layout, and generation costs.
 
 | Visual | Source | Where |
 |---|---|---|
-| **Heroine player** (default female) — 8-dir walk + idle | **Sprite** | `characters/heroine/` → `art/spriteChar.ts` |
+| **Heroine player** (default female) — 8-dir walk + idle | **Sprite** | `characters/heroine.sheet.png` → `art/spriteChar.ts` |
+| **Townsfolk** — the 10 NPCs, each 8-dir walk + static rotations | **Sprite** | `characters/<id>.sheet.png` → `art/spriteNpc.ts` |
 | **Farmhouse** (repaired base) | **Sprite** | `buildings/farmhouse.png` → `art/buildings.ts` `drawHouse` |
 | **Barn** (repaired base) | **Sprite** | `buildings/barn.png` → `art/buildings.ts` `drawBarn` |
 | **Hearth** (interior cook spot) | **Sprite** | `interior/hearth.png` → `art/interior.ts` |
@@ -27,7 +28,7 @@ the asset/manifest layout, and generation costs.
 | **Chair + crate table** (interior rest corner) | **Sprite** | `interior/chair-crate.png` → `art/interior.ts` `drawInterior` |
 | **Market/farm stall** (base + roof; awning re-tinted per stall) | **Sprite** | `buildings/market-stall.png` → `art/buildings.ts` `drawStall` |
 | **Market well** | **Sprite** | `buildings/well.png` → `art/buildings.ts` `drawWell` |
-| Everything else — NPCs, animals, crops/trees/bushes, cottages, outhouse, dock, market ground, weather/particles, UI, tools, stall goods/signs (a code overlay on the stall sprite — see notes), the player's non-walk/idle poses (fishing/hoeing/foraging/busking/sleeping) | **Code-drawn** | `src/art/*` |
+| Everything else — animals, crops/trees/bushes, cottages, outhouse, dock, market ground, weather/particles, UI, tools, stall goods/signs (a code overlay on the stall sprite — see notes), the player's non-walk/idle poses (fishing/hoeing/foraging/busking/sleeping) | **Code-drawn** | `src/art/*` |
 
 Notes:
 - The heroine sprite only covers the **walk** and **idle** poses. Action poses
@@ -57,6 +58,22 @@ Notes:
 - **Bed**: the first generation read as a bench on review and was rejected;
   the retry clearly reads as a straw bed with a blanket and was integrated
   (see §2 for both object ids).
+- **Townsfolk (10 NPCs)**: each NPC has its OWN packed sheet
+  (`characters/<id>.sheet.png`, see §3/§4), covering the 8 rotations + an
+  8-direction walk. The sprite covers EVERY on-screen state — WALKING uses the
+  6-frame walk cycle (keyed to the NPC's distance), everything else (standing /
+  socializing / atWork / talking) uses the STATIC rotation frame for the NPC's
+  facing (decision S2-8: NO breathing idle for NPCs). So an NPC never swaps
+  sprite↔rig in normal play; the rig is a pure fallback (no sheet / not decoded
+  / `__wh.npcSpriteMode(false)`). The rig's action poses (hoeing/fishing/
+  busking limbs) are therefore not used on the sprite path — where an action
+  needs to read, a MINIMAL code prop overlays the static sprite (`spriteNpc.ts`
+  `drawNpcProps`): **Finn** gets the existing code fishing rod (`rig.ts`
+  `drawRod`) angled from his hands at the dock; **Liora** gets drifting music
+  notes (`props.ts` `drawMusicNotes`) above her head while performing (her
+  sprite already holds the lute). Everyone else (incl. Ada, Bram, the
+  stallkeepers) is a static sprite with no overlay. Per-NPC scale + the shared
+  foot/shadow anchoring are in §3 and `config.ts` (`SPRITE_NPC_SCALES`).
 
 ---
 
@@ -146,6 +163,38 @@ prompt, so these entries are shorter than wave 1's:
   ACCEPTED retry: map object `154caf2b-2df8-4a8a-84ce-c7ce0260dd85`
   (*"rustic single bed viewed from the front: low woode…"*, 64×80) — clearly a
   straw bed with a blanket, integrated.
+
+**Wave 3** (the 10 townsfolk) — each a `create_character` (`view: low top-down`,
+`n_directions: 8`, v3) + one `animate_character` `walking` (6 frames × 8 dir);
+NO idle template (decision S2-8). Downloaded, then packed with
+`scripts/packsheets.mjs` into `characters/<id>.sheet.png` (loose frames kept in
+untracked staging, not committed). Canvas sizes vary by generation (the
+downloaded native size; the packer aligns to it). Character ids + prompts:
+
+- **maren** `ae9dd242-37e1-4dba-8253-256b4077699a`, 92×92 — *middle-aged woman
+  fishmonger, dark auburn hair in a bun under a kerchief, sea-green fisher's
+  smock + apron, brisk warm expression.*
+- **tobin** `c28c90b4-8e37-4bb3-a56b-9c9bf2df10ab`, 92×92 — *round cheerful
+  greengrocer, ruddy cheeks, short sandy hair, leaf-green vest + market apron.*
+- **sera** `3f01fa9a-79b5-45c6-9fd6-096b86cb490d`, 88×88 — *poised shopkeeper,
+  black hair in a tight bun, round spectacles, slate-blue tailored dress, a
+  ledger under one arm.*
+- **liora** `e67d5229-9999-4ab0-a12b-5665155361b1`, 76×76 — *young street
+  musician, copper-red hair with a flower behind one ear, plum-and-gold
+  performer's dress, holding a small wooden lute.*
+- **henrik** `8faad319-131d-4834-a7cd-8bcc46ac003e`, 88×88 — *elderly farmer,
+  bushy grey brows, slight stoop, faded blue overalls over a checked shirt.*
+- **petra** `37546611-44c7-49f2-9ccb-69b2e394513e`, 92×92 — *plump motherly
+  baker, flour-dusted burgundy dress + white apron, honey-brown braided hair.*
+- **bram** `4d3dc9e5-d92e-489a-be69-21a68fc48245`, 88×88 — *broad-shouldered
+  carpenter, short dark hair + neat beard, tan leather apron, hammer on belt.*
+- **ada** `f7d8d4a6-5682-4ecd-a872-69bd76648320`, 84×84 — *elderly herbalist,
+  silver hair in a loose bun, moss-green hooded shawl, a woven gathering basket.*
+- **finn** `bb312a83-a131-43c7-be86-a90f0d7cec9a`, 72×72 — *young boy (~10) fisher
+  apprentice, messy sandy-blond hair, freckles, rolled teal trousers, eager.*
+  (kid — the smallest canvas; drawn clearly smaller in-game.)
+- **jonas** `c0e81f27-537b-4851-b79f-60dabad10bff`, 92×92 — *wiry middle-aged
+  peddler, travel-worn burgundy coat, patched satchel, flat cap, clever eyes.*
 
 ---
 
@@ -283,14 +332,17 @@ turns a raw PixelLab character export into `<name>.sheet.png` + `.sheet.json`:
   recorded prompt (tweak as needed), `get_map_object` until `completed`,
   **download immediately** (8h auto-delete), drop the PNG in place (same
   filename), re-measure the anchor if the silhouette moved, rebuild.
-- **Regenerate the heroine or add a variant**: `create_character` (reuse the
-  prompt / character id as the style reference), `animate_character` for walk +
-  idle, download the zip, flatten into a new `characters/<name>/` folder, add a
-  coverage branch in `spriteCoversCharacter` if it's a new player look.
-- **Add a new category** (e.g. NPC sprites, farm animals): generate, drop the
-  PNGs under a new `src/assets/pixellab/<category>/` folder, wire the draw
+- **Regenerate a character (heroine or NPC) / add a variant**: `create_character`
+  (reuse a prompt / character id as the style reference), `animate_character` for
+  walk (+ idle for the heroine), download the zip into staging, and **re-pack**
+  with `scripts/packsheets.mjs` (above) → `characters/<name>.sheet.png` + json.
+  For a new PLAYER look add a coverage branch in `spriteCoversCharacter`; for a
+  new NPC add its `NpcDef` (its sheet id is `characters/<npc.id>`) and a
+  `SPRITE_NPC_SCALES` entry.
+- **Add a new loose-PNG category** (e.g. farm animals as single sprites): drop
+  the PNGs under a new `src/assets/pixellab/<category>/` folder, wire the draw
   site to `sprite("<category>/<id>")` with a painter fallback. No manifest
-  edit needed.
+  edit needed. (Characters use the sheet path above, not loose PNGs.)
 - **Give an existing sprite a new per-instance color** (e.g. a 5th stall
   color): no new art — pass the new hex through `recolorSprite` (see above);
   only measure a new `HueBand` if the fabric/region to tint has changed.
@@ -301,16 +353,19 @@ turns a raw PixelLab character export into `<name>.sheet.png` + `.sheet.json`:
 ## 5. Generation costs
 
 PixelLab account: **Tier 2 (Pixel Artisan)**, 5,000 subscription generations/mo,
-$0.00 extra credits. **98 used / 4,902 remaining** as of this integration —
+$0.00 extra credits. **~198 used / ~4,800 remaining** as of this integration —
 wave 1 (58: the heroine character + its walk & idle animations across 8
-directions + 3 map objects + a few style tests) plus wave 2 (+40: room
+directions + 3 map objects + a few style tests), wave 2 (+40: room
 backdrop, basin, chair+crate, market stall, well, and the bed — 2 attempts,
-the first rejected on review and retried — 7 objects total this wave).
+the first rejected on review and retried — 7 objects total this wave), plus
+**wave 3 (+~100: the 10 townsfolk** — each 2 (8 rotations, v3) + 8 (the walk
+template across 8 directions) = ~10 gens; no idle template, decision S2-8).
 
 Rough per-category estimate for the rest of the plan (a generation ≈ one
 direction of one frame/rotation, so animated characters dominate):
-- **NPC** (8-dir, rotations + walk + idle, like the heroine): **~18–40 gens**
-  each. 10 townsfolk ≈ 200–400.
+- **NPC** (8-dir, rotations + walk, NO idle — decision S2-8): **~10 gens** each
+  (2 rotations v3 + 8 walk directions). 10 townsfolk ≈ 100 — measured, the whole
+  roster this wave. (With an idle template, like the heroine, ~18 each.)
 - **Farm animals** (fewer directions / simpler): ~10–20 each.
 - **Buildings / large props / furniture** (`create_map_object`, 1 image):
   **~1–3 gens** each; ~10–15 planned ≈ 20–45.

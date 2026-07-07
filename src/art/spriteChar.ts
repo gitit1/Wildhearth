@@ -13,6 +13,7 @@
  * sleeping) always return false here → the rig draws them, unchanged.
  */
 import { spriteFrame, type SpriteFrame } from "./sprites";
+import { DIR8, nextSector, walkFrame } from "./spriteFacing";
 import { shadow, castShadow } from "./shapes";
 import {
   SPRITE_PLAYER_SCALE, SPRITE_PLAYER_FOOT_DY, SPRITE_WALK_STRIDE,
@@ -38,13 +39,7 @@ const ANCHOR_X = 42;   // sprite column planted on player.x (= atlas cell centre
 const ANCHOR_Y = 62;   // sprite foot row planted on the ground line (verified)
 const WALK_FRAMES = 6, IDLE_FRAMES = 4;
 
-// 8 sprite directions in atan2(dy, dx) sector order. Canvas y is DOWN, so
-// +y = south: sector 0 = east, 2 = south, 4 = west, 6 = north.
-const DIR8 = [
-  "east", "south-east", "south", "south-west",
-  "west", "north-west", "north", "north-east",
-] as const;
-
+// 8-dir facing + walk-frame logic is shared with the NPC bridge (spriteFacing.ts).
 let curSector = 2;          // held 8-dir facing; 2 = south (matches createPlayer dir=2)
 let spriteEnabled = true;   // dev A/B toggle (__wh.spriteMode)
 
@@ -89,24 +84,10 @@ export function spriteCoversCharacter(c: Character | null): boolean {
 }
 
 // ---- facing (8-dir from the movement vector, with hysteresis) -----------
-/** Update + return the held 8-direction facing. While moving, the facing only
- *  flips once the movement angle drifts past the current sector's edge plus a
- *  hysteresis margin — so a near-diagonal wobble doesn't strobe between two
- *  directions. Idle holds the last facing (mvx/mvy are held by the player). */
+/** Update + return the held 8-direction facing. Idle holds the last facing
+ *  (mvx/mvy are held by the player). See spriteFacing.ts for the shared model. */
 function facingDir(p: Player): (typeof DIR8)[number] {
-  const vx = p.mvx, vy = p.mvy;
-  if (vx !== 0 || vy !== 0) {
-    const ang = Math.atan2(vy, vx);
-    const cur = curSector * (Math.PI / 4);
-    let d = ang - cur;
-    while (d > Math.PI) d -= 2 * Math.PI;
-    while (d < -Math.PI) d += 2 * Math.PI;
-    if (Math.abs(d) > Math.PI / 8 + SPRITE_FACING_HYSTERESIS) {
-      let s = Math.round(ang / (Math.PI / 4)) % 8;
-      if (s < 0) s += 8;
-      curSector = s;
-    }
-  }
+  curSector = nextSector(curSector, p.mvx, p.mvy, SPRITE_FACING_HYSTERESIS);
   return DIR8[curSector]!;
 }
 
@@ -125,7 +106,7 @@ export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, t: numb
   const dir = facingDir(p);
   let frame: SpriteFrame | null;
   if (kind === "walk") {
-    const f = Math.floor(Math.max(0, p.dist) / SPRITE_WALK_STRIDE) % WALK_FRAMES;
+    const f = walkFrame(p.dist, SPRITE_WALK_STRIDE, WALK_FRAMES);
     frame = spriteFrame(SHEET_ID, `walk_${dir}_${f}`);
   } else {
     const f = Math.floor(t * SPRITE_IDLE_FPS) % IDLE_FRAMES;

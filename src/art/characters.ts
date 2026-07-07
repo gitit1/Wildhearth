@@ -7,6 +7,7 @@
  */
 import { drawRig, RIG_STRIDE, type RigParams } from "./rig";
 import { drawPlayerSprite } from "./spriteChar";
+import { drawNpcSprite } from "./spriteNpc";
 import {
   drawQuadruped, drawBird, COW_RIG, HEN_RIG, QUAD_STRIDE, BIRD_STRIDE,
   PIG_RIG, SHEEP_RIG, DUCK_RIG, RABBIT_RIG, CAT_RIG, DOG_RIG,
@@ -42,9 +43,15 @@ export interface NpcRelReadout { friendship: number; romance: number; showRomanc
  * action prompt only appears in reach), so the world isn't cluttered with tags.
  * When a bond has started, a subtle second line shows ♥ Friendship (and ⚭
  * Romance for candidates).
+ *
+ * Draw path mirrors the player: the PixelLab NPC sprite (drawNpcSprite) when it
+ * has a decoded sheet, else the code rig — seamless, since both plant on the
+ * same ground line and share the same shadow. The name pill + ♥ readout are
+ * unchanged on either path.
  */
 export function drawNpc(g: CanvasRenderingContext2D, n: Npc, t: number, showLabel: boolean, rel?: NpcRelReadout) {
-  drawRig(g, n.x, n.y, n.facing, n.def.rig, n.pose, n.dist / RIG_STRIDE, t);
+  if (!drawNpcSprite(g, n, t))
+    drawRig(g, n.x, n.y, n.facing, n.def.rig, n.pose, n.dist / RIG_STRIDE, t);
   if (showLabel) drawNameLabel(g, n.x, n.y - 30 * n.def.rig.scale, n.def.name, relLine(rel));
 }
 

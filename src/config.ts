@@ -344,6 +344,22 @@ export const SPRITE_PLAYER_FOOT_DY = 15;      // world y below player.y where th
 export const SPRITE_WALK_STRIDE = 7;          // px of travel per walk frame (6-frame loop ≈ 42px; keyed to player.dist like the rig)
 export const SPRITE_IDLE_FPS = 4;             // breathing idle cadence (4-frame loop = 1s)
 export const SPRITE_FACING_HYSTERESIS = 0.14; // rad past a sector edge before the 8-dir facing flips (kills near-diagonal flicker)
+// --- NPC sprites (art/spriteNpc.ts). Each NPC has its OWN packed sheet
+//     (characters/<id>.sheet.png, cell 72-92px per generation). The per-NPC
+//     scale below calibrates each sprite's character height to the heroine's
+//     (~45px on-screen = "player height"): adults ≈ 1× player, the two elders
+//     (henrik/ada) a touch shorter, Finn (kid) clearly smaller. These were
+//     computed from each sheet's measured silhouette height (packsheets.mjs
+//     anchors) — retune here, not in the bridge. SPRITE_NPC_SCALE is a global
+//     multiplier for quick A/B. Foot/shadow use the NPC's rig.scale so the
+//     sprite plants exactly where the rig fallback would (no pop on fallback). ---
+export const SPRITE_NPC_SCALE = 1.0;          // global multiplier over the per-NPC scales
+export const SPRITE_NPC_FOOT_DY = 14;         // world y (× rig.scale) below npc.y where the sprite foot row plants (matches rig footY)
+export const SPRITE_NPC_WALK_STRIDE = 7;      // px of travel per walk frame (6-frame loop ≈ 42px; keyed to npc.dist)
+export const SPRITE_NPC_SCALES: Record<string, number> = {
+  maren: 0.94, tobin: 0.94, sera: 0.98, henrik: 0.91, petra: 0.92,
+  liora: 1.12, bram: 0.98, ada: 0.95, finn: 0.97, jonas: 0.98,
+};
 // --- Static building/interior sprites (art/buildings.ts, art/interior.ts).
 //     Scale is world px per sprite px; each sprite is aligned base-on-ground,
 //     centred on its zone rect. The 192x176 / 208x176 / 64x80 sheets were sized

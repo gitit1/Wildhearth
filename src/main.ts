@@ -151,6 +151,7 @@ import { drawParallaxBand } from "./art/parallax";
 import { updateParticles, drawParticles, burst, debugParticleCounts } from "./art/particles";
 import { loadSprites, spriteLoadProgress, spritesReady } from "./art/sprites";
 import { spriteCoversCharacter, setSpriteMode, spriteModeOn } from "./art/spriteChar";
+import { setNpcSpriteMode, npcSpriteModeOn, npcHasSprite } from "./art/spriteNpc";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -374,6 +375,11 @@ if (import.meta.env.DEV)
     // read whether this Character uses the sprite, and poll load progress.
     spriteMode: (on: boolean) => setSpriteMode(on),
     spriteModeOn: () => spriteModeOn(),
+    // NPC sprite bridge: force the rig path for all NPCs (A/B), and read which
+    // townsfolk are currently sprite-backed (a decoded sheet exists).
+    npcSpriteMode: (on: boolean) => setNpcSpriteMode(on),
+    npcSpriteModeOn: () => npcSpriteModeOn(),
+    npcSprited: () => npcs.filter(npcHasSprite).map((n) => n.def.id),
     usesSprite: () => playerUsesSprite,
     coversChar: (c: Character | null) => spriteCoversCharacter(c),
     spritesReady: () => spritesReady(),
