@@ -42,6 +42,107 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Seasonal wildlife — butterflies, songbirds, rabbits, deer by season & weather
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** ROADMAP_EXPANSION's "Wild animals along the road/river"
+  block — ambient, non-interactive-except-fleeing critters, migratory per
+  DECISIONS' World section ("spring butterflies, summer birds, winter
+  mammals"), changing with season AND weather.
+- **Done:**
+  - **Files:**
+    - `src/data/wildlife.ts` (new) — `WildlifeKind` = `"butterfly" |
+      "songbird" | "rabbit" | "deer" | "duck" | "hare"`; `WildlifeDef {id,
+      kind, regions, seasons, weather, maxCount, speed}`; `WILDLIFE` table,
+      one row per kind: butterfly (spring+summer, farm/road/market,
+      clear/fog), songbird (spring–autumn, forest/road/farm,
+      clear/fog/rain), rabbit (spring only, farm/road), duck (summer only,
+      river — on the water itself), deer (autumn+winter, forest/road), hare
+      (winter only, farm/road). "Storm" is never in any row's weather list —
+      nothing is out in a storm. `maxCount`/`speed` are read from `config.ts`
+      (see below) so the WHEN/WHERE data stays separate from the numeric
+      tuning, matching the fish/crop/forage table convention.
+    - `src/config.ts` — new "Seasonal wildlife" section:
+      `WILDLIFE_MAX_COUNT`/`WILDLIFE_SPEED` (per-kind records),
+      `WILDLIFE_RAIN_BIRD_MULT` (0.4 — "fewer birds" in rain, scales
+      songbird/duck caps without a separate table column),
+      `WILDLIFE_SPAWN_CHANCE` (0.05/sec — gradual repopulation, never a
+      burst), `WILDLIFE_FLEE_RADIUS` (85px), `WILDLIFE_DESPAWN_RANGE`
+      (240px), `WILDLIFE_FLEE_SPEED_MULT` (2.4×), `WILDLIFE_WANDER_RADIUS`
+      (60px), `WILDLIFE_DESPAWN_SECONDS` (0.5s fade/fly-off).
+    - `src/entities/wildlife.ts` (new) — `WildlifeInst` (position, home
+      point, wander target, dist for the rig's walk cycle, fleeing/
+      despawning flags, per-instance color/antler-flag). `createWildlife()`,
+      `updateWildlife(list, season, weather, player, dt)`: population
+      maintenance (fades out any instance whose kind fell out of season/
+      weather, or is over a just-shrunk cap), gradual repopulation (each
+      eligible def occasionally tries to fill an empty slot via
+      `pickSpawnPoint()`, which reuses `world/collision.ts`'s `blocked()`
+      for land creatures and `inWater()` for ducks — no separate rejection-
+      zone table), then per-instance movement: butterflies/ducks are pure
+      ambient wander (recentred on their spawn point, never drifting across
+      the map); songbirds "fly off" (a quick despawn) when the player closes
+      within `WILDLIFE_FLEE_RADIUS`; rabbits/hares/deer run directly away
+      (recomputed every frame) and despawn once they've put
+      `WILDLIFE_DESPAWN_RANGE` between themselves and their spawn point.
+      `activeDefs(season, weather)` (storm always returns `[]`) exported for
+      reuse/testing.
+    - `src/art/wildlife.ts` (new) — `drawWildlife(g, inst, time)`, the
+      depth-sort dispatcher: butterflies get a bespoke `drawButterfly` (2
+      wing ellipses flapping on a fast sine + a thin body + a tiny ground
+      shadow); songbird/duck reuse `animalRig.ts`'s `drawBird` with new
+      `SONGBIRD_RIG`/`DUCK_RIG` presets; rabbit/hare/deer reuse
+      `drawQuadruped` with new `RABBIT_RIG`/`HARE_RIG`/`DEER_RIG` (+
+      `DEER_BUCK_RIG`, antlers on roughly half of spawned deer) presets —
+      never a new rendering engine, per that file's own header comment.
+      Despawning instances fade (alpha from `despawnT`) and, for airborne
+      kinds, visibly lift as they fade (a stand-in for "flying away").
+    - `src/art/animalRig.ts` — `QuadrupedParams` gains an `antlers?: boolean`
+      field; `drawQuadruped` draws a simple branching main-beam + one tine
+      per side when set (deer bucks only) — a small additive variant, the
+      existing `horns` rendering (cow) is untouched.
+    - `src/main.ts` — `const wildlife: WildlifeInst[] = createWildlife();`
+      (module-level, not persisted — purely ambient, regenerates each
+      session like the townsfolk's positions do); `updateWildlife(...)`
+      called unconditionally alongside `updateAnimals` (ambience runs even
+      behind the opening screens); each instance pushed into the depth-
+      sorted `ents` array in `draw()`, same pattern as cows/hens. Dev bridge:
+      `wildlife` (the live array) exposed on `window.__wh` for inspection.
+  - **Behavior:** in spring, butterflies flutter over the farm/road/market
+    and songbirds + rabbits appear; in summer, butterflies + songbirds +
+    ducks on the river; in autumn, songbirds + deer near the forest/road; in
+    winter, hares + deer only (no insects/birds). Rain despawns insects and
+    thins bird counts; storm empties the sky entirely. Getting close to a
+    rabbit/hare/deer sends it running away until it's out of sight; getting
+    close to a songbird makes it fly off. None of it is collectible or
+    tied to any skill yet.
+  - **Systems / functions:** no new save keys — wildlife is intentionally
+    ephemeral (not part of any save), same non-persistence choice as the
+    townsfolk's live positions.
+- **Verify (Playwright, headless Chromium + the dev `__wh` bridge, polling
+  `window.__wh.wildlife` rather than fixed sleeps since spawn timing is
+  probabilistic):** forced spring+clear and waited for population — got
+  butterflies, songbirds, AND rabbits together, matching the spring mix;
+  forcing rain despawned every butterfly within its ~0.5s fade while
+  songbirds/rabbits remained; forcing winter (a separate run, ~90s of live
+  ticking) produced BOTH hares and deer with no butterfly/rabbit/duck
+  leaking in; walking the player next to a spawned rabbit set its `fleeing`
+  flag true and it despawned within a few seconds of running; forcing storm
+  brought the live (non-despawning) count to 0. No console/page errors in
+  any run. A screenshot with the player teleported next to a spawned deer
+  (winter forest) confirms the visual: a tall, thin-legged quadruped with
+  the shared outline/shadow, reading clearly against the tree-lined
+  forest floor.
+- **Build:** `npm run build` — ✅ passing
+- **Commit:** (filled in below after committing)
+- **Follow-ups:** binoculars-gated sighting/Collections wiring (deliberately
+  NOT built here, per the block's own scope note — that's the Riverside
+  Fisherwoman block) would turn these sightings into Memory Book entries.
+  Rough edge: the `WILDLIFE_MAX_COUNT`/`WILDLIFE_SPEED` config constants
+  were added to `src/config.ts` a commit early (alongside the fish-stall
+  block's own config addition, before this block's files existed) — a minor
+  commit-hygiene slip, not a functional one; nothing in that earlier commit
+  referenced them, so the build was green throughout.
+
 ## Fish-stall NPC — Maren buys fish at the market
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** DECISIONS' "Selling paths" #2 (NPC stalls of matching

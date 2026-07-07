@@ -30,6 +30,7 @@ export interface QuadrupedParams {
   spots?: string;         // optional body blotches
   ears: EarStyle;
   horns?: boolean;
+  antlers?: boolean;      // branching antlers instead of horn nubs (deer bucks)
   tail: TailStyle;
   tailColor?: string;
   eye?: string;
@@ -136,6 +137,19 @@ export function drawQuadruped(
     g.fillStyle = "#e6dcc4";
     g.beginPath(); g.arc(hx - hr * 0.55, hy - hr * 0.7, hr * 0.28, 0, TAU); g.fill(); outline(g);
     g.beginPath(); g.arc(hx + hr * 0.55, hy - hr * 0.7, hr * 0.28, 0, TAU); g.fill(); outline(g);
+  }
+  if (p.antlers) {
+    // a simple branching main-beam + one tine per side (deer bucks only)
+    g.strokeStyle = "#c9b48a"; g.lineWidth = 1.6 * s; g.lineCap = "round";
+    for (const side of [-1, 1] as const) {
+      const bx = hx + side * hr * 0.5, by = hy - hr * 0.7;
+      g.beginPath();
+      g.moveTo(bx, by);
+      g.lineTo(bx + side * hr * 0.3, by - hr * 1.15);
+      g.moveTo(bx + side * hr * 0.12, by - hr * 0.55);
+      g.lineTo(bx + side * hr * 0.55, by - hr * 0.78);
+      g.stroke();
+    }
   }
 
   g.fillStyle = p.headColor;
