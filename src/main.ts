@@ -102,8 +102,10 @@ import {
   initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow,
 } from "./ui/shopwindow";
 import { hideOpening } from "./ui/titlescreen";
-import { showMainMenu, showFarewell } from "./ui/mainmenu";
+import { showMainMenu, menuConfirm } from "./ui/mainmenu";
 import { showSettings } from "./ui/settingsscreen";
+import { showPause } from "./ui/pausescreen";
+import { showExitDialog } from "./ui/exitscreen";
 import { applyGlobalPrefs, applyHudPrefs } from "./ui/uiPrefs";
 import { showIntro, showReveal } from "./ui/intro";
 import { showPathAndGoal } from "./ui/newgame";
@@ -925,6 +927,24 @@ function deleteSaveToTitle() {
   location.reload();
 }
 
+/** Close whichever in-game top-level menu (Settings/Pause/Exit) is up and hand
+ *  control back to live play, draining any input queued behind the overlay. */
+function closeInGameMenu() {
+  menuOpen = false;
+  hideOpening();
+  consumeAction(); consumeLeftClick(); consumeRightClick();
+}
+
+/** The SettingsCtx used for the two in-game entry points (⚙ button, Pause →
+ *  Settings) — only the `onBack` differs (resume play vs. return to Pause). */
+function inGameSettingsCtx(onBack: () => void) {
+  return {
+    onBack, onSaveNow: manualSave, onDeleteSave: deleteSaveToTitle,
+    slot: loadSlot(), hasSave: hasSavedGame(),
+    tutorialAvailable: tutorialAvailable(guidance), inGame: true,
+  };
+}
+
 /** Settings from the title menu — returns to the menu, no play session to pause. */
 function openSettingsFromMenu() {
   showSettings({
@@ -943,21 +963,54 @@ function openSettingsFromMenu() {
 function openSettingsInGame() {
   if (openingActive) return;      // the menu/creation overlays own their own flow
   menuOpen = true;
-  showSettings({
-    onBack: () => {
-      menuOpen = false;
-      hideOpening();
-      consumeAction(); consumeLeftClick(); consumeRightClick();
-    },
-    onSaveNow: manualSave,
-    onDeleteSave: deleteSaveToTitle,
-    slot: loadSlot(),
-    hasSave: hasSavedGame(),
-    tutorialAvailable: tutorialAvailable(guidance),
-    inGame: true,
-  });
+  showSettings(inGameSettingsCtx(closeInGameMenu));
 }
 document.getElementById("settingsBtn")!.addEventListener("click", openSettingsInGame);
+
+/** Return to Main Menu (Pause / Exit dialog): confirm, autosave, then reload —
+ *  the reload is the guaranteed-clean teardown; re-entry is via Continue. The
+ *  cancel path just drops the confirm scrim, revealing Pause underneath. */
+function returnToMainMenu() {
+  menuConfirm(
+    "Return to the main menu?",
+    "Your game will be saved first — you can pick up right where you left off.",
+    "Return to menu",
+    () => { manualSave(); location.reload(); },
+    () => {},
+  );
+}
+
+/** The pause screen (Esc / ⏸). Re-renders itself as the return target for the
+ *  in-game Settings and Exit sub-screens. */
+function showPauseScreen() {
+  showPause({
+    onResume: closeInGameMenu,
+    onSave: manualSave,
+    onSettings: () => showSettings(inGameSettingsCtx(showPauseScreen)),
+    onReturnToMenu: returnToMainMenu,
+    onExit: () => showExitDialog({
+      fromGame: true,
+      onExitToMenu: returnToMainMenu,
+      onSaveBeforeExit: () => { saveAllStores(); saveGuidance(guidance); stampSave(calendar, economy.coins, guidanceMode()); },
+      onBack: showPauseScreen,
+    }),
+  });
+}
+
+/** Open Pause in-game — only during live free play (never over another overlay,
+ *  a time-skip fade, or the opening flow). */
+function openPause() {
+  if (openingActive || menuOpen || timeSkipping) return;
+  if (isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen() || isShopOpen()) return;
+  menuOpen = true;
+  showPauseScreen();
+}
+document.getElementById("pauseBtn")!.addEventListener("click", openPause);
+
+// Esc opens Pause during play. In-game overlays that own Esc (dialogue, shop,
+// the day-end panel, the guidance prompt) consume it on the capture phase and
+// stop propagation, so this bubble-phase handler only ever fires in free play.
+addEventListener("keydown", (e) => { if (e.key === "Escape") openPause(); });
 
 /** The boot title screen (and the screen returned to from its sub-screens). */
 function openMainMenu() {
@@ -967,7 +1020,12 @@ function openMainMenu() {
     onContinue: continueGame,
     onNewGame: startNewGameFlow,
     onSettings: openSettingsFromMenu,
-    onExit: showFarewell,               // Commit 3 → the exit dialog first
+    onExit: () => showExitDialog({
+      fromGame: false,
+      onExitToMenu: () => {},          // no in-game session to return from at the title
+      onSaveBeforeExit: () => {},      // nothing to flush before the farewell here
+      onBack: openMainMenu,
+    }),
   });
 }
 

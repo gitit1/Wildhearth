@@ -42,6 +42,67 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Pause screen + Exit dialog + return to main menu
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part E #6-7, third of three commits. A Pause screen (Esc + a
+  ⏸ HUD button, freezing game-time like dialogue) with Resume / Save / Settings
+  / Return to Main Menu (confirm, autosaves first) / Exit; and the Exit dialog
+  (DECISIONS' three: "Exit to main menu" in-game, "Exit fully" → try
+  window.close() then a warm farewell, "Switch to another game" greyed for v5).
+  Returning to the menu must tear the play session down cleanly; a
+  location.reload() after autosave is the accepted pragmatic teardown.
+- **Done:**
+  - **Files:**
+    - `src/ui/pausescreen.ts` (NEW): `showPause(ctx)` — a dimmed-scrim overlay
+      (the frozen farm shows through) with the five buttons; Save flashes
+      "Saved ✓" and stays; Esc resumes (its handler is added mid-dispatch so it
+      never catches the same Esc that opened it). Pure DOM; main wires actions.
+    - `src/ui/exitscreen.ts` (NEW): `showExitDialog(ctx)` — "Exit to main menu"
+      (only when `fromGame`), "Exit fully" (calls `onSaveBeforeExit`, tries
+      `window.close()`, then always falls back to `showFarewell` since browsers
+      block close() for a tab they didn't open), "Switch to another game"
+      (disabled, tooltip "arrives with multiple characters — v5"), and Back/Esc.
+    - `src/main.ts`: pause/exit orchestration — `openPause` (guarded to live
+      free play only: not over the opening flow, another menu, a time-skip fade,
+      or dialogue/shop/day-end/guidance overlays), a window-level Esc handler
+      (in-game overlays own Esc on the capture phase, so this bubble handler only
+      fires in free play), `showPauseScreen` (re-renders itself as the return
+      target for in-game Settings + Exit), `returnToMainMenu` (a `menuConfirm`
+      → `manualSave()` + `location.reload()`; cancel just drops the scrim and
+      reveals Pause), a factored `inGameSettingsCtx(onBack)` + `closeInGameMenu`
+      shared by the ⚙ button and Pause→Settings, and the title Exit button now
+      opens the Exit dialog (`fromGame:false`, so "Exit to main menu" is hidden).
+      Imports trimmed: `showFarewell` dropped (exitscreen.ts owns it now),
+      `menuConfirm` added.
+    - `index.html`: the ⏸ `#pauseBtn` in the tools row; Pause (`#opening.paused`
+      dimmed scrim + `.pause-panel`/`.pause-feedback`) and Exit (`.exit-panel`)
+      CSS on the existing tokens.
+  - **Systems / functions:** no new save key. The in-game menu gate is the
+    existing `menuOpen` flag (added in commit 2's Settings work) — Pause and the
+    Exit dialog set it, so game-time and the townsfolk freeze while either is up.
+  - **Behavior:** Esc or the ⏸ button pauses the game (clock + NPCs freeze) over
+    a dimmed view of the farm. Save saves in place; Settings opens over pause and
+    returns to it; Return to Main Menu confirms, autosaves, and reloads to the
+    title where Continue picks the game straight back up; Exit opens the
+    three-way dialog. "Exit fully" saves and shows the warm "The farm will wait
+    for you — you can close this tab" farewell. The title's Exit button opens the
+    same dialog without the in-game-only "Exit to main menu" option.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright (17/17): Esc AND the ⏸ button open Pause
+  and freeze the clock (360→360), which runs again on Resume (360→363); Save
+  from pause restamps the manifest + flashes "Saved ✓"; Settings from pause
+  returns to pause; the in-game Exit dialog shows Exit-to-menu + Exit-fully with
+  Switch disabled; Exit fully shows the farewell (window.close stubbed, as the
+  browser would block it); Return to Main Menu confirms (cancel keeps pause),
+  reloads to a title with Continue enabled, and Continue resumes into the world;
+  the title Exit dialog hides "Exit to main menu". Zero page/console errors.
+  Reviewed screenshots confirm the pause-over-frozen-farm and exit-dialog looks.
+- **Commit:** `<fill>` — Pause screen + Exit dialog + return to main menu
+- **Follow-ups:** Return-to-menu uses `location.reload()` after autosave as the
+  deliberate clean-teardown choice (a full in-memory session teardown across
+  ~15 stores + the rAF loop would be far riskier for no player-visible gain);
+  re-entry via Continue needs no page reload of its own. This completes Part E.
+
 ## Settings screen — time, gameplay, interface, audio, AI, saves
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part E #3, second of three commits. A full Settings screen

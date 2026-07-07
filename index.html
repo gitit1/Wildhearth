@@ -355,6 +355,13 @@
     .menu-modal-title{color:var(--gold);font-size:20px;font-weight:800;margin:0 0 6px}
     .farewell-panel{text-align:center}
     .farewell-heart{font-size:42px;margin-bottom:6px}
+    /* Pause screen — a dimmed scrim so the frozen farm shows through behind it */
+    #opening.paused{background:rgba(8,10,6,.6);display:flex;align-items:center;justify-content:center}
+    .pause-panel{text-align:center;min-width:300px}
+    .pause-buttons{margin:12px auto 0;width:260px}
+    .pause-feedback{min-height:20px;margin-top:10px;font-size:14px;font-weight:800;color:#9fe36a}
+    .exit-panel{text-align:center;min-width:320px}
+    .exit-panel .menu-buttons{margin:14px auto 0;width:280px}
     /* ============ Back-able screens (What's New / Help / Credits / Settings) === */
     .screen-panel{width:min(680px,calc(100vw - 24px));max-height:90vh;display:flex;
       flex-direction:column;text-align:left;padding:18px 22px}
@@ -557,6 +564,7 @@
     <button class="tool-btn" id="bagBtn" title="Backpack (I)">🎒</button>
     <button class="tool-btn" id="saveBtn" title="Save game">💾</button>
     <button class="tool-btn" id="settingsBtn" title="Settings">⚙️</button>
+    <button class="tool-btn" id="pauseBtn" title="Pause (Esc)">⏸️</button>
   </div>
   <canvas id="needsStrip"></canvas>
   <div id="fade"></div>
