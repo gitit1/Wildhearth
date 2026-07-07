@@ -212,3 +212,90 @@ export function recolorSprite(
   recolorCache.set(cacheKey, canvas);
   return canvas;
 }
+
+// ===========================================================================
+//  Sheet recolor — the same H&S-replace as recolorSprite, but (a) applies
+//  SEVERAL disjoint bands in one pass (heroine hair + dress + apron together),
+//  and (b) each band may carry per-pixel LIGHTNESS bounds and a per-CELL
+//  vertical window. Lightness bounds separate same-hue regions of different
+//  value (dark chestnut hair vs lighter freckled skin); the vertical window
+//  (nyMin/nyMax, fraction of a CELL, 0=top) confines a band to a body zone so a
+//  same-hue region elsewhere is left alone (hair recolor must skip the boots,
+//  which share dark-brown hue+lightness). Used by art/spriteChar.ts to turn the
+//  chestnut/rust base heroine sheets into the player's chosen hair + dress
+//  colours. See docs/PIXELLAB_ASSETS.md "Recolouring the heroine".
+// ===========================================================================
+
+/** A recolor band: HueBand + optional lightness bounds + an optional per-cell
+ *  vertical window (fractions of one atlas cell, 0=cell top .. 1=cell bottom). */
+export interface RecolorBand extends HueBand {
+  lMin?: number; lMax?: number;   // per-pixel lightness gate (0-1)
+  nyMin?: number; nyMax?: number;  // per-CELL normalized-Y window (0-1)
+}
+/** One region's recolor: pixels in `band` → `targetHex`'s hue+sat (keep L). */
+export interface RecolorOp { band: RecolorBand; targetHex: string }
+
+const sheetRecolorCache = new Map<string, HTMLCanvasElement>();
+const SHEET_RECOLOR_CACHE_MAX = 48;   // bound growth from creation-screen scrubbing
+
+function inBand(h: number, s: number, l: number, ny: number, b: RecolorBand): boolean {
+  const hok = b.hueMin > b.hueMax
+    ? (h >= b.hueMin || h <= b.hueMax)
+    : (h >= b.hueMin && h <= b.hueMax);
+  if (!hok || s < b.satMin) return false;
+  if (b.lMin != null && l < b.lMin) return false;
+  if (b.lMax != null && l > b.lMax) return false;
+  if (b.nyMin != null && ny < b.nyMin) return false;
+  if (b.nyMax != null && ny > b.nyMax) return false;
+  return true;
+}
+
+/**
+ * Recolor a packed atlas by several bands at once, returning a cached offscreen
+ * canvas (same pixel size as `img`, same frame rects). `cellSize` is the atlas's
+ * per-cell px (SheetData.canvas) used to resolve each band's nyMin/nyMax within
+ * its own cell. Computed once per (id + ops) look and cached (session-lifetime,
+ * capped) — cheap to draw from every frame. Null if the image hasn't decoded or
+ * canvas 2D is unavailable (callers fall back to the raw atlas).
+ */
+export function recolorSheet(
+  id: string, img: HTMLImageElement, ops: RecolorOp[], cellSize: number,
+): HTMLCanvasElement | null {
+  if (ops.length === 0) return null;
+  const cacheKey = id + "|" + ops.map((o) =>
+    `${o.targetHex}@${o.band.hueMin},${o.band.hueMax},${o.band.satMin},${o.band.lMin ?? ""},${o.band.lMax ?? ""},${o.band.nyMin ?? ""},${o.band.nyMax ?? ""}`).join("|");
+  const cached = sheetRecolorCache.get(cacheKey);
+  if (cached) return cached;
+  const w = img.naturalWidth, h = img.naturalHeight;
+  if (!w || !h) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const cx = canvas.getContext("2d");
+  if (!cx) return null;
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(img, 0, 0);
+  const data = cx.getImageData(0, 0, w, h);
+  const px = data.data;
+  // precompute each op's target hue+sat
+  const targets = ops.map((o) => { const [r, g, b] = hexToRgb(o.targetHex); const [th, ts] = rgbToHsl(r, g, b); return { band: o.band, th, ts }; });
+  const cell = cellSize > 0 ? cellSize : h;
+  for (let i = 0; i < px.length; i += 4) {
+    if (px[i + 3] === 0) continue;
+    const [h1, s1, l1] = rgbToHsl(px[i]!, px[i + 1]!, px[i + 2]!);
+    const ny = (Math.floor((i >> 2) / w) % cell) / cell;   // row within this pixel's cell, 0-1
+    for (const t of targets) {
+      if (inBand(h1, s1, l1, ny, t.band)) {
+        const [r2, g2, b2] = hslToRgb(t.th, t.ts, l1);
+        px[i] = r2; px[i + 1] = g2; px[i + 2] = b2;
+        break;   // bands are disjoint; first match wins
+      }
+    }
+  }
+  cx.putImageData(data, 0, 0);
+  if (sheetRecolorCache.size >= SHEET_RECOLOR_CACHE_MAX) {
+    const oldest = sheetRecolorCache.keys().next().value;
+    if (oldest !== undefined) sheetRecolorCache.delete(oldest);
+  }
+  sheetRecolorCache.set(cacheKey, canvas);
+  return canvas;
+}

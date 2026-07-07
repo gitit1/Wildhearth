@@ -1,5 +1,6 @@
 import { openingRoot } from "./titlescreen";
 import { drawRig, type RigParams, type HairStyle, type BodyBuild, type Outfit } from "../art/rig";
+import { spriteCoversLook, drawHeroinePreview } from "../art/spriteChar";
 import { DEFAULT_APPEARANCE, type Appearance, type CharacterIdentity, type Gender } from "../systems/meta";
 
 /**
@@ -215,6 +216,9 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   });
 
   // ---- live preview loop: idle breathing + a slow turn between facings ----
+  // Draws EXACTLY what the game will draw for this look — the recoloured sprite
+  // when it's covered, the rig otherwise — so the preview is the truth, updating
+  // as options change (the loop reads `state` every frame). ~2.5× to fill the box.
   const t0 = performance.now();
   const frame = (now: number) => {
     if (!cv.isConnected) { previewRaf = 0; return; }   // screen replaced → stop
@@ -222,7 +226,10 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     g.clearRect(0, 0, CW, CH);
     const facing = ([2, 1, 2, 3] as const)[Math.floor(t / 2.2) % 4]!;   // front, right, front, left
-    drawRig(g, CW / 2, CH * 0.82, facing, previewRig(state.appearance, 2.5), "idle", 0, t);
+    const covered = spriteCoversLook(state.gender, state.appearance)
+      && drawHeroinePreview(g, state.appearance, CW / 2, CH * 0.82, facing, 2.5, t);
+    if (!covered)
+      drawRig(g, CW / 2, CH * 0.82, facing, previewRig(state.appearance, 2.5), "idle", 0, t);
     previewRaf = requestAnimationFrame(frame);
   };
   cancelAnimationFrame(previewRaf);

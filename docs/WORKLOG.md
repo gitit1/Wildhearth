@@ -29,6 +29,102 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Her character, her design — 5 heroine hairstyles + runtime hair/dress recolour
+- **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 5)
+- **Block given:** Close the "the character must match the design she defined"
+  feedback: the player sprite was keyed to ONE heroine sheet (the straw hat) and
+  ignored every Character-Creation choice. Pack + integrate 4 new hairstyle
+  bases, pick the sheet from her chosen hair, recolour her chosen hair + dress
+  colours onto the base at runtime, keep the honest dual-path fallback, and make
+  the creation preview render exactly what the game will render.
+- **Done:**
+  - **Assets (packer)** — 4 new heroine hairstyle bases (each 8 rotations + walk
+    6f×8dir + idle 4f×8dir, 92px cells), packed by `scripts/packsheets.mjs` into
+    `src/assets/pixellab/characters/`: `heroine-bun.sheet.{png,json}`,
+    `heroine-short.sheet.{png,json}`, `heroine-cropped.sheet.{png,json}`,
+    `heroine-ponytail.sheet.{png,json}`. The in-repo `heroine.sheet` = the HAT
+    style. The manifest globs pick them up with no code edit (drop-in). One
+    fix during packing: the ponytail export's north-east walk had been rejected
+    + retried into a stray `walking-b4ba3e33` anim key (the accepted retry frames
+    already sat on disk under `walking/north-east/`); patched the export's
+    `metadata.json` to point `walking.north-east` at them before packing so the
+    sheet has a clean 8-dir walk.
+  - **`src/art/sprites.ts`** — added `recolorSheet(id, img, ops, cellSize)` +
+    `RecolorBand`/`RecolorOp`, an extension of the proven `recolorSprite` H&S
+    machinery: applies SEVERAL disjoint bands to a packed atlas in one cached
+    pass (session-lifetime, capped at 48 to bound creation-screen scrubbing),
+    each band replacing hue+sat while keeping per-pixel lightness. `RecolorBand`
+    adds optional per-pixel lightness bounds (`lMin`/`lMax`) and a per-CELL
+    vertical window (`nyMin`/`nyMax`, resolved against `cellSize`) so a region
+    can be separated from a same-hue region elsewhere. `recolorSprite`/`HueBand`
+    (the stall awning path) are untouched.
+  - **`src/art/spriteChar.ts`** (substantial rewrite) — the bridge is now
+    hairstyle- + look-aware:
+    - `HERO_SHEETS`: hair id → sheet (`hat`→heroine, `bun`/`short`/`ponytail`→
+      their sheets, `bald`→`heroine-cropped`, the closest hatless-minimal base).
+    - Sheet-driven geometry (`heroGeometry`): cell size + measured foot anchor
+      read from each sheet's JSON via `sheetInfo`; the hat renders pixel-identical
+      to before (84px, scale 1.0), the 92px sheets at `SPRITE_HAIRSTYLE_SCALE`.
+    - Runtime recolour (`buildOps`): HAIR band → `hairColor` (head-zone `nyMax`
+      per style — 0.52, or 0.62 for the ponytail's longer tail — so it never
+      touches the same-hue boots; skipped for the hat, whose hair is hidden, and
+      for the default chestnut so it stays pixel-identical); DRESS band → outfit
+      `torso`, APRON band → outfit `accent` (skipped for the native work-dress
+      so the default heroine is pixel-identical). SKIN is deliberately NOT
+      recoloured (see Coverage).
+    - `spriteCoversLook(gender, appearance)` / `spriteCoversCharacter(c)` — the
+      honest coverage gate (matrix below); the draw returns false (→ rig) for any
+      uncovered look or undecoded frame.
+    - `drawHeroinePreview(...)` — a new exported entry the creation screen uses to
+      draw the SAME recoloured frames the game draws, enlarged.
+  - **`src/art/characters.ts`** — `drawFarmer` passes the player's `rig` (which
+    already carries her hair/skin/outfit) to `drawPlayerSprite`, so the sheet
+    choice + recolours need no extra plumbing through `main.ts`.
+  - **`src/ui/charcreation.ts`** — the live preview now draws the sprite (with
+    recolours) when the look is covered, the rig otherwise, updating as options
+    change: "what she designs = what she sees." Rig path unchanged when uncovered.
+  - **`src/config.ts`** — added `SPRITE_HAIRSTYLE_SCALE = 0.91` (the 92px sheets
+    render at the hat heroine's ~42px apparent height; retune if a hatless
+    heroine reads too big/small).
+- **Coverage matrix (honest — sprite vs design-accurate rig):**
+  - gender female AND hair ∈ {hat, bun, short, ponytail, bald} → sprite; male or
+    any other → rig.
+  - hairColor: all 6 creation colours recolour cleanly on the 4 hatless sheets
+    (measured, verified black/dark-brown/med-brown/blonde/grey/auburn with no
+    face bleed); the HAT is covered only at the default colour (its hair is
+    hidden, so it isn't recoloured).
+  - outfit: the native work-dress + the skirted styles (dress / tunic-skirt /
+    shawl-dress / smock) → sprite (dress recolours to the chosen colour, apron to
+    the accent); **overalls → rig** (a bib+trousers silhouette the dress sprite
+    can't honestly show).
+  - **skin → EXCLUDED from the sprite:** only the default tone is sprite-covered;
+    the other 4 tones → rig. The face/hand skin band can't be separated from the
+    eyes/mouth/apron/hair-highlights cleanly in HSL, so recolouring it smears
+    features — honesty over coverage.
+  - **build:** the sprite ignores body build (all builds draw the same frames) —
+    a known simplification; the rig still honours it on any fallback.
+  - Recolour band numbers + the histogram method are recorded in
+    `docs/PIXELLAB_ASSETS.md` "Recolouring the heroine".
+- **Verified (Playwright + reviewed screenshots, dev server):** created
+  characters across the matrix — (a) hat+default = the unchanged heroine; (b)
+  bun+black+blue → black bun + blue dress, freckled face intact on a zoomed crop;
+  (c) short/cropped/ponytail each render, idle, and walk in-game (ponytail tail
+  recolours end-to-end); (d) male → rig; (e) overalls + a dark-skin pick → rig
+  wearing her colours; (f) the creation preview matches the in-game render for
+  hat/bun/ponytail; (g) sheet PNGs blocked → `spritesReady()` false → rig, game
+  fully playable. `npm run build` green; no page errors (only the dev server's
+  favicon 404); JS bundle 419KB / gzip 135KB, the 4 new atlases are separate
+  hashed files (~158–236KB each, fetched not inlined), dual-path-safe.
+- **Follow-ups:**
+  - Content: the creation library currently has ONE dress-style preset (rust), so
+    in normal play a *covered* outfit is the default rust dress; adding blue/green
+    dress presets needs no code (they recolour automatically).
+  - If the owner prefers strict silhouette fidelity over colour reach, tighten
+    `COVERED_OUTFIT_STYLES` in `spriteChar.ts` to `{dress}` only (one-line change)
+    so smock/tunic-skirt/shawl-dress fall to the rig too.
+  - Body build is not reflected in the sprite (noted above); a future build could
+    add slim/round base variants or a horizontal squash if it's worth the art.
+
 ## Building variety — themed stalls, eight cottages, flat-front world
 - **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 4)
 - **Block given:** Integrate the approved building-variety batch (26 PixelLab

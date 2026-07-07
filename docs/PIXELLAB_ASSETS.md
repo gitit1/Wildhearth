@@ -17,7 +17,7 @@ the asset/manifest layout, and generation costs.
 
 | Visual | Source | Where |
 |---|---|---|
-| **Heroine player** (default female) — 8-dir walk + idle | **Sprite** | `characters/heroine.sheet.png` → `art/spriteChar.ts` |
+| **Heroine player** (female) — 5 hairstyle sheets, each 8-dir walk + idle, with runtime hair/dress recolour | **Sprite** | `characters/heroine{,-bun,-short,-cropped,-ponytail}.sheet.png` → `art/spriteChar.ts` |
 | **Townsfolk** — the 10 NPCs, each 8-dir walk + static rotations | **Sprite** | `characters/<id>.sheet.png` → `art/spriteNpc.ts` |
 | **Farmhouse** (player's, repaired base — flat-front) | **Sprite** | `buildings/farmhouse.png` → `art/buildings.ts` `drawHouse` |
 | **Farmhouse** (neighbour's — established/prosperous, flat-front) | **Sprite** | `buildings/farmhouse-neighbor.png` → `art/buildings.ts` `drawHouse(..., spriteId)` |
@@ -37,9 +37,13 @@ Notes:
 - The heroine sprite only covers the **walk** and **idle** poses. Action poses
   (fishing/hoeing/foraging/busking/sleeping) have no generated animation and
   fall back to the code rig (`art/rig.ts`) per-frame, seamlessly.
-- The heroine sprite only covers the **default female appearance**
-  (`spriteCoversCharacter` in `art/spriteChar.ts`). Male or any customised
-  look draws the rig.
+- The heroine sprite covers **her created look** — 5 hairstyle sheets picked
+  from `appearance.hair`, with her hair + dress colours recoloured onto the base
+  at runtime (`spriteCoversLook`/`buildOps` in `art/spriteChar.ts`). What's
+  sprite-covered vs. rig-drawn is the honest matrix in "Recolouring the heroine"
+  (§below). Male, an excluded outfit/skin, or any pose without a generated
+  animation draws the rig — which wears her exact chosen colours, so an excluded
+  look still matches her design.
 - The building/hearth sprites are the **repaired** buildings. The renovation
   DAMAGE (roof hole/patch, boarded window, barn boards) is code-drawn **on top
   of the sprite** when a part is broken (`buildings.ts` `drawHouse…Sprite`
@@ -285,6 +289,24 @@ fantasy farm-game style, warm palette, soft dark outlines"*, detail
   are retired — mildly oblique, never integrated, superseded by the 8-variant
   probe batch above.
 
+**Wave 5** (4 heroine hairstyle bases) — `create_character` (`view: low
+top-down`, 8-dir, v3, 92px) + `animate_character` walk (6f) + idle (4f), same
+prompt as the heroine hat base but with the hair described and "no hat", so all 5
+share ONE face/dress identity (only the hair differs — the runtime recolour then
+carries her chosen colours). Packed with `scripts/packsheets.mjs` (idle rows
+included) into `characters/heroine-<name>.sheet.*`:
+- **bun** `04e2188c-4ac9-4d43-bc55-3e39f8c7d3ed` — *…warm chestnut-brown hair
+  gathered in a neat round bun, no hat…*
+- **short** `e06ed8f6-a529-489c-a119-a1b621eb77b5` — *…in a short neat bob, no hat…*
+- **cropped** `c59950dd-d218-432c-a339-57193d651cba` — *…very short cropped
+  chestnut-brown hair, no hat…* (the creation's "bald" id maps here — the closest
+  hatless-minimal base).
+- **ponytail** `fbe6ef39-359d-4824-aa7b-1afad7a5f9f0` — *…in a long flowing
+  ponytail, no hat…* (its NE walk was rejected + regenerated; the accepted retry
+  was merged into the export's `metadata.json` before packing).
+Integration + the recolour bands + the honest coverage matrix are in §3
+"Recolouring the heroine".
+
 ---
 
 ## 3. Asset folder + manifest recipe
@@ -292,8 +314,12 @@ fantasy farm-game style, warm palette, soft dark outlines"*, detail
 ```
 src/assets/pixellab/
   manifest.ts                     ← two eager globs; adding assets needs no edit
-  characters/heroine.sheet.png    ← ONE packed atlas (was 88 loose PNGs)
+  characters/heroine.sheet.png    ← the HAT hairstyle (ONE packed atlas, was 88 loose PNGs)
   characters/heroine.sheet.json   ← its frame map + anchor (scripts/packsheets.mjs)
+  characters/heroine-bun.sheet.*      ← 4 more hairstyle bases (bun/short/cropped/
+  characters/heroine-short.sheet.*      ponytail), same face/dress identity, 92px
+  characters/heroine-cropped.sheet.*    cells; hair id → sheet in art/spriteChar.ts
+  characters/heroine-ponytail.sheet.*   (bald → cropped). Hair/dress recoloured at runtime.
   characters/<npc-id>.sheet.png   ← one per townsfolk (10)
   characters/<npc-id>.sheet.json
   buildings/farmhouse.png              ← player farm (flat-front)
@@ -394,8 +420,59 @@ region to recolor vs. the rest of the sprite (a tiny node script — decode the
 PNG, bucket pixel RGB→HSL, count) and look for a hue range that's distinct
 from everything else at typical saturations.
 
+### Recolouring the heroine (hair + dress, per look)
+The player is one character across 5 hairstyle sheets, each painted the SAME
+chestnut-hair / rust-dress / cream-apron identity; her Character-Creation hair +
+dress colours are applied at runtime by `recolorSheet` (the multi-band cousin of
+`recolorSprite` — several disjoint bands in one cached pass, each keeping
+per-pixel lightness). `RecolorBand` adds two things a plain `HueBand` lacks and
+both are load-bearing here: **lightness bounds** (`lMin`/`lMax`) and a **per-cell
+vertical window** (`nyMin`/`nyMax`, a fraction of one atlas cell). This heroine
+is almost entirely warm browns — hair, skin, dress, apron and boots all cluster
+in ~0–50° hue — so hue alone can't separate them; lightness + a body-zone window
+do the rest. Bands (`art/spriteChar.ts`, measured from the base sheets' HSL
+histograms):
+
+| Region | hue | sat≥ | lightness | cell y-window | maps to |
+|---|---|---|---|---|---|
+| **HAIR** (chestnut) | 13–28° | 0.30 | 0.12–0.44 | ny ≤ 0.52 (0.62 ponytail) | `hairColor` |
+| **DRESS** (rust) | 349–14° (wraps) | 0.34 | 0.25–0.52 | ny ≥ 0.49 | outfit `torso` |
+| **APRON** (cream) | 31–54° | 0.26 | 0.50–0.92 | ny ≥ 0.49 | outfit `accent` |
+
+- **Hair** is separated from the lighter freckled **skin** (same hue) by the
+  `lMax 0.44` value ceiling, and from the same-dark-brown **boots** by the
+  head-zone `nyMax` (the ponytail's tail hangs lower, so it gets 0.62 not 0.52).
+  A choice equal to the baked chestnut (`#5b3b22`) emits no op → pixel-identical.
+- **Dress** is separated from hair/skin (both higher hue) by staying at the
+  redder end, from the darker **boots** by the `lMin 0.25` floor, and from the
+  **face** by `nyMin` (below the head). Skipped for the native work-dress so the
+  default heroine is pixel-identical.
+- **Skin is NOT recoloured** (honest exclusion). The face/hand skin band overlaps
+  the eyes/mouth/apron-highlights/hair-highlights in HSL with no clean cut;
+  recolouring it smears features. Verdict from measuring + rendering every tone:
+  keep skin on the rig — a non-default skin tone draws the design-accurate rig.
+
+**Honest coverage matrix** (`spriteCoversLook`): the sprite renders a look only
+when it can do so faithfully; otherwise the rig (which wears her exact colours).
+
+| Choice | Sprite-covered | → Rig |
+|---|---|---|
+| gender | female | male |
+| hair style | hat, bun, short, ponytail, bald (→ cropped sheet) | — (all 5 covered) |
+| hair colour | all 6 on the 4 hatless sheets (recoloured); hat = default only | hat + non-default colour |
+| outfit | native work-dress + skirted styles (dress/tunic-skirt/shawl-dress/smock); dress→primary, apron→accent | **overalls** (bib+trousers) |
+| skin | default tone only | the other 4 tones (skin recolour excluded) |
+| build | ignored by the sprite (all builds draw the same frames) | — (rig honours build on fallback) |
+
+To add a new hairstyle: generate + `packsheets.mjs` (idle rows included) →
+`characters/heroine-<name>.sheet.*`, add the `HairStyle` id + a `HERO_SHEETS`
+entry (its head-zone `hairYMax`). To add a dress colour: it just works — a new
+outfit preset's `torso`/`accent` recolour with no code change.
+
 ### Tuning knobs (`src/config.ts`)
-`SPRITE_PLAYER_SCALE`, `SPRITE_PLAYER_FOOT_DY`, `SPRITE_WALK_STRIDE`,
+`SPRITE_PLAYER_SCALE`, `SPRITE_HAIRSTYLE_SCALE` (the 4 alternate 92px hairstyle
+sheets, rendered at the 84px hat heroine's apparent height), `SPRITE_PLAYER_FOOT_DY`,
+`SPRITE_WALK_STRIDE`,
 `SPRITE_IDLE_FPS`, `SPRITE_FACING_HYSTERESIS`, `SPRITE_HOUSE_SCALE`,
 `SPRITE_BARN_SCALE`, `SPRITE_HEARTH_SCALE`, `SPRITE_ROOM_SCALE`,
 `SPRITE_BASIN_SCALE`, `SPRITE_BED_SCALE`, `SPRITE_CHAIR_CRATE_SCALE`,

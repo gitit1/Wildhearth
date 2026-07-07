@@ -28,7 +28,10 @@ export function drawFarmer(
   g: CanvasRenderingContext2D, p: Player, t: number,
   rig: RigParams = DEFAULT_PLAYER_RIG, useSprite = false,
 ) {
-  if (useSprite && drawPlayerSprite(g, p, t)) return;
+  // the rig already carries her chosen look (hair/hairColor/skin/outfit) — the
+  // sprite bridge reads it straight off, so hairstyle + recolours need no extra
+  // plumbing through main.ts
+  if (useSprite && drawPlayerSprite(g, p, t, rig)) return;
   drawRig(g, p.x, p.y, p.dir, rig, p.pose, p.dist / RIG_STRIDE, t);
 }
 

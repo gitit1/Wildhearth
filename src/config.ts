@@ -340,6 +340,11 @@ export const WILDLIFE_DESPAWN_SECONDS = 0.5;  // fly-off/fade-out duration befor
 //     rig (hat-top to boot ≈ 43px), so native 1:1 world pixels (scale 1) plant
 //     her feet on the rig's exact ground line. ---
 export const SPRITE_PLAYER_SCALE = 1.0;       // world px per sprite px (1 = native 1:1, matches the rig's height)
+// The 4 alternate hairstyle sheets (bun/short/ponytail/cropped) are 92px cells
+// (vs the hat sheet's 84px), with a ~46px character; this scale renders them at
+// ~42px = the hat heroine's apparent height (84/92 ≈ 0.913). Retune here if a
+// hatless heroine reads too big/small next to the established hat sprite.
+export const SPRITE_HAIRSTYLE_SCALE = 0.91;
 export const SPRITE_PLAYER_FOOT_DY = 15;      // world y below player.y where the sprite's foot row plants (rig boots ≈ y+15.8)
 export const SPRITE_WALK_STRIDE = 7;          // px of travel per walk frame (6-frame loop ≈ 42px; keyed to player.dist like the rig)
 export const SPRITE_IDLE_FPS = 4;             // breathing idle cadence (4-frame loop = 1s)
