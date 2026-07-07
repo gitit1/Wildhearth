@@ -240,6 +240,9 @@ export const AI_QUEST_MIN_INTERVAL_DAYS = 1;  // at most one quest-offer attempt
 export const AI_ARC_VISIT_NOTE_MIN = 3;       // talks to one NPC on the same weekday before "she visits X on <day>s"
 export const AI_ARC_LIVELIHOOD_MIN = 12;      // activity count before it reads as the player's "main livelihood"
 
+// Improvement observation (#8) — plain-code, token-free dev notes.
+export const AI_DEVNOTES_STALE_DAYS = 4;      // an activity untouched this many in-game days reads as "skipped"
+
 // Browser-direct transport (BYOK). Plain fetch, not the SDK, to keep the bundle
 // lean (deviation from AI_ARCHITECTURE §2, which sketches the @anthropic-ai/sdk).
 export const AI_ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";

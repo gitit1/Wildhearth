@@ -34,6 +34,8 @@ export interface DialogueVariation {
   prefetch(npcId: string, purpose: "opening" | "reply", scriptedText: string, wc: WorldContext): void;
   /** Is a variation staged for this exact moment? (verification helper) */
   isReady(npcId: string, purpose: "opening" | "reply", scriptedText: string, wc: WorldContext): boolean;
+  /** The most recent user prompt built (verification helper — inspect grounding). */
+  lastPrompt(): string | null;
 }
 
 export interface DialogueVariationDeps {
@@ -102,6 +104,7 @@ export function createDialogueVariation(deps: DialogueVariationDeps): DialogueVa
   const { ai, antiRep } = deps;
   const store = new Map<string, string>();   // salient key -> staged variation (session)
   const inflight = new Set<string>();
+  let lastUserPrompt: string | null = null;
 
   function fire(npcId: string, purpose: "opening" | "reply", scripted: string, wc: WorldContext, key: string) {
     if (store.has(key) || inflight.has(key)) return;
@@ -109,11 +112,13 @@ export function createDialogueVariation(deps: DialogueVariationDeps): DialogueVa
     const sheet = deps.sheetFor(npcId);
     if (!sheet) return;
     inflight.add(key);
+    const user = buildUser(sheet, purpose, scripted, wc, deps.thoughtHint(npcId), deps.arcNotes(npcId), antiRep.recentLines(npcId));
+    lastUserPrompt = user;
     void (async () => {
       try {
         const res = await ai.request("dialogue", {
           system: SYSTEM,
-          user: buildUser(sheet, purpose, scripted, wc, deps.thoughtHint(npcId), deps.arcNotes(npcId), antiRep.recentLines(npcId)),
+          user,
           maxTokens: AI_DIALOGUE_MAX_TOKENS,
           npcId,
           cacheSalient: key,
@@ -152,5 +157,7 @@ export function createDialogueVariation(deps: DialogueVariationDeps): DialogueVa
     isReady(npcId, purpose, scriptedText, wc) {
       return store.has(keyFor(npcId, purpose, scriptedText, wc));
     },
+
+    lastPrompt() { return lastUserPrompt; },
   };
 }

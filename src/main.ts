@@ -45,7 +45,7 @@ import { loadGarden, resetGarden, saveGarden, updateGarden } from "./systems/gar
 import { loadCollections, resetCollections, discover, discoveredName, saveCollections } from "./systems/collections";
 import { sellableGoodIds } from "./systems/sellCategories";
 import { NPC_STALL_TRADES, type NpcStallTrade } from "./systems/shop";
-import { loadMemories, resetMemories, addMemory, saveMemories } from "./systems/memories";
+import { loadMemories, resetMemories, addMemory, saveMemories, attachMemoryFlavor } from "./systems/memories";
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
@@ -93,7 +93,12 @@ import { createAntiRepetition } from "./systems/ai/antiRepetition";
 import { createBackstory } from "./systems/ai/features/backstory";
 import { createThoughts } from "./systems/ai/features/thoughts";
 import { createDialogueVariation } from "./systems/ai/features/dialogueVariation";
+import { createNarration } from "./systems/ai/features/narration";
+import { createArcs } from "./systems/ai/features/arcs";
+import { createQuestStub } from "./systems/ai/features/questStub";
+import { createDevNotes } from "./systems/ai/features/devNotes";
 import type { NpcDef } from "./data/npcs";
+import { isBirthday } from "./data/npcs";
 import { heartEvent } from "./systems/heartEvents";
 import { isGiftable } from "./data/traitPreferences";
 import { INTERACTIONS, interactionLine, type InteractionDef } from "./data/interactions";
@@ -271,6 +276,13 @@ function fireHeart(npc: Npc, ev: ThresholdEvent) {
   const h = heartEvent(npc.def, ev);
   if (addMemory(memories, h.memoryKey, h.memoryText, calendar)) logMemory(dayLog, h.memoryText);   // once per (npc,axis,threshold)
   toast(h.toast);
+  // World-event narration (#5): enrich the scripted toast + attach a Memory Book
+  // flavor line. No-op with the feature off (the toast above is unchanged).
+  narration.enrich({
+    key: `threshold:${npc.def.id}:${ev.axis}:${ev.threshold}`,
+    prompt: `${npc.def.name}, the ${npc.def.profession}, and the player have grown closer — their ${ev.axis} just deepened past a milestone.`,
+    memoryKey: h.memoryKey,
+  });
 }
 
 /** Give one held item to an NPC: refusal (weekly cap) never consumes; an
@@ -287,6 +299,7 @@ function giveGiftFlow(npc: Npc, itemId: string) {
   toast(out.birthday ? `🎂 A birthday gift! ${line}` : line);
   logRelationshipChange(dayLog, npc.def.id, "friendship", out.delta);   // gifts always move Friendship in v1
   if (out.firstEver) remember("first_gift", "You gave your first gift — a small kindness offered.");
+  if (devNotesOn()) devNotes.observe("gift", absoluteDay(calendar));
   for (const ev of out.thresholds) fireHeart(npc, ev);
 }
 
@@ -443,6 +456,19 @@ const dlgVar = createDialogueVariation({        // feature #2 (the flagship)
   thoughtHint: (id) => thoughts.peek(id),
   arcNotes: (id) => arcNotesFor(id),
 });
+const narration = createNarration({          // feature #5
+  ai: aiCtx, toast,
+  attachFlavor: (key, flavor) => { if (attachMemoryFlavor(memories, key, flavor)) logMemory(dayLog, flavor); },
+});
+const arcs = createArcs();                     // feature #6 (plain-code tracker)
+const questStub = createQuestStub(aiCtx);      // feature #3 (validated stub, debug-only)
+const devNotes = createDevNotes();             // feature #8 (dev observations)
+// arc notes feed the dialogue-variation prompt — only when the arcs feature is on
+// (with it off the notes are simply never read, so no scripted content changes).
+arcNotesFor = (id) => aiCtx.enabled("arcs") ? arcs.notesFor(id) : [];
+/** Dev observations are gated by their own checkbox (default off), token-free. */
+const devNotesOn = () => loadAiSettings().features.improve === true;
+let stormNarratedSeason = -1;   // seasonIndex whose first storm has been narrated
 
 /** One npc-scoped world snapshot — shared by the dialogue box + the thought/
  *  prefetch hooks so they all read the same "what's true right now". */
@@ -472,6 +498,8 @@ initDialogue({
     const n = npcById(npcs, def.id);
     if (n) startTalking(n, player.x, player.y);
     backstory.ensureGenerated(def);   // first meaningful interaction → generate once (background)
+    arcs.recordTalk(def.id, (absoluteDay(calendar) - 1) % 7);   // play-pattern tracker (#6)
+    if (devNotesOn()) devNotes.observe("talk", absoluteDay(calendar));   // dev observations (#8)
   },
   onClose: (def) => {
     socialContact(needs, def.id, absoluteDay(calendar));   // company feeds the Social need
@@ -496,8 +524,21 @@ if (import.meta.env.DEV) {
     peekOpening: (id: string) => { const n = npcById(npcs, id); return n ? peekOpeningText(n.def, worldForNpc(id)) : null; },
     prefetchOpening: (id: string) => { const n = npcById(npcs, id); if (n) { const wc = worldForNpc(id); dlgVar.prefetch(id, "opening", peekOpeningText(n.def, wc), wc); } },
     varReady: (id: string, purpose: "opening" | "reply", scripted: string) => dlgVar.isReady(id, purpose, scripted, worldForNpc(id)),
+    lastDialoguePrompt: () => dlgVar.lastPrompt(),
     dlgLine: () => document.getElementById("dlgText")?.textContent ?? null,
     dlgButtons: () => Array.from(document.querySelectorAll("#dlgChoices .dlg-choice")).map((b) => (b.textContent ?? "")),
+    // commit 2 — narration / arcs / quest stub / dev notes
+    setImproveOn: (on: boolean) => saveAiSettings({ features: { ...loadAiSettings().features, improve: on } }),
+    fireThreshold: (id: string, axis: "friendship" | "romance", threshold: number) => { const n = npcById(npcs, id); if (n) fireHeart(n, { axis, threshold }); },
+    memories: () => memories.entries.map((e) => ({ key: e.key, text: e.text, flavor: e.flavor ?? null })),
+    arcRecordTalk: (id: string, dow: number) => arcs.recordTalk(id, dow),
+    arcRecordActivity: (k: "cast" | "harvest" | "busk" | "forage" | "sale") => arcs.recordActivity(k),
+    arcNotes: (id: string) => aiCtx.enabled("arcs") ? arcs.notesFor(id) : [],
+    arcSnapshot: () => arcs.snapshot(),
+    questGenerate: (day: number) => questStub.maybeGenerateDaily(worldForNpc("maren"), day),
+    questLatest: () => questStub.latest(),
+    devObserve: (k: string, day: number) => devNotes.observe(k, day),
+    devNotes: (day: number) => devNotes.notes(day),
   };
 }
 initMinimap();
@@ -526,13 +567,16 @@ function remember(key: string, text: string) {
   if (addMemory(memories, key, text, calendar)) { toast(`✒ ${text}`); logMemory(dayLog, text); }
 }
 
-/** Records a species/find discovery; celebrates only the first time. */
-function record(category: "fish" | "forage", id: string) {
+/** Records a species/find discovery; celebrates only the first time. Returns true
+ *  when it was newly discovered (so callers can narrate the first-ever catch). */
+function record(category: "fish" | "forage", id: string): boolean {
   if (discover(collections, category, id)) {
     const name = discoveredName(id);
     toast(`New in your book: ${name}.`);
     logDiscovery(dayLog, name);
+    return true;
   }
+  return false;
 }
 initShopWindow(economy, skills, farm, livestock,
   (kind) => {
@@ -542,7 +586,11 @@ initShopWindow(economy, skills, farm, livestock,
   () => currentSeason(calendar),
   () => sellableGoodIds({ inv: economy.inv, collections }),
   toast, remember,
-  (coins, qty) => { logCoinsEarned(dayLog, coins); logItemsSold(dayLog, qty); fireGuidance({ kind: "sale" }); },
+  (coins, qty) => {
+    logCoinsEarned(dayLog, coins); logItemsSold(dayLog, qty); fireGuidance({ kind: "sale" });
+    arcs.recordActivity("sale");
+    if (devNotesOn()) devNotes.observe("sell", absoluteDay(calendar));
+  },
   (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); });
 
 interface Puff { x: number; y: number; a: number; r: number }
@@ -645,6 +693,23 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     // dialogue's condition system reads (data/dialogue/shared.ts's shared
     // festival opening line) — a 1-day flag, self-clearing the day after.
     if (isFestivalDay(calendar)) setWorldFlag(worldFlags, "festival_today", 1, absoluteDay(calendar));
+    // ---- AI daily hooks (Part D) — all no-ops with their features off --------
+    const abs = absoluteDay(calendar);
+    // Quest-generation stub (#3): build one validated offer for the debug panel.
+    questStub.maybeGenerateDaily(
+      getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags, needs, relationships }),
+      abs,
+    );
+    // Event narration (#5): the season's first storm.
+    if (weather.kind === "storm" && stormNarratedSeason !== calendar.seasonIndex) {
+      stormNarratedSeason = calendar.seasonIndex;
+      const s = currentSeason(calendar);
+      narration.announce({ key: `storm:${abs}`, fallback: `The first storm of ${s} rolls in.`, prompt: `The first storm of ${s} rolls over Wildhearth.` });
+    }
+    // Event narration (#5): any NPC whose birthday is today.
+    for (const n of npcs)
+      if (isBirthday(n.def, calendar.seasonIndex, calendar.day))
+        narration.announce({ key: `birthday:${n.def.id}:${calendar.seasonIndex}:${calendar.day}`, fallback: `It's ${n.def.name}'s birthday today.`, prompt: `Today is ${n.def.name}'s (${n.def.profession}) birthday in the village.` });
     // a shallow copy is enough: resetDayLog() REASSIGNS dayLog's nested
     // objects/arrays to fresh ones rather than mutating them in place, so the
     // snapshot's references stay untouched by the reset below.
@@ -796,6 +861,13 @@ function maybeNpcPrefetch(npcTagId: string, dt: number) {
   npcPrefetchAt[id] = nowMs;
   const wc = worldForNpc(id);
   dlgVar.prefetch(id, "opening", peekOpeningText(n.def, wc), wc);
+}
+
+/** The debug panel's read of the latest AI quest offer (never shown to the player). */
+function questOfferDebugLines(): string[] {
+  const q = questStub.latest();
+  if (!q) return aiCtx.enabled("quests") ? ["(none generated yet — waits for a day rollover)"] : ["(quests feature off)"];
+  return [`"${q.title}" — ${q.text}`, `questId=${q.questId}  reward=${q.reward}  (day ${q.day})`];
 }
 
 /** Ambient thought bubble (Part D #4): occasionally, when the player walks close
@@ -975,6 +1047,11 @@ function newGameReset(character: Character, mode: Guidance) {
   antiRep.reset();
   backstory.reset();
   thoughts.reset();
+  narration.reset();
+  arcs.reset();
+  questStub.reset();
+  devNotes.reset();
+  stormNarratedSeason = -1;
   resetLivestock(livestock);
   cows.length = 0; hens.length = 0;   // the yard empties with the new life
   initNpcPositions(npcs, calendar, weather);   // re-snap townsfolk to fresh day-1 morning
@@ -1292,12 +1369,16 @@ function tick(now: number) {
     if (gainItem(economy, haul.id)) {
       toast(haul.kind === "junk" ? `You fished up... ${haulName.toLowerCase()}.` : `Caught a ${haulName}! 🐟`);
       if (haul.kind === "fish") {
-        record("fish", haul.id);
+        const firstOfKind = record("fish", haul.id);
         remember("first_catch", "Your first catch — the water gave something back.");
         logCatch(dayLog);
         fireGuidance({ kind: "catch" });   // Guidance: fisher tutorial/aspiration progress
+        // World-event narration (#5): the first catch of a NEW species.
+        if (firstOfKind) narration.enrich({ key: `species:${haul.id}`, prompt: `The player just landed their first ${haulName.toLowerCase()} — a new species for their book.` });
       }
     } else toast("Backpack full — the catch slips away!");
+    arcs.recordActivity("cast");   // play-pattern tracker (#6)
+    if (devNotesOn()) devNotes.observe("fish", absoluteDay(calendar));
     applyExertion(needs, "fishing");
     const gained = gainSkill(skills, "fishing", moodPerfMult(needs));
     if (gained > 0) { skillGainPopup("fishing", gained); logSkillGain(dayLog, "fishing", gained); }
@@ -1315,6 +1396,8 @@ function tick(now: number) {
       remember("first_forage", "The forest fed you today — first wild pickings.");
       logForage(dayLog);
     } else toast("Backpack full — no room for the find!");
+    arcs.recordActivity("forage");
+    if (devNotesOn()) devNotes.observe("forage", absoluteDay(calendar));
     applyExertion(needs, "foraging");
     const gained = gainSkill(skills, "foraging", moodPerfMult(needs));
     if (gained > 0) { skillGainPopup("foraging", gained); logSkillGain(dayLog, "foraging", gained); }
@@ -1328,6 +1411,8 @@ function tick(now: number) {
     logCoinsEarned(dayLog, tip);
     remember("first_busk", "You played for strangers, and they paid — first tips.");
     fireGuidance({ kind: "busk", tip });   // Guidance: musician tutorial/aspiration progress
+    arcs.recordActivity("busk");
+    if (devNotesOn()) devNotes.observe("busk", absoluteDay(calendar));
     applyExertion(needs, "busking");
     const gained = gainSkill(skills, "busking", moodPerfMult(needs));
     if (gained > 0) { skillGainPopup("busking", gained); logSkillGain(dayLog, "busking", gained); }
@@ -1343,6 +1428,7 @@ function tick(now: number) {
         remember("first_cook", "A warm meal from your own hearth — first dish.");
         logDishCooked(dayLog);
         fireGuidance({ kind: "cook" });   // Guidance: keeper tutorial/aspiration progress
+        if (devNotesOn()) devNotes.observe("cook", absoluteDay(calendar));
       } else toast("Backpack full — the dish burns while you rummage!");
       const gained = gainSkill(skills, "cooking", moodPerfMult(needs));
       if (gained > 0) { skillGainPopup("cooking", gained); logSkillGain(dayLog, "cooking", gained); }
@@ -1383,6 +1469,8 @@ function tick(now: number) {
         remember("first_harvest", "The first harvest from your own soil.");
         logHarvest(dayLog);
         fireGuidance({ kind: "harvest" });   // Guidance: farmer aspiration progress
+        arcs.recordActivity("harvest");
+        if (devNotesOn()) devNotes.observe("farm", absoluteDay(calendar));
         const gained = gainSkill(skills, "farming", moodPerfMult(needs));
         if (gained > 0) { skillGainPopup("farming", gained); logSkillGain(dayLog, "farming", gained); }
       } else if (crop) toast(`Backpack full — no room for the ${crop.name.toLowerCase()}!`);
@@ -1441,7 +1529,10 @@ function tick(now: number) {
 
   updateHud(economy, wc.calendar, wc.weather, isFestivalDay(calendar)?.name);
   updateNeedsStrip(wc.needs, time);
-  updateDebugPanel(wc);
+  updateDebugPanel(wc, [
+    { title: "Latest AI quest offer (v2 preview)", lines: questOfferDebugLines() },
+    { title: "Dev observations", lines: devNotesOn() ? devNotes.notes(absoluteDay(calendar)) : ["(off — enable the Improvement notes checkbox)"] },
+  ]);
   updateBackpack();
   if (scene === "world") updateMinimap(player);   // inside, the dot would be room coords
   updateSkillsUI();

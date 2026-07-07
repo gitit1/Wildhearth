@@ -203,6 +203,16 @@ export function mockProvider(deterministic = true): AiProvider {
       const seed = deterministic ? hashStr(`${req.feature ?? ""}|${req.user}|${req.seed ?? 0}`) : (Math.random() * 2 ** 32) | 0;
       const rng = mulberry32(seed);
       if (req.json) {
+        // The quest stub asks for an offer_quest action specifically — hand it a
+        // schema-valid one so the whole validate→log pipeline can be exercised.
+        if (req.feature === "quests") {
+          return mockOk(JSON.stringify({
+            type: "offer_quest", questId: "mock_quest",
+            title: "A Neighbourly Favour",
+            text: "Bring me five fresh fish and I'll make it worth your while.",
+            reward: 25,
+          }), req);
+        }
         const line = MOCK_LINES[Math.floor(rng() * MOCK_LINES.length)];
         return mockOk(JSON.stringify({ type: "say", text: line }), req);
       }

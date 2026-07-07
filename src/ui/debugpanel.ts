@@ -28,8 +28,17 @@ export function initDebugPanel() {
   });
 }
 
-/** Feed it the frame's existing snapshot — it never calls getWorldContext itself. */
-export function updateDebugPanel(wc: WorldContext) {
+/** An extra debug section (AI quest-offer preview, dev observations). */
+export interface DebugSection { title: string; lines: string[]; }
+
+/** Feed it the frame's existing snapshot (+ optional AI sections) — it never
+ *  calls getWorldContext itself. */
+export function updateDebugPanel(wc: WorldContext, sections: DebugSection[] = []) {
   if (!visible || !box) return;
-  box.textContent = JSON.stringify(wc, null, 2);
+  let out = JSON.stringify(wc, null, 2);
+  for (const s of sections) {
+    if (!s.lines.length) continue;
+    out += `\n\n=== ${s.title} ===\n` + s.lines.join("\n");
+  }
+  box.textContent = out;
 }

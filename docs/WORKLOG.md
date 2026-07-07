@@ -29,6 +29,84 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## AI features II — event narration, story arcs, quest stub, improvement notes
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part D commit 2 — the remaining four AI features, each additive
+  and fully gated (AI off = zero behavior change): world-event narration (enrich
+  existing memorable moments), story-arc weaving (plain-code play-pattern tracker
+  whose notes feed the dialogue prompt), a validated quest-generation stub (debug-
+  only, hands v2 a working generator), and improvement/dev observations (plain-
+  code, token-free, default off).
+- **Done:**
+  - **Files:**
+    - `src/systems/ai/features/narration.ts` (NEW): feature #5. `createNarration({ai,
+      toast,attachFlavor})` → `{ enrich, announce, reset }`. `enrich(evt)` fires a
+      one-sentence AI narration for a moment that already toasted its scripted line,
+      then toasts the narrated line + attaches a Memory Book flavor; `announce(evt)`
+      is for NEW moments (season's first storm, birthday) — toasts the authored
+      fallback then enriches. Generated once per event key; fully no-op with the
+      feature off (existing toasts unchanged).
+    - `src/systems/ai/features/arcs.ts` (NEW): feature #6, PLAIN CODE. `createArcs()`
+      → `{ recordTalk, recordActivity, notesFor, reset, snapshot }`. Persisted per-NPC
+      talk-by-weekday counts + activity counters on `AI_ARCS_KEY` (GAME_KEYS). Detector
+      emits short arc notes ("visits me most on Fridays", "fishing is the player's main
+      livelihood") past config thresholds. No tokens; notes are only read by the
+      dialogue-variation prompt (feature #2), so AI off changes no scripted content.
+    - `src/systems/ai/features/questStub.ts` (NEW): feature #3. `createQuestStub(ai)`
+      → `{ maybeGenerateDaily, latest, reset }`. At most once per in-game day it builds
+      a quest-offer prompt from world state, calls `requestAction`, validates the
+      closed `offer_quest` schema, and stores the result for the debug panel ONLY —
+      never shown or applied. The prompt builder + validated round-trip is the v2
+      generator.
+    - `src/systems/ai/features/devNotes.ts` (NEW): feature #8, default OFF, token-free.
+      `createDevNotes()` → `{ observe, notes, reset }`. Plain-code counters (per-activity
+      last-used day + totals) persisted on `AI_DEVNOTES_KEY` (GAME_KEYS) → human-readable
+      observations ("Most-used: fishing", "Fishing last done N days ago — this hook may
+      be going cold", "Never tried: …") for the debug panel. AI summarization noted as
+      a v2 step in code + the rendered notes.
+    - `src/systems/ai/provider.ts`: the mock provider returns a valid `offer_quest`
+      action for the `quests` feature (so the stub pipeline is verifiable end-to-end).
+    - `src/systems/memories.ts`: `MemoryEntry.flavor?` + `attachMemoryFlavor(m, key,
+      flavor)` — the canonical text is never touched; a late-arriving narration adds a
+      flavor sentence once.
+    - `src/ui/memorybook.ts`: renders the optional flavor line (italic sub-line).
+    - `src/ui/debugpanel.ts`: `updateDebugPanel(wc, sections?)` now appends labelled
+      text sections ("Latest AI quest offer (v2 preview)", "Dev observations").
+    - `src/systems/ai/features/dialogueVariation.ts`: `lastPrompt()` verification helper
+      (inspect the grounding sent to the provider).
+    - `src/config.ts`: `AI_DEVNOTES_STALE_DAYS` knob.
+    - `src/main.ts`: instantiates narration/arcs/questStub/devNotes; wires `arcNotesFor`
+      into the dialogue-variation prompt (gated by the arcs feature); records talks
+      (onOpen) + activities (fishing/foraging/busking/harvest/cooking/sale) into the arc
+      tracker + dev notes; `fireHeart` enriches heart-events via narration; day rollover
+      runs the quest stub + season-first-storm + birthday narration; the debug panel gets
+      the two new sections; `record()` now returns whether a species was newly
+      discovered (drives first-catch narration); New Game resets all four stores; DEV
+      `__wh.ai` bridge extended for verification.
+  - **Systems / functions:** narration/arc/quest/devNote factories + interfaces; new
+    save keys (arcs, devnotes) already in GAME_KEYS; the arc tracker is the only new
+    always-on writer (plain code, per-playthrough) — everything else is fully gated.
+  - **Behavior:** With AI off, nothing changes anywhere. With AI on: heart-event /
+    first-catch / festival / first-storm / birthday moments gain a unique narrated
+    sentence (and the Memory Book keeps its canonical entry plus an optional flavor
+    line); NPCs' dialogue can subtly acknowledge the player's patterns ("you come by
+    most on Fridays"); a validated quest offer is generated daily and shown only in the
+    debug panel as a v2 preview; and, when the dev-facing Improvement-notes checkbox is
+    turned on, the debug panel lists plain-code observations about play habits.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright (AI off + `?aimock`), 22/22: AI-off produces
+  zero flavor / empty arc notes / no quest / devNotes off; AI-on threshold crossing
+  attaches a mock-narrated flavor while the Memory Book entry stays canonical, arc
+  tracker accumulates and its notes appear verbatim in the dialogue prompt, the quest
+  stub yields a validated `offer_quest` in the debug channel, devNotes are off by
+  default and render observations once enabled, and New Game empties all four stores;
+  zero page errors. (Commit 1's 25/25 re-run green — no regression.)
+- **Commit:** <hash> — AI features II — event narration, story arcs, quest stub, improvement notes
+- **Follow-ups:** Quest generation is a validated STUB (no player-facing quest UI/
+  catalog until the v2 quest block); dev observations are plain-code only (AI
+  summarization is a v2 step); narration "replaces" a toast by adding an enriched
+  follow-up toast a beat later (instant scripted feedback is preserved, never blocked).
+
 ## AI features I — backstories, dialogue variation, inner thoughts, anti-repetition
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Part D commit 1 — wire the first four AI features on top of the
@@ -115,7 +193,7 @@ project.
   anti-repetition grows, thought stable within a day and recomputes on rollover,
   New Game wipes anti-rep + backstory stores, devNotes off by default, zero page
   errors in both runs.
-- **Commit:** <hash> — AI features I — backstories, dialogue variation, inner thoughts, anti-repetition
+- **Commit:** `c4242c0` — AI features I — backstories, dialogue variation, inner thoughts, anti-repetition
 - **Follow-ups:** Story-arc notes feed the dialogue-variation prompt but are empty
   until commit 2 wires `arcNotesFor`. Commit 2 adds event narration, the arc
   tracker, the quest-generation stub, and dev observations.

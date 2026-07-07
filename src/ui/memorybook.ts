@@ -114,6 +114,14 @@ function render() {
       const what = document.createElement("span");
       what.textContent = e.text;
       row.append(when, what);
+      // optional AI event-narration flavor (Part D #5) — a quiet italic sub-line
+      if (e.flavor) {
+        const flavor = document.createElement("span");
+        flavor.className = "book-flavor";
+        flavor.style.cssText = "display:block;font-style:italic;opacity:.8;margin-top:2px";
+        flavor.textContent = e.flavor;
+        row.append(flavor);
+      }
       body.append(row);
     }
   }
