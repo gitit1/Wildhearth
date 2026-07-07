@@ -63,7 +63,7 @@ import {
 } from "./systems/needs";
 import { loadMeta, saveMeta, characterForPath, type Character, type Path } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
-import { stampSave } from "./systems/saveSlots";
+import { stampSave, loadSlot } from "./systems/saveSlots";
 import {
   freshDayLog, resetDayLog, logCoinsEarned, logCoinsSpent, logItemsSold,
   logCatch, logHarvest, logForage, logDishCooked, logSkillGain, logDiscovery,
@@ -101,7 +101,9 @@ import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
 import {
   initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow,
 } from "./ui/shopwindow";
-import { showTitle, hideOpening } from "./ui/titlescreen";
+import { hideOpening } from "./ui/titlescreen";
+import { showMainMenu, showFarewell } from "./ui/mainmenu";
+import { screenShell } from "./ui/screen";
 import { showIntro, showReveal } from "./ui/intro";
 import { showPathAndGoal } from "./ui/newgame";
 import { showCharacterCreation } from "./ui/charcreation";
@@ -901,9 +903,8 @@ document.getElementById("saveBtn")!.addEventListener("click", manualSave);
 // starting path + life-goal → guidance → play. Identity is collected first,
 // then carried through the intro/reveal in this closure and joined with the
 // path/goal chosen AFTER seeing the place.
-showTitle(
-  hasSavedGame(),
-  () => showCharacterCreation((identity) =>
+function startNewGameFlow() {
+  showCharacterCreation((identity) =>
     showIntro(() => showReveal(() =>
       showPathAndGoal((path, lifeGoal) => {
         const character: Character = { ...identity, path, lifeGoal };
@@ -912,9 +913,32 @@ showTitle(
           beginPlay();
           startGuidanceForNewGame(mode);
         });
-      })))),
-  continueGame,
-);
+      }))));
+}
+
+/** Placeholder Settings screen (Commit 1). Commit 2 replaces this with the real
+ *  settingsscreen.ts wiring. */
+function openSettingsFromMenu() {
+  const { body } = screenShell("Settings", openMainMenu);
+  const p = document.createElement("p");
+  p.className = "menu-text";
+  p.textContent = "Settings are arriving in the next update.";
+  body.append(p);
+}
+
+/** The boot title screen (and the screen returned to from its sub-screens). */
+function openMainMenu() {
+  showMainMenu({
+    hasSave: hasSavedGame(),
+    slot: loadSlot(),
+    onContinue: continueGame,
+    onNewGame: startNewGameFlow,
+    onSettings: openSettingsFromMenu,   // Commit 2 → real Settings screen
+    onExit: showFarewell,               // Commit 3 → the exit dialog first
+  });
+}
+
+openMainMenu();
 
 let hovered: Interactable | null = null;              // object under the cursor (for the glow)
 let nearReach: Interactable | null = null;            // object in reach (drives NPC name labels)

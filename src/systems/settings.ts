@@ -20,6 +20,10 @@ export type Guidance = "tutorial" | "aspiration" | "none";
 export interface Settings {
   version: number; guidance: Guidance; dayLengthSeconds: number;
   endOfDaySummary: EndOfDaySummary;
+  /** What's New (Part E #2): the highest changelog id the player has seen, so
+   *  newer entries can be tagged NEW and the menu can badge unseen updates.
+   *  0 (or absent) = nothing seen yet. */
+  lastSeenChangelogId: number;
 }
 
 function isEodMode(v: unknown): v is EndOfDaySummary {
@@ -31,7 +35,10 @@ function isGuidance(v: unknown): v is Guidance {
 
 // dayLengthSeconds = real seconds for one full in-game day. Default 1440
 // (24 real minutes/day) matches the pace before the setting existed.
-const DEFAULTS: Settings = { version: 1, guidance: "none", dayLengthSeconds: 1440, endOfDaySummary: "quick" };
+const DEFAULTS: Settings = {
+  version: 1, guidance: "none", dayLengthSeconds: 1440, endOfDaySummary: "quick",
+  lastSeenChangelogId: 0,
+};
 let cached: Settings | null = null;
 
 export function loadSettings(): Settings {
@@ -43,6 +50,8 @@ export function loadSettings(): Settings {
     const p = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
     const merged: Settings = { ...DEFAULTS, ...(p as Partial<Settings>), version: 1 };
     if (!isEodMode(merged.endOfDaySummary)) merged.endOfDaySummary = DEFAULTS.endOfDaySummary;
+    if (typeof merged.lastSeenChangelogId !== "number" || !Number.isFinite(merged.lastSeenChangelogId))
+      merged.lastSeenChangelogId = 0;
     if (!isGuidance(merged.guidance)) {
       // migrate the legacy boolean `guided`: guided → gentle Aspiration (safe to
       // enable on an existing save — non-modal), open → None. Never revives a

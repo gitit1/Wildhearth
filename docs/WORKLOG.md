@@ -42,6 +42,89 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Main menu — painted vista, logo, What's New, Help, Credits
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** Part E #1-5, first of three commits. Replace the plain title
+  gating with a real main title screen: a code-drawn dawn-farm vista + animated
+  "Wildhearth" logo, and the button column (Continue with the save-slot glance,
+  New Game with overwrite-confirm, What's New with an unseen badge, Settings,
+  Help, Credits, Exit). Add a data-driven What's New changelog, a paged Help /
+  Guide, and a Credits scroll. Settings + Exit are placeholders here (real
+  screens land in commits 2-3).
+- **Done:**
+  - **Files:**
+    - `src/art/vista.ts` (NEW): `drawVista(g,W,H,t)` — a warm sunrise farm scene
+      (dawn gradient sky, low glowing sun with a breathing halo, drifting wrap-
+      around clouds, gliding birds, three parallax hill bands, a farmhouse
+      silhouette with lit windows + rising chimney smoke + a long dawn shadow,
+      two trees, a leaning broken fence, a full-frame warm vignette).
+      `drawLogo(g,cx,cy,scale,t)` — the "Wildhearth" wordmark in a warm gold
+      gradient with a dark rounded outline + soft shadow + sheen, gently bobbing,
+      with a heart-and-sprout motif above. All procedural (no assets).
+    - `src/ui/mainmenu.ts` (NEW): `showMainMenu(cfg)` — full-screen vista canvas
+      (its own rAF loop, self-stops when its canvas is disconnected; refits on
+      resize) + a floating wood/gold button column. Continue shows
+      "Season · Day N · C coins · saved Xh ago" from the slot manifest (disabled
+      + dimmed with no save); New Game confirms an overwrite via `menuConfirm`
+      when a save exists; What's New carries a `.menu-badge` with the unseen
+      count. Arrow-key up/down focus nav. Also exports `menuConfirm` and
+      `showFarewell` (the warm "you can close this tab" screen, reused by the
+      commit-3 exit dialog).
+    - `src/data/changelog.ts` (NEW): `CHANGELOG` — 10 player-facing milestones
+      mined from this WORKLOG (character creation, wildlife, Maren's stall, the
+      Harvest Festival, end-of-day summary, dialogue, relationships, needs, the
+      4×-bigger world + townsfolk, the founding farm), newest first with integer
+      ids. `newestChangelogId`/`unseenChangelogCount`/`isEntryNew`/
+      `markChangelogSeen` drive the NEW tags + the menu badge against the new
+      `settings.lastSeenChangelogId`.
+    - `src/data/help.ts` (NEW): `HELP_PAGES` — five honest pages (Moving & doing
+      things / Making a living / Looking after yourself / The market & townsfolk
+      / Seasons, saving & settings).
+    - `src/ui/whatsnew.ts`, `src/ui/helpscreen.ts`, `src/ui/credits.ts` (NEW):
+      the three back-able screens. What's New snapshots the NEW set for the
+      current view then marks all seen (clearing the badge); Help is tabbed;
+      Credits is a short warm scroll ("made with love … all art drawn in code").
+    - `src/ui/screen.ts` (NEW): `screenShell(title,onBack,opts)` — the shared
+      wood/gold panel with a ‹ Back header + scrollable body; Esc and Back both
+      return. Used by all four top-level screens (Settings reuses it in commit 2).
+    - `src/ui/titlescreen.ts` (TRIMMED): `showTitle` removed (superseded by
+      mainmenu.ts); keeps the shared `openingRoot`/`hideOpening` (the latter now
+      also clears the overlay's class).
+    - `src/systems/settings.ts` (EXTENDED): new `lastSeenChangelogId` field
+      (default 0, junk-guarded) — additive, no version bump needed (load merges
+      defaults). Survives New Game (settings are not game state).
+    - `src/main.ts`: boot now calls `openMainMenu()` (was `showTitle`); the New
+      Game chain is factored into `startNewGameFlow()`; Continue → `continueGame`;
+      Settings → an inline `screenShell` "arriving in the next update" placeholder
+      (commit 2 replaces it); Exit → `showFarewell` (commit 3 adds the dialog).
+    - `index.html`: a Main-menu + back-able-screens CSS block (vista/overlay/
+      button column, two-line Continue, badge, confirm modal, farewell, screen
+      shell, What's New / Help / Credits styles), all on the existing tokens.
+  - **Systems / functions:** no new save key; `lastSeenChangelogId` rides the
+    existing settings key.
+  - **Behavior:** at boot the player sees a warm animated sunrise-farm title
+    screen with the gold Wildhearth logo. Continue is live only when a save
+    exists and shows its season/day/coins/last-saved; New Game over a save asks
+    to confirm the overwrite first, else goes straight to Character Creation.
+    What's New lists the 10 updates with NEW tags on anything unseen and a count
+    badge on the button that clears once opened. Help pages explain the game
+    honestly; Credits is a short thank-you. Esc backs out of every sub-screen.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** headless Playwright (17/17): all 7 buttons present; Continue
+  disabled with no save then enabled + showing "Spring · Day 1 · 50 coins ·
+  saved just now" after a save + reload, and clicking it loads into live play
+  (overlay hidden, scene "world"); vista canvas confirmed painted (pixel
+  sample); What's New lists all 10 with 10 NEW tags and the badge (10) clears
+  after viewing; Help shows 5 tabs and switches; Credits renders; New Game over
+  a save shows the confirm dialog; New Game with no save reaches Character
+  Creation; Esc navigation works throughout; zero page/console errors. A
+  reviewed screenshot confirms the vista reads warm, legible, and inviting.
+- **Commit:** `<fill>` — Main menu — painted vista, logo, What's New, Help, Credits
+- **Follow-ups:** Settings + Exit are intentional placeholders this commit
+  (Settings → a "coming soon" panel; Exit → the farewell screen directly). The
+  ⚙ in-game Settings button (commit 2) and ⏸ pause / exit dialog / return-to-
+  menu (commit 3) are the next two commits.
+
 ## Guidance Mode — tutorial steps, aspiration chains, none
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** Guidance Mode engine (FABLE_PROMPT Part A #5 + Part E #5).
