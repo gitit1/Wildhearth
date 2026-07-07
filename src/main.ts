@@ -11,6 +11,7 @@ import { paintGround } from "./world/ground";
 import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
+  FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
@@ -18,6 +19,9 @@ import {
   drawFlowerBed, drawBuskSpot, drawMusicNotes, drawWaterShimmer,
   drawOpenWaterShimmer, drawDock, drawBuskSign,
 } from "./art/props";
+import { drawBunting, drawLanternPole, drawHarvestCluster } from "./art/festival";
+import { activeFestival, isFestivalDay } from "./systems/festival";
+import { FESTIVALS } from "./data/festivals";
 import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen, drawNpc } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
@@ -326,6 +330,17 @@ if (import.meta.env.DEV)
         if (s) { presentDayEnd(s); break; }
       }
     },
+    // festival-engine verification bridge — time-travel straight to the
+    // festival's date/hour and re-snap the townsfolk, instead of fast-
+    // forwarding real time through every intervening day
+    gotoFestival: (hour = 10) => {
+      const f = FESTIVALS[0]!;
+      calendar.seasonIndex = f.seasonIndex; calendar.day = f.day; calendar.hour = hour; calendar.minute = 0;
+      saveCalendar(calendar);
+      setWorldFlag(worldFlags, "festival_today", 1, absoluteDay(calendar));
+      initNpcPositions(npcs, calendar, weather);
+    },
+    isFestivalNow: () => !!activeFestival(calendar),
   };
 
 initBackpack(economy, eatItem);
@@ -420,6 +435,7 @@ let minuteAccum = 0;   // real seconds banked toward the next in-game minute
 let timeSkipping = false;   // true during a sleep/collapse fade — world time PAUSES (never teleports)
 let lastDist = player.dist; // player travel last frame, for charging walking energy
 const npcCommentDay: Record<string, number> = {};   // needId -> absoluteDay an NPC last remarked on it
+let festivalGreetedDay = -1;   // absoluteDay the market-entry festival toast last fired
 
 /** One in-game minute: roll the clock, fire the daily hooks on a new day, drain
  *  needs. The single source of truth for time passing — both the live tick and
@@ -441,6 +457,10 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     // neglect decay: any NPC not contacted during the day that just ended drifts
     // down (faster the shallower the bond); also expires a stale birthday flag
     decayRelationships(relationships, endedDay, absoluteDay(calendar));
+    // Festival engine: on the morning a festival falls, raise the world flag
+    // dialogue's condition system reads (data/dialogue/shared.ts's shared
+    // festival opening line) — a 1-day flag, self-clearing the day after.
+    if (isFestivalDay(calendar)) setWorldFlag(worldFlags, "festival_today", 1, absoluteDay(calendar));
     // a shallow copy is enough: resetDayLog() REASSIGNS dayLog's nested
     // objects/arrays to fresh ones rather than mutating them in place, so the
     // snapshot's references stay untouched by the reset below.
@@ -922,6 +942,14 @@ function tick(now: number) {
   // and (when toggled) the dev inspector — never a second call per frame.
   // location: the player's current region (interior counts as the farm).
   const region = scene === "world" ? regionAt(player.x, player.y) : "farm";
+  // Festival engine: first time entering the market during festival hours
+  // TODAY, greet it with a toast; the very first time EVER, that's also the
+  // Memory Book entry (remember() only celebrates it once, ever).
+  if (region === "market" && activeFestival(calendar) && festivalGreetedDay !== absoluteDay(calendar)) {
+    festivalGreetedDay = absoluteDay(calendar);
+    remember("first_harvest_festival", "Your first Harvest Festival — banners over the square, music in the air.");
+    toast("The square is alive with the Harvest Festival! 🎉");
+  }
   // scope the relationship slice to the NPC in reach (if any), so the dev
   // inspector shows "this bond, right now" the way a dialogue check would ask
   const nearNpcId = nearReach?.id.startsWith("npc-") ? nearReach.id.slice("npc-".length) : undefined;
@@ -938,7 +966,7 @@ function tick(now: number) {
     busking.playing  ? "busking" :
     player.moving    ? "walking" : "idle";
 
-  updateHud(economy, wc.calendar, wc.weather);
+  updateHud(economy, wc.calendar, wc.weather, isFestivalDay(calendar)?.name);
   updateNeedsStrip(wc.needs, time);
   updateDebugPanel(wc);
   updateBackpack();
@@ -962,6 +990,13 @@ function draw() {
   drawDock(ctx, time);                    // walkable, drawn at ground level under entities
   drawFence(ctx, farm.fence, fieldBounds(farm.plotTiers));
   for (const h of HEDGES) drawHedge(ctx, h, time);   // farm's east natural bound
+
+  // Festival engine: decorations only paint on the festival's date, 09:00-21:00.
+  // Bunting reads as an overhead layer (like the fence/hedges, not depth-sorted —
+  // it sits well above head height); lantern poles + harvest clusters are
+  // ground-level props, so they join the depth-sorted ents below instead.
+  const festival = activeFestival(calendar);
+  if (festival) drawBunting(ctx, time);
 
   // the farm plot inside the fenced field (ground-level, under entities)
   for (const c of plots) {
@@ -989,6 +1024,10 @@ function draw() {
   ];
   MARKET_STALLS.forEach((s) => ents.push({ y: s.y + s.h, f: () => drawStall(ctx, time, s, s.awning, s.accent, s.sign) }));
   COTTAGES.forEach((c, i) => ents.push({ y: c.y + c.h, f: () => drawCottage(ctx, c, 700 + i * 37) }));
+  if (festival) {
+    FESTIVAL_LANTERN_SPOTS.forEach(([lx, ly]) => ents.push({ y: ly, f: () => drawLanternPole(ctx, lx, ly, time) }));
+    FESTIVAL_HARVEST_CLUSTERS.forEach(([hx, hy]) => ents.push({ y: hy + 6, f: () => drawHarvestCluster(ctx, hx, hy) }));
+  }
   for (const [tx, ty] of WORLD_TREES) ents.push({ y: ty + 6, f: () => drawTree(ctx, tx, ty, time) });
   for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time) });
   for (const c of cows) ents.push({ y: c.y + 14, f: () => drawCow(ctx, c, time) });

@@ -114,6 +114,18 @@ export const MARKET_STALLS: StallDef[] = [
 /** The square's stone-well centrepiece. */
 export const WELL = { cx: 69 * T, cy: 20.5 * T, r: 0.9 * T };
 
+/** Festival engine (Part A #6) decoration anchors — code-drawn, only painted
+ *  on the festival's date. Lantern poles ring the well; harvest clusters
+ *  (pumpkins + sheaves) sit just outside that ring, clear of interactables. */
+export const FESTIVAL_LANTERN_SPOTS: Array<[number, number]> = [
+  [WELL.cx - 3.4 * T, WELL.cy - 1.6 * T], [WELL.cx + 3.4 * T, WELL.cy - 1.6 * T],
+  [WELL.cx - 3.4 * T, WELL.cy + 2.4 * T], [WELL.cx + 3.4 * T, WELL.cy + 2.4 * T],
+];
+export const FESTIVAL_HARVEST_CLUSTERS: Array<[number, number]> = [
+  [WELL.cx - 2 * T, WELL.cy + 3.2 * T], [WELL.cx + 2.2 * T, WELL.cy + 3.4 * T],
+  [WELL.cx - 4.6 * T, WELL.cy + 0.6 * T],
+];
+
 /** Small cottages ringing the square — future NPC homes, decorative for now,
  *  each with a door that could later be an entry point. */
 export const COTTAGES: Rect[] = [

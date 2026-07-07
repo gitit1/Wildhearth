@@ -23,10 +23,13 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 // plain text labels for the first pass (visual weather is its own later block)
 const WEATHER_GLYPH: Record<string, string> = { clear: "☀", rain: "🌧", storm: "⛈", fog: "🌫" };
 
-export function updateHud(e: Economy, cal?: CalendarSlice, wx?: WeatherSlice) {
+export function updateHud(e: Economy, cal?: CalendarSlice, wx?: WeatherSlice, festivalName?: string | null) {
   coinsEl.textContent = String(e.coins);
   if (cal) {
-    calEl.textContent = `${cap(cal.season)} · Day ${cal.day}`;   // the time lives on the dial
+    // the time lives on the dial; the calendar pill flags a festival day all day
+    calEl.textContent = festivalName
+      ? `${cap(cal.season)} · Day ${cal.day} · 🎉 ${festivalName}!`
+      : `${cap(cal.season)} · Day ${cal.day}`;
     dialG.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     dialG.clearRect(0, 0, DIAL_PX, DIAL_PX);
     drawClockDial(dialG, DIAL_PX, cal, wx);

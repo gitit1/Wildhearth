@@ -42,6 +42,110 @@ project.
 - **Follow-ups:** <deferred items / TODOs / open decisions — "none" if none>
 -->
 
+## Festival engine — Harvest Festival at the market square
+- **Date:** 2026-07-07 (v1-foundation)
+- **Block given:** (Part A #6) Festival engine. DECISIONS: one festival, day
+  15 of a season, in the stall-area; open decision "which festival" not yet
+  picked. **Decision made this block: Harvest Festival, autumn, mid-season.**
+  Since seasons are 10 days (DECISIONS default) not 15+, the day is resolved
+  as `festivalDay = min(15, ceil(DAYS_PER_SEASON/2))` — day 5 today, would
+  honor day 15 outright if seasons are ever tuned to 15+ days. Framework
+  supports adding more festivals later (Solstice/Moon are DECISIONS' open v5
+  list) without a rewrite.
+- **Done:**
+  - **Files:**
+    - `src/data/festivals.ts` (new) — `FestivalDef` { id, name, seasonIndex,
+      day, theme }; `FESTIVALS` table, one entry: `{ id: "harvest", name:
+      "Harvest Festival", seasonIndex: 2 (autumn), day: HARVEST_FESTIVAL_DAY,
+      theme: "harvest" }`, `HARVEST_FESTIVAL_DAY` computed from the formula
+      above (not hardcoded — re-derives correctly if `DAYS_PER_SEASON` ever
+      changes).
+    - `src/systems/calendar.ts` — `DAYS_PER_SEASON` now exported (was a
+      private const) so festivals.ts's formula can read it.
+    - `src/systems/festival.ts` (new) — `activeFestival(cal)` (the festival
+      def if RIGHT NOW is within its 09:00-21:00 window, else null) and
+      `isFestivalDay(cal)` (true all day, for the HUD pill/flavor that should
+      read "festival day" from dawn regardless of the hour). Pure lookup
+      against the fixed table — no state, no persistence.
+    - `src/config.ts` — new `FESTIVAL_START_HOUR = 9`, `FESTIVAL_END_HOUR = 21`.
+    - `src/systems/schedule.ts` — `NpcState` gains `"festival"`; `resolveState`
+      takes an optional `festival` flag and returns `"festival"` for any awake
+      state during festival hours (sleep schedule untouched — the festival
+      never keeps anyone up past their normal bedtime); `placeFor`'s new
+      `"festival"` case sends everyone to `socialSpot(idx)` around the well
+      EXCEPT the musician (Liora), who goes to `BUSK_SPOT` to perform — unlike
+      plain Sunday `"socializing"`, this ignores the forager's usual "stays in
+      the forest" exception, so Ada joins the crowd too.
+    - `src/entities/npc.ts` — `initNpcPositions`/`updateNpcs` compute
+      `!!activeFestival(cal)` once per call and thread it into `resolveState`;
+      `idleFacing`/`poseFor` gain a `"festival"` case (face the well; Liora's
+      pose is `"busking"`, everyone else gets the same idle/talking gesture
+      mix as socializing).
+    - `src/world/zones.ts` — `FESTIVAL_LANTERN_SPOTS` (4, ringing the well)
+      and `FESTIVAL_HARVEST_CLUSTERS` (3, just outside that ring) — world
+      layout, per project convention.
+    - `src/art/festival.ts` (new) — `drawBunting` (a sagging, swaying string
+      of triangular pennants between the four market stalls, warm autumn
+      palette, drawn as an overhead layer like the fence/hedges), `drawLantern
+      Pole` (a wooden pole + a flickering glowing paper lantern), `drawHarvest
+      Cluster` (two pumpkins + a bound wheat sheaf, deterministic per position).
+    - `src/main.ts` — imports + wires all of the above: `stepGameMinute`
+      raises the `festival_today` world flag (1-day duration) on the morning
+      a festival falls; `draw()` paints the bunting overhead and pushes
+      lantern poles/harvest clusters into the depth-sorted `ents` array, all
+      gated on `activeFestival(calendar)`; `updateHud` gets a 5th arg,
+      `isFestivalDay(calendar)?.name`, for the HUD pill; a new `festivalGreeted
+      Day` guard fires a toast + `remember("first_harvest_festival", ...)`
+      the first time each day the player enters the market region during
+      festival hours (the Memory Book entry only ever writes once). Dev
+      bridge: `gotoFestival(hour)` (time-travels straight to the festival's
+      date + re-snaps the townsfolk) and `isFestivalNow()`.
+    - `src/data/dialogue/shared.ts` — one new unconditional-but-flagged
+      `FESTIVAL_LINE` (`flag: "festival_today"`), appended by `genericOpenings()`
+      so every NPC (all 10, no per-NPC authoring needed) can say it; it
+      competes on equal footing with each NPC's own same-specificity lines
+      via the existing anti-repetition rotation (see Follow-ups).
+  - **Systems / functions:** no new save keys — festival state is a pure date
+    lookup (nothing to persist) plus the existing `worldFlags` store's
+    `festival_today` entry (1-day, self-expiring like every other flag).
+  - **Behavior:** on the festival's date, 09:00-21:00: all 10 townsfolk leave
+    their normal routine and gather at the market square around the well
+    (Liora performs at the busking spot instead); bunting/lantern poles/
+    harvest clusters decorate the square; the HUD calendar pill reads e.g.
+    "Autumn · Day 5 · 🎉 Harvest Festival!" all day; any NPC's dialogue can
+    open with the shared festival line while the flag is active; the first
+    time the player enters the market during festival hours each day, a toast
+    plays, and the very first time ever, a Memory Book entry is written. The
+    next day, everyone and everything is back to normal.
+- **Build:** `npm run build` — ✅ passing
+- **Commit:** (filled in below after committing)
+- **Verification:** Playwright against the dev server via the dev bridge
+  (`gotoFestival(10)`): `activeFestival`/`isFestivalNow()` true, HUD pill
+  read "Autumn · Day 5 · 🎉 Harvest Festival!", all 10 NPCs' `.state` read
+  `"festival"` and none were indoors, Liora's pose read `"busking"`; a
+  screenshot at the well showed bunting across all 4 stalls, 2+ visible
+  lantern glows, 3 harvest clusters, and the whole roster gathered.
+  Repeating `talk('maren')` 6x showed the shared festival line surfacing in
+  the rotation alongside her own season/region lines (confirms the flag
+  condition wires through the existing dialogue engine). Entering the market
+  region fired the market-entry toast then the once-only Memory Book entry
+  (confirmed via the toast queue and the Memory Book's Memories tab).
+  `advanceDay()` into the next date: `isFestivalNow()` false, every NPC's
+  state read `"asleep"` (midnight) with no `"festival"` anywhere, HUD pill
+  back to plain "Autumn · Day 6" — the day after is fully back to normal.
+- **Follow-ups:** the shared festival line is NOT guaranteed to win the
+  opening-line pick over an NPC's own same-specificity season/region lines —
+  by design, ties at the top specificity are broken by the existing per-NPC
+  rotation counter (anti-repetition), so the festival line surfaces as ONE of
+  the rotation's candidates, not an override. If the product owner wants the
+  festival line to always dominate on its day, the dialogue engine's
+  specificity scoring would need a tie-break priority for flag conditions —
+  out of scope for this block. Also unrelated, noticed in passing: `endTalk()`
+  /`closeDialogue()` doesn't clear an NPC's `talkTimer`, so a conversation
+  ended early via the dev bridge holds that NPC's `.state` resolution frozen
+  for the remainder of `NPC_TALK_SECONDS` (~3.4s) — pre-existing Dialogue
+  engine behavior, not touched here, flagged for whoever picks it up.
+
 ## End-of-day summary — none/quick/full with day ledger
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** (Part A #7) End-of-day summary engine. Player setting

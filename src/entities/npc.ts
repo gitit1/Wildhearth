@@ -17,6 +17,7 @@ import { T, NPC_WALK_SPEED, NPC_ARRIVE, NPC_TALK_SECONDS } from "../config";
 import type { Facing, PoseName } from "../art/rig";
 import type { CalendarState } from "../systems/calendar";
 import type { WeatherState } from "../systems/weather";
+import { activeFestival } from "../systems/festival";
 import { WELL } from "../world/zones";
 import { NPCS, JONAS_ROUTE, type NpcDef, type Personality } from "../data/npcs";
 import {
@@ -55,8 +56,9 @@ export function createNpcs(): Npc[] {
  *  load (or a New Game) doesn't start everyone sprinting from their beds. */
 export function initNpcPositions(npcs: Npc[], cal: CalendarState, weather: WeatherState) {
   const dow = dayOfWeek(cal);
+  const festival = !!activeFestival(cal);
   for (const n of npcs) {
-    const state = scheduleWeatherTweak(n.def, resolveState(n.def, dow, cal.hour), weather);
+    const state = scheduleWeatherTweak(n.def, resolveState(n.def, dow, cal.hour, festival), weather);
     const place = placeFor(n.def, state, dow, n.i);
     n.state = state;
     n.x = place[0]; n.y = place[1];
@@ -71,6 +73,7 @@ export function updateNpcs(
   npcs: Npc[], cal: CalendarState, weather: WeatherState, player: { x: number; y: number }, dt: number,
 ) {
   const dow = dayOfWeek(cal);
+  const festival = !!activeFestival(cal);
   for (const n of npcs) {
     n.gestureT += dt;
 
@@ -84,7 +87,7 @@ export function updateNpcs(
     }
 
     // resolve the scheduled state; on a CHANGE, choose a fresh target + route
-    const desired = scheduleWeatherTweak(n.def, resolveState(n.def, dow, cal.hour), weather);
+    const desired = scheduleWeatherTweak(n.def, resolveState(n.def, dow, cal.hour, festival), weather);
     if (desired !== n.state) {
       n.state = desired;
       n.indoors = false;                       // step out; re-set true only on home arrival
@@ -171,8 +174,12 @@ function facingTo(fx: number, fy: number, tx: number, ty: number): Facing {
 }
 
 /** Which way an idle NPC faces: socializers face the group (the well), workers
- *  face "outward" (stallkeepers toward customers, Finn out over the lake). */
+ *  face "outward" (stallkeepers toward customers, Finn out over the lake).
+ *  Festival day: everyone (Ada included — she's part of the crowd today) faces
+ *  the well, except Liora, who faces her audience from the busking spot. */
 function idleFacing(n: Npc, state: NpcState): Facing {
+  if (state === "festival")
+    return n.def.role === "musician" ? 2 : facingTo(n.x, n.y, WELL.cx, WELL.cy);
   if (state === "socializing")
     return n.def.role === "forager" ? 2 : facingTo(n.x, n.y, WELL.cx, WELL.cy);
   if (state === "atWork" && n.def.role === "fisher-kid") return 1; // east, over the water
@@ -185,6 +192,10 @@ function poseFor(n: Npc, state: NpcState): PoseName {
   if (n.moving) return "walking";
   switch (state) {
     case "atWork": return workPose(n.def.role);
+    case "festival":
+      // Liora performs for the crowd; everyone else mingles like socializing
+      if (n.def.role === "musician") return "busking";
+      return Math.sin(n.gestureT * 0.8 + n.i) > 0.62 ? "talking" : "idle";
     case "socializing":
       // occasional talking gesture at each other, otherwise a relaxed idle
       return Math.sin(n.gestureT * 0.8 + n.i) > 0.62 ? "talking" : "idle";

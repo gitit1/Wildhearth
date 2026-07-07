@@ -22,9 +22,21 @@ import type { LineEntry, DialogueChoice, DialogueNode } from "../../systems/dial
 
 const u = (text: string): LineEntry => ({ conditions: {}, text });
 
-/** Personality one-liners → unconditional opening fallbacks (reused content). */
+/** The Harvest Festival's one shared opening line (Festival engine, Part A
+ *  #6) — usable by EVERY NPC via `genericOpenings()`. Conditioned on the
+ *  `festival_today` world flag (main.ts raises it on the festival's morning),
+ *  so its single matched field naturally outranks the unconditional `{}`
+ *  personality generics it's appended alongside, without needing its own
+ *  per-NPC authoring. */
+const FESTIVAL_LINE: LineEntry = {
+  conditions: { flag: "festival_today" },
+  text: "\"Happy Harvest Festival! Isn't the square lovely today?\"",
+};
+
+/** Personality one-liners → unconditional opening fallbacks (reused content),
+ *  plus the shared festival line every NPC can say. */
 export function genericOpenings(p: Personality): LineEntry[] {
-  return PERSONALITY_LINES[p].map(u);
+  return [...PERSONALITY_LINES[p].map(u), FESTIVAL_LINE];
 }
 
 // ---- compact opening-line builders (keep the per-NPC files readable) --------

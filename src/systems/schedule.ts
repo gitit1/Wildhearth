@@ -13,16 +13,20 @@
  *  - Ada works a different forest corner each day; Jonas alternates his patrol
  *    direction; Finn is at the dock only after "school" on weekdays, all day on
  *    weekends. Everyone sleeps at home ~22:00–06:00, personality-jittered ±1h.
+ *  - Festival engine override (Part A #6): while a festival is on (systems/
+ *    festival.ts's `activeFestival()`, 09:00-21:00 its date), `resolveState`
+ *    swaps in the `"festival"` state for everyone still awake, regardless of
+ *    what they'd normally be doing — the whole roster gathers at the square.
  */
 import { absoluteDay, type CalendarState } from "./calendar";
 import type { WeatherState } from "./weather";
 import { T } from "../config";
-import { WELL } from "../world/zones";
+import { WELL, BUSK_SPOT } from "../world/zones";
 import {
   FOREST_CORNERS, ADA_FOREST_REST, BRAM_FARM_SPOT, BRAM_MARKET_SPOT, type NpcDef,
 } from "../data/npcs";
 
-export type NpcState = "atHome" | "atWork" | "atMarket" | "socializing" | "asleep";
+export type NpcState = "atHome" | "atWork" | "atMarket" | "socializing" | "asleep" | "festival";
 
 export interface ScheduleEntry { startHour: number; state: NpcState; }
 
@@ -105,14 +109,18 @@ export function daySchedule(def: NpcDef, dow: number): ScheduleEntry[] {
   return e.sort((a, b) => a.startHour - b.startHour);
 }
 
-/** The scheduled state for a given day-of-week + whole hour. */
-export function resolveState(def: NpcDef, dow: number, hour: number): NpcState {
+/** The scheduled state for a given day-of-week + whole hour. `festival` (from
+ *  systems/festival.ts's `activeFestival()`) overrides everything except
+ *  sleep — the normal wake/bedtime schedule still governs when everyone turns
+ *  in, but any awake hour during the festival becomes the `"festival"` state. */
+export function resolveState(def: NpcDef, dow: number, hour: number, festival = false): NpcState {
   const sched = daySchedule(def, dow);
   let s: NpcState = "asleep";
   for (const entry of sched) {
     if (hour >= entry.startHour) s = entry.state;
     else break;
   }
+  if (festival && s !== "asleep") return "festival";
   return s;
 }
 
@@ -163,6 +171,10 @@ export function placeFor(def: NpcDef, state: NpcState, dow: number, idx: number)
     case "socializing":
       // Ada keeps to the trees even when "gathering" — she's shy of the square
       return def.role === "forager" ? [ADA_FOREST_REST[0], ADA_FOREST_REST[1]] : socialSpot(idx);
+    case "festival":
+      // festival day pulls EVERYONE to the square, Ada included — Liora takes
+      // the busking spot to perform, everyone else spreads around the well
+      return def.role === "musician" ? [BUSK_SPOT[0], BUSK_SPOT[1]] : socialSpot(idx);
   }
 }
 

@@ -4,7 +4,7 @@ export type Season = "spring" | "summer" | "autumn" | "winter";
 export type DayPhase = "dawn" | "day" | "dusk" | "night";
 
 const SEASON_ORDER: Season[] = ["spring", "summer", "autumn", "winter"];
-const DAYS_PER_SEASON = 10; // placeholder — tune during implementation
+export const DAYS_PER_SEASON = 10; // placeholder — tune during implementation
 
 export interface CalendarState {
   version: 1;

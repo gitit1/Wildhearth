@@ -180,6 +180,13 @@ export const AUTOSAVE_SECONDS = 600;    // 10 real minutes between autosaves (DE
 // ===========================================================================
 export const EOD_QUICK_SHOW_SECONDS = 5;   // how long the "quick" pill stays up before fading
 
+// ===========================================================================
+//  Festival engine (Part A #6) — v1: one festival (Harvest, autumn). Framework
+//  supports adding more later (data/festivals.ts). See systems/festival.ts.
+// ===========================================================================
+export const FESTIVAL_START_HOUR = 9;    // festival is "on" 09:00-21:00 the day it falls
+export const FESTIVAL_END_HOUR = 21;
+
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";
