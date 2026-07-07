@@ -388,6 +388,39 @@ export const SPRITE_WELL_SCALE = 1.05;
 //     the same 112x128 size, same "footprint <= zone rect" recipe as above;
 //     each variant's own cx/foot anchor is what actually differs per art). ---
 export const SPRITE_COTTAGE_SCALE = 0.8;
+// --- Farm-animal sprites (art/spriteAnimal.ts). Each livestock species has its
+//     OWN packed sheet (animals/<kind>.sheet.png, scripts/packsheets.mjs).
+//     Quadrupeds (cow/pig/sheep) carry a full walk cycle (frame count read off
+//     the sheet's own `anims` entry at runtime, not hardcoded — the cow's
+//     happens to be 7 frames where pig/sheep are 6); birds (hen/duck) are
+//     ROTATIONS ONLY (no skeleton/walk animation) — a small code-driven
+//     waddle (bob + tilt) stands in for a walk cycle so a moving hen/duck
+//     doesn't visually freeze. Per-species scale + ground-plane offset were
+//     computed from each sheet's measured silhouette height (packsheets.mjs's
+//     logged `silhouette=`) so the sprite's apparent height AND foot/shadow
+//     line match the code rig's own geometry (art/animalRig.ts's COW_RIG/
+//     PIG_RIG/SHEEP_RIG/HEN_RIG/DUCK_RIG presets, at each preset's existing
+//     `scale`) — so toggling the dev A/B fallback never pops. ---
+export const SPRITE_ANIMAL_WALK_STRIDE = 9;   // px of travel per walk frame (quadrupeds)
+export const SPRITE_ANIMAL_SCALES: Record<"cow" | "pig" | "sheep" | "hen" | "duck", number> = {
+  cow: 0.57, pig: 0.39, sheep: 0.50, hen: 0.62, duck: 0.47,
+};
+// Ground-plane geometry per species: `dy` is world px below the entity's x/y
+// where feet plant AND the under-shadow ellipse centres (both the sprite path
+// and the rig agree here); `rx`/`ry` are the shadow ellipse radii — all three
+// mirror art/animalRig.ts's own drawQuadruped/drawBird shadow() call for that
+// species' preset (the same "duplicate the rig's shadow numbers as plain
+// constants" approach art/spriteNpc.ts uses for the humanoid rig).
+export const SPRITE_ANIMAL_GROUND: Record<"cow" | "pig" | "sheep" | "hen" | "duck", { dy: number; rx: number; ry: number }> = {
+  cow:   { dy: 15.0, rx: 18.9,  ry: 4.5 },
+  pig:   { dy: 9.9,  rx: 13.39, ry: 3.63 },
+  sheep: { dy: 11.7, rx: 15.12, ry: 4.05 },
+  hen:   { dy: 9.35, rx: 7.0,   ry: 2.8 },
+  duck:  { dy: 7.14, rx: 5.2,   ry: 2.08 },
+};
+export const SPRITE_BIRD_WADDLE_AMP = 1;      // px of the waddle bob, +/-
+export const SPRITE_BIRD_WADDLE_TILT = 0.08;  // radians of waddle tilt, +/-
+export const SPRITE_BIRD_WADDLE_STRIDE = 10;  // px of travel per waddle cycle
 
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";

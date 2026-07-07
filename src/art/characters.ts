@@ -8,6 +8,7 @@
 import { drawRig, RIG_STRIDE, type RigParams } from "./rig";
 import { drawPlayerSprite } from "./spriteChar";
 import { drawNpcSprite } from "./spriteNpc";
+import { drawAnimalSprite } from "./spriteAnimal";
 import {
   drawQuadruped, drawBird, COW_RIG, HEN_RIG, QUAD_STRIDE, BIRD_STRIDE,
   PIG_RIG, SHEEP_RIG, DUCK_RIG, RABBIT_RIG, CAT_RIG, DOG_RIG,
@@ -90,27 +91,32 @@ function drawNameLabel(g: CanvasRenderingContext2D, x: number, yTop: number, nam
   g.restore();
 }
 
+// Draw path (all five): the PixelLab sprite (drawAnimalSprite) when its
+// species sheet has a decoded atlas, else the shared segmented rig — seamless,
+// since both plant on the same ground line and share the same shadow. See
+// art/spriteAnimal.ts + docs/PIXELLAB_ASSETS.md.
+
 export function drawCow(g: CanvasRenderingContext2D, c: Cow, t: number) {
-  drawQuadruped(g, c.x, c.y, c.flip, COW_RIG, c.dist / QUAD_STRIDE, c.moving, t);
+  if (!drawAnimalSprite(g, "cow", c)) drawQuadruped(g, c.x, c.y, c.flip, COW_RIG, c.dist / QUAD_STRIDE, c.moving, t);
 }
 
 export function drawHen(g: CanvasRenderingContext2D, h: Hen, t: number) {
-  drawBird(g, h.x, h.y, h.flip, HEN_RIG, h.dist / BIRD_STRIDE, h.moving, h.peck, t);
+  if (!drawAnimalSprite(g, "hen", h)) drawBird(g, h.x, h.y, h.flip, HEN_RIG, h.dist / BIRD_STRIDE, h.moving, h.peck, t);
 }
 
 // ---- Part C content-library commit 2: pig/sheep/duck (wired as purchasable
 // livestock, see entities/animals.ts + main.ts) ----------------------------
 
 export function drawPig(g: CanvasRenderingContext2D, p: Pig, t: number) {
-  drawQuadruped(g, p.x, p.y, p.flip, PIG_RIG, p.dist / QUAD_STRIDE, p.moving, t);
+  if (!drawAnimalSprite(g, "pig", p)) drawQuadruped(g, p.x, p.y, p.flip, PIG_RIG, p.dist / QUAD_STRIDE, p.moving, t);
 }
 
 export function drawSheep(g: CanvasRenderingContext2D, s: Sheep, t: number) {
-  drawQuadruped(g, s.x, s.y, s.flip, SHEEP_RIG, s.dist / QUAD_STRIDE, s.moving, t);
+  if (!drawAnimalSprite(g, "sheep", s)) drawQuadruped(g, s.x, s.y, s.flip, SHEEP_RIG, s.dist / QUAD_STRIDE, s.moving, t);
 }
 
 export function drawDuck(g: CanvasRenderingContext2D, d: Duck, t: number) {
-  drawBird(g, d.x, d.y, d.flip, DUCK_RIG, d.dist / BIRD_STRIDE, d.moving, d.peck, t);
+  if (!drawAnimalSprite(g, "duck", d)) drawBird(g, d.x, d.y, d.flip, DUCK_RIG, d.dist / BIRD_STRIDE, d.moving, d.peck, t);
 }
 
 // ---- rabbit/cat/dog: PAINTERS + PRESETS ONLY — nothing spawns these yet.

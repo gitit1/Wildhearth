@@ -152,6 +152,7 @@ import { updateParticles, drawParticles, burst, debugParticleCounts } from "./ar
 import { loadSprites, spriteLoadProgress, spritesReady } from "./art/sprites";
 import { spriteCoversCharacter, setSpriteMode, spriteModeOn } from "./art/spriteChar";
 import { setNpcSpriteMode, npcSpriteModeOn, npcHasSprite } from "./art/spriteNpc";
+import { setAnimalSpriteMode, animalSpriteModeOn, animalHasSprite, type AnimalKind } from "./art/spriteAnimal";
 
 const cv = document.getElementById("cv") as HTMLCanvasElement;
 const ctx = cv.getContext("2d")!;
@@ -359,6 +360,7 @@ function doInteraction(npc: Npc, it: InteractionDef) {
 if (import.meta.env.DEV)
   (window as unknown as { __wh: unknown }).__wh = {
     player, npcs, calendar, weather, needs, economy, wildlife,
+    cows, hens, ducks, pigs, sheep,   // livestock — verification pokes moving/dist/x/y directly
     snap: () => initNpcPositions(npcs, calendar, weather),
     // needs verification bridge — deterministic hooks so automated tests don't
     // have to wait on real time or synthesize canvas clicks:
@@ -380,6 +382,12 @@ if (import.meta.env.DEV)
     npcSpriteMode: (on: boolean) => setNpcSpriteMode(on),
     npcSpriteModeOn: () => npcSpriteModeOn(),
     npcSprited: () => npcs.filter(npcHasSprite).map((n) => n.def.id),
+    // farm-animal sprite bridge: force the rig path for all livestock (A/B),
+    // and read which species are currently sprite-backed.
+    animalSpriteMode: (on: boolean) => setAnimalSpriteMode(on),
+    animalSpriteModeOn: () => animalSpriteModeOn(),
+    animalSprited: () => (["cow", "pig", "sheep", "hen", "duck"] as const satisfies readonly AnimalKind[])
+      .filter(animalHasSprite),
     usesSprite: () => playerUsesSprite,
     coversChar: (c: Character | null) => spriteCoversCharacter(c),
     spritesReady: () => spritesReady(),

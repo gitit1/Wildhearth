@@ -31,7 +31,8 @@ the asset/manifest layout, and generation costs.
 | **The farm's own trade stall** (generic base; awning re-tinted to the player's selling path) | **Sprite** | `buildings/market-stall.png` → `art/buildings.ts` `drawStall` |
 | **Market well** (flat-front) | **Sprite** | `buildings/well.png` → `art/buildings.ts` `drawWell` |
 | **Market cottages** (6, each a DIFFERENT approved variant of 8 generated) | **Sprite** | `buildings/cottage-0N_*.png` → `art/buildings.ts` `drawCottage(..., variant)` |
-| Everything else — animals, crops/trees/bushes, outhouse, dock, market ground, weather/particles, UI, tools, stall goods/signs (a code overlay on the stall sprite — see notes), the player's non-walk/idle poses (fishing/hoeing/foraging/busking/sleeping) | **Code-drawn** | `src/art/*` |
+| **Farmyard livestock** — cow, pig, sheep (8-dir walk cycle) + hen, duck (8 static rotations, no walk) | **Sprite** | `animals/{cow,pig,sheep,hen,duck}.sheet.png` → `art/spriteAnimal.ts` |
+| Everything else — crops/trees/bushes, outhouse, dock, market ground, weather/particles, UI, tools, stall goods/signs (a code overlay on the stall sprite — see notes), the player's non-walk/idle poses (fishing/hoeing/foraging/busking/sleeping), and **seasonal wildlife** (deer/rabbit/hare/songbird/butterfly — `entities/wildlife.ts` + `art/wildlife.ts` — deliberately code-rig only, never sprite-sourced: too many ambient species/poses to justify the generation spend) | **Code-drawn** | `src/art/*` |
 
 Notes:
 - The heroine sprite only covers the **walk** and **idle** poses. Action poses
@@ -134,6 +135,27 @@ Notes:
   sprite already holds the lute). Everyone else (incl. Ada, Bram, the
   stallkeepers) is a static sprite with no overlay. Per-NPC scale + the shared
   foot/shadow anchoring are in §3 and `config.ts` (`SPRITE_NPC_SCALES`).
+- **Farmyard livestock (wave 6)**: cow/pig/sheep are quadrupeds with a real
+  8-dir walk cycle (`art/spriteAnimal.ts`, the livestock counterpart to
+  `spriteNpc.ts`); hen/duck are birds generated as 8-directional OBJECTS with
+  no skeleton/animation at all — a moving bird gets a small CODE-DRIVEN waddle
+  (±1px bob + a slight tilt, keyed to distance) instead of a generated walk, so
+  it doesn't visually freeze mid-stride. An animal that stops just holds
+  whatever facing it last walked in (no idle animation, same "no breathing
+  idle" spirit as decision S2-8, but there's no "face the player" concept
+  either — animals don't get talked to). Dev A/B: `__wh.animalSpriteMode(false)`.
+  Per-species scale + ground/shadow geometry are in `config.ts`
+  (`SPRITE_ANIMAL_SCALES`, `SPRITE_ANIMAL_GROUND`) — computed so the sprite's
+  apparent height AND foot/shadow line match `art/animalRig.ts`'s existing
+  `COW_RIG`/`PIG_RIG`/`SHEEP_RIG`/`HEN_RIG`/`DUCK_RIG` fallback presets, so the
+  toggle never pops (see `docs/WORKLOG.md`'s entry for the exact numbers).
+  **Cat and dog were generated + packed in the same batch (same quadruped
+  8-dir-walk shape) but are BANKED, not spawned** — no `Cat`/`Dog` entity
+  exists yet; they're reserved for the future Pets block (adoption/
+  companionship, `VISION.md` Systems #6). `art/characters.ts`'s existing
+  `drawCat`/`drawDog` stay rig-only wrappers (unused outside verification),
+  untouched by this batch. **Seasonal wildlife stays code-rig by design** —
+  see §1's table note; it was never in scope for a sprite pass.
 
 ---
 
@@ -307,6 +329,44 @@ included) into `characters/heroine-<name>.sheet.*`:
 Integration + the recolour bands + the honest coverage matrix are in §3
 "Recolouring the heroine".
 
+**Wave 6** (farm animals) — two shapes, both `view: low top-down`:
+- **Quadrupeds** (`create_character`, v3, 68×68 except dog 56×56/cat 48×48,
+  8-dir) + `animate_character` **walking only** (no idle template — these
+  exports never had an `animating` folder at all, unlike the heroine): **cow**
+  `7dd48ae3-6563-456b-bcdf-f1749599ef56`, template `horse` — *gentle dairy cow
+  with a cream-and-caramel patched coat, soft pink muzzle, small curved horns,
+  big kind eyes, rounded friendly body — cute cozy fantasy farm-game animal,
+  warm color palette, soft dark outlines, charming and readable at small
+  size*; **pig** `c0e5358e-79df-4500-8716-f94c9e7be3f8`, template `bear` —
+  *plump pink farm pig with a curly tail, floppy ears, cheerful snout, …*;
+  **sheep** `d2e9dad4-26fd-429e-a16b-4392cfbb0f3f`, template `dog` — *woolly
+  cream sheep with a soft rounded fleece, dark face and legs, …*; **dog**
+  `dfa08509-bbed-4e12-b78c-c9810769369b`, template `dog` — *friendly
+  brown-and-white farm dog with a wagging tail, …* (banked, see §1 notes);
+  **cat** `4b5c5966-2f6c-4816-96d6-3a1cd068e74a`, template `cat` — *small
+  ginger farm cat with white paws, …* (banked). All five share the style
+  suffix *"cute cozy fantasy farm-game animal, warm color palette, soft dark
+  outlines, charming and readable at small size."*
+  - **Slot-limited queueing split the walk animation across several sibling
+    job folders** for cat/dog/pig — e.g. pig's `animate_character` calls landed
+    as `walking` (south-east only) + `walking-d8196a65` (north-west/-east,
+    south-west) + `walking-dd988e1a` (south) + `walking-e67eee01` (west/east/
+    north), together covering all 8 directions with no overlap. Cow (single
+    `walk` folder, all 8 dirs, 7 frames) and sheep (single `walking` folder, 6
+    frames) came back whole. `scripts/packsheets.mjs`'s new
+    `mergeSplitAnimations()` merges the split folders back into one animation
+    before packing (see §4) — no manual metadata surgery needed this time.
+- **Birds — rotations only, no skeleton/animation** (hen, duck): generated as
+  8-directional objects (a bare `rotations/<dir>.png` per direction, no
+  `metadata.json` at all — so no character id/prompt was recoverable for the
+  ledger here, unlike every other entry in this section). Packed into a
+  ROW-0-ONLY sheet by `packsheets.mjs`'s new metadata-less fallback (see §4).
+  A moving bird has no walk frames to key off — see §1 notes for the
+  code-driven waddle that stands in.
+
+Integration (the dual-path bridge, scale/anchor table, and the bird-waddle
+decision) is in `docs/WORKLOG.md`'s "Farmyard sprites" entry.
+
 ---
 
 ## 3. Asset folder + manifest recipe
@@ -343,19 +403,31 @@ src/assets/pixellab/
   interior/basin.png
   interior/bed.png
   interior/chair-crate.png
+  animals/cow.sheet.{png,json}    ← 8-dir walk (7 frames); art/spriteAnimal.ts
+  animals/pig.sheet.*                8-dir walk (6 frames each), same bridge
+  animals/sheep.sheet.*
+  animals/hen.sheet.*             ← ROTATIONS ONLY (8x1 grid, no walk row)
+  animals/duck.sheet.*
+  animals/cat.sheet.*             ← banked for the Pets block — not spawned
+  animals/dog.sheet.*
 ```
 `<dir>` ∈ `south south-east east north-east north north-west west south-west`.
 
 **Two asset shapes** (both on the dual-path fallback):
 - **Loose single PNGs** (buildings, interior, one-off props) — drawn whole by
   `sprite(id)` / `drawGroundSprite()`. Adding one is "drop the PNG + rebuild".
-- **Sheet atlases** (characters: the heroine + the 10 NPCs) — every character's
-  8 rotations + walk (+ the heroine's idle) frames are packed by
-  `scripts/packsheets.mjs` into ONE `<name>.sheet.png` with a sibling
-  `<name>.sheet.json` frame map. This exists because Vite base64-**inlines**
-  sub-4KB PNGs into the JS bundle; a character's ~56–88 tiny frame PNGs bloated
-  the bundle past the 500KB warning, whereas ONE atlas is emitted as a single
-  hashed file that's fetched, not inlined (see §4 "Packing a character").
+- **Sheet atlases** (characters: the heroine + the 10 NPCs; animals: the 5
+  livestock species + the 2 banked pets) — every character's 8 rotations +
+  walk (+ the heroine's idle) frames are packed by `scripts/packsheets.mjs`
+  into ONE `<name>.sheet.png` with a sibling `<name>.sheet.json` frame map.
+  This exists because Vite base64-**inlines** sub-4KB PNGs into the JS bundle;
+  a character's ~56–88 tiny frame PNGs bloated the bundle past the 500KB
+  warning, whereas ONE atlas is emitted as a single hashed file that's
+  fetched, not inlined (see §4 "Packing a character"). A ROTATIONS-ONLY sheet
+  (hen/duck — no skeleton, so no walk/idle rows, just an 8-column row 0) is
+  the same shape with an empty `anims` array; the packer synthesizes the frame
+  map straight from a bare `rotations/<dir>.png` export with no
+  `metadata.json` at all (see §4).
 
 **Manifest** (`manifest.ts`): two eager globs —
 `import.meta.glob("./**/*.png", {query:"?url"})` → `SPRITE_MANIFEST: {id,url}[]`
@@ -374,13 +446,27 @@ returns the sprite→world transform for overlays. For atlases:
 `spriteFrame(sheetId, frameName)` → `{img, sx, sy, sw, sh} | null` (the atlas
 image + a frame's source sub-rect, fed to the 9-arg `drawImage`), and
 `sheetInfo(sheetId)` → the `SheetData` (cell size + measured foot anchor). The
-draw bridges (`art/spriteChar.ts` heroine, `art/spriteNpc.ts` NPCs) build frame
-keys `rot_<dir>` / `walk_<dir>_<f>` / `idle_<dir>_<f>` and call `spriteFrame`.
+draw bridges (`art/spriteChar.ts` heroine, `art/spriteNpc.ts` NPCs,
+`art/spriteAnimal.ts` livestock) build frame keys `rot_<dir>` /
+`walk_<dir>_<f>` / `idle_<dir>_<f>` and call `spriteFrame`. The animal bridge
+reads a sheet's walk-frame COUNT off its own `anims` entry at runtime instead
+of hardcoding one (unlike the NPC bridge, which hardcodes 6 — every NPC
+happens to share that count, but the cow's walk export is 7 frames).
 
 **Player bridge** (`art/spriteChar.ts`): `drawPlayerSprite` picks the frame
 (8-dir facing from the movement vector + hysteresis; walk keyed to `player.dist`,
 idle on a timer), draws the same shadows the rig would, and returns `false` for
 uncovered poses/undecoded frames so the caller draws the rig.
+
+**Animal bridge** (`art/spriteAnimal.ts`): `drawAnimalSprite(g, kind, animal)`
+mirrors the NPC bridge (8-dir facing from the movement vector + hysteresis;
+walk keyed to `animal.dist`) for cow/pig/sheep; hen/duck have no walk frames,
+so a moving bird gets a small code-driven waddle (a canvas rotate + a y-offset,
+both keyed to `animal.dist`) layered on top of its static rotation frame
+instead. Facing/last-position are held in a `WeakMap` keyed by the entity
+object itself (a flock has no stable string id the way NPCs do). Returns
+`false` for no sheet / sprites off / undecoded frame, same contract as the
+other two bridges.
 
 ### Aligning a new sprite (the recipe used here)
 1. Measure the PNG's **alpha bounding box** (a tiny Node PNG decoder does it):
@@ -478,9 +564,12 @@ sheets, rendered at the 84px hat heroine's apparent height), `SPRITE_PLAYER_FOOT
 `SPRITE_BASIN_SCALE`, `SPRITE_BED_SCALE`, `SPRITE_CHAIR_CRATE_SCALE`,
 `SPRITE_STALL_SCALE`, `SPRITE_WELL_SCALE`, `SPRITE_COTTAGE_SCALE` (building-
 variety batch — one scale for all 8 cottage variants, same 112×128 canvas).
-Dev A/B toggle: `__wh.spriteMode(on)` (the player sprite only —
-buildings/interior/stalls/well/cottages have no runtime toggle, only the
-load-or-not dual path).
+Farm animals (wave 6): `SPRITE_ANIMAL_WALK_STRIDE`, `SPRITE_ANIMAL_SCALES`,
+`SPRITE_ANIMAL_GROUND` (per-species `{dy,rx,ry}` ground/shadow geometry),
+`SPRITE_BIRD_WADDLE_AMP`/`_TILT`/`_STRIDE`.
+Dev A/B toggles: `__wh.spriteMode(on)` (player), `__wh.npcSpriteMode(on)`
+(townsfolk), `__wh.animalSpriteMode(on)` (livestock) — buildings/interior/
+stalls/well/cottages have no runtime toggle, only the load-or-not dual path.
 
 ---
 
@@ -510,6 +599,22 @@ turns a raw PixelLab character export into `<name>.sheet.png` + `.sheet.json`:
    stay in staging. To regenerate, re-download and re-pack — deterministic, so
    an unchanged export yields byte-identical output.
 
+Two export-shape quirks the packer now absorbs automatically (both hit during
+the farm-animal batch, wave 6 — see §2):
+- **A walk animation split across several sibling job folders** (PixelLab's
+  slot-limited animation queue: `walking`, `walking-<hex>`, `walking-<hex2>`,
+  ... each covering a different subset of the 8 directions) — `packOne`'s
+  `mergeSplitAnimations()` groups them by base name (strips the trailing
+  job-id suffix) and merges the per-direction frame arrays before packing. A
+  single-folder export (no split) passes through unchanged. If a direction
+  ends up missing after the merge, packing throws with a clear error rather
+  than silently shipping a gap.
+- **A ROTATIONS-ONLY export with no `metadata.json` at all** (an 8-directional
+  object with no skeleton — e.g. hen/duck): `findMetadata()` falls back to
+  scanning a bare `rotations/<dir>.png` set and synthesizes the same frame-map
+  shape with an empty `animations`, so the rest of the pipeline (incl. the
+  merge above) never has to know the difference. Packs to a row-0-only sheet.
+
 - **Regenerate a static** (e.g. redo the barn): `create_map_object` with the
   recorded prompt (tweak as needed), `get_map_object` until `completed`,
   **download immediately** (8h auto-delete), drop the PNG in place (same
@@ -521,10 +626,19 @@ turns a raw PixelLab character export into `<name>.sheet.png` + `.sheet.json`:
   For a new PLAYER look add a coverage branch in `spriteCoversCharacter`; for a
   new NPC add its `NpcDef` (its sheet id is `characters/<npc.id>`) and a
   `SPRITE_NPC_SCALES` entry.
-- **Add a new loose-PNG category** (e.g. farm animals as single sprites): drop
-  the PNGs under a new `src/assets/pixellab/<category>/` folder, wire the draw
-  site to `sprite("<category>/<id>")` with a painter fallback. No manifest
-  edit needed. (Characters use the sheet path above, not loose PNGs.)
+- **Add a new loose-PNG category** (single static images, no directions/
+  animation — the buildings/interior recipe): drop the PNGs under a new
+  `src/assets/pixellab/<category>/` folder, wire the draw site to
+  `sprite("<category>/<id>")` with a painter fallback. No manifest edit needed.
+- **Add a new animal species** (quadruped or bird — the `animals/` recipe,
+  wave 6): pack into `src/assets/pixellab/animals/<kind>.sheet.*` (same packer,
+  above — a rotations-only export packs fine with no `animations` at all).
+  Add the kind to `AnimalKind` (`art/spriteAnimal.ts`), a `SPRITE_ANIMAL_SCALES`
+  + `SPRITE_ANIMAL_GROUND` entry (`config.ts`, measured against the species'
+  fallback rig preset in `animalRig.ts` the same way §1's table was built), and
+  a dual-path draw wrapper in `art/characters.ts` (mirror `drawCow`/`drawHen`).
+  A quadruped with no walk animation, or a bird, needs no extra code — the
+  bridge already keys off whether `info.anims` has a `walk` entry.
 - **Give an existing sprite a new per-instance color** (e.g. a 5th stall
   color): no new art — pass the new hex through `recolorSprite` (see above);
   only measure a new `HueBand` if the fabric/region to tint has changed.
@@ -554,12 +668,25 @@ regenerated. Session ledger delta was 27 (shared queue with other
 concurrently-running agents per this batch's own brief; the 18-call count is
 the reliable per-batch number). ~4,677 remaining after this wave.
 
+**Wave 6 — farm animals** (2026-07-07): generated in a separate batch and
+handed off gate-passed for this integration pass, so an exact per-call ledger
+wasn't available here — estimating instead from the observed export shape
+using this doc's own accounting below: 5 quadrupeds (cow/pig/sheep + the 2
+banked pets, dog/cat) at the NPC's ~10-gens-each shape (2 rotations v3 + 8
+walk directions) ≈ 50, though cat/dog/pig's walk needed 3–4 extra
+`animate_character` submissions each to route around slot-limited queueing
+(§2/§4) — up to ~30 more if a resubmission re-bills (unconfirmed either way);
+hen/duck (rotations only, no walk template at all) are cheaper, roughly 2–8
+gens each. Rough total this wave: ~60–100 gens — in the ballpark of this
+doc's own pre-batch "~10–20 each" estimate below. Retune this line once the
+account's actual usage delta for the batch is confirmed.
+
 Rough per-category estimate for the rest of the plan (a generation ≈ one
 direction of one frame/rotation, so animated characters dominate):
 - **NPC** (8-dir, rotations + walk, NO idle — decision S2-8): **~10 gens** each
   (2 rotations v3 + 8 walk directions). 10 townsfolk ≈ 100 — measured, the whole
   roster this wave. (With an idle template, like the heroine, ~18 each.)
-- **Farm animals** (fewer directions / simpler): ~10–20 each.
+- **Farm animals** (fewer directions / simpler): ~10–20 each — see wave 6 above.
 - **Buildings / large props / furniture** (`create_map_object`, 1 image):
   **~1–3 gens** each; ~10–15 planned ≈ 20–45.
 - **Tiles / tilesets** (if ever used): a few dozen for a full ground set.

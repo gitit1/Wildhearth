@@ -30,6 +30,19 @@
  *   node scripts/packsheets.mjs --all <stagingRoot> [--out <dir>]   (pack every
  *        immediate subdir; name = subdir name minus a trailing "_raw")
  * Default --out = src/assets/pixellab/characters.
+ *
+ * TWO export shapes are supported, both auto-detected by findMetadata():
+ *  - a normal character export (metadata.json + rotations + animations).
+ *  - a ROTATIONS-ONLY export (no metadata.json at all): a bare `rotations/
+ *    <dir>.png` per direction, no skeleton/animation (e.g. birds generated as
+ *    8-directional objects). Synthesized into the same frame-map shape with
+ *    an empty `animations`, so row 0 (rotations) is the whole sheet.
+ *
+ * PixelLab's slot-limited animation queue can also split ONE logical walk
+ * across SEVERAL sibling job folders/keys ("walking", "walking-<hex>",
+ * "walking-<hex2>", ...), each covering a different subset of the 8
+ * directions. mergeSplitAnimations() groups them back into one animation
+ * before packing (see packOne).
  */
 import { PNG } from "pngjs";
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from "node:fs";
@@ -60,7 +73,10 @@ function parseArgs(argv) {
 }
 
 /** Find metadata.json at dir or any immediate subdir; return {meta, baseDir}
- *  where baseDir is the folder the frame paths are relative to. */
+ *  where baseDir is the folder the frame paths are relative to. Falls back to
+ *  synthesizing a rotations-only frame map (see file header) when no
+ *  metadata.json exists anywhere but a `rotations/<dir>.png` set does — the
+ *  shape a skeleton-less 8-directional object export (e.g. hen/duck) lands in. */
 function findMetadata(dir) {
   const direct = join(dir, "metadata.json");
   if (existsSync(direct)) return { meta: JSON.parse(readFileSync(direct, "utf8")), baseDir: dir };
@@ -71,7 +87,36 @@ function findMetadata(dir) {
       if (existsSync(m)) return { meta: JSON.parse(readFileSync(m, "utf8")), baseDir: p };
     }
   }
+  const rotDir = join(dir, "rotations");
+  if (existsSync(rotDir) && statSync(rotDir).isDirectory()) {
+    const rotations = {};
+    for (const d of DIRS) {
+      const f = join(rotDir, `${d}.png`);
+      if (existsSync(f)) rotations[d] = join("rotations", `${d}.png`);
+    }
+    if (Object.keys(rotations).length === DIRS.length)
+      return { meta: { states: [{ frames: { rotations, animations: {} } }] }, baseDir: dir };
+  }
   throw new Error(`no metadata.json under ${dir}`);
+}
+
+/**
+ * Merge sibling animation keys that are really the SAME logical animation
+ * split across several queued jobs (seen on the farm-animal batch: cat/dog/pig
+ * each split "walking" into "walking" + "walking-<8-hex-chars>" job folders,
+ * every one covering a different subset of the 8 directions — the generator's
+ * slot-limited queueing). Group by base name (strip a trailing job-id suffix)
+ * and merge each group's per-direction frame arrays into one; a base with no
+ * split siblings passes through unchanged. Generalizes the one-off manual fix
+ * used for the heroine ponytail's regenerated NE walk.
+ */
+function mergeSplitAnimations(animations) {
+  const merged = {};
+  for (const [key, dirs] of Object.entries(animations)) {
+    const base = key.replace(/-[0-9a-f]{6,8}$/i, "");
+    merged[base] = Object.assign(merged[base] ?? {}, dirs);
+  }
+  return merged;
 }
 
 function loadPng(path) { return PNG.sync.read(readFileSync(path)); }
@@ -103,7 +148,7 @@ function packOne(name, srcDir, outDir) {
   const { meta, baseDir } = findMetadata(srcDir);
   const st = meta.states[0];
   const rotations = st.frames.rotations;             // dir -> path
-  const animations = st.frames.animations ?? {};     // animName -> dir -> [paths]
+  const animations = mergeSplitAnimations(st.frames.animations ?? {});   // animName -> dir -> [paths]
 
   // ---- collect every (key, absolute-path) frame ----
   const items = [];   // { key, path }
@@ -188,8 +233,9 @@ function packOne(name, srcDir, outDir) {
   writeFileSync(outJson, JSON.stringify(json, null, 0) + "\n");
 
   const bytes = statSync(outPng).size;
+  const silhouette = bbox.maxY + 1 - bbox.minY;   // union alpha-bbox height (native px) — a scale-picking aid
   console.log(`[pack] ${name}: ${cols}x${rows} grid, cell ${cw}px, ${Object.keys(frames).length} frames, ` +
-    `anchor cx=${anchor.cx} footY=${anchor.footY}, ${(bytes / 1024).toFixed(1)}KB`);
+    `anchor cx=${anchor.cx} footY=${anchor.footY}, silhouette=${silhouette}px tall, ${(bytes / 1024).toFixed(1)}KB`);
   return json;
 }
 

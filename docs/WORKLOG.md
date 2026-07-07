@@ -29,6 +29,148 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Farmyard sprites — cow, pig, sheep, hen, duck on the animal bridge
+- **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 6)
+- **Block given:** Integrate the farm-animal sprite batch (cow/pig/sheep/dog/cat
+  quadrupeds with 8-dir walk cycles; hen/duck birds, rotations-only). Pack the
+  raw PixelLab exports, build a new rig-to-sprite bridge for livestock (the
+  animal counterpart to `spriteNpc.ts`), wire the dual-path fallback into the
+  five owned-livestock draw sites, and keep `animalRig.ts` alive as the fallback
+  (unchanged) — never build ahead of what's asked (cat/dog are banked for a
+  future Pets block, not spawned).
+- **Done:**
+  - **Packer (`scripts/packsheets.mjs`), two generalizations, both reusable
+    beyond this batch:**
+    - `mergeSplitAnimations()` — PixelLab's slot-limited animation queue had
+      split the SAME logical "walking" animation across several sibling job
+      folders for cat/dog/pig (`walking`, `walking-<8-hex-chars>` × several),
+      each covering a different subset of the 8 directions. The packer now
+      groups animation keys by base name (strips a trailing job-id suffix) and
+      merges their per-direction frame arrays before packing — generalizes the
+      one-off manual fix previously used for the heroine ponytail's
+      regenerated NE walk. Cow (single `walk` folder, all 8 dirs, 7 frames) and
+      sheep (single `walking` folder) pass through unchanged.
+    - `findMetadata()` now also recognizes a ROTATIONS-ONLY export (no
+      `metadata.json` at all — hen/duck were generated as 8-directional
+      objects, no skeleton/walk animation): a bare `rotations/<dir>.png` per
+      direction is synthesized into the same frame-map shape with an empty
+      `animations`, so row 0 is the whole sheet.
+    - The per-pack console log now also reports the union alpha-bbox
+      `silhouette=NNpx tall` (native px) — a scale-picking aid for whoever
+      integrates the next batch.
+  - **Assets** — packed via `--all` into `src/assets/pixellab/animals/`:
+    `cow.sheet.{png,json}` (8×8 grid, 7-frame walk), `pig.sheet.*` (8×7,
+    6-frame walk, merged from 4 split job folders), `sheep.sheet.*` (8×7,
+    6-frame), `hen.sheet.*` and `duck.sheet.*` (8×1, rotations only), plus
+    `cat.sheet.*` and `dog.sheet.*` (8×7, 6-frame, merged from 4-5 split job
+    folders each) — **banked, not spawned** (see below). The manifest's
+    existing globs picked up the new `animals/` category with no code change.
+  - **`src/art/spriteAnimal.ts`** (new) — the livestock rig-to-sprite bridge,
+    generalized from `spriteNpc.ts`'s pattern (facing/frame selection shares
+    `spriteFacing.ts`'s `DIR8`/`nextSector`/`walkFrame`):
+    - Quadrupeds (cow/pig/sheep): walk cycle keyed to the animal's distance
+      accumulator, 8-dir facing from its movement vector (hysteresis); idle =
+      static rotation frame. The walk's frame COUNT is read off the sheet's own
+      `anims` entry at runtime (`info.anims.find(a => a.prefix === "walk")`),
+      not hardcoded — the cow's export happens to be 7 frames where pig/sheep
+      are 6, and a hardcoded constant (as `spriteNpc.ts` uses for the NPCs,
+      uniformly 6) would have silently mis-looped the cow.
+    - Birds (hen/duck): NO walk frames exist at all. A moving bird instead gets
+      a small CODE-DRIVEN waddle — a ±1px y-bob + a slight rotation tilt, both
+      keyed to the same distance accumulator every other walk cycle uses (`sin(dist
+      / stride * TAU)`), applied as a canvas transform pivoted on the bird's own
+      ground point — so a moving hen/duck doesn't visually freeze on its static
+      rotation frame. New knobs: `SPRITE_BIRD_WADDLE_AMP`/`_TILT`/`_STRIDE`.
+    - An animal that stops just holds whatever sector it was last walking in (no
+      "face the player" concept the way NPCs have — grazing wherever it stopped
+      is the natural resting pose); held state (sector + last position) lives in
+      a per-instance `WeakMap<object,…>` since a flock has no stable string id
+      the way NPCs do.
+    - Shadow: an identical under-ellipse to `animalRig.ts`'s own
+      `drawQuadruped`/`drawBird` `shadow()` call (numbers mirrored as plain
+      constants, the same "duplicate the rig's shadow geometry" approach
+      `spriteNpc.ts` uses for the humanoid rig) — no cast shadow, matching
+      the animal rig's own (pre-existing) behavior exactly, so the two paths
+      never pop against each other.
+    - Dev bridge: `setAnimalSpriteMode`/`animalSpriteModeOn`/`animalHasSprite`
+      (mirrors the NPC bridge's A/B toggle).
+  - **`src/art/characters.ts`** — `drawCow`/`drawHen`/`drawDuck`/`drawPig`/
+    `drawSheep` now try `drawAnimalSprite(g, kind, entity)` first and fall back
+    to the existing `drawQuadruped`/`drawBird` rig call when it returns false
+    (no sheet / sprites off / frame not decoded yet) — same dual-path shape as
+    `drawFarmer`/`drawNpc`. `drawRabbit`/`drawCat`/`drawDog` (rig-only,
+    unused-outside-verification wrappers) are untouched.
+  - **`src/config.ts`** — new "Farm-animal sprites" block:
+    `SPRITE_ANIMAL_WALK_STRIDE`, `SPRITE_ANIMAL_SCALES` (per-species,
+    `{cow:0.57, pig:0.39, sheep:0.50, hen:0.62, duck:0.47}` — see the scale
+    table below), `SPRITE_ANIMAL_GROUND` (per-species `{dy,rx,ry}` ground-plane
+    + shadow geometry), `SPRITE_BIRD_WADDLE_AMP`/`_TILT`/`_STRIDE`.
+  - **`src/main.ts`** — imports + wires the animal sprite-mode dev bridge
+    (`animalSpriteMode`/`animalSpriteModeOn`/`animalSprited`), mirroring the
+    existing `npcSpriteMode` bridge. Also exposed the live `cows`/`hens`/
+    `ducks`/`pigs`/`sheep` arrays on `__wh` (alongside the existing `wildlife`)
+    so automated verification can drive an animal's position/motion directly,
+    the same reason `player`/`npcs`/`wildlife` are already exposed there.
+  - **Feed/purchase interactions, wander/flee AI, and save persistence are
+    UNTOUCHED** — only the draw call sites changed; `entities/animals.ts`
+    already carried `dist`/`moving` from Part C, no entity changes were needed.
+- **Per-species scale/anchor table** (world px; `dy`/`rx`/`ry` mirror
+  `animalRig.ts`'s own `shadow()` call for that species' preset at its existing
+  `scale`, so the sprite path's ground line + shadow are pixel-identical to the
+  rig's):
+
+  | Species | native silhouette (packer log) | `SPRITE_ANIMAL_SCALES` | apparent height (≈ rig's) | ground `dy` | shadow `rx`/`ry` |
+  |---|---|---|---|---|---|
+  | cow   | 49px | 0.57 | 27.9 (rig 27.7) | 15.0 | 18.9 / 4.5 |
+  | sheep | 46px | 0.50 | 23.0 (rig 23.1) | 11.7 | 15.1 / 4.05 |
+  | pig   | 52px | 0.39 | 20.3 (rig 20.2) | 9.9  | 13.4 / 3.63 |
+  | hen   | 29px | 0.62 | 18.0 (rig 18.1) | 9.35 | 7.0 / 2.8 |
+  | duck  | 29px | 0.47 | 13.6 (rig 13.6) | 7.14 | 5.2 / 2.08 |
+
+  Every species lands within ~1% of its code-rig's own apparent height (derived
+  from `animalRig.ts`'s `bodyH`/`legLen`/`scale` geometry per preset), so the
+  dev A/B toggle never pops. Hen ≈ 65% of cow's height, duck ≈ 49% (both in the
+  "~60%, similar" range the brief called for); pig/sheep sit between hen and
+  cow (73%/83%), matching the existing rig's own `PIG_RIG`/`SHEEP_RIG` scale
+  ratios.
+- **Bird-waddle decision:** birds got NO walk-frame animation from the
+  generator (rotations only — they're "objects, no skeleton" per the brief),
+  so a moving hen/duck would otherwise freeze mid-stride on its static
+  rotation. Rather than spend a generation budget on a walk template neither
+  species has a skeleton for, a cheap CODE-DRIVEN waddle (±1px bob + a small
+  tilt, both keyed to distance) stands in — same aliveness the old rig's
+  moving-vs-idle bob had, zero extra assets.
+- **Verified (Playwright + reviewed screenshots, dev server, `__wh` bridge):**
+  bought a hen + duck + pig + sheep + cow at the farm's own stall (barn +
+  coins granted via `repairFarm()`/`economy.coins`) — all five spawn and render
+  as sprites (`animalSprited()` → all 5); zoomed crops confirm correct
+  silhouettes (pig/cow/sheep caught mid-walk with visibly different leg/body
+  frames; hen's facing rotated correctly to its movement direction, and two
+  consecutive frames while `moving` showed a visibly different bob/tilt,
+  confirming the waddle); grazing/idle renders the static rotation. Forced
+  `animalSpriteMode(false)` → every animal instantly renders the ORIGINAL
+  code-drawn rig (visually distinct art confirmed for hen/cow/duck side by
+  side with the sprite path) with zero page errors; `animalSpriteMode(true)`
+  restored the sprites cleanly, same world position, no pop. Reloaded the page
+  — `wildhearth-livestock-v1` still read `{cow:true, hens:1, ducks:1, pigs:1,
+  sheep:1}` and all five re-rendered as sprites from a cold load. Fed the cow
+  (walked the player to `cows[0]`, pressed `E`): Husbandry skill 0 → 0.3, corn
+  3 → 2, confirming the interaction/skill layer is unaffected by the draw-path
+  change. Zero console/page errors across every pass. `npm run build` green
+  (strict); Vite build succeeds with no bundle-size warning — every new
+  `.sheet.png` (7.1–108KB) is a separate hashed asset, not inlined; main JS
+  chunk 434.83KB / gzip 137.60KB.
+- **Follow-ups:**
+  - Cat/dog sheets are committed and manifest-visible (harmless extra network
+    fetches at boot, same accepted tradeoff as the building-variety batch's
+    `buildings/spare/`) but nothing spawns them yet — wiring them to real
+    `Cat`/`Dog` entities + `drawCat`/`drawDog`'s dual path is the Pets block's
+    job (adoption/companionship, VISION.md Systems #6), not this batch.
+  - `mergeSplitAnimations()`'s job-id suffix pattern (`-[0-9a-f]{6,8}`) is
+    inferred from this batch's observed folder names; if a future generation
+    wave uses a different suffix shape, widen the regex rather than special-
+    casing another manual metadata merge.
+
 ## Her character, her design — 5 heroine hairstyles + runtime hair/dress recolour
 - **Date:** 2026-07-07 (v1-foundation, PixelLab integration wave 5)
 - **Block given:** Close the "the character must match the design she defined"
