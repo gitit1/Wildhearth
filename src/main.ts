@@ -1723,7 +1723,7 @@ function draw(dt: number) {
     else if (c.state === "wilted") drawWiltedTile(ctx, c.x, c.y);
     else if (c.state === "growing" || c.state === "ready")
       drawCropTile(ctx, c.x, c.y, c.growth, time, cropById(c.cropId ?? "")?.palette, c.watered,
-        cropById(c.cropId ?? "")?.growth);
+        cropById(c.cropId ?? "")?.growth, c.cropId ?? "");
   }
   drawBuskSpot(ctx, BUSK_SPOT[0], BUSK_SPOT[1], time);
   FLOWER_BEDS.forEach(([fx, fy], i) => drawFlowerBed(ctx, fx, fy, garden.beds[i]!, time));

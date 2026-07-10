@@ -29,6 +29,60 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Crop sprites — dual-path drawCropTile (soil tile stays code)
+- **Date:** 2026-07-10 (v1-foundation)
+- **Block given:** integrate the 24 approved PixelLab CROP sprites as the
+  primary in-field crop look, dual-path — the code plant painter stays as the
+  zero-PNG fallback, and the tilled SOIL tile stays code-drawn (it's ground;
+  only the PLANT drawn on top is replaced).
+- **Assets:** copied 24 sprites (52×52, transparent, plant base bottom-centre
+  with a small soil clod) into a NEW `src/assets/pixellab/crops/` category —
+  6 SHARED stage sprites `sprout-{tall,bushy,vine}.png` +
+  `growing-{tall,bushy,vine}.png`, and 18 PER-CROP ripe sprites
+  `ripe-<cropId>.png` (corn, carrot, potato, wheat, tomato, strawberry,
+  winterroot, pumpkin, melon, cabbage, turnip, pepper, squash, eggplant,
+  parsnip, beet, glass-gem-corn, moonmelon). No `manifest.ts` change needed:
+  its eager `./**/*.png` glob auto-keys them as `crops/<name>` (same LOOSE
+  single-PNG shape as buildings/trees).
+- **cropId threading (`src/main.ts`):** the crop draw call now passes
+  `c.cropId ?? ""` as a new final `drawCropTile` arg so ripe can resolve
+  `ripe-<cropId>`. All existing args/behaviour unchanged.
+- **Dual-path plant (`src/art/props.ts`, `drawCropTile`):** `drawTilledTile()`
+  still draws the soil first (always code). Then the PLANT: `growth` maps to a
+  shape (`tall-stalk→tall`, `bushy→bushy`, `vine→vine`) and STAGE picks the
+  sprite — `stage < 0.25 → crops/sprout-<shape>`, `0.25 ≤ stage < 1 →
+  crops/growing-<shape>`, `stage ≥ 1 → crops/ripe-<cropId>`. If `sprite(id)`
+  is present + decoded it's drawn and the fn returns; otherwise the existing
+  code plant painter (tall-stalk branch / `drawBushyCrop` / `drawVineCrop`)
+  runs unchanged. `drawWiltedTile` + the unwatered soil stay entirely on the
+  code painters. Scheme: 6 shared stage sprites keep the set small; only the
+  ripe frame is per-crop, so every species reads as its own fruit.
+- **Anchor + scale:** new `spriteBaseAnchor(id, img)` in `src/art/sprites.ts`
+  computes each sprite's alpha-bbox base (centre col + bottom-most opaque row)
+  once from an offscreen canvas and caches it — no hardcoded per-sprite table,
+  auto-adapts to all 24 feet (measured 37–48). The base pixel is planted via
+  the existing `drawGroundSprite()` at `(tileCentreX, tileCentreY +
+  SPRITE_CROP_BASE_DY)`, nearest-neighbour. Tuning in `src/config.ts`:
+  `SPRITE_CROP_SCALE = 0.66` (world-px per sprite-px → tallest ripe ~46
+  sprite-px reads ~30 screen-px, about a 32-px tile), `SPRITE_CROP_BASE_DY = 8`
+  (base sits low on the tilled soil, matching the code plant's ~cy+8..11 base).
+- **Build hygiene (`vite.config.ts`):** set `build.assetsInlineLimit = 0`.
+  The small (<4KB) crop PNGs were being base64-INLINED into the entry chunk,
+  pushing `index.js` past the 500KB warning (505KB). Emitting every sprite as
+  its own hashed file (they load lazily via `Image()` anyway) dropped the JS
+  to 438KB and makes all 24 crops separate cacheable files — also prevents the
+  upcoming prop/foliage batches from re-bloating the bundle.
+- **Verified:** throwaway harness rendered all 18 crops × 3 stages on the
+  code tiles at ×4 (screenshot in scratchpad `crops/ingame-crops.png`). Stages
+  progress sprout→growing→ripe, each ripe shows the right fruit, plants sit
+  anchored on the tiles, and the fallback probe (a ripe id with no PNG) drew
+  the code painter — confirming the zero-PNG path.
+- **Follow-ups:** a small residual soil clod is baked at some sprite bases; it
+  sits within/over the tilled tile and reads fine, but could be trimmed if the
+  art is ever regenerated. Weakest ripe reads: moonmelon + melon (small, pale
+  vine fruit, lower contrast on soil) — fine at gameplay zoom, worth a glance
+  if crop legibility is ever revisited.
+
 ## Tree sprites — dual-path drawTree + runtime variety
 - **Date:** 2026-07-10 (v1-foundation)
 - **Block given:** integrate the 10 approved PixelLab TREE sprites as the

@@ -113,6 +113,50 @@ export function drawGroundSprite(
 }
 
 // ===========================================================================
+//  Base anchor — the alpha-bbox foot of a loose sprite (bottom-most opaque row
+//  + horizontal centre of its content), computed once from an offscreen canvas
+//  and cached by id. Lets a caller plant a sprite's actual lowest pixel on a
+//  world point without hardcoding a per-sprite anchor table (used by the crop
+//  painter: 24 crop sprites with different foot rows all ground correctly). The
+//  image is already decoded when this is called (sprite() gates on that).
+// ===========================================================================
+const baseAnchorCache = new Map<string, { cx: number; foot: number }>();
+
+/** {cx, foot} = (centre col, bottom-most opaque row) of `img`'s alpha bbox, so
+ *  drawGroundSprite(g, img, X, Y, cx, foot, s) lands the sprite's lowest pixel
+ *  on (X,Y). Computed once per id and cached; falls back to (w/2, h) if the
+ *  canvas read fails or the sprite is fully transparent. */
+export function spriteBaseAnchor(id: string, img: HTMLImageElement): { cx: number; foot: number } {
+  const cached = baseAnchorCache.get(id);
+  if (cached) return cached;
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const fallback = { cx: w / 2, foot: h };
+  if (!w || !h) return fallback;
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const cx = canvas.getContext("2d");
+  if (!cx) return fallback;
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(img, 0, 0);
+  let px: Uint8ClampedArray;
+  try { px = cx.getImageData(0, 0, w, h).data; }
+  catch { return fallback; }
+  let minX = w, maxX = -1, maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (px[(y * w + x) * 4 + 3]! > 16) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  const res = maxY < 0 ? fallback : { cx: (minX + maxX) / 2, foot: maxY };
+  baseAnchorCache.set(id, res);
+  return res;
+}
+
+// ===========================================================================
 //  Sprite recolor — gives ONE baked sprite a per-instance color identity
 //  (e.g. the market stall's striped awning, tinted per stall) without
 //  regenerating art. HSL-based: pixels whose OWN hue/saturation fall inside a

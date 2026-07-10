@@ -1,8 +1,8 @@
-import { T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER } from "../config";
+import { T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER, SPRITE_CROP_SCALE, SPRITE_CROP_BASE_DY } from "../config";
 import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
 import { shadow, outline, oRect, castShadow } from "./shapes";
-import { sprite } from "./sprites";
+import { sprite, drawGroundSprite, spriteBaseAnchor } from "./sprites";
 import type { Season } from "../systems/calendar";
 import type { CropGrowthShape } from "../data/crops";
 
@@ -364,13 +364,33 @@ const CROP_DEFAULT = { stalk: "#3f6a22", leaf: "#528a2c", fruit: "#e8c85a" };
  * tint, so the field doesn't read as "the same stalk in 18 colors":
  * tall-stalk (original upright behavior), bushy (a leafy mound, potato/
  * tomato/cabbage), vine (a low trailing runner, melon/pumpkin/strawberry).
+ *
+ * DUAL-PATH (CLAUDE.md hard rule #1): the tilled SOIL tile is always
+ * code-drawn (it's ground); the PLANT on top is a PixelLab sprite when present.
+ * Stage picks a shared sprout/growing sprite by shape, ripe picks a per-crop
+ * `ripe-<cropId>` sprite; its measured alpha-bbox base is planted low on the
+ * tile. If the chosen PNG is absent/undecoded, the code plant painter below
+ * runs unchanged — so the game draws every crop with zero sprite files.
  */
 export function drawCropTile(
   g: CanvasRenderingContext2D, cx: number, cy: number, stage: number, t: number,
   pal: { stalk: string; leaf: string; fruit: string } = CROP_DEFAULT, watered = false,
-  growth: CropGrowthShape = "tall-stalk",
+  growth: CropGrowthShape = "tall-stalk", cropId?: string,
 ) {
   drawTilledTile(g, cx, cy, watered);
+  // --- sprite plant (soil stays code-drawn above) ---
+  const shape = growth === "bushy" ? "bushy" : growth === "vine" ? "vine" : "tall";
+  const spriteId =
+    stage < 0.25 ? `crops/sprout-${shape}`
+    : stage < 1 ? `crops/growing-${shape}`
+    : `crops/ripe-${cropId ?? ""}`;
+  const img = sprite(spriteId);
+  if (img) {
+    const a = spriteBaseAnchor(spriteId, img);
+    drawGroundSprite(g, img, cx, cy + SPRITE_CROP_BASE_DY, a.cx, a.foot, SPRITE_CROP_SCALE);
+    return;
+  }
+  // --- code plant painter (zero-PNG fallback) ---
   const sway = Math.sin(t * 1.6 + cx * 0.13) * 1.6;
   if (growth === "bushy") { drawBushyCrop(g, cx, cy, stage, pal, sway); return; }
   if (growth === "vine") { drawVineCrop(g, cx, cy, stage, pal, sway); return; }

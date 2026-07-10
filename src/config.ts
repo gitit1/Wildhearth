@@ -446,6 +446,15 @@ export const SPRITE_BIRD_WADDLE_STRIDE = 10;  // px of travel per waddle cycle
 export const SPRITE_TREE_SCALE = 0.55;        // world px per sprite px
 export const SPRITE_TREE_JITTER = 0.12;       // +/- uniform-scale variation (0.88..1.12)
 
+// --- Crop sprites (52-sprite-px plants on 32-px tiles). The PLANT is a sprite
+//     when present, drawn OVER the always-code-drawn tilled tile; its measured
+//     alpha-bbox base pixel is planted at (tile-centre-x, tile-centre-y +
+//     SPRITE_CROP_BASE_DY) so the soil clod sits low on the tilled soil. SCALE
+//     is world-px per sprite-px, tuned so the tallest ripe plant (~46 sprite-px
+//     of content) reads at ~30 screen-px, about the tile size. ---
+export const SPRITE_CROP_SCALE = 0.66;        // world px per sprite px
+export const SPRITE_CROP_BASE_DY = 8;         // plant base offset below tile centre
+
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";
