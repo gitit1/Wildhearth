@@ -29,6 +29,26 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## docs — overnight master plan + handoff (runs/handoff-2026-07-11.md)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** the owner ordered a continuous unattended overnight run;
+  Fable (architect) wrote the master plan + handoff before dispatching the
+  execution fleet, so any fresh-budget model can resume mid-run.
+- **Done (docs only):** new `runs/handoff-2026-07-11.md` — standing orders
+  (LOCAL commits only, never push; ≤1,500 gens/day; sequential repo agents),
+  tonight's locked decisions (D-1 characters = PixelLab curated sprite
+  matrix via method-A with keyed-purple hair; D-2 ground = tiles_pro
+  segmentation tiles + code dither edges, Wang rejected; D-3
+  everything-pixels audit), recon summaries (docs gap matrix, char
+  pipeline probe, ground probes 1+2; puppeteer in flight), the full wave
+  plan (G1 ground / G2 char matrix / G3 UI kit generation in parallel +
+  repo queue R1-R9 strictly sequential), open owner questions, exact
+  resume state, and the continuation's first step.
+- **Build:** n/a (docs only).
+- **Follow-ups:** memory file `char-medium-code-rig.md` is stale (owner
+  re-flipped to sprites) — R9 updates it; puppeteer agent's temp files
+  (package.json, recon-*.mjs) must never be committed by other agents.
+
 ## tooling — fable-mode skill: the autonomous working discipline
 - **Date:** 2026-07-10 (v1-foundation)
 - **Block given:** the owner ordered an unattended overnight run and asked
