@@ -44,6 +44,40 @@ export const FORAGE: ForageItem[] = [
     locations: ["forest"], seasons: ["autumn"], icon: { color: "#e0a12f", kind: "cap" } },
   { id: "truffle",         name: "Truffle",           price: 18, weight: 2,  skillFloor: 60,
     locations: ["forest"], seasons: ["autumn", "winter"], icon: { color: "#4a3a30", kind: "nut" } },
+
+  // ---- variety push (R3): 11 → 25. Fills the seasonal foraging curve (every
+  // season now yields a spread from floor-0 commons to premium finds), reusing
+  // the four existing tinted silhouettes (cluster / cap / sprig / nut). ----
+  { id: "dandelion",       name: "Dandelion greens",  price: 2,  weight: 22, skillFloor: 0,
+    locations: ["forest"], seasons: ["spring", "summer"], icon: { color: "#7fae2e", kind: "sprig" } },
+  { id: "clover",          name: "Wild clover",       price: 2,  weight: 20, skillFloor: 0,
+    locations: ["forest"], seasons: ["spring", "summer"], icon: { color: "#5f9a48", kind: "sprig" } },
+  { id: "nettle",          name: "Nettle",            price: 3,  weight: 16, skillFloor: 5,
+    locations: ["forest"], seasons: ["spring", "summer"], icon: { color: "#3f7a3a", kind: "sprig" } },
+  { id: "raspberry",       name: "Wild raspberries",  price: 4,  weight: 16, skillFloor: 6,
+    locations: ["forest"], seasons: ["summer"], icon: { color: "#c23a5a", kind: "cluster" } },
+  { id: "blackberry",      name: "Blackberries",      price: 4,  weight: 14, skillFloor: 8,
+    locations: ["forest"], seasons: ["summer", "autumn"], icon: { color: "#3a2a4a", kind: "cluster" } },
+  { id: "wild_mint",       name: "Wild mint",         price: 4,  weight: 14, skillFloor: 8,
+    locations: ["forest"], seasons: ["summer"], icon: { color: "#5aa87a", kind: "sprig" } },
+  { id: "acorns",          name: "Acorns",            price: 3,  weight: 16, skillFloor: 8,
+    locations: ["forest"], seasons: ["autumn"], icon: { color: "#9a6a38", kind: "nut" } },
+  { id: "chamomile",       name: "Chamomile",         price: 5,  weight: 12, skillFloor: 12,
+    locations: ["forest"], seasons: ["summer"], icon: { color: "#f0e8c0", kind: "cluster" } },
+  { id: "fiddlehead",      name: "Fiddleheads",       price: 6,  weight: 10, skillFloor: 15,
+    locations: ["forest"], seasons: ["spring"], icon: { color: "#6f9a3a", kind: "sprig" } },
+  { id: "chestnuts",       name: "Sweet chestnuts",   price: 6,  weight: 10, skillFloor: 18,
+    locations: ["forest"], seasons: ["autumn"], icon: { color: "#7a4a28", kind: "nut" } },
+  { id: "cranberries",     name: "Cranberries",       price: 6,  weight: 10, skillFloor: 22,
+    locations: ["forest"], seasons: ["autumn", "winter"], icon: { color: "#a8203a", kind: "cluster" } },
+  { id: "birch_sap",       name: "Birch sap",         price: 8,  weight: 7,  skillFloor: 28,
+    locations: ["forest"], seasons: ["winter", "spring"], icon: { color: "#dfe2d0", kind: "sprig" } },
+  { id: "pine_nuts",       name: "Pine nuts",         price: 10, weight: 6,  skillFloor: 30,
+    locations: ["forest"], seasons: ["winter"], icon: { color: "#c9a86a", kind: "nut" } },
+  { id: "morel",           name: "Morel",             price: 12, weight: 4,  skillFloor: 35,
+    locations: ["forest"], seasons: ["spring"], icon: { color: "#8a6a44", kind: "cap" } },
+  { id: "porcini",         name: "Porcini",           price: 14, weight: 3,  skillFloor: 45,
+    locations: ["forest"], seasons: ["autumn"], icon: { color: "#b0804a", kind: "cap" } },
 ];
 
 export function forageById(id: string): ForageItem | null {

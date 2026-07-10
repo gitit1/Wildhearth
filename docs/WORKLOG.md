@@ -29,6 +29,21 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## content — Forage variety 11 → 26 (R3, collection 2/5)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R3 variety push — forage 11 → 20+, fill the seasonal
+  foraging curve using the existing tinted-silhouette icons.
+- **Done (data only, one file):** `src/data/forage.ts` — 11 originals kept
+  (ids frozen), +15 new `ForageItem` rows reusing the four existing icon kinds
+  (cluster/cap/sprig/nut): dandelion, clover, nettle, raspberry, blackberry,
+  wild mint, acorns, chamomile, fiddlehead, sweet chestnuts, cranberries,
+  birch sap, pine nuts, morel, porcini. All propagate table-driven (prices in
+  GOOD_PRICES, names in ITEM_NAMES, icons in `art/icons.ts` `paintForage`,
+  Memory-Book `forage` category, and `foraging.ts` `resolveForage` eligibility).
+- **Verify:** esbuild harness — 26 rows, 0 dupes, 0 invalid; every season now
+  yields a floor-0 common through a premium find (spring 12 finds max-floor 35,
+  summer 11, autumn 12 max-floor 60, winter 7). Build green.
+
 ## content — Fish variety 12 → 50 (R3, collection 1/5)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R3 variety push, owner's explicit number — grow the fish
