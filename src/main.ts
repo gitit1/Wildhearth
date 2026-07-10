@@ -43,7 +43,7 @@ import { cropById, cropBySeed } from "./data/crops";
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
 import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
 import { recipeById } from "./data/recipes";
-import { loadGarden, resetGarden, saveGarden, updateGarden } from "./systems/gardening";
+import { loadGarden, resetGarden, saveGarden, updateGarden, rollGardenDay } from "./systems/gardening";
 import { loadCollections, resetCollections, discover, discoveredName, saveCollections } from "./systems/collections";
 import { sellableGoodIds } from "./systems/sellCategories";
 import { NPC_STALL_TRADES, type NpcStallTrade } from "./systems/shop";
@@ -800,6 +800,7 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     rollDailyWeather(weather, currentSeason(calendar));
     pruneExpired(worldFlags, absoluteDay(calendar));
     rollPlotsDay(plots, isRaining(weather));   // rain waters for free; dry crops bank a day toward wilting
+    rollGardenDay(garden, isRaining(weather)); // flower beds: rain waters, hand-water drains (flowers don't wilt)
     // neglect decay: any NPC not contacted during the day that just ended drifts
     // down (faster the shallower the bond); also expires a stale birthday flag
     decayRelationships(relationships, endedDay, absoluteDay(calendar));

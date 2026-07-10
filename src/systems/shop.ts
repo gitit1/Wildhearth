@@ -3,6 +3,7 @@ import {
   FLOWER_SEEDS_PRICE, HAGGLE_MAX_DISCOUNT,
 } from "../config";
 import { CROPS } from "../data/crops";
+import { FLOWERS } from "../data/flowers";
 import { addItem, countItem } from "./inventory";
 import { saveEconomy, type Economy } from "./economy";
 import { saveLivestock, type Livestock } from "./livestock";
@@ -32,7 +33,9 @@ export const SHOP_STOCK: ShopEntry[] = [
   // one packet per crop, stocked in the seasons it can actually be planted —
   // the stall doesn't sell what would only wilt in the bag
   ...CROPS.map((c): ShopEntry => ({ id: c.seedId, price: c.seedPrice, seasons: c.seasons })),
-  { id: "flower-seeds", price: FLOWER_SEEDS_PRICE },   // ornamental gardening
+  { id: "flower-seeds", price: FLOWER_SEEDS_PRICE },   // legacy mixed-flower packet (old saves / any-season)
+  // one packet per ornamental flower species, stocked in its planting seasons
+  ...FLOWERS.map((f): ShopEntry => ({ id: f.seedId, price: f.seedPrice, seasons: f.seasons })),
   { id: "hen", price: HEN_PRICE, livestock: "hen" },
   // Part C content-library commit 2: duck/pig/sheep — flock animals like the
   // hen (no per-species uniqueness), priced between the hen and the cow.

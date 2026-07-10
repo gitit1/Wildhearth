@@ -11,9 +11,11 @@ import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
 import { startBusk, type BuskingState } from "./busking";
 import { startCook, cookableRecipes, type CookingState } from "./cooking";
-import { saveGarden, type Garden } from "./gardening";
-import { countItem, removeItem, ITEM_NAMES } from "./inventory";
+import { saveGarden, plantBed, harvestBed, type Garden } from "./gardening";
+import { countItem, removeItem, addItem, ITEM_NAMES } from "./inventory";
 import { skillValue, gainSkill, type Skills } from "./skills";
+import { FLOWERS, flowerById, flowerBySeed } from "../data/flowers";
+import { currentSeason } from "./calendar";
 import {
   drink, wash, useOuthouse, rest, moodPerfMult, type NeedsState,
 } from "./needs";
@@ -590,7 +592,9 @@ export function registerNpcStall(trade: NpcStallTrade, npc: Npc, stallDef: Stall
   });
 }
 
-/** Flower beds by the house (Ornamental Gardening, base-skill-set block). */
+/** Flower beds by the house (Ornamental Gardening, R3 species system): plant a
+ *  held flower seed (in-season, Gardening floor met) -> water -> cut the bloom
+ *  for a sellable flower. Plant/water/harvest all train Gardening. */
 export function registerFlowerBeds(garden: Garden) {
   FLOWER_BEDS.forEach(([bx, by], i) => {
     INTERACTABLES.push({
@@ -603,30 +607,100 @@ export function registerFlowerBeds(garden: Garden) {
       actions: (c) => {
         const bed = c.garden.beds[i]!;
         const list: MenuAction[] = [];
-        if (!bed.planted)
+        const season = currentSeason(c.calendar);
+
+        if (!bed.species) {
+          // one "Plant <flower>" per distinct flower seed held (mirrors crops)
+          const seedIds = [...new Set(
+            c.economy.inv.slots.filter((s) => s && flowerBySeed(s.id)).map((s) => s!.id))];
+          for (const seedId of seedIds) {
+            const sp = flowerBySeed(seedId)!;
+            list.push({
+              id: seedIds[0] === seedId ? "plantflowers" : `plant-${seedId}`,
+              label: `Plant ${sp.name.toLowerCase()}`,
+              run: (c) => {
+                if (busy(c)) return;
+                if (skillValue(c.skills, "gardening") < sp.skillFloor) {
+                  c.toast(`${sp.name} needs Gardening ${sp.skillFloor} — not there yet.`); return;
+                }
+                if (!sp.seasons.includes(season)) {
+                  c.toast(`${sp.name} won't take in ${season} — wrong season.`); return;
+                }
+                removeItem(c.economy.inv, seedId, 1);
+                saveEconomy(c.economy);
+                plantBed(bed, sp.id);
+                saveGarden(c.garden);
+                c.toast(`${sp.name} planted — it'll want water.`);
+                c.memory("first_flowers", "You planted something just because it's pretty.");
+                const gained = gainSkill(c.skills, "gardening", moodPerfMult(c.needs));
+                if (gained > 0) c.skillPopup("gardening", gained);
+              },
+            });
+          }
+          // legacy mixed packet (old saves) — plants an in-season bloom
+          if (countItem(c.economy.inv, "flower-seeds") > 0) {
+            const pick = FLOWERS.filter((f) => f.seasons.includes(season))
+              .sort((a, b) => a.skillFloor - b.skillFloor)[0];
+            list.push({
+              id: seedIds.length ? "plant-mixed" : "plantflowers", label: "Plant mixed flowers",
+              run: (c) => {
+                if (busy(c)) return;
+                if (!pick) { c.toast(`Nothing in the mix takes in ${season}.`); return; }
+                removeItem(c.economy.inv, "flower-seeds", 1);
+                saveEconomy(c.economy);
+                plantBed(bed, pick.id);
+                saveGarden(c.garden);
+                c.toast(`${pick.name} planted — it'll want water.`);
+                c.memory("first_flowers", "You planted something just because it's pretty.");
+                const gained = gainSkill(c.skills, "gardening", moodPerfMult(c.needs));
+                if (gained > 0) c.skillPopup("gardening", gained);
+              },
+            });
+          }
+          if (list.length === 0)
+            list.push({
+              id: "plantflowers", label: "Plant flowers",
+              run: (c) => c.toast("You need flower seeds — the stall sells what's in season."),
+            });
+        } else if (!bed.bloomed && !bed.watered) {
           list.push({
-            id: "plantflowers", label: "Plant flowers",
+            id: "plantflowers", label: "Water",
             run: (c) => {
               if (busy(c)) return;
-              if (countItem(c.economy.inv, "flower-seeds") === 0) {
-                c.toast("You need flower seeds — the stall sells them."); return;
-              }
-              removeItem(c.economy.inv, "flower-seeds", 1);
-              saveEconomy(c.economy);
-              bed.planted = true; bed.growth = 0; bed.bloomed = false;
+              bed.watered = true;
               saveGarden(c.garden);
-              c.toast("Flowers planted — they'll open soon.");
-              c.memory("first_flowers", "You planted something just because it's pretty.");
+              c.toast("Watered — the flowers drink it in.");
               const gained = gainSkill(c.skills, "gardening", moodPerfMult(c.needs));
               if (gained > 0) c.skillPopup("gardening", gained);
             },
           });
+        } else if (bed.bloomed) {
+          list.push({
+            id: "plantflowers", label: "Cut flowers",
+            run: (c) => {
+              if (busy(c)) return;
+              const sp = bed.species ? flowerById(bed.species) : null;
+              if (!sp) return;
+              if (!addItem(c.economy.inv, sp.id, 1)) {
+                c.toast("Backpack full — cut the flowers when you have room."); return;
+              }
+              saveEconomy(c.economy);
+              harvestBed(bed);
+              saveGarden(c.garden);
+              c.toast(`Cut ${sp.name.toLowerCase()} — pretty enough to sell.`);
+              const gained = gainSkill(c.skills, "gardening", moodPerfMult(c.needs));
+              if (gained > 0) c.skillPopup("gardening", gained);
+            },
+          });
+        }
+
+        const spName = bed.species ? (flowerById(bed.species)?.name ?? "Flowers") : "";
         list.push({
           id: "look", label: "Look",
           run: (c) => c.toast(
-            !bed.planted ? "A patch of turned earth by the house, waiting for something pretty."
-            : bed.bloomed ? "Wildflowers in full bloom. The house looks less lonely for it."
-            : "Seedlings pushing up — give them a little time."),
+            !bed.species ? "A patch of turned earth by the house, waiting for something pretty."
+            : bed.bloomed ? `${spName} in full bloom. The house looks less lonely for it.`
+            : `${spName} coming up — ${Math.round(bed.growth * 100)}% there, ${bed.watered ? "watered for today" : "thirsty"}.`),
         });
         return list;
       },

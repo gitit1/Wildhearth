@@ -29,6 +29,59 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## content — Flowers 0 → 20 ornamental gardening system (R3, collection 5/5)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R3 — new ornamental flower species table wired into the
+  gardening system (plant/water/bloom/harvest/sell + Gardening skill gains);
+  seeds purchasable like crop seeds; in-world display reuses foliage flower
+  sprites tinted + code painter fallback.
+- **Done:**
+  - **NEW `src/data/flowers.ts`** — 20 `FlowerSpecies` across all seasons
+    (spring 6, summer 7, autumn 4, winter 3): crocus, primrose, tulip,
+    daffodil, bluebell, forget-me-not, daisy, marigold, poppy, cornflower,
+    lavender, sunflower, rose, goldenrod, aster, chrysanthemum, dahlia,
+    snowdrop, hellebore, camellia. Each: cut-flower price, seed packet
+    (~50% of price), watered growDays, Gardening skill floor, planting seasons,
+    a `foliage/flowers-<family>` sprite family, and a petal/center/leaf palette.
+  - **Reworked `src/systems/gardening.ts`** — `FlowerBed` is now
+    `{species, growth, watered, bloomed}` (was `{planted,growth,bloomed}`).
+    Save **v1→v2 migration** (a legacy planted bed adopts a default species,
+    keeping its bloom state). New `plantBed` / `harvestBed` / `rollGardenDay`;
+    `updateGarden` now only advances **watered** beds over the species' growDays
+    (active tending, mirrors crops — unwatered beds wait, flowers never wilt).
+  - **Wiring (table-driven, no per-species code):** cut-flower prices in
+    `economy.ts` GOOD_PRICES (so they sell at the player's own stall via the
+    unclaimed-goods pass-through in `sellCategories.ts`); flower + seed names in
+    `inventory.ts` ITEM_NAMES; per-species seed packets stocked by planting
+    season in `shop.ts` SHOP_STOCK (kept the legacy mixed `flower-seeds`
+    packet); backpack icons in `art/icons.ts` (new `paintFlower` tinted blossom
+    + tinted seed packets).
+  - **Interactions (`systems/interact.ts` `registerFlowerBeds`)** — empty bed
+    offers "Plant <flower>" per held flower seed (Gardening-floor + season
+    gated, mirrors crop planting) plus a legacy "Plant mixed flowers"; a growing
+    bed offers "Water"; a bloomed bed offers "Cut flowers" (banks the cut flower
+    only if the bag has room, then empties the bed). Every action rolls a
+    Gardening gain.
+  - **In-world (`art/props.ts` `drawFlowerBed`)** — species-coloured seedlings
+    → bloom; the bloom reuses the species' `foliage/flowers-<family>` sprite
+    when present, else the code painter draws it in the species' petal/centre
+    colours (dual-path). `main.ts` calls `rollGardenDay` on the day turnover
+    (rain waters beds, hand-water drains).
+- **Verify (real output):** esbuild harness — 20 species, 0 dupe ids/seedIds,
+  0 price/floor issues, all seasons covered. Lifecycle sim on the real
+  gardening functions: plant→unwatered stays growth 0→water→blooms over
+  growDays→cut yields the flower item→empties bed; dry day-roll drains water,
+  rainy day-roll re-waters. v1→v2 save migration test (planted legacy beds keep
+  bloom state, adopt default species). Headless-Edge screenshots: flower beds
+  (empty/seedling/tulip/sunflower/bluebell/daisy) render the correct foliage
+  sprite per family; backpack icons (rose/sunflower/bluebell/daisy + seed
+  packets) render distinct tinted blossoms. Build green.
+- **Follow-ups:** flower beds are still the 3 fixed beds by the house; a
+  dedicated "flowers" NPC-specialty sell stall wasn't added (cut flowers sell
+  at the player's own stall today). Bloom is species-tinted via the shared
+  foliage family sprite (a rose bed and poppy bed share the red family sprite);
+  per-species bloom sprites would need generation (out of scope, no-gens run).
+
 ## content — Crops 18 → 20 + dual-path proof (R3, collection 4/5)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R3 variety push — crops 18 → 20, and verify the 2 new crops

@@ -8,6 +8,7 @@ import { shadow, outline, oRect, castShadow } from "./shapes";
 import { sprite, drawGroundSprite, spriteBaseAnchor } from "./sprites";
 import type { Season } from "../systems/calendar";
 import type { CropGrowthShape } from "../data/crops";
+import { flowerById } from "../data/flowers";
 
 /** Four tree species, assigned deterministically per tree position (seeded by
  *  its world coordinates, so the same tree is always the same species —
@@ -607,41 +608,56 @@ export function drawBush(
   }
 }
 
-/** Ornamental flower bed by the house: turned earth -> seedlings -> bloom. */
+/**
+ * Ornamental flower bed by the house (R3 species system): turned earth ->
+ * seedlings -> bloom, coloured by the planted species. Dual-path: the bloom
+ * reuses the species' `foliage/flowers-<family>` sprite when that PNG is
+ * present, else the code painter draws it with the species' own petal/centre
+ * colours (zero-PNG fallback, CLAUDE.md rule #1).
+ */
 export function drawFlowerBed(
   g: CanvasRenderingContext2D, x: number, y: number,
-  bed: { planted: boolean; growth: number; bloomed: boolean }, t: number,
+  bed: { species: string | null; growth: number; watered: boolean; bloomed: boolean }, t: number,
 ) {
   // the bed itself: an oval of turned earth
   g.fillStyle = "#57402a";
   g.beginPath(); g.ellipse(x, y, 15, 10, 0, 0, 7); g.fill();
   outline(g);
-  if (!bed.planted) return;
+  if (!bed.species) return;
+  const sp = flowerById(bed.species);
+  const pal = sp?.palette ?? { petal: "#d16a9a", center: "#e8c34f", leaf: "#4a7a2a" };
   const rnd = mulberry32((x * 7 + y) | 0);
   if (!bed.bloomed) {
-    // seedlings
-    g.strokeStyle = "#6fae3e"; g.lineWidth = 1.5;
+    // seedlings, height creeping up with growth
+    g.strokeStyle = pal.leaf; g.lineWidth = 1.5;
     for (let i = 0; i < 5; i++) {
       const px = x - 10 + rnd() * 20, py = y - 4 + rnd() * 8;
-      g.beginPath(); g.moveTo(px, py); g.lineTo(px - 1.5, py - 3 - bed.growth * 3); g.stroke();
-      g.beginPath(); g.moveTo(px, py); g.lineTo(px + 1.5, py - 3 - bed.growth * 3); g.stroke();
+      g.beginPath(); g.moveTo(px, py); g.lineTo(px - 1.5, py - 3 - bed.growth * 4); g.stroke();
+      g.beginPath(); g.moveTo(px, py); g.lineTo(px + 1.5, py - 3 - bed.growth * 4); g.stroke();
     }
-  } else {
-    // wildflowers in bloom, gently swaying
-    const colors = ["#d16a9a", "#e8c34f", "#8a7ac2", "#e07830", "#e0e6f0"];
-    for (let i = 0; i < 7; i++) {
-      const px = x - 11 + rnd() * 22, py = y - 5 + rnd() * 10;
-      const sway = Math.sin(t * 1.3 + px * 0.4) * 0.8;
-      g.strokeStyle = "#4a7a2a"; g.lineWidth = 1.5;
-      g.beginPath(); g.moveTo(px, py + 3); g.lineTo(px + sway, py - 4); g.stroke();
-      g.fillStyle = colors[i % colors.length]!;
-      for (let pt = 0; pt < 5; pt++) {
-        const a = (pt / 5) * Math.PI * 2;
-        g.beginPath(); g.arc(px + sway + Math.cos(a) * 2.2, py - 5 + Math.sin(a) * 2.2, 1.4, 0, 7); g.fill();
-      }
-      g.fillStyle = "#e8c34f";
-      g.beginPath(); g.arc(px + sway, py - 5, 1.2, 0, 7); g.fill();
+    return;
+  }
+  // --- bloom: reuse the species' foliage flower sprite when present ---
+  const famId = sp ? `foliage/flowers-${sp.sprite}` : null;
+  const img = famId ? sprite(famId) : null;
+  if (img && famId) {
+    const a = spriteBaseAnchor(famId, img);
+    drawGroundSprite(g, img, x, y + 5, a.cx, a.foot, 0.5);
+    return;
+  }
+  // --- code bloom painter (zero-PNG fallback), tinted to the species ---
+  for (let i = 0; i < 7; i++) {
+    const px = x - 11 + rnd() * 22, py = y - 5 + rnd() * 10;
+    const sway = Math.sin(t * 1.3 + px * 0.4) * 0.8;
+    g.strokeStyle = pal.leaf; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(px, py + 3); g.lineTo(px + sway, py - 4); g.stroke();
+    g.fillStyle = pal.petal;
+    for (let pt = 0; pt < 5; pt++) {
+      const a = (pt / 5) * Math.PI * 2;
+      g.beginPath(); g.arc(px + sway + Math.cos(a) * 2.2, py - 5 + Math.sin(a) * 2.2, 1.4, 0, 7); g.fill();
     }
+    g.fillStyle = pal.center;
+    g.beginPath(); g.arc(px + sway, py - 5, 1.2, 0, 7); g.fill();
   }
 }
 

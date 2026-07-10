@@ -5,6 +5,7 @@ import { FISH } from "../data/fish";
 import { CROPS } from "../data/crops";
 import { FORAGE } from "../data/forage";
 import { RECIPES } from "../data/recipes";
+import { FLOWERS } from "../data/flowers";
 import { roundR } from "./shapes";
 
 /** A cooked dish: steaming bowl, contents tinted per recipe. */
@@ -74,6 +75,31 @@ function paintForage(
     g.beginPath(); g.ellipse(s * 0.42, s * 0.44, s * 0.11, s * 0.06, -0.2, 0, 7); g.fill();
     g.beginPath(); g.ellipse(s * 0.63, s * 0.4, s * 0.1, s * 0.05, 0.3, 0, 7); g.fill();
   }
+}
+
+/** A cut flower on a short stem, petals + centre tinted per species. */
+function paintFlower(
+  g: CanvasRenderingContext2D, s: number,
+  pal: { petal: string; center: string; leaf: string },
+) {
+  // stem + a leaf
+  g.strokeStyle = pal.leaf; g.lineWidth = Math.max(1.5, s * 0.045); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.5, s * 0.82); g.lineTo(s * 0.5, s * 0.46); g.stroke();
+  g.fillStyle = pal.leaf;
+  g.beginPath(); g.ellipse(s * 0.4, s * 0.62, s * 0.09, s * 0.045, -0.5, 0, 7); g.fill();
+  // five petals around a centre
+  g.fillStyle = pal.petal;
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+    g.beginPath();
+    g.ellipse(s * 0.5 + Math.cos(a) * s * 0.13, s * 0.36 + Math.sin(a) * s * 0.13,
+      s * 0.1, s * 0.07, a, 0, 7);
+    g.fill();
+  }
+  g.fillStyle = pal.center;
+  g.beginPath(); g.arc(s * 0.5, s * 0.36, s * 0.075, 0, 7); g.fill();
+  g.fillStyle = "rgba(255,255,255,.35)";
+  g.beginPath(); g.arc(s * 0.47, s * 0.33, s * 0.025, 0, 7); g.fill();
 }
 
 type IconPainter = (g: CanvasRenderingContext2D, s: number) => void;
@@ -724,6 +750,10 @@ const PAINTERS: Record<string, IconPainter> = {
   // cooked dishes share the steaming-bowl painter
   ...Object.fromEntries(RECIPES.map((r) => [r.id, ((g, s) => paintDish(g, s, r.icon.color)) as IconPainter])),
   "flower-seeds": paintFlowerSeeds,
+  // ornamental flowers: cut blooms share the tinted blossom painter, seed
+  // packets the tinted-packet painter (both keyed off the species palette)
+  ...Object.fromEntries(FLOWERS.map((f) => [f.id, ((g, s) => paintFlower(g, s, f.palette)) as IconPainter])),
+  ...Object.fromEntries(FLOWERS.map((f) => [f.seedId, ((g, s) => paintSeedPacket(g, s, f.palette.petal)) as IconPainter])),
 };
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */

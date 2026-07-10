@@ -4,6 +4,7 @@ import { JUNK } from "../data/junk";
 import { CROPS } from "../data/crops";
 import { FORAGE } from "../data/forage";
 import { RECIPES } from "../data/recipes";
+import { FLOWERS } from "../data/flowers";
 import {
   Inventory, createInventory, reviveInventory, addItem, removeItem, countItem,
 } from "./inventory";
@@ -20,6 +21,7 @@ export const GOOD_PRICES: Record<string, number> = {
   ...Object.fromEntries(CROPS.map((c) => [c.id, c.price])),
   ...Object.fromEntries(FORAGE.map((f) => [f.id, f.price])),
   ...Object.fromEntries(RECIPES.map((r) => [r.id, r.price])),   // cooked dishes
+  ...Object.fromEntries(FLOWERS.map((f) => [f.id, f.price])),   // cut flowers (ornamental gardening)
 };
 
 /** Player wallet + backpack. Coins are currency (not a slot item). */
