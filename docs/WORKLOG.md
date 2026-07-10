@@ -29,6 +29,27 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## content — Crops 18 → 20 + dual-path proof (R3, collection 4/5)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R3 variety push — crops 18 → 20, and verify the 2 new crops
+  fall back to the code plant painter where no ripe sprite exists (dual-path
+  must hold, CLAUDE.md hard rule #1).
+- **Done (data only, one file):** `src/data/crops.ts` — +2 `CropType` rows:
+  **lettuce** (spring/summer, floor 10, bushy) fills the leafy-green gap;
+  **garlic** (autumn/winter, floor 18, tall-stalk) fills the allium gap and
+  thickens winter. Seed prices ~50% of produce (lettuce 3/6, garlic 5/10), per
+  the table convention. Both propagate table-driven: shop seed packets
+  (`shop.ts` maps `CROPS`), produce/seed icons (`art/icons.ts` paintProduce +
+  paintSeedPacket), prices, names, field growth silhouette (`props.ts`
+  drawCropTile).
+- **Verify (dual-path, real output):** `src/assets/pixellab/crops/` holds ripe
+  PNGs for the original 18 only; the sprite manifest is a glob of real files
+  (`assets/pixellab/manifest.ts`), so `sprite("crops/ripe-lettuce"|"...garlic")`
+  is null → drawCropTile's code plant painter runs. Rendered a throwaway
+  harness in headless Edge: corn/tomato/moonmelon draw their sprites while
+  lettuce (green bushy mound) and garlic (pale tall-stalk) draw via the code
+  painter — screenshot confirmed both new crops render (not blank). Build green.
+
 ## content — Cooking recipes 6 → 21 (R3, collection 3/5)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R3 variety push — recipes 7 → 20+, multi-ingredient dishes

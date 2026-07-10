@@ -92,6 +92,18 @@ export const CROPS: CropType[] = [
   { id: "moonmelon", name: "Moonmelon", seedId: "moonmelon-seeds", seedName: "Moonmelon seeds", seedPrice: 11,
     price: 22, growDays: 3, skillFloor: 60, seasons: ["winter"],
     palette: { stalk: "#3a4a5a", leaf: "#4a5f6a", fruit: "#cfe0ea" }, shape: "round", growth: "vine" },
+
+  // ---- variety push (R3): 18 → 20. Two crops with NO ripe sprite in
+  // src/assets/pixellab/crops/, so drawCropTile's `crops/ripe-<id>` lookup
+  // misses and the code plant painter draws them — dual-path fallback verified
+  // (CLAUDE.md hard rule #1). Lettuce fills the leafy-green gap; garlic the
+  // allium/curing gap and thickens winter. ----
+  { id: "lettuce", name: "Lettuce", seedId: "lettuce-seeds", seedName: "Lettuce seeds", seedPrice: 3,
+    price: 6, growDays: 1, skillFloor: 10, seasons: ["spring", "summer"],
+    palette: { stalk: "#3d6626", leaf: "#6aa83a", fruit: "#8ac25a" }, shape: "round", growth: "bushy" },
+  { id: "garlic", name: "Garlic", seedId: "garlic-seeds", seedName: "Garlic cloves", seedPrice: 5,
+    price: 10, growDays: 2, skillFloor: 18, seasons: ["autumn", "winter"],
+    palette: { stalk: "#6a7a4a", leaf: "#8aa05a", fruit: "#eae2d0" }, shape: "long", growth: "tall-stalk" },
 ];
 
 export function cropById(id: string): CropType | null {
