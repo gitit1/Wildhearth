@@ -1,7 +1,7 @@
 import { HOUSE, BARN, STALL, type Rect } from "../world/zones";
 import { shadow, oRect, outline, OUTLINE, OUTLINE_W, castShadow, roundR } from "./shapes";
 import { mulberry32 } from "../engine/rng";
-import { sprite, drawGroundSprite, recolorSprite, type SpritePlacement, type HueBand } from "./sprites";
+import { sprite, drawGroundSprite, spriteBaseAnchor, recolorSprite, type SpritePlacement, type HueBand } from "./sprites";
 import {
   SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE, SPRITE_STALL_SCALE, SPRITE_WELL_SCALE, SPRITE_COTTAGE_SCALE,
 } from "../config";
@@ -379,12 +379,13 @@ function drawStallGoods(g: CanvasRenderingContext2D, r: Rect, accent: string, si
   }
 }
 
-interface CottageSpriteInfo { id: string; cx: number; foot: number }
+interface CottageSpriteInfo { id: string; cx?: number; foot?: number }
 /**
- * The 6 market cottages each get a DIFFERENT approved variant (of 8 generated;
- * building-variety batch — see docs/PIXELLAB_ASSETS.md for the full picture,
- * incl. which two variants sit unused/spare under buildings/spare/). Keyed by
- * the `variant` number on each zones.ts CottageDef.
+ * The market cottages each get a DIFFERENT variant so no two neighbours share a
+ * sprite (building-variety batch — see docs/PIXELLAB_ASSETS.md). Variants 1-5,7
+ * carry hand-measured anchors; variants 6 & 8 (R4: wired in from
+ * buildings/spare/) omit theirs and let spriteBaseAnchor measure the alpha bbox
+ * at draw time (same base-on-ground result, no manual measuring pass).
  */
 const COTTAGE_SPRITES: Record<number, CottageSpriteInfo> = {
   1: { id: "buildings/cottage-01_thatch-plank-porch", cx: 55.5, foot: 114 },
@@ -392,7 +393,9 @@ const COTTAGE_SPRITES: Record<number, CottageSpriteInfo> = {
   3: { id: "buildings/cottage-03_redtile-stone-flowerbox", cx: 53.5, foot: 96 },
   4: { id: "buildings/cottage-04_shingle-timber-leanto", cx: 55.5, foot: 119 },
   5: { id: "buildings/cottage-05_thatch-plaster-flowerbox", cx: 55, foot: 107 },
+  6: { id: "buildings/spare/cottage-06_slate-stone-porch" },
   7: { id: "buildings/cottage-07_redtile-timber-ivy", cx: 56.5, foot: 121 },
+  8: { id: "buildings/spare/cottage-08_shingle-plank-leanto" },
 };
 
 /** A small cottage — a compact house variant for the market's NPC homes.
@@ -407,7 +410,22 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, 
   if (img && info) {
     const gx = x + w / 2, gy = y + h;
     castShadow(g, gx, gy, w * 0.5, h * 1.2);
-    drawGroundSprite(g, img, gx, gy, info.cx, info.foot, SPRITE_COTTAGE_SCALE);
+    // anchor: hand-measured when present, else measured off the alpha bbox
+    const a = info.cx !== undefined && info.foot !== undefined
+      ? { cx: info.cx, foot: info.foot } : spriteBaseAnchor(info.id, img);
+    // subtle anti-repetition (R4): a deterministic per-cottage mirror so even
+    // two same-variant cottages wouldn't read as stamped clones. Cottages carry
+    // no signage/text, so a horizontal flip is tasteful. Shadow drawn above the
+    // flip, so it stays put.
+    const flip = mulberry32((seed ^ 0x9e3779b1) >>> 0)() < 0.5;
+    if (flip) {
+      g.save();
+      g.translate(gx, 0); g.scale(-1, 1); g.translate(-gx, 0);
+      drawGroundSprite(g, img, gx, gy, a.cx, a.foot, SPRITE_COTTAGE_SCALE);
+      g.restore();
+    } else {
+      drawGroundSprite(g, img, gx, gy, a.cx, a.foot, SPRITE_COTTAGE_SCALE);
+    }
     return;
   }
   // ---- code-drawn fallback (painter path, unchanged) ----

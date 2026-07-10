@@ -5,7 +5,13 @@ export const FIELD = { x0: 20, y0: 5, x1: 31, y1: 15 };      // tiles
 export const YARD  = { x0: 6,  y0: 4, x1: 18, y1: 15 };      // tiles
 export const HOUSE = { x: 7.5 * T, y: 5 * T,    w: 5 * T,   h: 3.4 * T };
 export const BARN  = { x: 14 * T,  y: 10.4 * T, w: 3.6 * T, h: 2.8 * T };
-export const STALL = { x: 16.2 * T, y: 6.2 * T, w: 2.4 * T, h: 1.6 * T };
+// The player's OWN buy/sell stall. Relocated (R4) from the farmyard to the
+// market's WEST edge — DECISIONS "Selling paths: your own stall (in stall-area
+// or on-farm)" + the owner's note that stalls belong in the market/town. Sits
+// right where the road enters the square (shortest sane walk), clear of the
+// NPC stall row (y 16), the entrance signpost, and the nearest cottage. The
+// buy-tools + sell-goods mechanic is unchanged — only the location moved.
+export const STALL = { x: 58.4 * T, y: 17.6 * T, w: 2.4 * T, h: 1.6 * T };
 export const POND  = { cx: 9 * T, cy: 19.4 * T, rx: 3.6 * T, ry: 2.2 * T };
 // The two trees south of the field sit below tile row 20.5 so the tier-2
 // plot expansion's fence (bottom row 19) never swallows them.
@@ -141,9 +147,9 @@ export interface CottageDef extends Rect { variant: number }
 export const COTTAGES: CottageDef[] = [
   { ...rect(61, 19.5, 2.8, 2.3), variant: 2 },
   { ...rect(60.5, 24, 2.8, 2.3), variant: 4 },
-  { ...rect(64.5, 25.5, 2.8, 2.3), variant: 5 },
+  { ...rect(64.5, 25.5, 2.8, 2.3), variant: 6 },   // R4: newly-wired spare variant
   { ...rect(69, 25.8, 2.8, 2.3), variant: 3 },
-  { ...rect(73.5, 25.3, 2.8, 2.3), variant: 1 },
+  { ...rect(73.5, 25.3, 2.8, 2.3), variant: 8 },   // R4: newly-wired spare variant
   { ...rect(76, 19, 2.8, 2.3), variant: 7 },
 ];
 

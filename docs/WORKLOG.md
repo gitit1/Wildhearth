@@ -29,6 +29,51 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## world — Stall relocated to the market + cottage anti-repetition (R4)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R4 — the player's stall doesn't belong by the farmhouse
+  (owner: stalls live in the market/town); relocate it to the market edge with
+  the sell/buy interaction intact (shortest sane walk). Then anti-repetition:
+  wire the banked cottage variants 6+8 so no two neighbouring buildings share a
+  sprite; add subtle per-building jitter where tasteful.
+- **Diagnosis (symptom≠cause):** the farm-side `STALL` IS the player's OWN
+  buy-tools/sell-goods stall (`openPlayerStall` → shop window), not decorative.
+  DECISIONS allows "your own stall (in stall-area or on-farm)", but the owner
+  overrode it to market-only. So the MECHANIC is kept, only the location moves.
+- **Done:**
+  - **Relocated the stall (`world/zones.ts` `STALL`)** from the farmyard
+    (16.2, 6.2) to the market's WEST edge (58.4, 17.6) — right where the road
+    enters the square, clear of the NPC stall row, the entrance signpost and the
+    nearest cottage (shortest walk in). Everything that reads `STALL` moved with
+    it for free (collision, ground clear-zone, scatter exclusion, minimap,
+    the `stall` interactable, `drawStall`, `openStallDev`). Bonus: the Guidance
+    text already said "walk to a market stall", so the farm stall was the
+    inconsistency — now resolved.
+  - **Cottage anti-repetition:** wired the two banked spare variants into
+    `art/buildings.ts` `COTTAGE_SPRITES` — `6:
+    buildings/spare/cottage-06_slate-stone-porch`, `8:
+    buildings/spare/cottage-08_shingle-plank-leanto` (anchors measured at draw
+    time via `spriteBaseAnchor`, so no manual bbox pass). Reassigned two of the
+    6 `COTTAGES` (`world/zones.ts`) to variants 6 and 8 so the newly-wired art
+    actually appears; all six cottages now use six distinct variants
+    {2,4,6,3,8,7} — no two neighbours share a sprite.
+  - **Per-building jitter:** `drawCottage` now applies a deterministic
+    (seeded) horizontal FLIP per cottage on the sprite path — cottages carry no
+    signage/text, so a mirror is tasteful and further breaks up any same-look
+    repetition. The cast shadow is drawn before the flip so it stays put.
+- **Verify (real output):** drove the real game (`__wh.newGameWith` + moved the
+  player into the square) and screenshotted the market in headless Edge: the
+  player's striped-awning stall now sits at the west edge by the road; the NPC
+  fish/produce stalls sit in their row; the ring of cottages all render as
+  distinct detailed sprites (variants 6 & 8 included — no blanks/fallback). The
+  road is visible along the west edge. Build green.
+- **Follow-ups:** deliberately did NOT hue-jitter the cottages — a per-sprite
+  wall hue band would be fragile on baked multi-material sprites (risk of
+  tinting roofs/doors); flip covers the anti-repetition need safely. Market
+  stalls + neighbour buildings were already distinct (themed sprites) so weren't
+  touched; the many spare stall variants in buildings/spare/ remain banked for a
+  future market-expansion pass.
+
 ## content — Flowers 0 → 20 ornamental gardening system (R3, collection 5/5)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R3 — new ornamental flower species table wired into the
