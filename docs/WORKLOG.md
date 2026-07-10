@@ -29,6 +29,42 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## content — Fish variety 12 → 50 (R3, collection 1/5)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R3 variety push, owner's explicit number — grow the fish
+  table from 12 to 50 species, filling every season/weather/location/skill-floor
+  niche the framework already supports; keep old ids stable; prices on the
+  existing curve; icons via the existing tinted-silhouette code painter.
+- **Done (data only, one file):** `src/data/fish.ts` — the 12 original species
+  kept verbatim (ids frozen for old saves) + 38 new `FishSpecies` rows. Because
+  the whole game is table-driven off `FISH`, all of these propagate for free:
+  sell prices (`economy.ts` GOOD_PRICES), backpack/shop names (`inventory.ts`
+  ITEM_NAMES), backpack icons (`art/icons.ts` — every species shares
+  `paintFishSpecies` tinted by its `palette`), Memory-Book discovery counts
+  (`collections.ts` `fish` category), and the fishing roll (`fishing.ts`
+  `resolveCatch` eligibility filter). New coverage:
+  - **pond** now 23 species across the full floor curve (6 floor-0 commons →
+    floor-90 Elder Carp): minnow, gudgeon, rudd, ricefish, tench, mistcarp
+    (fog), goldfish, icefish (winter), ide + the originals.
+  - **river** 11 species (roach→thunder_eel): dace, bream, chub, barbel, brown
+    trout (spring), grayling (autumn), rainbow trout, lamprey (rain), salmon
+    (autumn), thunder eel (storm).
+  - **lake** 9 (whitefish (winter)→leviathan eel): zander, lake trout, burbot
+    (winter/storm), glassfish (fog), arctic char (winter), golden perch.
+  - **boat** 8 open-water species (herring→swordfish): flounder, mackerel, cod
+    (winter), sea bass, halibut, bluefin tuna (summer).
+  - fog legendaries (ghostfish) + a spring/summer rainbow koi.
+  River/lake/boat entries are intentionally uncatchable today (only the pond
+  spot exists) — they populate the framework so a future river/lake/boat zone
+  works with zero new code, exactly as the table's header comment intends.
+- **Verify:** esbuild harness over the real `FISH` array — 50 rows, 0 duplicate
+  ids, 0 invalid rows (price/weight ≥1, floor 0-100); all four locations yield
+  eligible catches; each season has seasonal-only fish (spring 5, summer 8,
+  autumn 4, winter 6); weather-gated fish present for fog/storm/rain. Build
+  green (`npm run build`).
+- **Follow-ups:** optional pixel fish ICONS (owner question #4 in the handoff)
+  not done — deliberately code-icon only, per "no gens" standing order.
+
 ## docs — overnight master plan + handoff (runs/handoff-2026-07-11.md)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** the owner ordered a continuous unattended overnight run;
