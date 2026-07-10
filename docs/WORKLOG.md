@@ -29,6 +29,28 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Rig polish — true side profile + clean ponytail
+- **Date:** 2026-07-10 (v1-foundation)
+- **Block given:** polish the two logged cosmetic weaknesses in the newly
+  primary character rig: the side-profile face read near-frontal, and the
+  ponytail read "busy"/ear-like from the front.
+- **Done (`src/art/rig.ts` only):**
+  - **Side profile (`drawFace`):** profile facings (1/3) now draw only the
+    NEAR eye (factored into a `drawEye(ex,k)` helper so front still draws
+    both), plus a soft nose bump on the silhouette (outer contour stroked
+    only, no cheek seam) and the mouth nudged toward the facing edge — the
+    side now clearly reads "looking sideways" with real dimensionality;
+    front unchanged; the `face!==0` faceless-back guard intact.
+  - **Ponytail (`drawHairBack`/`drawHairFront` + new `drawPonytail`):**
+    removed the always-one-side back ellipse and the two front cheek
+    side-locks (they now apply to `"long"` only) that made it read as ears;
+    a facing-aware single clean tail — small side tuft on front, full tail
+    swept behind on profile, straight down on back.
+- **Build:** `npm run build` passes (tsc strict + vite).
+- **Follow-ups:** the profile nose is deliberately pronounced so it survives
+  shrinking to ~48px game scale — reads cute in-world; can be softened at
+  zoom if desired (single tunable).
+
 ## docs — lock the character=rig / world=sprite art-medium division
 - **Date:** 2026-07-10 (v1-foundation)
 - **Block given:** capture session 3's fundamental art-direction pivot in

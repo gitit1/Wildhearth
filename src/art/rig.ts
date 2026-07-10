@@ -20,7 +20,7 @@
  *
  * Pure art constants live here; gameplay-tuning values live in config.ts.
  */
-import { roundR, outline, shadow, castShadow } from "./shapes";
+import { roundR, outline, shadow, castShadow, OUTLINE, OUTLINE_W } from "./shapes";
 
 const TAU = Math.PI * 2;
 
@@ -686,10 +686,7 @@ function drawHairBack(rc: RC, cx: number, cy: number) {
   });
 
   if (hairStyle === "ponytail") {
-    part(g, () => { ellp(g, cx + headR * 1.1, cy + headR * 0.75, headR * 0.5, headR * 1.2, 0.28); }, hair, () => {
-      blob(g, cx + headR * 0.95, cy + headR * 0.2, headR * 0.25, headR * 0.7, hair.hi, 0.7);
-      blob(g, cx + headR * 1.3, cy + headR * 1.15, headR * 0.3, headR * 0.7, hair.lo2, 0.6);
-    });
+    drawPonytail(rc, cx, cy);
   } else if (hairStyle === "long") {
     part(g, () => {
       g.beginPath();
@@ -707,6 +704,28 @@ function drawHairBack(rc: RC, cx: number, cy: number) {
       g.restore();
     });
   }
+}
+
+/**
+ * A single clean pulled-back tail, drawn in the hair-BACK pass so the head/body
+ * always occludes its root — reading as gathered-and-pulled-back, never as a
+ * pair of ear-like side masses. Reads correctly per facing:
+ *   - front (2): the tail hangs down the back (hidden by the body), so only a
+ *     small tuft peeks past one side of the neck to signal "there's a tail".
+ *   - profile (1): a full tail sweeps behind the skull (toward -x, the back).
+ *   - back (0): a full tail hangs straight down the centre, fully visible.
+ */
+function drawPonytail(rc: RC, cx: number, cy: number) {
+  const { g, headR, hair, face } = rc;
+  const t = face === 1
+    ? { x: cx - headR * 0.95, y: cy + headR * 0.72, rx: headR * 0.4, ry: headR * 1.12, rot: -0.26 }
+    : face === 0
+    ? { x: cx, y: cy + headR * 0.92, rx: headR * 0.44, ry: headR * 1.35, rot: 0 }
+    : { x: cx - headR * 0.78, y: cy + headR * 0.62, rx: headR * 0.3, ry: headR * 0.72, rot: -0.18 };
+  part(g, () => { ellp(g, t.x, t.y, t.rx, t.ry, t.rot); }, hair, () => {
+    blob(g, t.x - headR * 0.14, t.y - headR * 0.42, headR * 0.22, headR * 0.66, hair.hi2, 0.7);
+    blob(g, t.x + headR * 0.16, t.y + headR * 0.5, headR * 0.24, headR * 0.58, hair.lo2, 0.65);
+  });
 }
 
 function drawHairFront(rc: RC, cx: number, cy: number) {
@@ -779,13 +798,14 @@ function drawHairFront(rc: RC, cx: number, cy: number) {
     });
   }
 
-  // side locks framing the cheeks (front-view long styles)
-  if (!profile && (hairStyle === "long" || hairStyle === "ponytail")) {
+  // side locks framing the cheeks (front-view LONG hair only — a ponytail is
+  // pulled back, so it gets no cheek locks: that kept it reading as ears)
+  if (!profile && hairStyle === "long") {
     [-1, 1].forEach((sn) => {
       part(g, () => {
         g.beginPath();
         g.moveTo(cx + sn * headR * 0.86, cy - headR * 0.5);
-        g.quadraticCurveTo(cx + sn * headR * 1.06, cy + headR * 0.5, cx + sn * headR * 0.7, cy + headR * (hairStyle === "long" ? 1.5 : 0.95));
+        g.quadraticCurveTo(cx + sn * headR * 1.06, cy + headR * 0.5, cx + sn * headR * 0.7, cy + headR * 1.5);
         g.quadraticCurveTo(cx + sn * headR * 0.45, cy + headR * 0.4, cx + sn * headR * 0.62, cy - headR * 0.4);
         g.closePath();
       }, hair, () => {
@@ -805,11 +825,6 @@ function drawHairFront(rc: RC, cx: number, cy: number) {
     g.beginPath(); g.arc(cx, cy - headR * 0.92, headR * 0.2, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); g.restore();
   }
 
-  // ponytail front tie (front view only; profile shows it behind)
-  if (hairStyle === "ponytail" && !profile) {
-    part(g, () => { roundR(g, cx + headR * 0.72, cy - headR * 0.1, headR * 0.5, headR * 0.34, 0.8 * s); },
-      mat(shade(rc.hair.base, -0.05)));
-  }
 }
 
 function drawFace(rc: RC, cx: number, cy: number) {
@@ -818,32 +833,70 @@ function drawFace(rc: RC, cx: number, cy: number) {
   const sRx = headR * 0.205, sRy = headR * 0.255;
   const iris = mat(eye);
   const profile = face === 1;
-  const eyeXs = profile ? [cx + headR * 0.16, cx + headR * 0.54] : [cx - headR * 0.40, cx + headR * 0.40];
 
-  eyeXs.forEach((ex) => {
-    g.fillStyle = "#fbf6ee"; g.beginPath(); g.ellipse(ex, eyeY, sRx, sRy, 0, 0, TAU); g.fill();
-    const iy = eyeY + headR * 0.045, ir = headR * 0.155;
+  // --- profile: a soft nose bump on the facing (+x) silhouette so the head
+  //     reads dimensional. Filled skin extending past the head circle, then
+  //     ONLY the outer contour stroked (no seam across the cheek). ---
+  if (profile) {
+    const nbY = eyeY + headR * 0.26;
+    const bridge: [number, number] = [cx + headR * 0.86, nbY - headR * 0.24];
+    const tip: [number, number]    = [cx + headR * 1.17, nbY + headR * 0.12];
+    const under: [number, number]  = [cx + headR * 0.82, nbY + headR * 0.34];
+    g.save();
+    g.beginPath();
+    g.moveTo(bridge[0], bridge[1]);
+    g.quadraticCurveTo(cx + headR * 1.2, nbY - headR * 0.06, tip[0], tip[1]);
+    g.quadraticCurveTo(cx + headR * 1.02, nbY + headR * 0.3, under[0], under[1]);
+    g.closePath();
+    g.fillStyle = rc.skin.base; g.fill();
+    g.globalAlpha = 0.5; blob(g, cx + headR * 0.96, nbY + headR * 0.16, headR * 0.2, headR * 0.16, rc.skin.lo, 1);
+    g.restore();
+    g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W; g.lineCap = "round";
+    g.beginPath();
+    g.moveTo(bridge[0], bridge[1]);
+    g.quadraticCurveTo(cx + headR * 1.2, nbY - headR * 0.06, tip[0], tip[1]);
+    g.quadraticCurveTo(cx + headR * 1.02, nbY + headR * 0.3, under[0], under[1]);
+    g.stroke();
+  }
+
+  // one eye per drawn slot; profile shows only the near (front) eye, enlarged
+  const drawEye = (ex: number, k: number) => {
+    const rx = sRx * k, ry = sRy * k;
+    g.fillStyle = "#fbf6ee"; g.beginPath(); g.ellipse(ex, eyeY, rx, ry, 0, 0, TAU); g.fill();
+    const iy = eyeY + headR * 0.045, ir = headR * 0.155 * k;
     g.fillStyle = iris.base; g.beginPath(); g.arc(ex, iy, ir, 0, TAU); g.fill();
     g.fillStyle = iris.lo2; g.beginPath(); g.arc(ex, iy + ir * 0.35, ir, Math.PI * 0.1, Math.PI * 0.9); g.fill();
-    g.fillStyle = "#241a1a"; g.beginPath(); g.arc(ex, iy, headR * 0.078, 0, TAU); g.fill();
-    g.fillStyle = "#ffffff"; g.beginPath(); g.arc(ex - headR * 0.06, iy - headR * 0.07, headR * 0.05, 0, TAU); g.fill();
+    g.fillStyle = "#241a1a"; g.beginPath(); g.arc(ex, iy, headR * 0.078 * k, 0, TAU); g.fill();
+    g.fillStyle = "#ffffff"; g.beginPath(); g.arc(ex - headR * 0.06, iy - headR * 0.07, headR * 0.05 * k, 0, TAU); g.fill();
     g.strokeStyle = "#2a1c18"; g.lineWidth = 1 * s; g.lineCap = "round";
-    g.beginPath(); g.ellipse(ex, eyeY, sRx + 0.2 * s, sRy + 0.2 * s, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+    g.beginPath(); g.ellipse(ex, eyeY, rx + 0.2 * s, ry + 0.2 * s, 0, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
     g.strokeStyle = brow.base; g.lineWidth = 1.2 * s;
     g.beginPath();
-    g.moveTo(ex - sRx * 1.05, eyeY - headR * 0.33);
-    g.quadraticCurveTo(ex, eyeY - headR * 0.46, ex + sRx * 1.05, eyeY - headR * 0.30);
+    g.moveTo(ex - rx * 1.05, eyeY - headR * 0.33);
+    g.quadraticCurveTo(ex, eyeY - headR * 0.46, ex + rx * 1.05, eyeY - headR * 0.30);
     g.stroke();
-  });
+  };
 
-  // nose — a soft shadow tick
-  const nx = profile ? cx + headR * 0.5 : cx;
-  g.save(); g.globalAlpha = 0.55; g.strokeStyle = rc.skin.lo2; g.lineWidth = 1 * s; g.lineCap = "round";
-  g.beginPath(); g.moveTo(nx - 0.2 * s, eyeY + headR * 0.24); g.lineTo(nx + 0.3 * s, eyeY + headR * 0.42); g.stroke(); g.restore();
+  if (profile) {
+    drawEye(cx + headR * 0.42, 1.08);   // only the near eye
+  } else {
+    drawEye(cx - headR * 0.40, 1);
+    drawEye(cx + headR * 0.40, 1);
+  }
 
-  // mouth
-  const mcx = profile ? cx + headR * 0.28 : cx;
-  const mw = headR * (profile ? 0.22 : 0.34);
+  // nose — a soft shadow tick (front only; profile uses the silhouette bump)
+  if (!profile) {
+    g.save(); g.globalAlpha = 0.55; g.strokeStyle = rc.skin.lo2; g.lineWidth = 1 * s; g.lineCap = "round";
+    g.beginPath(); g.moveTo(cx - 0.2 * s, eyeY + headR * 0.24); g.lineTo(cx + 0.3 * s, eyeY + headR * 0.42); g.stroke(); g.restore();
+  } else {
+    // a short nostril shadow tucked under the nose tip
+    g.save(); g.globalAlpha = 0.5; g.strokeStyle = rc.skin.lo2; g.lineWidth = 1 * s; g.lineCap = "round";
+    g.beginPath(); g.moveTo(cx + headR * 0.78, eyeY + headR * 0.5); g.lineTo(cx + headR * 0.9, eyeY + headR * 0.52); g.stroke(); g.restore();
+  }
+
+  // mouth — nudged toward the facing edge in profile
+  const mcx = profile ? cx + headR * 0.34 : cx;
+  const mw = headR * (profile ? 0.2 : 0.34);
   g.strokeStyle = "#a9553f"; g.lineWidth = 1.1 * s; g.lineCap = "round";
   const my = eyeY + headR * 0.62;
   g.beginPath();
