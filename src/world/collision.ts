@@ -1,7 +1,7 @@
 import { T, WORLD_W, WORLD_H } from "../config";
 import {
   HOUSE, BARN, STALL, POND, WORLD_TREES, ROOM, R_BED, R_BASIN, R_REST,
-  STRUCTURES, HEDGES, WELL, OUTHOUSE, inWater,
+  STRUCTURES, HEDGES, WELL, OUTHOUSE, PROP_BLOCKERS, inWater,
 } from "./zones";
 
 /** Which collision map is active (world vs. the house interior). Module-level
@@ -40,6 +40,8 @@ export function blocked(x: number, y: number): boolean {
   if ((x - WELL.cx) ** 2 + (y - WELL.cy) ** 2 < (WELL.r + 8) ** 2) return true;
   if (inWater(x, y)) return true;   // river + lake are impassable, except the dock
   for (const [tx, ty] of WORLD_TREES) if ((x - tx) ** 2 + (y - ty) ** 2 < 400) return true;
+  // solid world props (barrels, crates, cart, bench, hay-bale, wheelbarrow…)
+  for (const r of PROP_BLOCKERS) if (inRect(x, y, r)) return true;
   return false;
 }
 

@@ -1,4 +1,7 @@
-import { T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER, SPRITE_CROP_SCALE, SPRITE_CROP_BASE_DY } from "../config";
+import {
+  T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER, SPRITE_CROP_SCALE, SPRITE_CROP_BASE_DY,
+  SPRITE_BUSH_SCALE, SPRITE_BUSH_JITTER, SPRITE_PROP_SCALE, SPRITE_FENCE_SCALE,
+} from "../config";
 import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
 import { shadow, outline, oRect, castShadow } from "./shapes";
@@ -254,11 +257,48 @@ export function drawHedge(g: CanvasRenderingContext2D, r: { x: number; y: number
   }
 }
 
+/** Tile the fence PNG along the field perimeter, base planted on the rail line.
+ *  Non-rotated segments on all four sides (a picket run receding down the sides
+ *  reads fine in 3/4). Only used for an intact fence — a rundown one keeps the
+ *  code painter's broken/leaning look. */
+function drawFenceSprite(
+  g: CanvasRenderingContext2D, img: HTMLImageElement,
+  bounds: { x0: number; y0: number; x1: number; y1: number },
+) {
+  const id = "props/fence";
+  const a = spriteBaseAnchor(id, img);
+  const s = SPRITE_FENCE_SCALE;
+  const segW = img.naturalWidth * s;
+  const step = segW * 0.9;                 // slight overlap so segments meet
+  const fx0 = bounds.x0 * T - 14, fy0 = bounds.y0 * T - 14;
+  const fx1 = bounds.x1 * T + 14, fy1 = bounds.y1 * T + 14;
+  for (const yy of [fy0, fy1])
+    for (let xx = fx0; xx <= fx1; xx += step) drawGroundSprite(g, img, Math.min(xx, fx1), yy, a.cx, a.foot, s);
+  for (const xx of [fx0, fx1])
+    for (let yy = fy0 + step; yy < fy1; yy += step) drawGroundSprite(g, img, xx, yy, a.cx, a.foot, s);
+}
+
+/** Draw any world prop base-on-ground on (x,y) from its foliage/props sprite,
+ *  measured alpha-bbox anchor + a light contact shadow (nearest-neighbour). No
+ *  sprite -> draws nothing (props are additive; the zero-PNG world just lacks
+ *  them, CLAUDE.md hard rule #1). */
+export function drawProp(g: CanvasRenderingContext2D, x: number, y: number, id: string, scale = SPRITE_PROP_SCALE) {
+  const img = sprite(id);
+  if (!img) return;
+  const a = spriteBaseAnchor(id, img);
+  const bw = img.naturalWidth * scale;
+  shadow(g, x, y - 1, Math.max(6, bw * 0.34), Math.max(2.4, bw * 0.13));
+  drawGroundSprite(g, img, x, y, a.cx, a.foot, scale);
+}
+
 export function drawFence(
   g: CanvasRenderingContext2D, fenceOk = true,
   bounds: { x0: number; y0: number; x1: number; y1: number } = FIELD,
 ) {
   const rundown = !fenceOk;   // broken until the field fence is mended (Step 8)
+  // sprite path (CLAUDE.md hard rule #1): an intact fence tiles the fence PNG;
+  // a rundown fence + a missing PNG both fall through to the code painter below.
+  if (!rundown) { const fimg = sprite("props/fence"); if (fimg) { drawFenceSprite(g, fimg, bounds); return; } }
   g.strokeStyle = "#8a6a42"; g.lineWidth = 4; g.lineCap = "round";
   const fx0 = bounds.x0 * T - 14, fy0 = bounds.y0 * T - 14;
   const fx1 = bounds.x1 * T + 14, fy1 = bounds.y1 * T + 14;
@@ -508,9 +548,43 @@ const BUSH_FULL_TINT: Record<Season, Array<[number, number, number, string]>> = 
 /** Berry bush: leafy mound, dotted with berries while full; bare when picked.
  *  Foliage tint shifts per season (content-library commit 1) — spring fresh
  *  green, summer the original tone, autumn warm/olive, winter grey-brown. */
+/** The four bush foliage variants; a full bush picks one deterministically from
+ *  its position so a hedgerow varies, a picked bush drops to the plain green
+ *  `bush` so "nothing to forage here" stays readable. */
+const BUSH_VARIANTS = ["foliage/bush", "foliage/bush-pink", "foliage/bush-white", "foliage/berry-bush"] as const;
+
+/** Draw a loaded bush sprite planted base-on-(x,y) at SPRITE_BUSH_SCALE, with a
+ *  per-position horizontal flip + uniform-scale jitter (own seed, so it never
+ *  perturbs the fallback painter's rng) and a light contact shadow — the same
+ *  recipe drawTreeSprite uses, scaled down for a bush. */
+function drawBushSprite(g: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, id: string) {
+  const jr = mulberry32(((x * 23) ^ (y * 41)) | 0);
+  const flip = jr() < 0.5;
+  const s = SPRITE_BUSH_SCALE * (1 - SPRITE_BUSH_JITTER + jr() * SPRITE_BUSH_JITTER * 2);
+  const a = spriteBaseAnchor(id, img);
+  shadow(g, x + 1, y + 5, 13 * (s / SPRITE_BUSH_SCALE), 5);
+  const prev = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;
+  g.save();
+  g.translate(x, y);
+  g.scale(s * (flip ? -1 : 1), s);
+  g.drawImage(img, -a.cx, -a.foot, img.naturalWidth, img.naturalHeight);
+  g.restore();
+  g.imageSmoothingEnabled = prev;
+}
+
 export function drawBush(
   g: CanvasRenderingContext2D, x: number, y: number, full: boolean, t: number, season: Season = "summer",
 ) {
+  // sprite path (CLAUDE.md hard rule #1): a full bush shows its seeded colour
+  // variant, a picked one the plain green bush; either falls through to the code
+  // painter below when the PNG isn't present/decoded.
+  const variantId = full
+    ? BUSH_VARIANTS[(mulberry32(((x * 19) ^ (y * 7)) | 0)() * BUSH_VARIANTS.length) | 0]!
+    : "foliage/bush";
+  const bimg = sprite(variantId);
+  if (bimg) { drawBushSprite(g, bimg, x, y, variantId); return; }
+
   shadow(g, x + 2, y + 8, 16, 6);
   const sway = Math.sin(t * 1.1 + x * 0.3) * 0.8;
   const blobs: Array<[number, number, number, string]> = full

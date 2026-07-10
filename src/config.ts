@@ -455,6 +455,37 @@ export const SPRITE_TREE_JITTER = 0.12;       // +/- uniform-scale variation (0.
 export const SPRITE_CROP_SCALE = 0.66;        // world px per sprite px
 export const SPRITE_CROP_BASE_DY = 8;         // plant base offset below tile centre
 
+// --- Foliage bush sprites (art/props.ts drawBush dual-path). The 64x56 bush
+//     PNGs (foliage/bush, -pink, -white, berry-bush) sit base-on-ground on the
+//     bush's (x,y). SCALE is world-px per sprite-px (0.5 -> ~32x28 on-screen,
+//     about the code bush's size); per-position flip + uniform-scale jitter
+//     (deterministic from position) keeps a hedgerow from reading as clones. A
+//     full (unpicked) bush draws its seeded colour variant; a picked one drops
+//     to the plain green bush so the "nothing to forage" state stays legible. ---
+export const SPRITE_BUSH_SCALE = 0.5;         // world px per sprite px
+export const SPRITE_BUSH_JITTER = 0.12;       // +/- uniform-scale variation
+
+// --- World props (art/props.ts drawProp + drawFence dual-path). Props are
+//     anchored base-on-ground (measured alpha-bbox) on their (x,y); SCALE is
+//     the default world-px per sprite-px (per-prop overrides live in the
+//     WORLD_PROPS table). Fence tiles the 96x48 fence PNG along the field
+//     perimeter when present + intact, else the code rail painter. ---
+export const SPRITE_PROP_SCALE = 0.46;        // default world px per sprite px for props
+export const SPRITE_FENCE_SCALE = 0.5;        // fence segment scale (96x48 -> ~48x24 tiled)
+
+// --- Ambient foliage scatter (art/scatter.ts). A deterministic, position-
+//     seeded sprinkle of small foliage sprites across appropriate zones (grass
+//     tufts, the odd wildflower/fern, forest mushrooms/moss, shore reeds + lake
+//     lily-pads), OFF paths / tilled soil / building footprints / the dock /
+//     interaction spots. DENSITY is the per-grid-cell spawn probability (raise
+//     for lusher, lower for sparser); GRID is the sampling step in px. Every
+//     scatter item is NON-colliding + depth-sorted; a missing sprite simply
+//     doesn't draw (zero-PNG fallback). ---
+export const FOLIAGE_SCATTER_DENSITY = 0.20;  // per-cell spawn probability (moderate, not jungle)
+export const FOLIAGE_SCATTER_GRID = 44;       // px grid step for scatter sampling
+export const SPRITE_SCATTER_SCALE = 0.5;      // default world px per sprite px for scatter
+export const SPRITE_SCATTER_JITTER = 0.18;    // +/- uniform-scale variation per scatter item
+
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";

@@ -12,14 +12,15 @@ import { paintGround } from "./world/ground";
 import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
-  FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, type Rect,
+  FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, WORLD_PROPS, type Rect,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
   drawTree, drawFence, drawHedge, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
   drawFlowerBed, drawBuskSpot, drawMusicNotes, drawWaterShimmer,
-  drawOpenWaterShimmer, drawDock, drawBuskSign,
+  drawOpenWaterShimmer, drawDock, drawBuskSign, drawProp,
 } from "./art/props";
+import { buildFoliageScatter, drawScatterItem } from "./art/scatter";
 import { drawBunting, drawLanternPole, drawHarvestCluster } from "./art/festival";
 import { activeFestival, isFestivalDay } from "./systems/festival";
 import { FESTIVALS } from "./data/festivals";
@@ -187,6 +188,9 @@ document.getElementById("zoomOut")!.addEventListener("click", () => adjustZoom(-
 // so a slow or entirely-missing asset can never delay or break boot.
 loadSprites();
 const ground = paintGround();
+// Ambient foliage scatter (foliage + props batch): built once, deterministic —
+// pushed into the depth-sorted ents each frame (non-colliding decoration).
+const foliageScatter = buildFoliageScatter();
 const player = createPlayer();
 const livestock = loadLivestock();
 const { cows, hens, ducks, pigs, sheep } = createAnimals(livestock);   // only what's been bought — no free animals
@@ -1754,6 +1758,10 @@ function draw(dt: number) {
     FESTIVAL_LANTERN_SPOTS.forEach(([lx, ly]) => ents.push({ y: ly, f: () => drawLanternPole(ctx, lx, ly, time) }));
     FESTIVAL_HARVEST_CLUSTERS.forEach(([hx, hy]) => ents.push({ y: hy + 6, f: () => drawHarvestCluster(ctx, hx, hy) }));
   }
+  // ambient foliage scatter + curated world props (both non-interactive, base-
+  // on-ground, depth-sorted alongside trees/bushes/entities)
+  for (const it of foliageScatter) ents.push({ y: it.y, f: () => drawScatterItem(ctx, it) });
+  for (const p of WORLD_PROPS) ents.push({ y: p.y, f: () => drawProp(ctx, p.x, p.y, p.id, p.scale) });
   for (const [tx, ty] of WORLD_TREES) ents.push({ y: ty + 6, f: () => drawTree(ctx, tx, ty, time, currentSeason(calendar)) });
   for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time, currentSeason(calendar)) });
   for (const c of cows) ents.push({ y: c.y + 14, f: () => drawCow(ctx, c, time) });

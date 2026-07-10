@@ -208,6 +208,52 @@ export const STRUCTURES: Rect[] = [
   ...MARKET_STALLS.map((s) => ({ x: s.x, y: s.y, w: s.w, h: s.h })),
 ];
 
+// ===========================================================================
+//  World props (foliage + props batch) — a CURATED, sparse set of PixelLab prop
+//  sprites placed around the world, additive to the existing layout. Each is
+//  anchored base-on-ground on (x,y) and depth-sorted in main.ts. `solid` props
+//  get a small collision blocker (below) so the player can't walk through them;
+//  decorative props (pots, sacks, firewood, signs, birdhouses) don't block —
+//  and NONE sit on a door / path / interaction spot. `id` keys the sprite
+//  (props/<name>); a missing PNG simply doesn't draw (dual-path, zero-PNG safe).
+// ===========================================================================
+export interface PropDef {
+  x: number; y: number; id: string;
+  scale?: number;          // world px per sprite px override (else SPRITE_PROP_SCALE)
+  solid?: boolean;         // gets a collision blocker
+  cw?: number;             // collision half-width (px) when solid
+}
+export const WORLD_PROPS: PropDef[] = [
+  // --- Farmhouse yard (west): firewood + wheelbarrow + bucket + a pot, tucked
+  //     around the house front, clear of the door, flower beds and the pond.
+  { x: 6.6 * T, y: 8.4 * T, id: "props/firewood" },
+  { x: 6.4 * T, y: 9.4 * T, id: "props/wheelbarrow", solid: true, cw: 20 },
+  { x: 7.2 * T, y: 9.3 * T, id: "props/bucket" },
+  { x: 7.8 * T, y: 8.3 * T, id: "props/flower-pot" },
+  { x: 12.8 * T, y: 8.6 * T, id: "props/birdhouse" },     // on its post, SE of the house
+  // --- Barn (crates, a barrel, a sack) + field edge (hay-bale, scarecrow).
+  { x: 13.1 * T, y: 12.8 * T, id: "props/crate", solid: true, cw: 12 },
+  { x: 13.4 * T, y: 13.4 * T, id: "props/barrel", solid: true, cw: 12 },
+  { x: 12.7 * T, y: 13.2 * T, id: "props/sack" },
+  { x: 19.0 * T, y: 12.25 * T, id: "props/hay-bale", solid: true, cw: 17 },
+  { x: 19.4 * T, y: 14.0 * T, id: "props/scarecrow", solid: true, cw: 8 },
+  // --- Market square: lanterns flanking the well, a bench, a cart, a signpost.
+  { x: 66.5 * T, y: 19.2 * T, id: "props/lantern", solid: true, cw: 6 },
+  { x: 71.5 * T, y: 19.2 * T, id: "props/lantern", solid: true, cw: 6 },
+  { x: 68.0 * T, y: 21.6 * T, id: "props/bench", solid: true, cw: 22 },
+  { x: 63.5 * T, y: 18.6 * T, id: "props/cart", solid: true, cw: 24 },
+  { x: 58.5 * T, y: 20.6 * T, id: "props/signpost" },     // market entrance marker
+  // --- Forest / road junction: a signpost + a birdhouse on the forest edge.
+  { x: 56.8 * T, y: 20.7 * T, id: "props/signpost" },
+  { x: 50.0 * T, y: 15.0 * T, id: "props/birdhouse" },
+];
+
+/** Collision blockers for the SOLID props (small base boxes) — read by
+ *  world/collision.ts, never blocking a door/path/interaction spot. */
+export const PROP_BLOCKERS: Rect[] = WORLD_PROPS
+  .filter((p) => p.solid)
+  .map((p) => { const cw = p.cw ?? 12; return { x: p.x - cw, y: p.y - 13, w: cw * 2, h: 16 }; });
+
 export function onRoad(x: number, y: number): boolean {
   for (const s of ROAD_SEGMENTS) if (inRectPx(x, y, s)) return true;
   return false;

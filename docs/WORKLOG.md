@@ -29,6 +29,79 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Foliage + props — dual-path bushes, ambient scatter, world props
+- **Date:** 2026-07-10 (v1-foundation)
+- **Block given:** bring the 14 approved FOLIAGE + 16 PROP PixelLab sprites into
+  the world, dual-path (code painters / absence stay the zero-PNG fallback).
+  Part A: enrich greenery (sprite bushes + a deterministic ambient foliage
+  scatter). Part B: a curated, sparse set of props around the world. Additive
+  only — no change to existing buildings, movement collision, NPC spots or
+  interaction points.
+- **Assets:** copied 14 PNGs into a NEW `src/assets/pixellab/foliage/`
+  (bush, bush-pink, bush-white, berry-bush, flowers-red/-yellow/-purple/-mixed,
+  grass-tuft, fern, reeds, mushrooms, lily-pad, mossy-rock) and 16 into a NEW
+  `src/assets/pixellab/props/` (fence, crate, barrel, sack, flower-pot, lantern,
+  signpost, bucket, firewood, hay-bale, wheelbarrow, bench, scarecrow, birdhouse,
+  cart, well-bucket). The manifest glob auto-keys them `foliage/<name>` /
+  `props/<name>` — no manifest edit.
+- **Bushes (`src/art/props.ts` `drawBush` dual-path):** a full (unpicked) bush
+  now draws one of the four bush sprites chosen deterministically from its
+  position seed (so a hedgerow varies — pink/white/berry/green mix); a picked
+  bush drops to the plain green `bush` so the "nothing to forage" state stays
+  legible. New `drawBushSprite()` mirrors `drawTreeSprite` (per-position flip +
+  uniform-scale jitter off its OWN seed, alpha-bbox base anchor, contact shadow,
+  `imageSmoothingEnabled=false`). No sprite → the original code berry-bush
+  painter runs unchanged.
+- **Ambient foliage scatter (NEW `src/art/scatter.ts`):** `buildFoliageScatter()`
+  samples a fixed grid over the world ONCE at boot, each cell position-seeded
+  (mulberry32) so the layout is identical every run/frame and needs no hand
+  placement. Zone rules via `regionAt`: forest → mushrooms/fern/mossy-rock/grass;
+  farm → grass/fern + ~22% wildflowers; market/road → grass + occasional
+  flower/fern; shore band → reeds (a land point with water within ~1 tile);
+  water edge → a sparse lily-pad (a WATER point with land within ~1 tile — the
+  `waterEdge` helper keeps lilies on the shore ring, never mid-lake). Excludes
+  world margins, the max-expansion tilled field, roads, building footprints
+  (`STRUCTURES` + farm buildings), the dock, the well, interaction spots
+  (house door / busk / flower beds / fishing points) and tree-trunk / prop
+  overlaps. Every item is NON-colliding, depth-sorted (pushed into `ents` at its
+  own y in `main.ts`), and drawn by `drawScatterItem()` which no-ops when the
+  sprite is absent. Tunables in `config.ts`: **`FOLIAGE_SCATTER_DENSITY`** (0.20,
+  per-cell spawn probability — the main density dial), `FOLIAGE_SCATTER_GRID`
+  (44px sample step), `SPRITE_SCATTER_SCALE` (0.5), `SPRITE_SCATTER_JITTER`.
+- **Props (data in `src/world/zones.ts` `WORLD_PROPS`, drawn via new
+  `drawProp()` in `props.ts`):** 17 curated placements — farmhouse yard
+  (firewood, wheelbarrow, bucket, flower-pot, birdhouse), barn/field edge
+  (crate, barrel, sack, hay-bale, scarecrow), market square (2 lantern posts,
+  bench, cart, entrance signpost), forest/road junction (signpost, birdhouse).
+  Each is base-on-ground (alpha-bbox anchor) at `SPRITE_PROP_SCALE` (0.46, ~24–40
+  px tall) with a light contact shadow. **Fence dual-path:** an intact field
+  fence now tiles the fence PNG along the perimeter (`drawFenceSprite`, base on
+  the rail line, `SPRITE_FENCE_SCALE` 0.5); a rundown fence or a missing PNG
+  keeps the code rail/post painter (broken-plank look preserved).
+- **Collision (`src/world/zones.ts` `PROP_BLOCKERS` → `src/world/collision.ts`):**
+  the SOLID props (wheelbarrow, crate, barrel, hay-bale, scarecrow, both
+  lanterns, bench, cart) get a small base blocker rect (per-prop `cw` half-width);
+  decorative props (firewood, bucket, flower-pot, sack, both birdhouses,
+  signposts) don't block — none sit on a door/path/interaction spot. `blocked()`
+  now also tests `PROP_BLOCKERS`. Movement collision, buildings, NPC spots and
+  interactions are otherwise untouched.
+- **Config:** new knobs `SPRITE_BUSH_SCALE`/`_JITTER`, `SPRITE_PROP_SCALE`,
+  `SPRITE_FENCE_SCALE`, `FOLIAGE_SCATTER_DENSITY`, `FOLIAGE_SCATTER_GRID`,
+  `SPRITE_SCATTER_SCALE`/`_JITTER`.
+- **Dual-path / zero-PNG:** verified by moving `foliage/` + `props/` aside and
+  re-rendering — scatter and props simply don't draw, the fence falls back to the
+  code rails, the forage bushes to the code berry-bush painter; the game renders
+  fully with zero of these PNGs. Anchoring copies the established tree/crop
+  recipe (measured alpha-bbox foot, `imageSmoothingEnabled=false`, per-position
+  flip/scale jitter). Verified in-world (real zone layout + painters) with
+  headless screenshots of farm / market / forest / lake-edge.
+- **Skipped:** `well-bucket` — the market already has a full stone WELL
+  centrepiece, so a separate well-bucket prop read as redundant/oblique; left
+  unplaced (its PNG ships, ready if a future spot wants it).
+- **Follow-ups:** the fence sprite tiles non-rotated on all four sides (side
+  runs read as a picket line receding) — acceptable, but a dedicated
+  corner/vertical fence sprite would tidy the corners later.
+
 ## Crop sprites — dual-path drawCropTile (soil tile stays code)
 - **Date:** 2026-07-10 (v1-foundation)
 - **Block given:** integrate the 24 approved PixelLab CROP sprites as the
