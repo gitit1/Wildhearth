@@ -335,6 +335,19 @@ export const WILDLIFE_DESPAWN_SECONDS = 0.5;  // fly-off/fade-out duration befor
 //  fully with zero sprite files. These knobs tune the sprite path when active.
 //  See docs/PIXELLAB_ASSETS.md.
 // ===========================================================================
+// --- Character render mode (LOCKED 2026-07-10 by the product owner). All
+//     characters (player + the 10 NPCs) render through the upgraded code rig
+//     (art/rig.ts): 3-tone shading, expressive face, volumetric hair, cloth
+//     detail, all four facings + walk. The PixelLab CHARACTER sprites (heroine
+//     + NPC sheets) are kept as an OFF-by-default dual-path FALLBACK — nothing
+//     deleted, the game still boots with zero PNGs. Rationale: PixelLab can't
+//     decompose a character into recolourable/poseable parts, so the rig (which
+//     wears the player's exact chosen colours + every outfit silhouette) is the
+//     truer "her character, her design" path. The ENVIRONMENT stays sprites.
+//     Flip this to `true` to restore sprite-primary character rendering (the
+//     sheets + both draw bridges are intact); the runtime dev toggles
+//     __wh.spriteMode / __wh.npcSpriteMode still flip it live per-session. ---
+export const CHARACTER_SPRITES_PRIMARY = false;
 // --- Player heroine sprite (art/spriteChar.ts). The generated sheet is 84x84
 //     with the character ~42-44px tall — the SAME apparent height as the code
 //     rig (hat-top to boot ≈ 43px), so native 1:1 world pixels (scale 1) plant

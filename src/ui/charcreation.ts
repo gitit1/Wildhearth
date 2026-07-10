@@ -17,11 +17,14 @@ const SKINS = ["#f6d3b3", "#e8b48a", "#cf9f74", "#a9744e", "#7c4f33"];
 const HAIR_STYLES: Array<{ id: HairStyle; label: string }> = [
   { id: "short", label: "Short" },
   { id: "ponytail", label: "Ponytail" },
+  { id: "long", label: "Long" },
   { id: "bun", label: "Bun" },
   { id: "bald", label: "Bald" },
   { id: "hat", label: "Hat" },
 ];
 const HAIR_COLORS = ["#2a2018", "#5b3b22", "#8a5a2a", "#c08a2e", "#b8b0a0", "#9c4a2a"];
+// Iris presets (rig `eyeColor`); the first is the rig's default warm brown.
+const EYE_COLORS = ["#4a3520", "#6b4a2b", "#3a5a4a", "#3a4a6a", "#5a5a5a", "#2a2018"];
 const BUILDS: Array<{ id: BodyBuild; label: string }> = [
   { id: "slim", label: "Slim" },
   { id: "average", label: "Average" },
@@ -77,7 +80,7 @@ function previewRig(a: Appearance, scale: number): RigParams {
   return {
     scale, build: a.build, legLength: 1, armLength: 1,
     skin: a.skin, hair: a.hair, hairColor: a.hairColor, hatColor: a.hatColor,
-    age: "adult", outfit: { ...a.outfit },
+    eyeColor: a.eyeColor, age: "adult", outfit: { ...a.outfit },
   };
 }
 
@@ -182,11 +185,12 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   const hairRow = labelGroup("Hair", HAIR_STYLES.map((h) => ({ v: h.id, label: h.label })),
     () => state.appearance.hair, (v) => (state.appearance.hair = v as HairStyle), syncers);
   const hairColRow = swatchGroup("Hair colour", HAIR_COLORS, () => state.appearance.hairColor, (c) => (state.appearance.hairColor = c), syncers);
+  const eyeColRow = swatchGroup("Eye colour", EYE_COLORS, () => state.appearance.eyeColor ?? EYE_COLORS[0]!, (c) => (state.appearance.eyeColor = c), syncers);
   const buildRow = labelGroup("Build", BUILDS.map((b) => ({ v: b.id, label: b.label })),
     () => state.appearance.build, (v) => (state.appearance.build = v as BodyBuild), syncers);
   const outfitRow = outfitGroup(() => outfitsFor(state.gender), () => state.appearance.outfit, (o) => (state.appearance.outfit = { ...o }), syncers);
 
-  right.append(nameField, ageField, genderField, skinRow, hairRow, hairColRow, buildRow, outfitRow);
+  right.append(nameField, ageField, genderField, skinRow, hairRow, hairColRow, eyeColRow, buildRow, outfitRow);
 
   body.append(left, right);
 
@@ -203,6 +207,7 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     state.appearance.skin = pick(SKINS);
     state.appearance.hair = pick(HAIR_STYLES).id;
     state.appearance.hairColor = pick(HAIR_COLORS);
+    state.appearance.eyeColor = pick(EYE_COLORS);
     state.appearance.build = pick(BUILDS).id;
     state.gender = Math.random() < 0.5 ? "female" : "male";
     state.appearance.outfit = { ...pick(outfitsFor(state.gender)) };

@@ -34,13 +34,15 @@ import { drawRod } from "./rig";
 import { drawMusicNotes } from "./props";
 import {
   SPRITE_NPC_SCALE, SPRITE_NPC_FOOT_DY, SPRITE_NPC_WALK_STRIDE,
-  SPRITE_NPC_SCALES, SPRITE_FACING_HYSTERESIS,
+  SPRITE_NPC_SCALES, SPRITE_FACING_HYSTERESIS, CHARACTER_SPRITES_PRIMARY,
 } from "../config";
 import type { Npc } from "../entities/npc";
 
 const WALK_FRAMES = 6;
 
-let npcSpritesEnabled = true;   // dev A/B toggle (__wh.npcSpriteMode)
+// Default from the locked render mode (config): false = rig-primary, NPC sprites
+// are the off-by-default fallback. __wh.npcSpriteMode(true) flips it live (A/B).
+let npcSpritesEnabled = CHARACTER_SPRITES_PRIMARY;
 /** Dev bridge: force the rig path on/off for every NPC (A/B comparison). */
 export function setNpcSpriteMode(on: boolean) { npcSpritesEnabled = on; }
 export function npcSpriteModeOn(): boolean { return npcSpritesEnabled; }

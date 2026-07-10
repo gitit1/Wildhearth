@@ -36,6 +36,7 @@ export function rigFromCharacter(c: Character | null): RigParams {
     hair: a.hair,
     hairColor: a.hairColor,
     hatColor: a.hatColor,
+    eyeColor: a.eyeColor,
     age: "adult",
     outfit: { ...a.outfit },
   };

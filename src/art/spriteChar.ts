@@ -29,6 +29,7 @@ import { shadow, castShadow } from "./shapes";
 import {
   SPRITE_PLAYER_SCALE, SPRITE_PLAYER_FOOT_DY, SPRITE_WALK_STRIDE,
   SPRITE_IDLE_FPS, SPRITE_FACING_HYSTERESIS, SPRITE_HAIRSTYLE_SCALE,
+  CHARACTER_SPRITES_PRIMARY,
 } from "../config";
 import { DEFAULT_APPEARANCE, type Appearance, type Character, type Gender } from "../systems/meta";
 import type { HairStyle, Outfit, Facing } from "./rig";
@@ -50,12 +51,16 @@ const WALK_FRAMES = 6, IDLE_FRAMES = 4;
 const HAIR_ZONE = 0.52;        // head-zone ceiling (cell fraction) for hair recolour on bun/short/cropped
 
 interface HeroSheet { id: string; hairYMax: number }   // hairYMax 0 = don't recolour hair (hat)
-const HERO_SHEETS: Record<HairStyle, HeroSheet> = {
+// Partial: a HairStyle with no packed sheet (e.g. the rig-native "long", which
+// has no PixelLab base) simply resolves to undefined here → the sprite path
+// returns false for that look → the rig draws it (now the primary path anyway).
+const HERO_SHEETS: Partial<Record<HairStyle, HeroSheet>> = {
   hat:      { id: "characters/heroine",          hairYMax: 0 },          // straw hat hides the hair
   bun:      { id: "characters/heroine-bun",      hairYMax: HAIR_ZONE },
   short:    { id: "characters/heroine-short",    hairYMax: HAIR_ZONE },
   ponytail: { id: "characters/heroine-ponytail", hairYMax: 0.62 },       // long tail reaches ~mid-back
   bald:     { id: "characters/heroine-cropped",  hairYMax: HAIR_ZONE },  // "bald-ish" → cropped short crop
+  // "long" — no sprite base; falls through to the rig.
 };
 
 // ---- recolour bands (art constants; measured from the base sheets) -------
@@ -82,7 +87,9 @@ const isNativeOutfit = (o: Outfit) => NATIVE_DRESS_TORSOS.has(lc(o.torso));
 
 // 8-dir facing + walk-frame logic is shared with the NPC bridge (spriteFacing.ts).
 let curSector = 2;          // held 8-dir facing; 2 = south (matches createPlayer dir=2)
-let spriteEnabled = true;   // dev A/B toggle (__wh.spriteMode)
+// Default from the locked render mode (config): false = rig-primary (sprites are
+// the off-by-default fallback). __wh.spriteMode(true) still flips it live for A/B.
+let spriteEnabled = CHARACTER_SPRITES_PRIMARY;
 
 /** Dev bridge: force the rig path on/off for A/B comparison. */
 export function setSpriteMode(on: boolean) { spriteEnabled = on; }
@@ -101,6 +108,7 @@ export function spriteModeOn(): boolean { return spriteEnabled; }
  *    simplification, the rig honours it on fallback).
  */
 export function spriteCoversLook(gender: Gender, a: Appearance): boolean {
+  if (!spriteEnabled) return false;      // rig-primary (CHARACTER_SPRITES_PRIMARY) → nobody is sprite-covered
   if (gender !== "female") return false;
   if (!HERO_SHEETS[a.hair]) return false;
   if (lc(a.skin) !== lc(DEFAULT_APPEARANCE.skin)) return false;      // skin recolour excluded

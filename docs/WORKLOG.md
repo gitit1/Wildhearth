@@ -29,6 +29,74 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Characters adopt the upgraded rig — sprites become fallback
+- **Date:** 2026-07-10 (v1-foundation)
+- **Block given:** the product owner LOCKED a render-mode decision: all
+  characters (the player + the 10 NPCs) render through the upgraded code rig
+  (`src/art/rig.ts`); the PixelLab CHARACTER sprites become an off-by-default
+  dual-path FALLBACK (kept, not deleted). The environment stays sprites.
+- **Why:** PixelLab can't decompose a character into recolourable / poseable
+  parts, so the sprite path could only honestly recolour a narrow slice of
+  looks (default skin, a few outfit silhouettes) before falling back anyway.
+  The rig upgrade (3-tone shading, expressive face, volumetric hair, cloth
+  detail, all 4 facings + walk) now renders every chosen colour + all 8 outfit
+  silhouettes — the truer "her character, her design" path. Dual-path is
+  preserved per CLAUDE.md hard rule #1: nothing sprite-side was deleted and
+  the game still boots with zero PNGs.
+- **The single flag (how to toggle):** new `CHARACTER_SPRITES_PRIMARY` in
+  `src/config.ts` (set to `false` = rig-primary). It defaults both draw
+  bridges' enable flags:
+  - `src/art/spriteChar.ts` — `spriteEnabled = CHARACTER_SPRITES_PRIMARY`; also
+    `spriteCoversLook()` now short-circuits to `false` when `!spriteEnabled`, so
+    `spriteCoversCharacter()` (→ `main.ts` `playerUsesSprite`) resolves to the
+    rig for every look.
+  - `src/art/spriteNpc.ts` — `npcSpritesEnabled = CHARACTER_SPRITES_PRIMARY`;
+    `drawNpcSprite()` / `npcHasSprite()` already gate on it, so every NPC draws
+    the rig.
+  - The live dev toggles still work per-session: `__wh.spriteMode(true)` /
+    `__wh.npcSpriteMode(true)` flip back to sprites for A/B (player coverage is
+    cached in `playerUsesSprite`, so re-run New Game after toggling).
+- **`"long"` hair promoted to a first-class style:**
+  - `src/art/rig.ts` — `"long"` added to the exported `HairStyle` union; the
+    old rig-internal widening `RigHair` is now just an alias of `HairStyle`
+    (the painter branches were already present).
+  - `src/art/spriteChar.ts` — `HERO_SHEETS` is now a
+    `Partial<Record<HairStyle, HeroSheet>>` with no `"long"` entry (no PixelLab
+    base for it), so a `"long"` look resolves to `undefined` → sprite path
+    returns false → the rig (now primary) draws it.
+  - `src/systems/meta.ts` — `isHair()` guard accepts `"long"` so a saved
+    `"long"` survives revive.
+- **Char creation exposes the new options (both were low-effort):**
+  - `src/ui/charcreation.ts` — `"long"` added to `HAIR_STYLES`; a new "Eye
+    colour" swatch group (`EYE_COLORS`, first = the rig's default warm brown);
+    Randomize now rolls both; `previewRig()` passes `eyeColor` so the live
+    preview (which now always draws the rig, since no look is sprite-covered)
+    shows it.
+  - `src/systems/meta.ts` — `Appearance` gains optional `eyeColor`;
+    `reviveAppearance()` reads it; `DEFAULT_APPEARANCE.eyeColor = "#4a3520"`
+    made explicit (equals the rig default, so no visual change for old saves).
+  - `src/entities/player.ts` — `rigFromCharacter()` passes `a.eyeColor` into
+    the player's `RigParams`.
+- **NPC params:** skimmed all 10 in `src/data/npcs.ts`; none render broken
+  under the rig, so no param changes were made. Sera + Liora carry legacy
+  `torsoStyle: 1` with no `style`, so the rig draws them as a plain tunic +
+  trousers (no skirt silhouette) — acceptable, not broken; left as-is to avoid
+  a redesign.
+- **Verification:** `npm run build` green (tsc strict + vite). Rendered the
+  REAL `drawRig` with the REAL `NPCS` params + a sample creation look (hair
+  `"long"`, custom eye colour, dress) via a throwaway harness; confirmed the
+  player (4 facings + walk) and all 10 NPCs render correctly as the upgraded
+  rig. Screenshots saved to the session scratchpad (`wired-player.png`,
+  `wired-npcs.png`). Harness deleted; `git status` shows only real source.
+- **Follow-ups:**
+  - Side-profile face is an approximation (both eyes side-swept onto the
+    facing side); a true single-eye profile would read cleaner.
+  - Ponytail back-mass reads a touch busy on the walking/profile frames
+    (Maren, Liora) — a candidate for a slimmer tail silhouette.
+  - The heroine + NPC sprite sheets and both draw bridges remain in-tree as the
+    dual-path fallback; if the sprite path is permanently retired later, that's
+    a separate cleanup (and would revisit `spriteCoversLook`'s now-dead branches).
+
 ## docs — HANDOFF: session-2 wrap — Path A shipped, continuation recipes
 - **Date:** 2026-07-07 (v1-foundation)
 - **Block given:** close out session 2 in `docs/HANDOFF.md` (the master

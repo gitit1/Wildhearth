@@ -28,6 +28,7 @@ export interface Appearance {
   hair: HairStyle;
   hairColor: string;
   hatColor?: string;       // used when hair === "hat"
+  eyeColor?: string;       // iris colour (rig default warm brown when unset)
   build: BodyBuild;
   outfit: Outfit;
 }
@@ -61,6 +62,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   hair: "hat",
   hairColor: "#5b3b22",
   hatColor: "#e0be5c",
+  eyeColor: "#4a3520",     // the rig's default warm brown, made explicit
   build: "average",
   outfit: { torso: "#b0432f", legs: "#4a5d8a", accent: "#7a3020", shoes: "#4b3a26" },
 };
@@ -80,7 +82,7 @@ const isPath = (v: unknown): v is Path =>
 const isGoal = (v: unknown): v is LifeGoal =>
   v === "family" || v === "independence" || v === "community" || v === "mastery" || v === "fortune";
 const isHair = (v: unknown): v is HairStyle =>
-  v === "short" || v === "ponytail" || v === "bun" || v === "bald" || v === "hat";
+  v === "short" || v === "ponytail" || v === "bun" || v === "bald" || v === "hat" || v === "long";
 const isBuild = (v: unknown): v is BodyBuild =>
   v === "slim" || v === "average" || v === "round";
 const isOutfitStyle = (v: unknown): v is OutfitStyle =>
@@ -104,6 +106,7 @@ function reviveAppearance(a: Partial<Appearance> | undefined): Appearance {
     hair: isHair(a.hair) ? a.hair : DEFAULT_APPEARANCE.hair,
     hairColor: str(a.hairColor, DEFAULT_APPEARANCE.hairColor),
     hatColor: typeof a.hatColor === "string" ? a.hatColor : DEFAULT_APPEARANCE.hatColor,
+    eyeColor: typeof a.eyeColor === "string" ? a.eyeColor : DEFAULT_APPEARANCE.eyeColor,
     build: isBuild(a.build) ? a.build : DEFAULT_APPEARANCE.build,
     outfit: {
       torso: str(o.torso, DEFAULT_APPEARANCE.outfit.torso),
