@@ -71,6 +71,14 @@ export const SKILL_GAIN_BASE = 0.3;     // points gained on a successful gain-ro
 export const GAIN_GUARD_FAILS = 4;      // consecutive failed rolls before the next is forced (UO-style pity)
 export const SKILL_CAP = 250;           // total skill budget (placeholder for MVP's 5 skills)
 export const STARTER_SKILL_SEED = 10;   // starting value of the skill matching the starter tool
+// Neglect-decay (DECISIONS "Decay: unused skills decay slowly"): a skill unused
+// for SKILL_DECAY_IDLE_DAYS in-game days then loses SKILL_DECAY_PER_DAY points
+// per further idle day — but never falls below the bottom of the score TIER it
+// has reached (Novice/Skilled/Expert), so earned tiers aren't lost. Locked
+// skills never decay.
+export const SKILL_DECAY_IDLE_DAYS = 4;   // grace: idle days before decay begins
+export const SKILL_DECAY_PER_DAY = 0.2;   // points lost per idle day past the grace
+export const SKILL_TIER_FLOORS = [33, 66] as const;  // Skilled / Expert entry (Novice floor is 0)
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
 export const MINIMAP_SCALE = 0.11;      // minimap px per world px (scaled up for the wider v1 world)

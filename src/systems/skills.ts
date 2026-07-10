@@ -1,4 +1,7 @@
-import { SKILLS_KEY, SKILL_GAIN_BASE, SKILL_CAP, GAIN_GUARD_FAILS } from "../config";
+import {
+  SKILLS_KEY, SKILL_GAIN_BASE, SKILL_CAP, GAIN_GUARD_FAILS,
+  SKILL_DECAY_IDLE_DAYS, SKILL_DECAY_PER_DAY, SKILL_TIER_FLOORS,
+} from "../config";
 
 /**
  * UO-style skills: 0.0-100.0 per skill, three-state lock (up/down/locked),
@@ -6,11 +9,30 @@ import { SKILLS_KEY, SKILL_GAIN_BASE, SKILL_CAP, GAIN_GUARD_FAILS } from "../con
  * chance-based per use (chance shrinks toward 100 — same expected pace as
  * the old always-gain diminishing amounts) with a UO-style Gain Guard: a
  * handful of failed rolls in a row forces the next one to succeed.
+ *
+ * Neglect-decay (DECISIONS "Decay: unused skills decay slowly"): each skill
+ * counts the in-game days since it was last exercised (`idleDays`); past a grace
+ * window it slowly loses points per idle day, floored at the bottom of the score
+ * TIER it has reached (Novice/Skilled/Expert) so earned tiers are never lost.
  */
 
 export type SkillLock = "up" | "down" | "locked";
-export interface Skill { id: string; value: number; lock: SkillLock; fails: number }
+export interface Skill { id: string; value: number; lock: SkillLock; fails: number; idleDays: number }
 export interface Skills { list: Skill[] }
+
+/** Score tier (DECISIONS "0-100 per skill + tiers Novice/Skilled/Expert"). */
+export type SkillTier = "Novice" | "Skilled" | "Expert";
+export function skillTier(value: number): SkillTier {
+  if (value >= SKILL_TIER_FLOORS[1]) return "Expert";
+  if (value >= SKILL_TIER_FLOORS[0]) return "Skilled";
+  return "Novice";
+}
+/** The lowest value the current tier keeps — neglect-decay never crosses it. */
+function tierFloor(value: number): number {
+  if (value >= SKILL_TIER_FLOORS[1]) return SKILL_TIER_FLOORS[1];
+  if (value >= SKILL_TIER_FLOORS[0]) return SKILL_TIER_FLOORS[0];
+  return 0;
+}
 
 export const SKILL_NAMES: Record<string, string> = {
   fishing: "Fishing",
@@ -27,7 +49,7 @@ export const SKILL_NAMES: Record<string, string> = {
 const SKILL_IDS = Object.keys(SKILL_NAMES);
 
 export function createSkills(): Skills {
-  return { list: SKILL_IDS.map((id) => ({ id, value: 0, lock: "up" as SkillLock, fails: 0 })) };
+  return { list: SKILL_IDS.map((id) => ({ id, value: 0, lock: "up" as SkillLock, fails: 0, idleDays: 0 })) };
 }
 
 export function loadSkills(): Skills {
@@ -43,6 +65,7 @@ export function loadSkills(): Skills {
           mine.value = Math.max(0, Math.min(100, s.value));
           if (s.lock === "up" || s.lock === "down" || s.lock === "locked") mine.lock = s.lock;
           mine.fails = typeof s.fails === "number" ? Math.max(0, Math.floor(s.fails)) : 0;
+          mine.idleDays = typeof s.idleDays === "number" ? Math.max(0, Math.floor(s.idleDays)) : 0;
         }
       }
     }
@@ -85,7 +108,9 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
  */
 export function gainSkill(s: Skills, id: string, chanceMult = 1): number {
   const sk = getSkill(s, id);
-  if (!sk || sk.lock !== "up" || sk.value >= 100) return 0;
+  if (!sk) return 0;
+  sk.idleDays = 0;   // any use of the skill resets its neglect-decay clock
+  if (sk.lock !== "up" || sk.value >= 100) { saveSkills(s); return 0; }
 
   // the gain-chance roll, with the Gain Guard pity counter
   const chance = Math.max(0.01, Math.min(1, (1 - sk.value / 100) * chanceMult));
@@ -118,6 +143,31 @@ export function gainSkill(s: Skills, id: string, chanceMult = 1): number {
   sk.value = r1(sk.value + applied);
   saveSkills(s);
   return applied;
+}
+
+/**
+ * Neglect-decay (DECISIONS "unused skills decay slowly") — call once per new
+ * in-game day (mirrors decayRelationships). Every non-locked skill banks an idle
+ * day; once idle past SKILL_DECAY_IDLE_DAYS it sheds SKILL_DECAY_PER_DAY points
+ * per idle day, but never below the floor of the score tier it has reached
+ * (Novice/Skilled/Expert), so an earned tier is never lost. Locked skills are
+ * frozen and never decay. `days` folds a multi-day skip (sleeping) into one call.
+ * Returns the ids that actually lost points (caller may surface a gentle note).
+ */
+export function decaySkills(s: Skills, days = 1): string[] {
+  const decayed: string[] = [];
+  for (const sk of s.list) {
+    if (sk.lock === "locked") continue;         // frozen skills never decay
+    sk.idleDays += days;
+    const over = sk.idleDays - SKILL_DECAY_IDLE_DAYS;   // idle days past the grace window
+    if (over <= 0 || sk.value <= 0) continue;
+    const floor = tierFloor(sk.value);
+    if (sk.value <= floor) continue;            // already resting on its tier boundary
+    const next = r1(Math.max(floor, sk.value - SKILL_DECAY_PER_DAY * Math.min(over, days)));
+    if (next < sk.value) { sk.value = next; decayed.push(sk.id); }
+  }
+  saveSkills(s);
+  return decayed;
 }
 
 /** Cycles a skill's lock up -> down -> locked -> up (UO-style arrow toggle). */

@@ -52,7 +52,7 @@ import { loadMemories, resetMemories, addMemory, saveMemories, attachMemoryFlavo
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
-import { loadSkills, gainSkill, skillValue, getSkill, saveSkills } from "./systems/skills";
+import { loadSkills, gainSkill, skillValue, getSkill, saveSkills, decaySkills } from "./systems/skills";
 import { saveSettings, guidanceMode, setGuidance, dayLengthSeconds, endOfDaySummaryMode, type Guidance } from "./systems/settings";
 import { loadFarm, resetFarm, saveFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
@@ -816,6 +816,9 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     // neglect decay: any NPC not contacted during the day that just ended drifts
     // down (faster the shallower the bond); also expires a stale birthday flag
     decayRelationships(relationships, endedDay, absoluteDay(calendar));
+    // neglect decay: a skill unused past its grace window slowly sheds points,
+    // floored at the tier it's reached (DECISIONS "unused skills decay slowly")
+    decaySkills(skills);
     // Festival engine: on the morning a festival falls, raise the world flag
     // dialogue's condition system reads (data/dialogue/shared.ts's shared
     // festival opening line) — a 1-day flag, self-clearing the day after.

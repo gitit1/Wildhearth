@@ -29,6 +29,37 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## systems — Skill neglect-decay, floored at tier boundaries (R7)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R7 — implement the DECISIONS promise "Decay: unused skills
+  decay slowly": after N idle in-game days a skill loses a little per day,
+  floored at tier boundaries so earned tiers (Novice/Skilled/Expert) aren't
+  lost. Respect the existing up/down/lock + Gain-Guard systems.
+- **Done (`systems/skills.ts`, `config.ts`, `main.ts`):**
+  - `Skill` gains an `idleDays` counter (persisted; old saves default it to 0);
+    `createSkills`/`loadSkills` updated.
+  - **`skillTier(value)`** returns Novice/Skilled/Expert from config
+    `SKILL_TIER_FLOORS = [33, 66]` (Novice floor 0); a private `tierFloor` gives
+    the current tier's lower bound.
+  - **`gainSkill`** now resets `idleDays = 0` on ANY exercise of the skill
+    (before the lock/maxed early-return, which now also saves) — using a skill
+    resets its neglect clock.
+  - **`decaySkills(skills, days=1)`** (called once per new in-game day from
+    `main.ts`'s daily hook, right after `decayRelationships`): every non-locked
+    skill banks an idle day; past `SKILL_DECAY_IDLE_DAYS` (4) grace it sheds
+    `SKILL_DECAY_PER_DAY` (0.2) points per idle day, never crossing below the
+    floor of the tier it has reached. Locked skills are frozen. The `days` arg
+    folds a multi-day sleep skip into one correct charge (`min(over, days)`).
+- **Verify (unit, fast-forward harness over the real module):** set fishing 70
+  (Expert), farming 40 (Skilled), foraging 20 (Novice), cooking 80 (locked),
+  busking 50 (exercised daily). After 40 idle days: fishing→66 (Expert floor),
+  farming→33 (Skilled floor), foraging→12.8 (heading to the Novice floor 0),
+  cooking unchanged (locked), busking rose to 53.3 (daily use reset idle + gained
+  — never decayed). Grace check: a fresh Expert skill holds at 70 through 4 idle
+  days, drops to 69.8 on the 5th. Build green.
+- **Follow-ups:** the tier names are exposed (`skillTier`) but not yet surfaced
+  in the Skills window UI — a natural small polish for the R8 screens pass.
+
 ## systems — The barn does something: storage chest + night shelter (R5)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R5 — give the barn a real use. Barn interaction opens a
