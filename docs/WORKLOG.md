@@ -29,6 +29,22 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## content — Cooking recipes 6 → 21 (R3, collection 3/5)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R3 variety push — recipes 7 → 20+, multi-ingredient dishes
+  that use the new forage/fish/crop entries; a dish always outsells its raw
+  ingredients (earned-economy pillar).
+- **Done (data only, one file):** `src/data/recipes.ts` — 6 originals kept,
+  +15 new `Recipe` rows (herb salad, berry jam, roasted nuts, grilled perch,
+  forager's tea, mushroom soup, vegetable stew, fish stew, fruit tart, stuffed
+  pepper, cranberry relish, pumpkin pie, root mash, salmon dinner, harvest
+  platter). Skill floors span Cooking 8 → 48. Consumed by `cooking.ts`
+  `cookableRecipes` (generic over the whole table — no code change), priced in
+  GOOD_PRICES, named in ITEM_NAMES, iconed by `paintDish` (tinted bowl).
+- **Verify:** esbuild harness cross-referencing every ingredient id against the
+  fish/forage/crop price tables — 21 recipes, 0 dupes, 0 missing ingredients,
+  every dish price strictly greater than its raw ingredient total. Build green.
+
 ## content — Forage variety 11 → 26 (R3, collection 2/5)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R3 variety push — forage 11 → 20+, fill the seasonal
