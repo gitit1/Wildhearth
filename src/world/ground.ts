@@ -7,17 +7,256 @@ import {
 } from "./zones";
 import { mulberry32 } from "../engine/rng";
 import { roundR } from "../art/shapes";
+import { sprite } from "../art/sprites";
 
 // Density scales with area so the world stays evenly textured at ~4x the old
 // size (the original counts were tuned for a 1088x768 map).
 const AREA_K = (WORLD_W * WORLD_H) / (1088 * 768);
 
+// ===========================================================================
+//  Pixel-tile ground (the owner's "everything pixels" order — R2). The static
+//  ground canvas is rendered from the generated 32px tile sets
+//  (src/assets/pixellab/ground/{grass,soil,water,plaza}/) with a position-
+//  seeded weighted scatter per terrain + code Bayer-dither alpha edges between
+//  terrains (ported from the proven scratchpad/ground-prod/final_mock.js). This
+//  is DUAL-PATH (CLAUDE.md rule #1): if the tile PNGs aren't loaded, paintGround
+//  falls back to the painterly region painters below, so the game boots with
+//  the ground folder empty. Because the ground bakes ONCE but tiles decode
+//  async after boot, main.ts re-bakes a single time once groundTilesAvailable().
+// ===========================================================================
+
+/** 4x4 Bayer matrix, normalised to (0,1) thresholds — the dither edge kernel. */
+const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+  .map((r) => r.map((v) => (v + 0.5) / 16));
+
+/** Expand a weighted spec [[tileIndex, weight], ...] into a flat pick bag. */
+function bag(spec: Array<[number, number]>): number[] {
+  const b: number[] = [];
+  for (const [i, n] of spec) for (let k = 0; k < n; k++) b.push(i);
+  return b;
+}
+// Weighted bags (tile roles + weights from ground-prod/LEDGER.md; plain-dominant
+// ~75% so the field never reads as a repeating lattice).
+const GRASS_BAG   = bag([[0, 20], [1, 16], [2, 18], [3, 16], [15, 14], [7, 8], [4, 4], [5, 4], [6, 4], [11, 4], [8, 3], [9, 3], [10, 2], [14, 2], [12, 2], [13, 1]]);
+const SOIL_PATH_BAG = bag([[6, 10], [7, 10], [14, 10], [12, 3]]);   // smooth packed dirt
+/** Furrowed tilled-soil tiles (the plot + freshly-hoed cells). Exported so the
+ *  per-cell tilled painter (art/props.ts drawTilledTile) draws the SAME soil
+ *  base as the baked field — seamless, no tone clash. */
+export const SOIL_TILLED_BAG = bag([[0, 4], [1, 4], [2, 4], [8, 4], [10, 2], [3, 1], [15, 1]]);
+const WATER_DEEP_BAG    = bag([[10, 7], [11, 7], [14, 7], [1, 3], [7, 2], [5, 2], [9, 1]]);
+const WATER_SHALLOW_BAG = bag([[15, 5], [8, 4], [4, 2]]);          // muted shallow only (bright teal dropped — LEDGER)
+const WATER_SHORE_BAG   = bag([[12, 3], [2, 2], [0, 1]]);          // mud/sand shore, mud-dominant (supervisor note)
+const PLAZA_BAG = bag([[0, 6], [2, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [12, 6], [14, 6], [15, 6], [3, 3], [13, 2], [1, 2], [4, 2]]);
+
+/** Position + salt seeded pick from a bag — deterministic, iteration-order
+ *  independent (so two terrains never correlate at a shared cell). */
+export function pickTile(b: number[], cx: number, cy: number, salt: number): number {
+  const r = mulberry32((((cx * 73856093) ^ (cy * 19349663) ^ (salt * 83492791)) >>> 0))();
+  return b[(r * b.length) | 0]!;
+}
+
+// Cached 32x32 RGBA pixel buffers per tile ("<set><idx>"), read once off a
+// shared scratch canvas. Null until the sprite has decoded (dual-path gate).
+const tilePxCache = new Map<string, Uint8ClampedArray>();
+let tileScratch: CanvasRenderingContext2D | null = null;
+function tilePx(set: string, idx: number): Uint8ClampedArray | null {
+  const key = set + idx;
+  const cached = tilePxCache.get(key);
+  if (cached) return cached;
+  const img = sprite(`ground/${set}/tile_${idx}`);
+  if (!img) return null;
+  if (!tileScratch) {
+    const c = document.createElement("canvas"); c.width = T; c.height = T;
+    tileScratch = c.getContext("2d", { willReadFrequently: true });
+    if (!tileScratch) return null;
+    tileScratch.imageSmoothingEnabled = false;
+  }
+  tileScratch.clearRect(0, 0, T, T);
+  tileScratch.drawImage(img, 0, 0);
+  let data: Uint8ClampedArray;
+  try { data = tileScratch.getImageData(0, 0, T, T).data; }
+  catch { return null; }
+  tilePxCache.set(key, data);
+  return data;
+}
+
+/** True once EVERY ground tile PNG (all 16 of all 4 sets) has decoded — the
+ *  re-bake gate (main.ts). Checks the whole set so the first bake that passes
+ *  this gate is guaranteed to render (paintTerrainTiles never half-fails). */
+export function groundTilesAvailable(): boolean {
+  for (const set of ["grass", "soil", "water", "plaza"])
+    for (let i = 0; i < 16; i++)
+      if (!sprite(`ground/${set}/tile_${i}`)) return false;
+  return true;
+}
+
+let lastTiled = false;
+/** Did the most recent paintGround() render from tiles (vs the painterly
+ *  fallback)? main.ts uses this to know whether a re-bake is still pending. */
+export function groundIsTiled(): boolean { return lastTiled; }
+
+/** The furrowed soil sprite the tiled ground would place at a given tile CENTRE
+ *  (world px), or null when the ground isn't tiled — so art/props.ts's
+ *  drawTilledTile draws a soil tile matching the baked field, and falls back to
+ *  its code furrow painter with zero PNGs. */
+export function groundSoilTileFor(cx: number, cy: number): HTMLImageElement | null {
+  if (!sprite("ground/soil/tile_0")) return null;
+  const col = ((cx - T / 2) / T) | 0, row = ((cy - T / 2) / T) | 0;
+  const idx = pickTile(SOIL_TILLED_BAG, col, row, 4);
+  return sprite(`ground/soil/tile_${idx}`) ?? sprite("ground/soil/tile_0");
+}
+
+/** Signed inset of (x,y) within a rect, in TILE units (positive inside, 0 on the
+ *  edge, negative outside) — the raw distance the terrain dither ramps over. */
+function rectInsetTiles(x: number, y: number, r: { x: number; y: number; w: number; h: number }): number {
+  const lx = x - r.x, ly = y - r.y;
+  return Math.min(lx, ly, r.w - lx, r.h - ly) / T;
+}
+
+/**
+ * Render the whole static ground from the pixel tile sets, with weighted per-
+ * cell variant scatter and Bayer-dither terrain edges. Returns false (→ the
+ * caller runs the painterly fallback) if any tile hasn't decoded yet.
+ */
+function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
+  // Preload all 64 tile buffers up front — bail to the painterly path if any is
+  // still decoding (a later re-bake will succeed once they're all in).
+  const buf: Record<string, Uint8ClampedArray[]> = { grass: [], soil: [], water: [], plaza: [] };
+  for (const set of ["grass", "soil", "water", "plaza"]) {
+    for (let i = 0; i < 16; i++) {
+      const p = tilePx(set, i);
+      if (!p) return false;
+      buf[set]!.push(p);
+    }
+  }
+  // Terrain regions (world px). Soil = packed-dirt paths + farmyard; the field is
+  // furrowed tilled soil; the market square is cobble; pond/river/lake are water.
+  const yard = { x: 6 * T, y: 4 * T, w: 12 * T, h: 11 * T };
+  const farmPath = { x: 12.4 * T, y: 8.6 * T, w: 7.8 * T, h: 1.3 * T };
+  const field = { x: FIELD.x0 * T, y: FIELD.y0 * T, w: (FIELD.x1 - FIELD.x0) * T, h: (FIELD.y1 - FIELD.y0) * T };
+  const plaza = { x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T };
+  const forest = { x: 46 * T, y: 0, w: 18 * T, h: 17.5 * T };
+  const soilRegions = [...ROAD_SEGMENTS, yard, farmPath];
+
+  const img = g.getImageData(0, 0, WORLD_W, WORLD_H);
+  const out = img.data;
+
+  const texel = (sbuf: Uint8ClampedArray, x: number, y: number, ch: 0 | 1 | 2): number =>
+    sbuf[(((y & 31) * T + (x & 31)) << 2) + ch]!;
+
+  for (let y = 0; y < WORLD_H; y++) {
+    for (let x = 0; x < WORLD_W; x++) {
+      const cx = (x / T) | 0, cy = (y / T) | 0;
+      const thr = BAYER[y & 3]![x & 3]!;
+
+      // --- grass base (+ darker, greener forest-floor tint, dithered edge so
+      //     the shaded floor blends into the open meadow instead of a hard line) ---
+      const gi = pickTile(GRASS_BAG, cx, cy, 1);
+      const gb = buf.grass![gi]!;
+      let r = texel(gb, x, y, 0), gg = texel(gb, x, y, 1), b = texel(gb, x, y, 2);
+      {
+        const e = rectInsetTiles(x, y, forest);
+        const fa = e > 0.5 ? 1 : e > -0.5 ? e + 0.5 : 0;
+        if (fa > 0 && (fa >= 1 || fa > thr)) {
+          r = (r * 0.78) | 0; gg = (gg * 0.86) | 0; b = (b * 0.70) | 0;
+        }
+      }
+
+      // --- SOIL: roads + farmyard + farm path (dithered edges into grass) ---
+      let sa = 0;
+      for (const rr of soilRegions) {
+        const e = rectInsetTiles(x, y, rr);
+        const a = e > 0.28 ? 1 : e > -0.5 ? (e + 0.5) / 0.78 : 0;
+        if (a > sa) sa = a;
+      }
+      if (sa > 0 && (sa >= 1 || sa > thr)) {
+        const si = pickTile(SOIL_PATH_BAG, cx, cy, 2);
+        const sb = buf.soil![si]!;
+        r = texel(sb, x, y, 0); gg = texel(sb, x, y, 1); b = texel(sb, x, y, 2);
+      }
+
+      // --- TILLED field: furrowed soil with a ragged edge ---
+      {
+        const e = rectInsetTiles(x, y, field);
+        if (e > -0.15 && (e > 0.12 || e > thr - 0.5)) {
+          const ti = pickTile(SOIL_TILLED_BAG, cx, cy, 4);
+          const tb = buf.soil![ti]!;
+          r = texel(tb, x, y, 0); gg = texel(tb, x, y, 1); b = texel(tb, x, y, 2);
+        }
+      }
+
+      // --- PLAZA: warm-grey cobble across the market square ---
+      {
+        const e = rectInsetTiles(x, y, plaza);
+        const a = e > 0.28 ? 1 : e > -0.6 ? (e + 0.6) / 0.88 : 0;
+        if (a > 0 && (a >= 1 || a > thr)) {
+          const zi = pickTile(PLAZA_BAG, cx, cy, 5);
+          const zb = buf.plaza![zi]!;
+          r = texel(zb, x, y, 0); gg = texel(zb, x, y, 1); b = texel(zb, x, y, 2);
+        }
+      }
+
+      // --- WATER: pond (ellipse) + river/lake (rects). Deep interior, muted
+      //     shallow ring, mud shore ring dithered into grass (mud-dominant). ---
+      // pond
+      {
+        const dx = (x - POND.cx) / POND.rx, dy = (y - POND.cy) / POND.ry;
+        const nd = Math.sqrt(dx * dx + dy * dy);
+        if (nd < 1.12) {
+          let wbag: number[], a = 1;
+          if (nd < 0.82) wbag = WATER_DEEP_BAG;
+          else if (nd < 0.94) wbag = WATER_SHALLOW_BAG;
+          else { wbag = WATER_SHORE_BAG; a = nd < 1.03 ? 1 : (1.12 - nd) / 0.09; }
+          if (a >= 1 || a > thr) {
+            const wi = pickTile(wbag, cx, cy, 6);
+            const wb = buf.water![wi]!;
+            r = texel(wb, x, y, 0); gg = texel(wb, x, y, 1); b = texel(wb, x, y, 2);
+          }
+        }
+      }
+      // river + lake
+      for (const wtr of [RIVER, LAKE]) {
+        const e = rectInsetTiles(x, y, wtr);
+        if (e <= -0.35) continue;
+        let wbag: number[], a = 1;
+        if (e > 1.1) wbag = WATER_DEEP_BAG;
+        else if (e > 0.45) wbag = WATER_SHALLOW_BAG;
+        else { wbag = WATER_SHORE_BAG; a = e > 0 ? 1 : (e + 0.35) / 0.35; }
+        if (a >= 1 || a > thr) {
+          const wi = pickTile(wbag, cx, cy, 7);
+          const wb = buf.water![wi]!;
+          r = texel(wb, x, y, 0); gg = texel(wb, x, y, 1); b = texel(wb, x, y, 2);
+        }
+      }
+
+      const o = ((y * WORLD_W + x) << 2);
+      out[o] = r; out[o + 1] = gg; out[o + 2] = b; out[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return true;
+}
+
 /** Paints the entire static ground once into an offscreen canvas.
- *  Measured 3456x960 (both sides < 4096) — one canvas is fine, no chunking. */
+ *  Measured 3456x960 (both sides < 4096) — one canvas is fine, no chunking.
+ *  Tile-primary (pixel tiles + dither edges) when the ground PNGs are loaded;
+ *  the painterly region painters below are the zero-PNG fallback. */
 export function paintGround(): HTMLCanvasElement {
   const ground = document.createElement("canvas");
   ground.width = WORLD_W; ground.height = WORLD_H;
   const g = ground.getContext("2d")!;
+  g.imageSmoothingEnabled = false;
+
+  lastTiled = paintTerrainTiles(g);
+  if (lastTiled) {
+    // Small organic decorations (stones, leaves, wildflowers, forest litter)
+    // stay code-drawn on TOP of the tiles — they break up any tile repetition
+    // and add life; their rejection zones keep them off water/plaza/paths.
+    scatterAmbientProps(g);
+    return ground;
+  }
+
+  // ---- painterly fallback (zero-PNG): the original code-drawn ground ----
   const rnd = mulberry32(7);
 
   g.fillStyle = "#5d8a3c"; g.fillRect(0, 0, WORLD_W, WORLD_H);

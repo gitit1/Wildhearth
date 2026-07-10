@@ -6,6 +6,7 @@ import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
 import { shadow, outline, oRect, castShadow } from "./shapes";
 import { sprite, drawGroundSprite, spriteBaseAnchor } from "./sprites";
+import { groundSoilTileFor } from "../world/ground";
 import type { Season } from "../systems/calendar";
 import type { CropGrowthShape } from "../data/crops";
 import { flowerById } from "../data/flowers";
@@ -360,6 +361,23 @@ export function drawCorn(g: CanvasRenderingContext2D, t: number) {
  *  tile). Watered soil reads visibly darker and damp. */
 export function drawTilledTile(g: CanvasRenderingContext2D, cx: number, cy: number, watered = false) {
   const x = cx - T / 2, y = cy - T / 2;
+  // Tiled-ground path (R2): draw the SAME furrowed soil tile the baked field
+  // uses, so a hand-tilled cell (even over an expansion strip that bakes as
+  // grass) sits seamlessly on the pixel ground. The wet state is a translucent
+  // damp overlay ON TOP so the tile shows through. Falls back to the code
+  // furrow painter below with zero PNGs (CLAUDE.md rule #1).
+  const soilTile = groundSoilTileFor(cx, cy);
+  if (soilTile) {
+    const prev = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(soilTile, x, y, T, T);
+    g.imageSmoothingEnabled = prev;
+    if (watered) {
+      g.fillStyle = "rgba(20,13,7,.42)"; g.fillRect(x, y, T, T);          // damp darkening
+      g.fillStyle = "rgba(140,170,200,.12)"; g.fillRect(x + 3, y + 3, T - 6, T - 6); // sheen
+    }
+    return;
+  }
   const rnd = mulberry32(((cx * 13) ^ (cy * 7)) | 0);
   g.fillStyle = watered ? "#3f2e1e" : "#57402a";
   g.fillRect(x + 2, y + 2, T - 4, T - 4);

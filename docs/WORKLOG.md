@@ -29,6 +29,69 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## world — the ground becomes pixel tiles (R2, "everything pixels")
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R2 — replace the painterly procedural ground with the
+  generated 32px tile sets (grass/soil/water/plaza), dual-path: the painterly
+  painter stays the zero-PNG fallback; the game must boot with the ground
+  folder empty. Port the proven weighted-scatter + Bayer-dither edge technique
+  from `scratchpad/ground-prod/final_mock.js` (per D-2 / the owner's
+  "הכל צריך להיראות זהה, הכל פיקסלים").
+- **Assets (`src/assets/pixellab/ground/{grass,soil,water,plaza}/tile_0..15.png`,
+  64 files):** the G1 production tile sets (LEDGER-documented roles/weights),
+  copied in; the manifest glob auto-keys them to `ground/<set>/tile_<i>`.
+  `assetsInlineLimit:0` already emits each as its own hashed file.
+- **Done (`src/world/ground.ts`):**
+  - New `paintTerrainTiles(g)` renders the whole static ground canvas from the
+    tiles: a position-seeded **weighted** variant scatter per terrain (bags +
+    weights ported from `final_mock.js`/LEDGER — grass ~75% plain, feature
+    tiles sparse) via `pickTile(bag,cx,cy,salt)` (deterministic, iteration-
+    order independent), composited per-pixel into one `ImageData`.
+  - Terrain→terrain **edges are code** (0 gens): a 4×4 Bayer-dither alpha mask
+    (`BAYER`) blends grass↔soil (roads + farmyard + farm path), grass↔tilled
+    field, grass↔cobble plaza, and the water shore ring into grass. Tile pixels
+    are read once off a shared 32×32 scratch canvas and cached
+    (`tilePx`/`tilePxCache`).
+  - Regions mapped to the REAL zones (not the mock's): `ROAD_SEGMENTS` + the
+    farmyard/farm-path rects = packed-dirt soil; base `FIELD` = furrowed tilled
+    soil; the market square (`59.5,14.5,21,13.5` T) = warm-grey cobble; `POND`
+    (ellipse) + `RIVER`/`LAKE` (rects) = water with a deep interior, a muted
+    shallow ring, and a **mud-dominant** shore ring dithered into grass
+    (supervisor weighting note). The forest floor is a darker/greener tint on
+    the grass tiles with a **dithered** edge (no hard seam).
+  - **Dual-path (CLAUDE.md rule #1):** `paintGround` calls `paintTerrainTiles`
+    first; if any tile hasn't decoded it returns false and the original
+    painterly region painters run unchanged (kept verbatim as the fallback).
+    Small organic ambient props (`scatterAmbientProps`) stay code-drawn on TOP
+    of the tiles — they break up any tile repetition and keep off water/plaza.
+  - Because the ground bakes ONCE but tile PNGs decode async after boot, new
+    exports `groundTilesAvailable()` (all 64 decoded — the re-bake gate) and
+    `groundIsTiled()`; `main.ts` now holds `let ground` and re-bakes a single
+    time in the loop once the tiles are available (`groundRebaked`).
+- **Done (`src/art/props.ts` `drawTilledTile`):** when the ground is tiled it
+  draws the SAME furrowed soil tile the baked field uses (via the new
+  `groundSoilTileFor(cx,cy)` export) so a hand-tilled cell — even over an
+  expansion strip that bakes as grass — sits seamlessly on the pixel ground;
+  the watered state is a translucent damp overlay on top. Falls back to the
+  code furrow painter with zero PNGs. `drawWiltedTile`/`drawCropTile` inherit
+  this (they call `drawTilledTile`), so crops read correctly on the tiled soil.
+- **Verified (fable-mode, headless Edge, screenshots viewed 1:1 in
+  `scratchpad/ground-prod/ingame-*.png` + `verify_fallback.png`):** tiled path
+  — farm (dirt yard + path + furrowed field with corn crops sitting naturally),
+  market (clean cobble plaza), pond (deep/shallow/mud-shore dither + lily
+  pads), wide meadow + trees (muted sage grass, dithered forest edge). Reads as
+  ONE coherent muted pixel world; no grid lattice; dither edges organic; sprites
+  (trees/crops) sit on the tiled ground. Fallback path (no PNGs loaded) boots
+  and renders the original painterly ground + code crop plants. `npm run build`
+  green.
+- **Follow-ups (for R8/D-3):** the pond/river/lake `drawWaterShimmer`/
+  `drawOpenWaterShimmer` white highlights are still smooth ellipses drawn over
+  the now-chunky pixel water — a D-3 "everything pixels" restyle candidate
+  (chunky/stepped shimmer). The baked field intentionally includes the sprout-
+  variant soil tile (parity with the approved final_mock) so an empty field
+  shows faint seedling texture — flag if the owner wants bare packed dirt when
+  untilled instead.
+
 ## systems — Skill neglect-decay, floored at tier boundaries (R7)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R7 — implement the DECISIONS promise "Decay: unused skills

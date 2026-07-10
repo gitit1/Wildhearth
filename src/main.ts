@@ -8,7 +8,7 @@ import {
   getPointerScreen, setMoveTarget, clearMoveTarget, getMoveTarget,
 } from "./engine/input";
 import { applyCamera, screenToWorld, adjustZoom, getLastCam } from "./engine/camera";
-import { paintGround } from "./world/ground";
+import { paintGround, groundIsTiled, groundTilesAvailable } from "./world/ground";
 import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
@@ -191,7 +191,12 @@ document.getElementById("zoomOut")!.addEventListener("click", () => adjustZoom(-
 // sprite() returns null (→ code-drawn painter) for any frame not yet decoded,
 // so a slow or entirely-missing asset can never delay or break boot.
 loadSprites();
-const ground = paintGround();
+// The ground bakes ONCE into an offscreen canvas, but the pixel-tile PNGs decode
+// asynchronously after boot — so the first bake is the painterly fallback. We
+// re-bake a SINGLE time in the loop once the ground tiles have decoded (dual-
+// path: stays painterly forever if the ground folder is empty). See world/ground.
+let ground = paintGround();
+let groundRebaked = groundIsTiled();
 // Ambient foliage scatter (foliage + props batch): built once, deterministic —
 // pushed into the depth-sorted ents each frame (non-colliding decoration).
 const foliageScatter = buildFoliageScatter();
@@ -1708,6 +1713,11 @@ function tick(now: number) {
   updateMemoryBook();
   if (!openingActive) tickGuidance();   // keep the tutorial bubble / aspiration pill live
   updateToast(dt);
+  // One-time ground re-bake once the pixel tiles have decoded (see boot note).
+  if (!groundRebaked && groundTilesAvailable()) {
+    ground = paintGround();
+    groundRebaked = groundIsTiled();
+  }
   // skip the world render when the viewport window is minimized/closed (its
   // canvas is hidden) — the game is paused anyway; nothing to show.
   if (isViewportActive()) draw(dt);
