@@ -435,6 +435,17 @@ export const SPRITE_BIRD_WADDLE_AMP = 1;      // px of the waddle bob, +/-
 export const SPRITE_BIRD_WADDLE_TILT = 0.08;  // radians of waddle tilt, +/-
 export const SPRITE_BIRD_WADDLE_STRIDE = 10;  // px of travel per waddle cycle
 
+// --- Tree sprites (art/props.ts drawTree dual-path). The 128x160 tree PNGs
+//     (trees/<species>-<season>) have their trunk base near the bottom-centre;
+//     TREE_SPRITE_SCALE is world-px per sprite-px, tuned so the on-screen tree
+//     is about the code painter's size (canopy content ~145 sprite-px tall ->
+//     ~80 screen-px). Per-tree flip/scale jitter (deterministic from position)
+//     multiplies this so a forest never looks like stamped clones. The trunk
+//     base stays planted on the tree's (x,y) depth/collision anchor through the
+//     jitter. TREE_SPRITE_JITTER bounds the per-tree uniform-scale spread. ---
+export const SPRITE_TREE_SCALE = 0.55;        // world px per sprite px
+export const SPRITE_TREE_JITTER = 0.12;       // +/- uniform-scale variation (0.88..1.12)
+
 export const SAVE_KEY = "wildhearth-save-v1";
 export const SKILLS_KEY = "wildhearth-skills-v1";
 export const SETTINGS_KEY = "wildhearth-settings-v1";

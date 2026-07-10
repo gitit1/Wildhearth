@@ -29,6 +29,62 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Tree sprites — dual-path drawTree + runtime variety
+- **Date:** 2026-07-10 (v1-foundation)
+- **Block given:** integrate the 10 approved PixelLab TREE sprites as the
+  primary tree look, dual-path (code painter stays as the zero-PNG fallback),
+  with runtime jitter so a forest never looks like stamped clones.
+- **Assets:** copied the 10 sprites (128×160, transparent, trunk base
+  bottom-centre) into a NEW `src/assets/pixellab/trees/` category —
+  `oak-{summer,autumn,winter,spring}.png`, `birch-{summer,autumn,winter,
+  spring}.png`, `pine-base.png`, `pine-winter.png`. No `manifest.ts` change
+  needed: its eager `./**/*.png` glob auto-keys them as `trees/<name>`
+  (same LOOSE-single-PNG shape as buildings). `_mask.png` was NOT copied.
+- **Dual-path (`src/art/props.ts`, `drawTree`):** after the existing
+  position-seeded species/blossom/patchy rolls, resolve the (species, season)
+  sprite via new `treeSpriteId()` and `sprite(id)`; if the PNG is present +
+  decoded, draw it (new `drawTreeSprite()`) and return, else fall through to
+  the unchanged code painter. Call site in `main.ts` is untouched (same
+  signature/anchor).
+  - **Species→sprite mapping:** the code keeps its 4-species position roll;
+    `"default"` (the ~45% majority) maps to the OAK art, so oak sprites carry
+    ~65%, pine ~20%, birch ~15% — preserving the old mix. PINE is evergreen:
+    `pine-base` for spring/summer/autumn, `pine-winter` (snow) for winter.
+    oak/birch use their own per-season PNG.
+  - **Anchor + scale:** trunk-base pixel measured off the art by alpha-bbox
+    column-density — trunk centre col ≈ 64, bottom-contact row ≈ 151
+    (`TREE_ANCHOR_DEFAULT = {cx:64, foot:151}`); `pine-winter`'s snow base
+    ends higher so it overrides to `foot:144`. That pixel is planted exactly
+    on the tree's world (x,y) — the same spot the code trunk met the ground —
+    so depth-sort + collisions are unchanged. `SPRITE_TREE_SCALE = 0.55`
+    (config.ts) makes the ~145-sprite-px content ≈ 80 screen-px canopy,
+    matching the code tree's size. Nearest-neighbour (`imageSmoothingEnabled=
+    false`).
+  - **Runtime jitter (required):** seeded from position by an INDEPENDENT
+    `mulberry32(((x*13)^(y*29))|0)` (never perturbs the painter's rng): ~50%
+    horizontal flip, a uniform per-tree scale of `1 ± SPRITE_TREE_JITTER`
+    (0.12 → 0.88–1.12), and a subtle vertical stretch (0.97–1.03). The trunk
+    base stays planted through every transform (translate to (x,y), scale,
+    draw anchor→origin). No per-frame animation from this seed. A light
+    `castShadow`+`shadow` contact shadow stands in for the sprites'
+    (deliberately un-baked) ground shadow.
+- **Config:** added `SPRITE_TREE_SCALE` (0.55) and `SPRITE_TREE_JITTER` (0.12)
+  to `src/config.ts`.
+- **Fallback intact:** the entire code painter (trunk/canopy/pine/bare/blossom
+  helpers) is unchanged below the sprite branch; with zero tree PNGs
+  `sprite()` returns null and the game draws the painter everywhere
+  (CLAUDE.md hard rule #1).
+- **Verified:** `npm run build` green (tsc strict + vite; tree PNGs emitted to
+  dist). Rendered the REAL integrated `drawTree` in a throwaway harness across
+  all species × all four seasons at game scale (Edge headless screenshot):
+  sprites render, seasons correct (spring blossoms, summer full, autumn gold,
+  winter bare deciduous + snow-dusted evergreen pine), forest shows genuine
+  flip/scale variety (no clones), trunks planted on the ground line. Harness
+  files removed after review.
+- **Follow-ups (art nitpicks, non-blocking):** birch trunk base reads a touch
+  brown (vs the pale bark higher up); pine winter snow is a little subtle at
+  game scale. Both are sprite-art tweaks for a future PixelLab pass, not code.
+
 ## Rig polish — true side profile + clean ponytail
 - **Date:** 2026-07-10 (v1-foundation)
 - **Block given:** polish the two logged cosmetic weaknesses in the newly

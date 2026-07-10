@@ -1,7 +1,8 @@
-import { T } from "../config";
+import { T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER } from "../config";
 import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
 import { shadow, outline, oRect, castShadow } from "./shapes";
+import { sprite } from "./sprites";
 import type { Season } from "../systems/calendar";
 import type { CropGrowthShape } from "../data/crops";
 
@@ -35,6 +36,16 @@ export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: n
   const blossomRoll = rnd();
   const patchyRoll = rnd();
 
+  // ---- sprite path: the PixelLab tree PNGs are the primary look. Resolve the
+  // (species, season) sprite; "default" maps to the oak art, pine uses its base
+  // sprite except in winter. If the PNG is present + decoded, draw it with
+  // per-tree flip/scale jitter (trunk base planted on the depth anchor) and
+  // return; otherwise fall through to the code painter (zero-PNG fallback,
+  // CLAUDE.md hard rule #1). ----
+  const sid = treeSpriteId(species, season);
+  const img = sprite(sid);
+  if (img) { drawTreeSprite(g, img, x, y, species, sid); return; }
+
   castShadow(g, x, y, 14, 46);   // the canopy's own blob shadow, cast from the trunk's base
   shadow(g, x + 4, y + 6, 20, 8);
 
@@ -58,6 +69,61 @@ export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: n
   if (season === "winter") { drawBareBranches(g, sx, y, species); return; }
   drawDeciduousCanopy(g, sx, y, tone, species, season === "autumn" && patchyRoll < 0.2);
   if (season === "spring" && blossomRoll < (species === "birch" ? 0.3 : 0.5)) drawBlossoms(g, sx, y, rnd);
+}
+
+/** Resolve a tree's (species, season) to a sprite manifest id under trees/.
+ *  "default" reuses the oak art (keeps the code species mix ~oak-heavy); pine is
+ *  an evergreen so it uses one base sprite for spring/summer/autumn and a
+ *  snow-dusted variant in winter. */
+function treeSpriteId(species: TreeSpecies, season: Season): string {
+  if (species === "pine") return season === "winter" ? "trees/pine-winter" : "trees/pine-base";
+  const s = species === "default" ? "oak" : species;   // default -> oak art
+  return `trees/${s}-${season}`;
+}
+
+// The trunk-base pixel in the 128x160 tree art (alpha-bbox column-density
+// measurement): the trunk centre column + its bottom-contact row. This point is
+// planted exactly on the tree's world (x,y) — the same spot the code trunk meets
+// the ground — so depth-sort + collisions are unchanged. cx is uniform across
+// the set (~63-64); pine-winter's snow base ends a few rows higher, so it keeps
+// its own foot. Everything else shares the default.
+const TREE_ANCHOR_DEFAULT = { cx: 64, foot: 151 } as const;
+const TREE_ANCHOR: Partial<Record<string, { cx: number; foot: number }>> = {
+  "trees/pine-winter": { cx: 64, foot: 144 },
+};
+
+/**
+ * Draw a loaded tree sprite with its trunk base planted on world (x,y), at
+ * SPRITE_TREE_SCALE, plus per-tree deterministic jitter (seeded from position,
+ * independent of the fallback painter's rng) so a forest reads as individual
+ * trees, not stamped clones: a ~50% horizontal FLIP, a uniform scale spread
+ * (1 ± SPRITE_TREE_JITTER), and a small extra vertical stretch. The trunk base
+ * stays anchored through every transform. Nearest-neighbour (crisp at any zoom);
+ * a light contact shadow stands in for the sprite's (deliberately un-baked)
+ * ground shadow.
+ */
+function drawTreeSprite(
+  g: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number,
+  species: TreeSpecies, id: string,
+) {
+  const jr = mulberry32(((x * 13) ^ (y * 29)) | 0);   // own seed: never perturbs the fallback painter's rng
+  const flip = jr() < 0.5;
+  const s = SPRITE_TREE_SCALE * (1 - SPRITE_TREE_JITTER + jr() * SPRITE_TREE_JITTER * 2);   // uniform per-tree scale
+  const vy = 0.97 + jr() * 0.06;                       // subtle vertical stretch (0.97..1.03)
+  const a = TREE_ANCHOR[id] ?? TREE_ANCHOR_DEFAULT;
+  // contact shadow (the sprites carry no baked shadow) — scaled to the trunk
+  const shW = (species === "pine" ? 9 : 13) * (s / SPRITE_TREE_SCALE);
+  castShadow(g, x, y, shW, shW * 3);
+  shadow(g, x + 3, y + 5, shW * 1.3, shW * 0.5);
+  const prev = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;
+  g.save();
+  g.translate(x, y);
+  g.scale(s * (flip ? -1 : 1), s * vy);
+  // anchor (a.cx, a.foot) -> local origin, so the trunk base sits on (x,y)
+  g.drawImage(img, -a.cx, -a.foot, img.naturalWidth, img.naturalHeight);
+  g.restore();
+  g.imageSmoothingEnabled = prev;
 }
 
 function drawTrunk(g: CanvasRenderingContext2D, x: number, y: number, species: TreeSpecies) {
