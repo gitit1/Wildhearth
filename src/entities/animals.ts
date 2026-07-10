@@ -49,15 +49,28 @@ export function createAnimals(owned: Livestock) {
   return { cows, hens, ducks, pigs, sheep };
 }
 
+// Barn shelter point (R5): the yard just south of the BARN rect (14..17.6 x,
+// 10.4..13.2 y in tiles). At night every animal heads here and settles, so the
+// farmyard empties into the barn's lee after dark instead of wandering all night.
+const BARN_SHELTER_X = 15.8 * T, BARN_SHELTER_Y = 13.6 * T;
+function barnSpot(spread: number): [number, number] {
+  return [
+    BARN_SHELTER_X + (Math.random() - 0.5) * 2 * spread * T,
+    BARN_SHELTER_Y + (Math.random() - 0.5) * spread * T,
+  ];
+}
+
+/** `night` (R5): true after dark — animals steer to the barn and settle there
+ *  instead of their daytime wander patch. */
 export function updateAnimals(
-  cows: Cow[], hens: Hen[], ducks: Duck[], pigs: Pig[], sheep: Sheep[], dt: number,
+  cows: Cow[], hens: Hen[], ducks: Duck[], pigs: Pig[], sheep: Sheep[], dt: number, night = false,
 ) {
   for (const c of cows) {
     c.t -= dt;
     if (c.t <= 0) {
       c.t = 3 + Math.random() * 4;
-      c.tx = (14 + Math.random() * 5) * T;
-      c.ty = (12 + Math.random() * 4) * T;
+      if (night) [c.tx, c.ty] = barnSpot(1.2);
+      else { c.tx = (14 + Math.random() * 5) * T; c.ty = (12 + Math.random() * 4) * T; }
     }
     const dx = c.tx - c.x, dy = c.ty - c.y, m = Math.hypot(dx, dy);
     c.moving = m > 4;
@@ -70,7 +83,8 @@ export function updateAnimals(
     h.t -= dt; h.peck = Math.max(0, h.peck - dt);
     if (h.t <= 0) {
       h.t = 2 + Math.random() * 3;
-      if (Math.random() < 0.45) h.peck = 0.6;
+      if (night) { h.peck = 0; [h.tx, h.ty] = barnSpot(0.9); }
+      else if (Math.random() < 0.45) h.peck = 0.6;
       else { h.tx = (8 + Math.random() * 4) * T; h.ty = (11 + Math.random() * 4) * T; }
     }
     const dx = h.tx - h.x, dy = h.ty - h.y, m = Math.hypot(dx, dy);
@@ -85,7 +99,8 @@ export function updateAnimals(
     d.t -= dt; d.peck = Math.max(0, d.peck - dt);
     if (d.t <= 0) {
       d.t = 2 + Math.random() * 3;
-      if (Math.random() < 0.45) d.peck = 0.6;
+      if (night) { d.peck = 0; [d.tx, d.ty] = barnSpot(0.9); }
+      else if (Math.random() < 0.45) d.peck = 0.6;
       else { d.tx = (7.5 + Math.random() * 4) * T; d.ty = (16.5 + Math.random() * 3) * T; }
     }
     const dx = d.tx - d.x, dy = d.ty - d.y, m = Math.hypot(dx, dy);
@@ -100,8 +115,8 @@ export function updateAnimals(
     p.t -= dt;
     if (p.t <= 0) {
       p.t = 4 + Math.random() * 5;
-      p.tx = (14 + Math.random() * 4) * T;
-      p.ty = (11 + Math.random() * 3) * T;
+      if (night) [p.tx, p.ty] = barnSpot(1.1);
+      else { p.tx = (14 + Math.random() * 4) * T; p.ty = (11 + Math.random() * 3) * T; }
     }
     const dx = p.tx - p.x, dy = p.ty - p.y, m = Math.hypot(dx, dy);
     p.moving = m > 4;
@@ -115,8 +130,8 @@ export function updateAnimals(
     s.t -= dt;
     if (s.t <= 0) {
       s.t = 3 + Math.random() * 5;
-      s.tx = (16 + Math.random() * 4) * T;
-      s.ty = (12 + Math.random() * 3) * T;
+      if (night) [s.tx, s.ty] = barnSpot(1.1);
+      else { s.tx = (16 + Math.random() * 4) * T; s.ty = (12 + Math.random() * 3) * T; }
     }
     const dx = s.tx - s.x, dy = s.ty - s.y, m = Math.hypot(dx, dy);
     s.moving = m > 4;

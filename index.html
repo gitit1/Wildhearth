@@ -109,6 +109,22 @@
     .shop-btn:hover{background:#f2cf6b}
     .shop-sellall{display:block;margin:calc(2px*var(--s)) auto 0}
     .shop-empty{font-size:calc(12px*var(--s));opacity:.75;padding:calc(4px*var(--s)) calc(6px*var(--s))}
+    /* Barn storage window (R5): two slot grids (barn + backpack), click a slot
+       to move its stack across. Reuses the shop's --s scale + cell chrome. */
+    #storageWindow{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(12px*var(--s))}
+    .st-cols{display:flex;gap:calc(14px*var(--s));align-items:flex-start}
+    .st-col{display:flex;flex-direction:column}
+    .st-grid{display:grid;grid-template-columns:repeat(4,calc(46px*var(--s)));gap:calc(6px*var(--s));
+      max-height:calc(280px*var(--s));overflow-y:auto}
+    .st-slot{position:relative;width:calc(46px*var(--s));height:calc(46px*var(--s));border-radius:8px;
+      background:var(--cell-bg);border:1px solid var(--cell-edge);
+      display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .st-slot:hover{border-color:var(--gold-soft)}
+    .st-slot.st-empty{cursor:default}
+    .st-qty{position:absolute;bottom:2px;left:4px;font-size:calc(11px*var(--s));font-weight:700;
+      color:#ffd54f;text-shadow:0 1px 2px rgba(0,0,0,.8)}
+    .st-hint{font-size:calc(11px*var(--s));color:var(--muted);margin-top:calc(8px*var(--s));
+      text-align:center;font-style:italic}
     #opening{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center}
     #opening.dark{background:rgba(14,18,10,.93)}
     #opening.reveal{background:transparent;pointer-events:none;align-items:flex-end}
@@ -585,6 +601,19 @@
   </div>
   <div id="giftChooser">
     <div id="giftList"></div>
+  </div>
+  <div id="storageWindow">
+    <div class="st-cols">
+      <div class="st-col">
+        <div class="shop-section">In the barn</div>
+        <div id="storageGrid" class="st-grid"></div>
+      </div>
+      <div class="st-col">
+        <div class="shop-section">Backpack</div>
+        <div id="storageBag" class="st-grid"></div>
+      </div>
+    </div>
+    <div class="st-hint">Click an item to move it across.</div>
   </div>
   <div id="tools">
     <button class="tool-btn" id="mapBtn" title="Map (M)">🗺️</button>

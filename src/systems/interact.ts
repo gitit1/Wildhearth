@@ -1,5 +1,5 @@
 import {
-  POND, STALL, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
+  POND, STALL, BARN, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
   FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot, type StallDef,
 } from "../world/zones";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
@@ -63,6 +63,7 @@ export interface InteractCtx {
   skillPopup: (id: string, amount: number) => void;
   memory: (key: string, text: string) => void;   // once-only Memory Book events
   expandFarm: () => void;                        // materialize a just-bought plot tier
+  openStorage: () => void;                        // open the barn's storage chest (R5)
   openGiftFor: (n: Npc) => void;                 // open the gift chooser for an NPC (Relationship engine)
   doInteraction: (n: Npc, it: InteractionDef) => void;  // run a categorized social interaction
   openNpcTrade: (trade: NpcStallTrade) => void;   // opens the sell-only window for an NPC-specialty stall
@@ -226,6 +227,31 @@ const stall: Interactable = {
     { id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Buy tools, sell goods.") },
   ],
   drawHover: (g, t) => glowRect(g, stallBox.x - 2, stallBox.y - 2, stallBox.w + 4, stallBox.h + 4, t),
+};
+
+// The barn (R5 — the barn's first real use): once mended, walking up to it and
+// interacting opens the storage chest. While still rickety it can't hold goods
+// (mend it at the farmhouse first). The animals also shelter here at night
+// (that lives in the animal update loop, not this interactable).
+const barn: Interactable = {
+  id: "barn",
+  name: "Barn",
+  anchor: [BARN.x + BARN.w / 2, BARN.y + BARN.h + 20],
+  defaultActionId: "store",
+  hit: (wx, wy) =>
+    wx >= BARN.x - 4 && wx <= BARN.x + BARN.w + 4 &&
+    wy >= BARN.y - BARN.h * 0.4 && wy <= BARN.y + BARN.h,
+  inReach: (px, py) => nearRect(px, py, BARN),
+  actions: (c) => c.farm.barn
+    ? [
+        { id: "store", label: "Open storage", run: (c) => c.openStorage() },
+        { id: "look", label: "Look", run: (c) => c.toast("Your barn — sound and dry. Animals shelter here, and there's room on the shelves for goods.") },
+      ]
+    : [
+        { id: "store", label: "Open storage", run: (c) => c.toast("The barn's too rickety to store anything — mend it at the farmhouse first.") },
+        { id: "look", label: "Look", run: (c) => c.toast("A sagging barn. Mend it and it'll shelter your animals and store your goods.") },
+      ],
+  drawHover: (g, t) => glowRect(g, BARN.x - 4, BARN.y - BARN.h * 0.4, BARN.w + 8, BARN.h * 1.4, t),
 };
 
 const buskSpot: Interactable = {
@@ -454,7 +480,7 @@ const doorMat: Interactable = {
 };
 
 export const INTERACTABLES: Interactable[] = [
-  pond, stall, buskSpot, houseDoor, house, outhouseSpot,
+  pond, stall, barn, buskSpot, houseDoor, house, outhouseSpot,
   ...fishSpots, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];

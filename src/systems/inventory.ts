@@ -94,9 +94,10 @@ export function countItem(inv: Inventory, id: string): number {
   return n;
 }
 
-/** Rebuilds an inventory from parsed save data, tolerating junk. */
-export function reviveInventory(data: unknown): Inventory {
-  const inv = createInventory();
+/** Rebuilds an inventory from parsed save data, tolerating junk. `size` lets a
+ *  larger container (e.g. the barn's 24-slot storage) revive at its own size. */
+export function reviveInventory(data: unknown, size = INVENTORY_SLOTS): Inventory {
+  const inv = createInventory(size);
   if (data && typeof data === "object" && Array.isArray((data as Inventory).slots)) {
     const slots = (data as Inventory).slots;
     for (let i = 0; i < inv.slots.length && i < slots.length; i++) {

@@ -44,6 +44,7 @@ import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/bus
 import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
 import { recipeById } from "./data/recipes";
 import { loadGarden, resetGarden, saveGarden, updateGarden, rollGardenDay } from "./systems/gardening";
+import { loadStorage, resetStorage, type Storage } from "./systems/storage";
 import { loadCollections, resetCollections, discover, discoveredName, saveCollections } from "./systems/collections";
 import { sellableGoodIds } from "./systems/sellCategories";
 import { NPC_STALL_TRADES, type NpcStallTrade } from "./systems/shop";
@@ -121,6 +122,9 @@ import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
 import {
   initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow,
 } from "./ui/shopwindow";
+import {
+  initStorageWindow, openStorageWindow, closeStorageWindow, isStorageOpen, updateStorageWindow,
+} from "./ui/storagewindow";
 import { hideOpening } from "./ui/titlescreen";
 import { showMainMenu, menuConfirm } from "./ui/mainmenu";
 import { showSettings, showSettingsWindow } from "./ui/settingsscreen";
@@ -206,6 +210,7 @@ const busking = createBusking();
 const cooking = createCooking();
 const skills = loadSkills();
 const garden = loadGarden();
+const storage: Storage = loadStorage();   // R5: the barn's storage chest
 const collections = loadCollections();
 const memories = loadMemories();
 const dayLog = freshDayLog();   // End-of-day summary ledger — not persisted, reset every in-game day
@@ -700,6 +705,7 @@ initShopWindow(economy, skills, farm, livestock,
     if (devNotesOn()) devNotes.observe("sell", absoluteDay(calendar));
   },
   (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); });
+initStorageWindow(storage, economy, toast);   // R5: the barn's storage chest
 
 // Every migrated panel window (backpack/skills/minimap/memory book/shop/gift)
 // now exists — restore the saved desktop layout (or lay out Classic), per
@@ -739,6 +745,12 @@ let openStallRect: Rect | null = null;
 function openPlayerStall() {
   openStallRect = STALL;
   openShopWindow();
+}
+
+/** R5: open the barn's storage chest (the barn's own interactable gates this on
+ *  the barn being mended). Walking away from the barn closes it (see tick). */
+function openBarnStorage() {
+  openStorageWindow();
 }
 
 /** Fish-stall NPC buying (Selling paths #2): opens Maren's sell-only window
@@ -1073,6 +1085,7 @@ function makeCtx(): InteractCtx {
     memory: remember,
     expandFarm, openGiftFor, doInteraction,
     openNpcTrade: openNpcStallTrade,
+    openStorage: openBarnStorage,
     guidanceEvent: fireGuidance,
   };
 }
@@ -1148,6 +1161,7 @@ function newGameReset(character: Character, mode: Guidance) {
   resetPlots(plots);                        // also drops purchased expansion cells
   setMinimapField(fieldBounds(0));
   resetGarden(garden);
+  resetStorage(storage);              // R5: a new life starts with an empty barn
   resetCollections(collections);
   resetMemories(memories);
   for (const b of bushes) { b.full = true; b.regrow = 0; }
@@ -1326,7 +1340,7 @@ function showPauseScreen() {
  *  a time-skip fade, or the opening flow). */
 function openPause() {
   if (openingActive || menuOpen || timeSkipping) return;
-  if (isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen() || isShopOpen()) return;
+  if (isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen() || isShopOpen() || isStorageOpen()) return;
   menuOpen = true;
   showPauseScreen();
 }
@@ -1379,7 +1393,9 @@ function tick(now: number) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now; time += dt;
 
-  updateAnimals(cows, hens, ducks, pigs, sheep, dt);   // ambience runs even behind the opening screens
+  // R5: after dark the animals steer to the barn and settle in its lee
+  const animalsNight = calendar.hour >= 20 || calendar.hour < 6;
+  updateAnimals(cows, hens, ducks, pigs, sheep, dt, animalsNight);   // ambience runs even behind the opening screens
   updateWildlife(wildlife, currentSeason(calendar), weather.kind, player, dt);   // seasonal ambient critters
   // Weather visual layer (Part B #8): screen-space rain/fog/lightning keeps
   // drifting through dialogue/menu pauses too — it's ambient atmosphere, not
@@ -1434,6 +1450,8 @@ function tick(now: number) {
 
   // walking away from whichever stall is open closes the trade window
   if (isShopOpen() && openStallRect && !nearRect(player.x, player.y, openStallRect)) closeShopWindow();
+  // walking away from the barn closes the storage chest (R5)
+  if (isStorageOpen() && !nearRect(player.x, player.y, BARN)) closeStorageWindow();
 
   // A queued "walk there, then act" click fires once the player arrives in
   // reach. MUST run before this frame's left/right-click handling below: a
@@ -1683,6 +1701,7 @@ function tick(now: number) {
   if (scene === "world") updateMinimap(player);   // inside, the dot would be room coords
   updateSkillsUI();
   updateShopWindow();
+  updateStorageWindow();
   updateMemoryBook();
   if (!openingActive) tickGuidance();   // keep the tutorial bubble / aspiration pill live
   updateToast(dt);

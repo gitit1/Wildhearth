@@ -29,6 +29,51 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## systems — The barn does something: storage chest + night shelter (R5)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R5 — give the barn a real use. Barn interaction opens a
+  storage window (new `systems/storage.ts`, versioned key, ~24 slots,
+  deposit/withdraw on the existing window patterns) + farm animals shelter at
+  the barn at night.
+- **Done:**
+  - **NEW `systems/storage.ts`** — a 24-slot chest (`Storage {version, inv}`)
+    on its own versioned key `wildhearth-storage-v1` (config `STORAGE_KEY`),
+    independent of the backpack. `deposit`/`withdraw` move whole stacks between
+    barn and backpack, reusing the backpack's own `addItem`/`removeItem` (so a
+    deposit merges onto a matching barn stack); both persist immediately.
+    `inventory.ts` `reviveInventory` gained an optional `size` arg so the
+    24-slot container revives at its own size (backpack call unchanged).
+  - **NEW `ui/storagewindow.ts` + `#storageWindow` in index.html** — a two-grid
+    chest UI (barn ⟷ backpack) built on `createScaleWindow`, same slot-canvas
+    rendering as `ui/backpack.ts`. Click a slot to move its stack across;
+    toasts on "barn full" / "backpack full". Opened programmatically, closed by
+    ✕/Esc or by walking away from the barn.
+  - **Barn interactable (`systems/interact.ts`)** — new `barn` clickable (added
+    to `INTERACTABLES`) with `openStorage` on `InteractCtx`: mended barn →
+    "Open storage"; still-rickety barn → a "mend it first" toast (gates storage
+    on the existing renovation flag).
+  - **Night shelter (`entities/animals.ts`)** — `updateAnimals` takes a `night`
+    flag; after dark every species (cow/hen/duck/pig/sheep) retargets to a
+    jittered point just south of the barn and settles there instead of its
+    daytime patch. `main.ts` computes `night` from `calendar.hour` (≥20 or <6).
+  - **`main.ts` wiring** — load storage, init the window, `openBarnStorage`,
+    walk-away close (proximity to `BARN`), per-frame `updateStorageWindow`,
+    input/pause gating on `isStorageOpen()`, and `resetStorage` on New Game.
+- **Verify (real output):**
+  - Node assertions (localStorage shim over the real modules): barn = 24 slots;
+    deposit moves berries bag→barn (bag 0 / barn 5); save+reload keeps them
+    (barn 5, 24 slots); withdraw moves them back (bag 5 / barn 0). Animals at
+    night converge on the barn (cow 8px, hen 12px from the shelter point after
+    30s); by day the cow wanders its daytime patch instead.
+  - Headless-Edge screenshot of the real game: the "Barn storage" window open at
+    the barn with both grids; two deposit-clicks moved the rod + berries×8 from
+    the backpack into the barn (gone from the live Backpack window, present in
+    the barn grid) — deposit works end-to-end.
+- **Follow-ups:** storage is deposit/withdraw whole-stack (no split-a-stack UI);
+  fine for v1. The barn interactable sits before animals in the hit-test order,
+  so clicking a hen sheltering ON the barn rect at night selects the barn — a
+  negligible night-only edge case.
+
 ## world — Stall relocated to the market + cottage anti-repetition (R4)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R4 — the player's stall doesn't belong by the farmhouse
