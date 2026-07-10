@@ -203,14 +203,21 @@ are built.
   for player/NPCs/animals with per-action poses, multi-tone canopies, rich
   ground texture, parallax band, weather visuals (rain/storm/fog), day/night
   tint driven by `calendar.ts`, ambient particles. Plus the content library
-  (~20 crops, ~10 fish, 6–8 animals, outfits, tools). **Updated (session 2):**
-  buildings (farmhouse/barn/4 themed stalls/well/6 cottages), the heroine (5
-  hairstyles + runtime hair/dress recolour), all 10 NPCs, and 5 farm-animal
-  species are now **PixelLab-sprite-sourced**, dual-path with the code
-  rig/painter always kept as fallback (`PIXELLAB_ASSETS.md`); crops, trees,
-  ambient decorations, tools, and seasonal wildlife stay code-drawn, with an
-  approved MIX path (object-states for crop growth stages, inpainting for
-  tree seasons) gated behind its own batch, not yet run. Standing cost: a
+  (~20 crops, ~10 fish, 6–8 animals, outfits, tools). **Updated (session 3
+  — the art-medium division):** the ENVIRONMENT is PixelLab-sprite-sourced
+  (buildings — farmhouse/barn/4 themed stalls/well/6 cottages — and 5
+  farm-animal species), dual-path with the code painter always kept as
+  fallback (`PIXELLAB_ASSETS.md`). **CHARACTERS reversed:** the heroine and
+  all 10 NPCs now render via the **upgraded decomposed code rig**
+  (`src/art/rig.ts` — sprite-competitive shading, expressive faces,
+  parametric build/skin/hair/outfit/age/eyeColor/hairstyle), because
+  PixelLab cannot decompose a character and so cannot power character
+  creation; the session-2 PixelLab character sprites are kept as an
+  off-by-default fallback (`CHARACTER_SPRITES_PRIMARY` in config, commit
+  `2ed29dc`). Crops, trees, ambient decorations, tools, and seasonal
+  wildlife stay code-drawn, with an approved MIX path (object-states for
+  crop growth stages, inpainting for tree seasons) gated behind its own
+  batch, not yet run. Standing cost: a
   Tier-2 PixelLab subscription, ~5,000 generations/month — the full v1
   sprite bar measured at 575–1,547 gens (`SCALING_DECISION.md`), 3–8x under
   budget; review time, not generation budget, is the real bottleneck.
@@ -245,10 +252,13 @@ library are parallelizable to subagents; the menus are broad but shallow.
   cost must be tuned against the price anchor table.
 - **Segmented rig scope creep** — one rig serving player + NPCs + animals with
   many action poses is a large art-engine task; risk of it swallowing time.
-  **Largely resolved in practice (session 2):** the rig now mainly serves as
-  the universal dual-path fallback beneath the PixelLab sprite layer, which
-  absorbed most of the "does it look good" burden (see the Art / visual
-  layer note above).
+  **Resolved (session 3):** the rig is now the PRIMARY, shipped renderer for
+  all characters (player + 10 NPCs), upgraded to sprite-competitive quality
+  — a deliberate investment, not scope creep, because it is the only way to
+  keep characters decomposable for character creation (PixelLab can't). For
+  the ENVIRONMENT the PixelLab sprite layer carries the "does it look good"
+  burden with the code painters as fallback (see the Art / visual layer
+  note above).
 - **Festival theme** and **life-goal list** are still open decisions.
 
 ---
@@ -449,8 +459,9 @@ season and supply. A third festival joins the calendar.
 - **Character creation:** personality begins to matter (traits influence
   family/dialogue), foreshadowing v5's full personality axes.
 - **Save:** still one slot (2nd slot is v5, but the architecture is ready).
-- **Art:** family/child/furniture art, on the same PixelLab sprite pipeline
-  (dual-path); fuller home interiors.
+- **Art:** children/partners render via the decomposed code rig (characters
+  = rig, per the session-3 medium division); furniture and home-interior
+  art on the PixelLab sprite pipeline (dual-path); fuller home interiors.
 
 **Gap from v3:** the marriage→cohabitation→children flow; NPC↔NPC
 relationships + rumors; full pet depth; tier-3 freeform housing; dynamic
@@ -523,11 +534,14 @@ game.
 - **Save:** **second slot** + multi-character support.
 - **Menus:** everything, including the rotatable-camera option.
 - **Art:** the fullest juice pass — player rig upgrade (jointed limbs, per-
-  action animation arcs), secondary motion (hair/cloth sway, facial states),
+  action animation arcs; note the sprite-competitive rig upgrade already
+  began in v1/session 3), secondary motion (hair/cloth sway, facial states),
   faked-height depth (two-face buildings, diagonal cast shadows), full ambient
-  life, feedback juice (particles, floating numbers, gentle screen shake). The
-  segmented code rig remains the universal fallback beneath every sprite
-  category, per the v1 dual-path rule.
+  life, feedback juice (particles, floating numbers, gentle screen shake). Per
+  the session-3 medium division: the decomposed code rig is the PRIMARY
+  renderer for all characters (its own quality bar, not a fallback), while it
+  remains the dual-path fallback beneath every ENVIRONMENT sprite category,
+  per the v1 dual-path rule.
 
 **Gap from v4:** scale the NPC roster to 50+ with families/backstories; full
 personality axes + evolution; multi-character + second save slot; the full

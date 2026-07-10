@@ -149,6 +149,41 @@ Three options: "Exit to main menu" + "Exit fully" + "Switch to another game" (im
 - **Reference aesthetic:** Cute Fantasy pixel-art — visible dark outlines, warm palette, multi-tone tree canopies, elliptical shadows on entities, diagonal cast shadows on tall objects, textured tilled soil, weathered vs repaired variants
 - **Language:** English
 
+## Art medium division — characters vs. world (decided 2026-07-10, session 3)
+The single most important art-direction call: the visual world is ONE
+coherent pixel-art language, but it is produced by TWO pipelines, split by
+subject, not mixed arbitrarily. "No middle" — never a jarring patchwork of
+sprite objects sitting next to code-drawn objects.
+- **Characters (player + all 10 NPCs) render via the upgraded code rig**
+  (`src/art/rig.ts`) — decomposed, fully parametric (build/skin/hair/outfit/
+  age + eyeColor + a "long" hairstyle), elevated to sprite-competitive
+  quality (3-tone per-material shading, expressive face, volumetric hair,
+  cloth detail).
+- **The environment (buildings, animals, props, trees, crops, items) uses
+  PixelLab sprites**, dual-path over their code painters as always.
+- **Why the split (two decisive probes):**
+  1. *Character-layering probe* — PixelLab structurally CANNOT decompose a
+     character. It emits baked full-body sprites, exposes no isolated hair/
+     outfit layers, and gives no cross-generation skeleton registration
+     (fresh gens drift identity; identity-preserving edits cost ~20 gens
+     each and can't be freely combined — 50 outfits × 5 hair ≈ 5,000 gens).
+     So sprites CANNOT power the character-creation pillar. Only a
+     decomposed code rig can.
+  2. *Rig-upgrade spike* — the code rig CAN be lifted to sprite-competitive
+     quality while staying parametric, so nothing is lost by choosing it for
+     characters.
+- **Coherence is preserved** because the rig is drawn in the SAME pixel-art
+  language as the sprites: nearest-neighbour, dark single-colour outline,
+  warm muted palette, 3-tone shading — "hand-crafted characters over a
+  sprite environment," one world.
+- **The PixelLab character sprites are kept as an off-by-default FALLBACK**
+  (dual-path, not deleted), toggled by `CHARACTER_SPRITES_PRIMARY` in
+  `src/config.ts`. Shipped as commit `2ed29dc`.
+- **Variety for the sprite WORLD** (no third-party downloads — CLAUDE.md
+  rule 1): PixelLab generates multiple cheap variants per species (proven:
+  8 farmhouses / 9 gens) + runtime jitter (hue/scale/flip per position
+  seed). Tree/crop sprite batches are the next environment work.
+
 ---
 
 ## Universal principles (apply to all systems)

@@ -24,6 +24,22 @@ everything after). Do not build ahead of the current phase without asking.
    zero sprite files). Never add hand-made or third-party asset files,
    never suggest asset packs. See docs/PIXELLAB_ASSETS.md for the
    generation workflow and style anchors.
+   **MEDIUM DIVISION (decided 2026-07-10, session 3 — one world, two
+   pipelines, split by subject, never mixed arbitrarily):**
+   - **Characters (player + all 10 NPCs) render via the decomposed code
+     rig `src/art/rig.ts`** — this is the SHIPPED look, not a fallback.
+     Characters MUST stay decomposable (build/skin/hair/outfit/age/
+     eyeColor/hairstyle) because they power the character-creation pillar,
+     and PixelLab structurally cannot decompose a character (it bakes
+     full-body sprites with no layer/skeleton control). The rig is drawn
+     in the SAME pixel-art language as the sprites (nearest-neighbour, dark
+     outline, warm muted palette, 3-tone shading) so the world stays one
+     coherent look.
+   - **The environment (buildings, animals, props, trees, crops, items)
+     uses PixelLab sprites** (dual-path over code painters, per above).
+   - The PixelLab CHARACTER sprites are kept as an off-by-default FALLBACK
+     (not deleted), toggled by `CHARACTER_SPRITES_PRIMARY` in
+     src/config.ts. See docs/DECISIONS.md "Art medium division".
 2. **The user is the product owner, Claude is the implementer.** She reviews
    results; do not hand her manual work (no "now you tweak X").
 3. Keep gameplay tuning values in src/config.ts, world layout in

@@ -541,10 +541,24 @@ collection checklist.
     actual game).
 
 ## Art direction
-Top-down 2D, everything drawn in code (canvas) — no image assets, and
-**no true 3D anywhere in the game, ever** (this was explicitly considered
-and ruled out — see the project's early history with an isometric-asset
-detour that got abandoned, in CLAUDE.md/this doc's earlier drafts).
+Top-down 2D, ONE coherent pixel-art language, and **no true 3D anywhere in
+the game, ever** (this was explicitly considered and ruled out — see the
+project's early history with an isometric-asset detour that got abandoned,
+in CLAUDE.md/this doc's earlier drafts).
+
+**Medium division (decided 2026-07-10 — supersedes this doc's original
+"everything drawn in code, no image assets" wording):** the world is
+produced by two pipelines split by subject, never mixed arbitrarily.
+**Characters (player + all NPCs) are hand-crafted, decomposed CODE-rig
+art** (`src/art/rig.ts`) — parametric build/skin/hair/outfit/age/eyeColor/
+hairstyle, which is exactly what enables the deep character creation in
+#11; PixelLab structurally cannot decompose a character, so only the code
+rig can power that pillar. **The environment (buildings, animals, props,
+trees, crops, items) uses PixelLab pixel-art sprites**, dual-path over
+code painters. The rig is drawn in the same pixel-art language as the
+sprites (nearest-neighbour, dark outline, warm palette, 3-tone shading),
+so the two pipelines read as one world. See CLAUDE.md hard rule #1 and
+docs/DECISIONS.md "Art medium division" for the full rationale.
 
 **The single depth technique, used everywhere, not just as late polish:**
 a consistent 2D "depth illusion" toolkit — jointed/volumetric character

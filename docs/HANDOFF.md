@@ -6,6 +6,84 @@ final version at the session's end is authoritative.
 
 ---
 
+# SESSION 3 (2026-07-10) — The art-medium division (characters = rig, world = sprites)
+
+**The decisive session for art direction.** Session 2 shipped a full
+sprite world INCLUDING sprite characters (heroine + 5 hairstyles + 10
+NPCs), with the code rig demoted to a mere fallback. Session 3 asked the
+harder question the owner had flagged — "no middle," the world must be
+ONE coherent visual language — and, through a chain of probes, REVERSED
+the character decision: characters now render via the (upgraded) code
+rig; PixelLab powers the environment only.
+
+## The probe chain (how the decision was reached)
+1. **"No middle" rule (owner):** the visual world is ONE language, not a
+   jarring mix of sprite objects next to code-drawn objects. Everything
+   below serves this.
+2. **Tree probe:** PixelLab tree sprites are pretty per-frame, but the
+   CODE tree system wins for mass-placed, seasonally-varying,
+   per-instance-varied objects — so trees are not an argument for
+   sprite-everything.
+3. **Character-layering probe (DECISIVE):** PixelLab structurally CANNOT
+   decompose a character — it emits baked full-body sprites, exposes no
+   isolated hair/outfit layers, and gives no cross-generation skeleton
+   registration. Fresh gens drift identity; identity-preserving
+   `create_character_state` edits cost ~20 gens each and can't be freely
+   mixed (50 outfits × 5 hair ≈ 5,000 gens). **Conclusion: sprites cannot
+   power the character-creation pillar.**
+4. **Rig-upgrade spike (DECISIVE):** the decomposed CODE rig CAN be
+   elevated to sprite-competitive quality (3-tone per-material shading,
+   expressive face, volumetric hair, cloth detail) while staying fully
+   parametric — so choosing it for characters costs no fidelity.
+
+## LOCKED DECISION
+**Characters (player + all 10 NPCs) render via the upgraded code rig
+`src/art/rig.ts`; the environment (buildings, animals, props, trees,
+crops, items) uses PixelLab sprites. The PixelLab CHARACTER sprites become
+an off-by-default dual-path FALLBACK (kept, not deleted), toggled by
+`CHARACTER_SPRITES_PRIMARY` in `src/config.ts`.** Coherence holds because
+the rig is drawn in the SAME pixel-art language as the sprites
+(nearest-neighbour, dark single-colour outline, warm muted palette, 3-tone
+shading) — "hand-crafted characters over a sprite environment," one world.
+Character creation regains full depth: build/skin/hair/outfit/age + new
+**eyeColor** + a new **"long"** hairstyle. Recorded as a first-class
+product decision in DECISIONS.md ("Art medium division") and CLAUDE.md
+hard rule #1.
+
+## What shipped (commit `2ed29dc` "Characters adopt the upgraded rig — sprites become fallback")
+- `src/art/rig.ts` UPGRADED to sprite-competitive quality (3-tone
+  shading, expressive face, volumetric hair, cloth detail), still fully
+  parametric.
+- All characters (player + 10 NPCs) WIRED to the rig as the primary,
+  shipped look.
+- Character-creation screen exposes the new `eyeColor` and the new "long"
+  hairstyle.
+- `CHARACTER_SPRITES_PRIMARY` flag added in `src/config.ts` (default off);
+  the session-2 sprite character code + PNGs remain in place as the
+  dual-path fallback.
+
+## Variety strategy for the sprite WORLD (unchanged, restated)
+No third-party downloads (CLAUDE.md rule 1). PixelLab generates multiple
+variants per species cheaply (proven: 8 farmhouses / 9 gens) + runtime
+jitter (hue/scale/flip per position seed). Tree/crop sprite batches are
+the next environment work.
+
+## Known follow-ups (session 3 → next)
+- **Rig polish in progress:** side-profile face + ponytail polish were
+  being refined on `src/art/rig.ts` (another agent's concurrent work this
+  session).
+- **Fallback cleanup later:** the sprite-character code path
+  (`spriteChar.ts` recolor bands, hairstyle sheets, etc.) and its PNGs
+  stay as the `CHARACTER_SPRITES_PRIMARY` fallback; some now-dead branches
+  can be cleaned up in a later pass — not urgent, the fallback still works.
+- **Resume ENVIRONMENT sprites** — the session-2 "what's next" order still
+  holds for the world, now that characters are settled: crops & trees MIX
+  batch (decision S2-10), then NPC action poses where gameplay shows them,
+  then a props batch, then gap-fills, UI sprites last. See the session-2
+  close-out below for the full recipe and standing generation rules.
+
+---
+
 # SESSION 2 (2026-07-08) — Visual Polish + Window System
 
 **Work order:** the product owner reviewed the v1 foundation — logic is

@@ -29,6 +29,33 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## docs — lock the character=rig / world=sprite art-medium division
+- **Date:** 2026-07-10 (v1-foundation)
+- **Block given:** capture session 3's fundamental art-direction pivot in
+  the design docs so it can't be lost — characters render via the upgraded
+  code rig, the environment uses PixelLab sprites. Docs only, no source.
+- **Done (docs only):**
+  - **CLAUDE.md** — amended hard rule #1 with the MEDIUM DIVISION clause:
+    characters render via the decomposed rig `src/art/rig.ts` as the shipped
+    look (they must stay decomposable for character creation, which PixelLab
+    can't do); the environment uses PixelLab sprites; character sprites are
+    the off-by-default `CHARACTER_SPRITES_PRIMARY` fallback.
+  - **docs/DECISIONS.md** — new dated section "Art medium division —
+    characters vs. world" with the two decisive probes (character-layering,
+    rig-upgrade) and the fallback toggle.
+  - **docs/HANDOFF.md** — new top "SESSION 3 (2026-07-10)" section: the probe
+    chain, the locked decision, what shipped in `2ed29dc`, follow-ups, and
+    the resume-environment-sprites pointer (session-2 content preserved).
+  - **docs/VISION.md** — aligned the Art-direction section (medium-division
+    paragraph superseding the old "everything drawn in code" wording).
+  - **docs/ROADMAP_TO_V5.md** — fixed four lines that had the OLD (reversed)
+    assumption (characters = sprite, rig = fallback) to match the decision:
+    rig is primary for characters, sprites carry the environment; children/
+    partners render via the rig.
+- **Build:** n/a (docs only; no source changed).
+- **Follow-ups:** rig side-profile + ponytail polish landing separately;
+  environment sprite batches (trees/crops/props) resume next.
+
 ## Characters adopt the upgraded rig — sprites become fallback
 - **Date:** 2026-07-10 (v1-foundation)
 - **Block given:** the product owner LOCKED a render-mode decision: all
