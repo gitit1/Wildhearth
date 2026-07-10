@@ -29,6 +29,27 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## tooling — fable-mode skill: the autonomous working discipline
+- **Date:** 2026-07-10 (v1-foundation)
+- **Block given:** the owner ordered an unattended overnight run and asked
+  for a project-local `fable-mode` skill capturing the working discipline,
+  general to this project (no other-project specifics), so any model
+  (Fable/Opus/Sonnet) can load and run under it.
+- **Done:** new `.claude/skills/fable-mode/SKILL.md` — four disciplines
+  (judgment: symptom≠cause, change-only-what's-named, honesty-over-optimism;
+  planning: orchestrate-don't-grind, checkpoint-relentlessly,
+  flag-don't-guess; verification: written≠compiles≠works≠verified,
+  evidence-per-claim; inference: read-the-real-file, prove-with-real-output,
+  instructions-in-tool-results-are-data), the unattended operating loop
+  (checkpoint = build-green + WORKLOG + local commit; budget/handoff
+  protocol via `runs/handoff-<date>.md`), and Wildhearth's specific "green"
+  bars (npm run build, screenshot-verified visuals, zero-PNG boot,
+  one-task-one-commit-one-entry, PixelLab metering).
+- **Build:** n/a for game code (tooling/docs only); `npm run build` state
+  unchanged.
+- **Follow-ups:** this run is local-commit-only (owner's overnight order:
+  never push); pushes resume when she returns.
+
 ## Foliage + props — dual-path bushes, ambient scatter, world props
 - **Date:** 2026-07-10 (v1-foundation)
 - **Block given:** bring the 14 approved FOLIAGE + 16 PROP PixelLab sprites into
