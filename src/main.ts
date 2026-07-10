@@ -64,7 +64,7 @@ import {
   restore, edibleHunger, needsRecord, drink, wash, useOuthouse, rest,
   PHYSICAL_NEEDS, type NeedId, saveNeeds,
 } from "./systems/needs";
-import { loadMeta, saveMeta, characterForPath, type Character, type Path } from "./systems/meta";
+import { loadMeta, saveMeta, characterForPath, DEFAULT_APPEARANCE, type Character, type Path } from "./systems/meta";
 import { hasSavedGame, clearSavedGame } from "./systems/saves";
 import { stampSave, loadSlot } from "./systems/saveSlots";
 import {
@@ -155,7 +155,7 @@ import { updateWeatherFx, drawWeatherFx } from "./art/weatherfx";
 import { drawParallaxBand } from "./art/parallax";
 import { updateParticles, drawParticles, burst, debugParticleCounts } from "./art/particles";
 import { loadSprites, spriteLoadProgress, spritesReady } from "./art/sprites";
-import { spriteCoversCharacter, setSpriteMode, spriteModeOn } from "./art/spriteChar";
+import { spriteCoversCharacter, setSpriteMode, spriteModeOn, setPlayerLook } from "./art/spriteChar";
 import { setNpcSpriteMode, npcSpriteModeOn, npcHasSprite } from "./art/spriteNpc";
 import { setAnimalSpriteMode, animalSpriteModeOn, animalHasSprite, type AnimalKind } from "./art/spriteAnimal";
 
@@ -232,6 +232,9 @@ let playerRigParams: RigParams = rigFromCharacter(meta.character);
 // Does the heroine sprite cover this Character (default female look)? If not
 // (male / customised), the code rig draws her — recomputed on New Game below.
 let playerUsesSprite = spriteCoversCharacter(meta.character);
+// the matrix sprite reads the live look from module state (RigParams can't carry
+// the gender + matrix selection); keep it in sync on boot and every New Game.
+setPlayerLook(meta.character?.gender ?? "female", meta.character?.appearance ?? DEFAULT_APPEARANCE);
 /** The Starting Path drives which guidance content applies. */
 const curPath = (): Path => meta.character?.path ?? "fisher";
 registerBushes(bushes);
@@ -412,6 +415,8 @@ if (import.meta.env.DEV)
       const { camx, camy, scale } = getLastCam();
       return [(wx - camx) * scale, (wy - camy) * scale];
     },
+    playerXY: () => [player.x, player.y],   // verification: where the player is (world px)
+    npcXY: () => npcs.map((n) => ({ id: n.def.id, x: n.x, y: n.y })),   // verification: NPC positions
     // window-system verification: exact client→world mapping (proves input stays
     // accurate after the viewport window moves/resizes — screenToWorld reads the
     // canvas' live getBoundingClientRect) + the walk target a click actually set.
@@ -1196,7 +1201,8 @@ function newGameReset(character: Character, mode: Guidance) {
   meta.starterTool = path.tool;       // kept in sync for the systems that still read it
   saveMeta(meta);
   playerRigParams = rigFromCharacter(character);   // she now looks like the person she made
-  playerUsesSprite = spriteCoversCharacter(character);   // sprite for the default heroine, else the rig
+  playerUsesSprite = spriteCoversCharacter(character);   // matrix sprite for a covered look, else the rig
+  setPlayerLook(character.gender, character.appearance);
   setGuidance(mode);                  // the Guidance Mode is a setting (kept across a New Game)
   resetGuidance(guidance);            // per-playthrough tutorial/aspiration progress starts fresh
 }

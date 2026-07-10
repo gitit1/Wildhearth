@@ -29,6 +29,77 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## character — the curated sprite matrix becomes the shipped player look (R1)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R1 — make the generated 50-combo character matrix (2 genders
+  × MEDIUM body × 5 hairstyles × 5 outfits, 4-dir rotations + 6-frame walk,
+  hair keyed VIVID PURPLE) the shipped player look, replacing the code rig
+  (which stays the zero-PNG fallback). Players pick gender × hair × outfit +
+  hair shade; the keyed purple is runtime-recoloured to a natural shade. This
+  resolves the owner's three complaints (profile nose / male=female / hair-over-
+  body) by construction. Re-enable the NPC sprite sheets so ALL characters are
+  sprites again.
+- **Supervisor re-check:** inspected `male/ponytail-tunic` — reads as a clothed
+  man in a brown sleeveless jerkin, NOT bare-chested; coherent across all tunic
+  combos. **No combos excluded** (the exclusion mechanism exists but its set is
+  empty).
+- **Packer (`scripts/packsheets.mjs`):** new `--matrix <root>` mode +
+  `packMatrix`/`packMatrixOne`. Packs each loose combo
+  (`<gender>/<hair>-<outfit>/rotations/{south,east,north,west}.png` +
+  `walk/<dir>/frame_00X.png`) into ONE atlas on a **4-column cardinal grid**
+  (row 0 rotations, rows 1-6 walk) in the exact `.sheet.json` shape the loader
+  parses (dirs + anims + measured `anchor` foot/centre). Ran once → 50 sheets.
+- **Assets:** `src/assets/pixellab/characters/matrix/matrix-<gender>-<hair>-<outfit>.sheet.{png,json}`
+  (50 atlases, cell 68px, char ~53px, footY ~60). The manifest glob auto-keys
+  them to `characters/matrix/matrix-...`; each atlas is a separate hashed file
+  (~28-50 KB; ~2 MB on disk total, the JS bundle is unchanged bar the small
+  eager-imported frame JSONs).
+- **Schema (`src/systems/meta.ts`):** `Appearance` gains `matrixHair`
+  (`MatrixHair` = long/short/ponytail/bun/cropped), `matrixOutfit` (outfit key),
+  `hairShade` (0-2), `skinTone` (reserved), `bodySize` (reserved "M"). Tolerant
+  revive: junk/missing → the default matrix look (verified old rig saves revive
+  to long/rustdress/brown/M without crashing; junk clamps).
+- **Player bridge (`src/art/spriteChar.ts`, rewritten):** now the matrix bridge.
+  `matrixSheetId(gender,hair,outfit)` resolves the combo sheet; the KEYED PURPLE
+  hair (hue window 240-300, sat>0.35) is recoloured via `recolorSheet` to one of
+  3 warm naturals (`HAIR_SHADES`: warm brown `#6e4a2b` / golden blonde `#c99a45`
+  / espresso `#241c16`) — audited **zero purple bleed**, so raw purple never
+  ships. 4-dir only: the player's cardinal `p.dir` is the graceful snap (no
+  diagonals in the matrix). Idle pose → the static rotation (no baked idle).
+  `spriteCoversLook` returns true for BOTH genders whenever the sheet exists;
+  missing/undecoded sheet → false → the rig draws that frame (zero-PNG boot
+  intact). New `setPlayerLook(gender, appearance)` holds the live look (RigParams
+  can't carry the matrix selection). Skin recolour shipped OFF — the H&S remap
+  preserves lightness so it can only shift skin hue, not darken it (verified).
+- **Creator (`src/ui/charcreation.ts`):** in sprite-primary mode the right panel
+  shows Hairstyle (5) / Outfit (5, gender-dependent, rebuilds on gender switch)
+  / Hair shade (3 swatches) with **Skin tone** and **Body size** as greyed
+  "coming soon" rows; the old free-colour rig controls (skin/hair-colour/eye/
+  build/rig-outfit) are hidden. Gender switch snaps `matrixOutfit` into the new
+  gender's list; Randomize rolls the matrix fields. The live preview draws the
+  real recoloured sprite (new helpers `matrixOutfitGroup`, `indexSwatchGroup`,
+  `comingSoonGroup`).
+- **Wiring (`src/main.ts`, `src/art/characters.ts`, `src/config.ts`):**
+  `CHARACTER_SPRITES_PRIMARY = true` — now the matrix-player + NPC-sprite mode
+  (both bridges default on again; all 10 NPCs sprite-backed, verified
+  `npcSprited()` = 10). `setPlayerLook` called on boot + New Game.
+  `drawPlayerSprite(g,p,t)` (dropped the unused look arg). New config knobs
+  `SPRITE_MATRIX_SCALE` (0.82 → ~43px on-screen, rig height) + `SPRITE_MATRIX_SKIN`
+  (false). Two read-only verification hooks added to `__wh` (`playerXY`,
+  `npcXY`), in the spirit of the existing bridge.
+- **Verified (fable-mode, headless Edge via puppeteer-core, screenshots viewed
+  in `scratchpad/char-matrix/`):** creator both genders + all controls +
+  recoloured sprite preview; the player walking all 4 directions in TWO looks
+  (male short/espresso, female ponytail/blonde) — shades differ, **no purple**;
+  the player standing beside NPCs (Petra/Henrik) in the market — both sprites,
+  coherent scale; and the rig fallback rendering when sprites are forced off.
+- **Follow-ups:** (1) the legacy heroine sheets (`characters/heroine*`, ~940 KB)
+  are now unused but still shipped/downloaded — a safe delete for R8/cleanup.
+  (2) Body sizes S/L and a lightness-aware skin remap are the natural next
+  matrix expansion (owner's "expand when we want"). (3) `spriteChar.ts` still
+  exports `drawHeroinePreview` under its old name (now matrix-backed) — a rename
+  is cosmetic.
+
 ## world — the ground becomes pixel tiles (R2, "everything pixels")
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R2 — replace the painterly procedural ground with the

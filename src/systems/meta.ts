@@ -17,6 +17,12 @@ import type { HairStyle, BodyBuild, Outfit, OutfitStyle } from "../art/rig";
 
 export type StarterTool = "hoe" | "rod" | "lute" | "pot";
 export type Gender = "female" | "male";
+/** Curated-matrix hairstyle (art/spriteChar.ts). The 5 generated hair shapes;
+ *  distinct from the rig's HairStyle (which the code fallback still uses). */
+export type MatrixHair = "long" | "short" | "ponytail" | "bun" | "cropped";
+/** Reserved body-size axis. Only "M" (medium) has a generated matrix today;
+ *  "S"/"L" are shown "coming soon" in the creator until their combos exist. */
+export type BodySize = "S" | "M" | "L";
 export type Path = "fisher" | "farmer" | "musician" | "keeper";
 export type LifeGoal = "family" | "independence" | "community" | "mastery" | "fortune";
 
@@ -31,6 +37,13 @@ export interface Appearance {
   eyeColor?: string;       // iris colour (rig default warm brown when unset)
   build: BodyBuild;
   outfit: Outfit;
+  // --- curated-matrix selection (the shipped sprite look; the rig fields above
+  //     stay as the zero-PNG fallback's data). See art/spriteChar.ts. ---
+  matrixHair: MatrixHair;  // one of the 5 generated hairstyles
+  matrixOutfit: string;    // outfit key within the gender (rustdress.. / tunic..)
+  hairShade: number;       // 0..2 → warm-brown / golden-blonde / espresso recolour
+  skinTone: number;        // reserved (creator shows "coming soon"; see SPRITE_MATRIX_SKIN)
+  bodySize: BodySize;      // reserved ("M" only today; S/L "coming soon")
 }
 
 /** Identity + look, collected on the first screen (before the path/goal one). */
@@ -65,6 +78,11 @@ export const DEFAULT_APPEARANCE: Appearance = {
   eyeColor: "#4a3520",     // the rig's default warm brown, made explicit
   build: "average",
   outfit: { torso: "#b0432f", legs: "#4a5d8a", accent: "#7a3020", shoes: "#4b3a26" },
+  matrixHair: "long",
+  matrixOutfit: "rustdress",   // female default combo; resolver snaps to the gender's list
+  hairShade: 0,                // warm brown
+  skinTone: 0,
+  bodySize: "M",
 };
 
 const NAME_MAX = 16;
@@ -85,6 +103,10 @@ const isHair = (v: unknown): v is HairStyle =>
   v === "short" || v === "ponytail" || v === "bun" || v === "bald" || v === "hat" || v === "long";
 const isBuild = (v: unknown): v is BodyBuild =>
   v === "slim" || v === "average" || v === "round";
+const isMatrixHair = (v: unknown): v is MatrixHair =>
+  v === "long" || v === "short" || v === "ponytail" || v === "bun" || v === "cropped";
+const clampIdx = (v: unknown, max: number, fallback: number) =>
+  typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(max, Math.round(v))) : fallback;
 const isOutfitStyle = (v: unknown): v is OutfitStyle =>
   v === "dress" || v === "tunic-skirt" || v === "overalls" || v === "shawl-dress" ||
   v === "smock" || v === "tunic-belt" || v === "vest" || v === "coat";
@@ -118,6 +140,11 @@ function reviveAppearance(a: Partial<Appearance> | undefined): Appearance {
       style: isOutfitStyle(o.style) ? o.style : undefined,
       sleeve: typeof o.sleeve === "string" ? o.sleeve : undefined,
     },
+    matrixHair: isMatrixHair(a.matrixHair) ? a.matrixHair : DEFAULT_APPEARANCE.matrixHair,
+    matrixOutfit: typeof a.matrixOutfit === "string" ? a.matrixOutfit : DEFAULT_APPEARANCE.matrixOutfit,
+    hairShade: clampIdx(a.hairShade, 2, DEFAULT_APPEARANCE.hairShade),
+    skinTone: clampIdx(a.skinTone, 4, DEFAULT_APPEARANCE.skinTone),
+    bodySize: a.bodySize === "S" || a.bodySize === "L" ? a.bodySize : "M",
   };
 }
 

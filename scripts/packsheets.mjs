@@ -68,8 +68,102 @@ function parseArgs(argv) {
     else if (k === "--name") a.name = argv[++i];
     else if (k === "--out") a.out = argv[++i];
     else if (k === "--all") a.all = argv[++i];
+    else if (k === "--matrix") a.matrix = argv[++i];
   }
   return a;
+}
+
+// ---- character-matrix packing (R1) --------------------------------------
+// The curated player matrix (scratchpad char-matrix/) is a LOOSE 4-direction
+// export — no metadata.json, just <gender>/<hair>-<outfit>/rotations/{south,
+// east,north,west}.png + walk/<dir>/frame_00X.png (6 frames/dir). It packs into
+// the SAME atlas+json shape the loader already parses (rot_<dir> row + walk rows),
+// but on a 4-column cardinal grid instead of the 8-dir grid packOne uses.
+const MATRIX_DIRS = ["south", "east", "north", "west"];
+const MATRIX_WALK_FRAMES = 6;
+
+/** Pack one loose 4-dir combo dir into <out>/<name>.sheet.{png,json}. */
+function packMatrixOne(name, comboDir, outDir) {
+  const items = [];   // { key, path }
+  for (const dir of MATRIX_DIRS) {
+    const p = join(comboDir, "rotations", `${dir}.png`);
+    if (!existsSync(p)) throw new Error(`${name}: missing rotation ${dir}`);
+    items.push({ key: `rot_${dir}`, path: p });
+  }
+  for (let f = 0; f < MATRIX_WALK_FRAMES; f++)
+    for (const dir of MATRIX_DIRS) {
+      const p = join(comboDir, "walk", dir, `frame_${String(f).padStart(3, "0")}.png`);
+      if (!existsSync(p)) throw new Error(`${name}: missing walk ${dir} frame ${f}`);
+      items.push({ key: `walk_${dir}_${f}`, path: p });
+    }
+
+  const loaded = new Map();
+  let cw = 0, ch = 0;
+  for (const it of items) {
+    const png = loadPng(it.path);
+    loaded.set(it.key, png);
+    if (!cw) { cw = png.width; ch = png.height; }
+    else if (png.width !== cw || png.height !== ch)
+      throw new Error(`${name}: frame ${it.key} is ${png.width}x${png.height}, expected ${cw}x${ch}`);
+  }
+
+  const cols = MATRIX_DIRS.length;                 // 4
+  const rows = 1 + MATRIX_WALK_FRAMES;             // rot row + 6 walk rows = 7
+  const sheet = new PNG({ width: cols * cw, height: rows * ch, colorType: 6 });
+  sheet.data.fill(0);
+  const frames = {};
+  const bbox = { minX: cw, minY: ch, maxX: 0, maxY: 0 };
+
+  MATRIX_DIRS.forEach((dir, col) => {
+    const png = loaded.get(`rot_${dir}`);
+    blit(sheet, png, col * cw, 0);
+    accumulateBbox(png, bbox);
+    frames[`rot_${dir}`] = { x: col * cw, y: 0, w: cw, h: ch };
+  });
+  let row = 1;
+  for (let f = 0; f < MATRIX_WALK_FRAMES; f++, row++)
+    MATRIX_DIRS.forEach((dir, col) => {
+      const key = `walk_${dir}_${f}`;
+      const png = loaded.get(key);
+      blit(sheet, png, col * cw, row * ch);
+      accumulateBbox(png, bbox);
+      frames[key] = { x: col * cw, y: row * ch, w: cw, h: ch };
+    });
+
+  const anchor = {
+    cx: Math.round((bbox.minX + bbox.maxX + 1) / 2),
+    footY: bbox.maxY + 1,
+  };
+  const outPng = join(outDir, `${name}.sheet.png`);
+  const outJson = join(outDir, `${name}.sheet.json`);
+  writeFileSync(outPng, PNG.sync.write(sheet, { colorType: 6 }));
+  writeFileSync(outJson, JSON.stringify({
+    sheet: `${name}.sheet.png`, canvas: cw, cols, rows,
+    dirs: MATRIX_DIRS, anims: [{ name: "walking", prefix: "walk", frames: MATRIX_WALK_FRAMES }],
+    anchor, frames,
+  }, null, 0) + "\n");
+  const bytes = statSync(outPng).size;
+  const silhouette = bbox.maxY + 1 - bbox.minY;
+  console.log(`[matrix] ${name}: ${cols}x${rows} grid, cell ${cw}px, anchor cx=${anchor.cx} footY=${anchor.footY}, silhouette=${silhouette}px, ${(bytes / 1024).toFixed(1)}KB`);
+}
+
+/** Pack the whole matrix root (<gender>/<hair>-<outfit>/...) into
+ *  matrix-<gender>-<hair>-<outfit>.sheet.* under outDir. */
+function packMatrix(root, outDir) {
+  let n = 0;
+  for (const gender of readdirSync(root)) {
+    const gDir = join(root, gender);
+    if (!statSync(gDir).isDirectory()) continue;
+    if (gender !== "female" && gender !== "male") continue;
+    for (const combo of readdirSync(gDir)) {
+      const cDir = join(gDir, combo);
+      if (!statSync(cDir).isDirectory()) continue;
+      if (!existsSync(join(cDir, "rotations"))) continue;
+      try { packMatrixOne(`matrix-${gender}-${combo}`, cDir, outDir); n++; }
+      catch (err) { console.error(`[skip] matrix-${gender}-${combo}: ${err.message}`); }
+    }
+  }
+  console.log(`[matrix] packed ${n} combo sheets into ${outDir}`);
 }
 
 /** Find metadata.json at dir or any immediate subdir; return {meta, baseDir}
@@ -241,7 +335,9 @@ function packOne(name, srcDir, outDir) {
 
 function main() {
   const a = parseArgs(process.argv.slice(2));
-  if (a.all) {
+  if (a.matrix) {
+    packMatrix(a.matrix, a.out);
+  } else if (a.all) {
     const root = a.all;
     for (const e of readdirSync(root)) {
       const p = join(root, e);

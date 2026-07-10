@@ -1,235 +1,241 @@
 /**
- * Player rig-to-sprite bridge — the pose-level dual path for the heroine, now
- * across FIVE hairstyle sheets with runtime recolour of her chosen hair + dress
- * colours ("her character, her design").
+ * Player sprite bridge — the CURATED MATRIX look (R1, the product owner's top
+ * ask). The player picks gender × hairstyle(5) × outfit(5) + a hair shade(3);
+ * that selection resolves one of the 50 generated combo sheets
+ * (src/assets/pixellab/characters/matrix/matrix-<gender>-<hair>-<outfit>). The
+ * baked hair is a KEYED VIVID PURPLE, recoloured at runtime to a natural shade
+ * (warm brown / golden blonde / espresso) via recolorSheet — audited zero bleed
+ * into the outfit/skin, so raw purple never reaches the screen.
  *
- * When (a) the needed sprite frame is loaded, (b) the player's look is one the
- * sprite can render faithfully (spriteCoversLook), and (c) the current pose has
- * sprite coverage (walk / idle), the player is drawn as the PixelLab sprite;
- * otherwise the caller (art/characters.ts drawFarmer) falls back to the code rig
- * for that frame (the rig wears her exact chosen colours via rigFromCharacter,
- * so an excluded look still matches her design). Switching is seamless — the
- * sprite is scaled + anchored to land on the rig's ground line at the rig's
- * apparent height (per-sheet geometry from the packed atlas + config knobs).
+ * This replaces the code rig as the SHIPPED player look. The rig stays the
+ * automatic zero-PNG fallback (CLAUDE.md hard rule #1): whenever the needed
+ * matrix frame isn't loaded (or no matrix PNGs are committed at all), or the
+ * pose has no sprite coverage (fishing/hoeing/foraging/busking/sleeping),
+ * drawPlayerSprite returns false and the caller (art/characters.ts drawFarmer)
+ * draws the rig for that frame — planted on the same ground line, so switching
+ * is seamless.
  *
- * HAIRSTYLE → SHEET: the creation's 5 hair ids pick the sheet (hat = the
- * original heroine sheet; bun/short/ponytail = their own; "bald" → the cropped
- * short-crop sheet, the closest hatless-minimal base). Each base is painted the
- * SAME chestnut/rust/cream identity; the player's hair + dress colours are
- * applied at runtime by recolorSheet (art/sprites.ts) — a per-region H&S replace
- * that keeps each pixel's lightness. See docs/PIXELLAB_ASSETS.md for the band
- * measurements + the honest coverage matrix (what's sprite-covered vs rig).
+ * The matrix resolves the owner's three complaints by construction: baked
+ * sprites have no long profile nose, male and female are distinct characters,
+ * and hair is painted into the sprite (never drawn in front of the body).
  *
- * Poses WITHOUT a generated animation (fishing, hoeing, foraging, busking,
- * sleeping) always return false here → the rig draws them, unchanged.
+ * Skin tone: shipped "coming soon". The H&S recolour preserves each pixel's
+ * lightness by design, so it can only shift skin hue/saturation — it cannot
+ * darken a light-peach base into a deeper tone (verified R1). See
+ * SPRITE_MATRIX_SKIN in config.ts.
  */
 import { spriteFrame, sheetInfo, recolorSheet, type SpriteImage, type RecolorBand, type RecolorOp } from "./sprites";
-import { DIR8, nextSector, walkFrame, cardinalSector } from "./spriteFacing";
+import { walkFrame } from "./spriteFacing";
 import { shadow, castShadow } from "./shapes";
 import {
-  SPRITE_PLAYER_SCALE, SPRITE_PLAYER_FOOT_DY, SPRITE_WALK_STRIDE,
-  SPRITE_IDLE_FPS, SPRITE_FACING_HYSTERESIS, SPRITE_HAIRSTYLE_SCALE,
-  CHARACTER_SPRITES_PRIMARY,
+  SPRITE_MATRIX_SCALE, SPRITE_PLAYER_FOOT_DY, SPRITE_WALK_STRIDE,
+  CHARACTER_SPRITES_PRIMARY, SPRITE_MATRIX_SKIN,
 } from "../config";
-import { DEFAULT_APPEARANCE, type Appearance, type Character, type Gender } from "../systems/meta";
-import type { HairStyle, Outfit, Facing } from "./rig";
+import { type Appearance, type Character, type Gender, type MatrixHair } from "../systems/meta";
+import type { Facing } from "./rig";
 import type { Player } from "../entities/player";
 
-// The subset of an Appearance the sprite path reads. RigParams (in-game) AND
-// Appearance (creation preview) are both structurally assignable to it.
-export type HeroLook = Pick<Appearance, "hair" | "hairColor" | "hatColor" | "skin" | "outfit">;
-
-// ---- hairstyle → packed sheet + geometry --------------------------------
-// The original heroine (hat) sheet is 84px; the 4 new hairstyle bases are 92px.
-// Geometry (cell size + measured foot anchor) is read from each sheet's JSON at
-// runtime (sheetInfo); only the per-sheet HAIR head-zone ceiling differs (the
-// ponytail's tail hangs lower than the others, so its recolour window reaches
-// further down before the boots — which share the hair's dark-brown band).
-const HERO_REF_CANVAS = 84;    // the hat sheet's cell; drawn at SPRITE_PLAYER_SCALE (1.0)
-const FOOT_TUNE = 2;           // visual ground-contact is ~2px above the raw silhouette bottom (hat-proven)
-const WALK_FRAMES = 6, IDLE_FRAMES = 4;
-const HAIR_ZONE = 0.52;        // head-zone ceiling (cell fraction) for hair recolour on bun/short/cropped
-
-interface HeroSheet { id: string; hairYMax: number }   // hairYMax 0 = don't recolour hair (hat)
-// Partial: a HairStyle with no packed sheet (e.g. the rig-native "long", which
-// has no PixelLab base) simply resolves to undefined here → the sprite path
-// returns false for that look → the rig draws it (now the primary path anyway).
-const HERO_SHEETS: Partial<Record<HairStyle, HeroSheet>> = {
-  hat:      { id: "characters/heroine",          hairYMax: 0 },          // straw hat hides the hair
-  bun:      { id: "characters/heroine-bun",      hairYMax: HAIR_ZONE },
-  short:    { id: "characters/heroine-short",    hairYMax: HAIR_ZONE },
-  ponytail: { id: "characters/heroine-ponytail", hairYMax: 0.62 },       // long tail reaches ~mid-back
-  bald:     { id: "characters/heroine-cropped",  hairYMax: HAIR_ZONE },  // "bald-ish" → cropped short crop
-  // "long" — no sprite base; falls through to the rig.
+// ---- creator option tables (exported for ui/charcreation.ts) --------------
+export const MATRIX_HAIRS: Array<{ id: MatrixHair; label: string }> = [
+  { id: "long", label: "Long" },
+  { id: "short", label: "Short" },
+  { id: "ponytail", label: "Ponytail" },
+  { id: "bun", label: "Bun" },
+  { id: "cropped", label: "Cropped" },
+];
+/** Outfit keys, per gender, in generated order. The key is the folder suffix in
+ *  the matrix sheet name; the label is what the creator shows. */
+export const MATRIX_OUTFITS: Record<Gender, Array<{ id: string; label: string }>> = {
+  female: [
+    { id: "rustdress", label: "Rust dress + apron" },
+    { id: "greentunic", label: "Green tunic + skirt" },
+    { id: "overalls", label: "Denim overalls" },
+    { id: "smock", label: "Beige smock" },
+    { id: "coat", label: "Brown coat" },
+  ],
+  male: [
+    { id: "tunic", label: "Belted jerkin" },
+    { id: "overalls", label: "Denim overalls" },
+    { id: "vest", label: "Leather vest" },
+    { id: "smock", label: "Beige smock" },
+    { id: "coat", label: "Brown coat" },
+  ],
 };
+/** The 3 natural hair shades the keyed purple recolours to (kept warm to fit the
+ *  cozy palette). Index stored as Appearance.hairShade. */
+export const HAIR_SHADES: Array<{ id: string; label: string; hex: string }> = [
+  { id: "brown", label: "Warm brown", hex: "#6e4a2b" },
+  { id: "blonde", label: "Golden blonde", hex: "#c99a45" },
+  { id: "espresso", label: "Espresso", hex: "#241c16" },
+];
 
-// ---- recolour bands (art constants; measured from the base sheets) -------
-// See docs/PIXELLAB_ASSETS.md "Recolouring the heroine" for the histogram work.
-// HAIR: chestnut, dark (L<0.44 separates it from the lighter freckled skin at
-//   the same hue); the per-sheet nyMax head-zone keeps it off the same-hue boots.
-// DRESS: rust-red, redder hue than hair/skin; L floor drops the darker boots,
-//   nyMin drops the face/neck (skin-shadow shares the low hue).
-// APRON: cream/tan, higher hue + light; nyMin keeps it below the face.
-const HAIR_BAND: RecolorBand = { hueMin: 13, hueMax: 28, satMin: 0.30, lMin: 0.12, lMax: 0.44 };
-const DRESS_BAND: RecolorBand = { hueMin: 349, hueMax: 14, satMin: 0.34, lMin: 0.25, lMax: 0.52, nyMin: 0.49 };
-const APRON_BAND: RecolorBand = { hueMin: 31, hueMax: 54, satMin: 0.26, lMin: 0.50, lMax: 0.92, nyMin: 0.49 };
+// Combos to EXCLUDE (creator hides them → rig fallback). None after the R1
+// supervisor re-check: male/ponytail-tunic reads as a clothed sleeveless jerkin,
+// not bare-chested, and is coherent across all tunic combos.
+const EXCLUDED = new Set<string>([]);
 
-// The bases are painted this identity; a choice equal to it emits NO recolour op
-// (raw atlas → pixel-identical to the established heroine).
-const NATIVE_HAIR = "#5b3b22";                        // ≈ the baked chestnut (= DEFAULT_APPEARANCE.hairColor)
-const NATIVE_DRESS_TORSOS = new Set(["#9a4a4a", "#b0432f"]);  // work-dress + legacy old-farmer red → raw sprite
-// Outfit STYLES the dress-and-apron sprite renders honestly (all skirted). The
-// bib-and-trousers "overalls" silhouette the sprite can't show → rig.
-const COVERED_OUTFIT_STYLES = new Set(["dress", "tunic-skirt", "shawl-dress", "smock"]);
+// ---- geometry -------------------------------------------------------------
+const MATRIX_REF_CANVAS = 68;   // fallback cell size if the json isn't present
+const FOOT_TUNE = 2;            // visual ground-contact ~2px above the raw silhouette bottom
+const WALK_FRAMES = 6;
 
-const lc = (s: string | undefined) => (s ?? "").toLowerCase();
-const isNativeOutfit = (o: Outfit) => NATIVE_DRESS_TORSOS.has(lc(o.torso));
+// Keyed vivid-purple hair → the chosen natural shade (hue window 240–300, sat
+// floor 0.35; audited to catch ONLY hair — zero outfit/skin bleed). Lightness
+// preserved, so shading survives.
+const PURPLE_BAND: RecolorBand = { hueMin: 240, hueMax: 300, satMin: 0.35 };
 
-// 8-dir facing + walk-frame logic is shared with the NPC bridge (spriteFacing.ts).
-let curSector = 2;          // held 8-dir facing; 2 = south (matches createPlayer dir=2)
-// Default from the locked render mode (config): false = rig-primary (sprites are
-// the off-by-default fallback). __wh.spriteMode(true) still flips it live for A/B.
+// ---- current player look (set by main.ts on boot + New Game) --------------
+// RigParams (passed to drawFarmer) can't carry the matrix selection, so the
+// live player look is held here, mirroring how the sprite bridges already hold
+// module state (facing sectors etc.).
+let playerGender: Gender = "female";
+let playerAppear: Appearance | null = null;
+export function setPlayerLook(gender: Gender, a: Appearance) { playerGender = gender; playerAppear = a; }
+
+// Default from the locked render mode (config): true = matrix-primary. Dev
+// __wh.spriteMode(false) forces the rig live for A/B.
 let spriteEnabled = CHARACTER_SPRITES_PRIMARY;
-
-/** Dev bridge: force the rig path on/off for A/B comparison. */
 export function setSpriteMode(on: boolean) { spriteEnabled = on; }
 export function spriteModeOn(): boolean { return spriteEnabled; }
 
-// ---- coverage: who gets the sprite --------------------------------------
+// ---- selection → sheet resolution -----------------------------------------
+const MATRIX_HAIR_IDS = MATRIX_HAIRS.map((h) => h.id);
+function hairFor(a: Appearance): MatrixHair {
+  return MATRIX_HAIR_IDS.includes(a.matrixHair) ? a.matrixHair : "long";
+}
+/** The chosen outfit key, snapped to the gender's list (so an outfit key from
+ *  the other gender — e.g. after a save's gender flips — resolves sanely). */
+function outfitFor(gender: Gender, a: Appearance): string {
+  const list = MATRIX_OUTFITS[gender];
+  return list.some((o) => o.id === a.matrixOutfit) ? a.matrixOutfit : list[0]!.id;
+}
+const comboKey = (gender: Gender, hair: string, outfit: string) => `${gender}/${hair}-${outfit}`;
+const matrixSheetId = (gender: Gender, hair: string, outfit: string) =>
+  `characters/matrix/matrix-${gender}-${hair}-${outfit}`;
+
+// ---- coverage: does the matrix render this look? --------------------------
 /**
- * Honest coverage — the sprite renders this look faithfully (else the rig, which
- * wears her exact colours, does). Female AND a known hairstyle AND:
- *  - skin is the default tone — skin recolour is EXCLUDED (its face/hand band
- *    can't be separated from the eyes/mouth/apron cleanly; honesty over coverage);
- *  - for the hat, hair + hat colour are default (the hat hides the hair, so it
- *    isn't recoloured — a changed hair colour under a hat → rig);
- *  - the outfit is the native dress OR a skirted style the dress sprite can show
- *    (hair/dress colours ARE recoloured; build is not reflected — a known
- *    simplification, the rig honours it on fallback).
+ * True when the matrix can render this (gender, selection): matrix mode is on,
+ * the combo isn't excluded, and its sheet is present in the build. The atlas PNG
+ * may still be decoding — drawPlayerSprite handles that per-frame (→ rig), so
+ * this only gates on the sheet EXISTING (present in the manifest = shippable).
+ * With zero matrix PNGs committed, sheetInfo is null → false → the rig draws.
  */
 export function spriteCoversLook(gender: Gender, a: Appearance): boolean {
-  if (!spriteEnabled) return false;      // rig-primary (CHARACTER_SPRITES_PRIMARY) → nobody is sprite-covered
-  if (gender !== "female") return false;
-  if (!HERO_SHEETS[a.hair]) return false;
-  if (lc(a.skin) !== lc(DEFAULT_APPEARANCE.skin)) return false;      // skin recolour excluded
-  if (a.hair === "hat") {
-    if (lc(a.hairColor) !== lc(DEFAULT_APPEARANCE.hairColor)) return false;   // hat's hair isn't recoloured
-    if (lc(a.hatColor) !== lc(DEFAULT_APPEARANCE.hatColor)) return false;     // straw hat isn't recoloured
-  }
-  return isNativeOutfit(a.outfit) || (a.outfit.style != null && COVERED_OUTFIT_STYLES.has(a.outfit.style));
+  if (!spriteEnabled) return false;
+  const hair = hairFor(a), outfit = outfitFor(gender, a);
+  if (EXCLUDED.has(comboKey(gender, hair, outfit))) return false;
+  return sheetInfo(matrixSheetId(gender, hair, outfit)) !== null;
 }
 
-/** A null character (pre-creation boot / old save) is the default heroine. */
+/** A null character (pre-creation boot / old save) → the default matrix look. */
 export function spriteCoversCharacter(c: Character | null): boolean {
-  if (!c) return true;
+  if (!c) return spriteEnabled && sheetInfo(matrixSheetId("female", "long", "rustdress")) !== null;
   return spriteCoversLook(c.gender, c.appearance);
 }
 
-// ---- recolour op assembly -----------------------------------------------
-function buildOps(look: HeroLook, sheet: HeroSheet): RecolorOp[] {
-  const ops: RecolorOp[] = [];
-  if (sheet.hairYMax > 0 && lc(look.hairColor) !== NATIVE_HAIR)
-    ops.push({ band: { ...HAIR_BAND, nyMax: sheet.hairYMax }, targetHex: look.hairColor });
-  if (!isNativeOutfit(look.outfit)) {
-    ops.push({ band: DRESS_BAND, targetHex: look.outfit.torso });      // primary → dress
-    const apron = look.outfit.accent ?? look.outfit.legs;              // secondary → apron
-    if (apron) ops.push({ band: APRON_BAND, targetHex: apron });
+// ---- recolour op assembly -------------------------------------------------
+function buildOps(a: Appearance): RecolorOp[] {
+  const shade = HAIR_SHADES[Math.max(0, Math.min(HAIR_SHADES.length - 1, a.hairShade))] ?? HAIR_SHADES[0]!;
+  const ops: RecolorOp[] = [{ band: PURPLE_BAND, targetHex: shade.hex }];   // always — purple must never show
+  if (SPRITE_MATRIX_SKIN && a.skinTone > 0) {
+    // (disabled today — the mechanism can't darken skin; kept for a future
+    // lightness-aware remap. Band left intentionally unused.)
   }
   return ops;
 }
 
-// ---- frame resolution + placement ---------------------------------------
-interface HeroFrame { img: SpriteImage; sx: number; sy: number; sw: number; sh: number }
+// ---- frame resolution + placement -----------------------------------------
+interface MatrixFrame { img: SpriteImage; sx: number; sy: number; sw: number; sh: number }
 
-/** The recoloured (or raw, for a default look) atlas frame, or null if the atlas
- *  hasn't decoded yet (→ the caller draws the rig; alignment matches, no pop). */
-function heroFrame(sheet: HeroSheet, frameName: string, look: HeroLook): HeroFrame | null {
-  const fr = spriteFrame(sheet.id, frameName);
+/** The recoloured atlas frame, or null if the atlas hasn't decoded yet (→ the
+ *  caller draws the rig; alignment matches, so no pop). */
+function matrixFrame(sheetId: string, frameName: string, a: Appearance): MatrixFrame | null {
+  const fr = spriteFrame(sheetId, frameName);
   if (!fr) return null;
-  const ops = buildOps(look, sheet);
-  if (ops.length === 0) return fr;                       // default → raw atlas (pixel-identical)
-  const info = sheetInfo(sheet.id);
-  const rc = recolorSheet(sheet.id, fr.img, ops, info ? info.canvas : fr.sw);
+  const info = sheetInfo(sheetId);
+  const rc = recolorSheet(sheetId, fr.img, buildOps(a), info ? info.canvas : fr.sw);
   return rc ? { img: rc, sx: fr.sx, sy: fr.sy, sw: fr.sw, sh: fr.sh } : fr;
 }
 
-/** Sheet placement geometry: cell px, base world-scale, centre column + foot row. */
-function heroGeometry(sheet: HeroSheet) {
-  const info = sheetInfo(sheet.id);
-  const cell = info ? info.canvas : HERO_REF_CANVAS;
-  const baseScale = cell === HERO_REF_CANVAS ? SPRITE_PLAYER_SCALE : SPRITE_HAIRSTYLE_SCALE;
-  const anchorX = cell / 2;                              // body centre = cell centre (ignores tail-skewed silhouette cx)
+/** Sheet placement geometry: cell px + centre column + foot row. */
+function geometry(sheetId: string) {
+  const info = sheetInfo(sheetId);
+  const cell = info ? info.canvas : MATRIX_REF_CANVAS;
+  const anchorX = cell / 2;                                 // body centre = cell centre (matrix chars are centred)
   const footY = (info ? info.anchor.footY : cell) - FOOT_TUNE;
-  return { cell, baseScale, anchorX, footY };
+  return { cell, anchorX, footY };
 }
 
 /** Blit one resolved frame so its foot row lands on (cx, groundY), centred on
  *  cx. `viewScale` enlarges it for the creation preview (1 = in-world). */
-function blitHero(g: CanvasRenderingContext2D, fr: HeroFrame, sheet: HeroSheet, cx: number, groundY: number, viewScale: number) {
-  const geo = heroGeometry(sheet);
-  const scale = geo.baseScale * viewScale;
+function blitMatrix(g: CanvasRenderingContext2D, fr: MatrixFrame, sheetId: string, cx: number, groundY: number, viewScale: number) {
+  const geo = geometry(sheetId);
+  const scale = SPRITE_MATRIX_SCALE * viewScale;
   const dx = cx - geo.anchorX * scale;
   const dy = groundY - geo.footY * scale;
   const prev = g.imageSmoothingEnabled;
-  g.imageSmoothingEnabled = false;                       // crisp pixels at every zoom
+  g.imageSmoothingEnabled = false;                          // crisp pixels at every zoom
   g.drawImage(fr.img, fr.sx, fr.sy, fr.sw, fr.sh, dx, dy, geo.cell * scale, geo.cell * scale);
   g.imageSmoothingEnabled = prev;
 }
 
-// ---- facing (8-dir from the movement vector, with hysteresis) -----------
-function facingDir(p: Player): (typeof DIR8)[number] {
-  curSector = nextSector(curSector, p.mvx, p.mvy, SPRITE_FACING_HYSTERESIS);
-  return DIR8[curSector]!;
-}
+// ---- facing: the matrix is 4-dir; the player's own cardinal `dir` snaps it ---
+// (up 0 → north, right 1 → east, down 2 → south, left 3 → west). Using p.dir —
+// already resolved from the movement vector with a horizontal/vertical tiebreak
+// — is the graceful 4-dir snap the 8-dir sheets don't need here.
+const DIR4: Record<0 | 1 | 2 | 3, "north" | "east" | "south" | "west"> =
+  { 0: "north", 1: "east", 2: "south", 3: "west" };
 
-// ---- draw: in-world player ----------------------------------------------
+// ---- draw: in-world player ------------------------------------------------
 /**
- * Draw the player as the heroine sprite (with her hair/dress recolours). Returns
- * false (drawing NOTHING) when the pose isn't covered or the needed frame hasn't
- * decoded yet — the caller then draws the code rig (which paints its own shadow).
- * When it DOES draw, it paints the same under-ellipse + cast shadow the rig would.
+ * Draw the player from her chosen matrix combo (hair recoloured). Returns false
+ * (drawing NOTHING) when matrix mode is off, the look isn't covered, the pose
+ * has no sprite coverage, or the needed frame hasn't decoded yet — the caller
+ * then draws the code rig (which paints its own shadow). When it DOES draw, it
+ * paints the same under-ellipse + cast shadow the rig would.
  */
-export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, t: number, look: HeroLook): boolean {
-  if (!spriteEnabled) return false;
+export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, _t: number): boolean {
+  if (!spriteEnabled || !playerAppear) return false;
+  const a = playerAppear, gender = playerGender;
+  if (!spriteCoversLook(gender, a)) return false;
   const kind = p.pose === "walking" ? "walk" : p.pose === "idle" ? "idle" : null;
   if (!kind) return false;   // fishing / hoeing / foraging / busking / sleeping → rig
-  const sheet = HERO_SHEETS[look.hair];
-  if (!sheet) return false;
 
-  const dir = facingDir(p);
+  const sheetId = matrixSheetId(gender, hairFor(a), outfitFor(gender, a));
+  const dir = DIR4[p.dir];
   const frameName = kind === "walk"
     ? `walk_${dir}_${walkFrame(p.dist, SPRITE_WALK_STRIDE, WALK_FRAMES)}`
-    : `idle_${dir}_${Math.floor(t * SPRITE_IDLE_FPS) % IDLE_FRAMES}`;
+    : `rot_${dir}`;   // no baked idle → the static rotation stands in
 
   // resolve readiness BEFORE the shadows so a not-yet-decoded frame doesn't
   // double-shadow with the rig fallback
-  const fr = heroFrame(sheet, frameName, look);
+  const fr = matrixFrame(sheetId, frameName, a);
   if (!fr) return false;
 
   castShadow(g, p.x, p.y + 13, 7, 13);
   shadow(g, p.x, p.y + 13, 10, 4.3);
-  blitHero(g, fr, sheet, p.x, p.y + SPRITE_PLAYER_FOOT_DY, 1);
+  blitMatrix(g, fr, sheetId, p.x, p.y + SPRITE_PLAYER_FOOT_DY, 1);
   return true;
 }
 
-// ---- draw: creation preview ---------------------------------------------
+// ---- draw: creation preview -----------------------------------------------
 /**
- * Draw the heroine sprite for the Character Creation live preview — the same
- * frames + recolours the game renders, so "what she designs = what she sees".
- * `facing` is the preview's cardinal turn; idle pose, enlarged by `viewScale`.
- * Returns false if this look isn't sprite-covered or the atlas isn't ready — the
- * preview then draws the rig (which already breathes + wears her colours).
+ * Draw the matrix sprite for the Character Creation live preview — the same
+ * frame + recolour the game renders, so "what she designs = what she sees".
+ * `facing` is the preview's cardinal turn; static rotation, enlarged by
+ * `viewScale`. Returns false if this look isn't covered or the atlas isn't ready
+ * — the preview then draws the rig.
  */
 export function drawHeroinePreview(
-  g: CanvasRenderingContext2D, look: HeroLook, cx: number, groundY: number,
-  facing: Facing, viewScale: number, t: number,
+  g: CanvasRenderingContext2D, gender: Gender, a: Appearance, cx: number, groundY: number,
+  facing: Facing, viewScale: number, _t: number,
 ): boolean {
-  const sheet = HERO_SHEETS[look.hair];
-  if (!sheet) return false;
-  const dir = DIR8[cardinalSector(facing)]!;
-  const fr = heroFrame(sheet, `idle_${dir}_${Math.floor(t * SPRITE_IDLE_FPS) % IDLE_FRAMES}`, look);
+  if (!spriteCoversLook(gender, a)) return false;
+  const sheetId = matrixSheetId(gender, hairFor(a), outfitFor(gender, a));
+  const fr = matrixFrame(sheetId, `rot_${DIR4[facing]}`, a);
   if (!fr) return false;
   shadow(g, cx, groundY, 12 * (viewScale / 2.5), 4.6 * (viewScale / 2.5));   // soft ground shadow so she doesn't float
-  blitHero(g, fr, sheet, cx, groundY, viewScale);
+  blitMatrix(g, fr, sheetId, cx, groundY, viewScale);
   return true;
 }

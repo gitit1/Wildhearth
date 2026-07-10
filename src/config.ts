@@ -355,7 +355,29 @@ export const WILDLIFE_DESPAWN_SECONDS = 0.5;  // fly-off/fade-out duration befor
 //     Flip this to `true` to restore sprite-primary character rendering (the
 //     sheets + both draw bridges are intact); the runtime dev toggles
 //     __wh.spriteMode / __wh.npcSpriteMode still flip it live per-session. ---
-export const CHARACTER_SPRITES_PRIMARY = false;
+//     R1 UPDATE (2026-07-11, product-owner's top ask): flipped to `true`. This
+//     now selects the CURATED MATRIX player look (art/spriteChar.ts): the player
+//     picks gender × hairstyle(5) × outfit(5) + hair shade(3), rendered from the
+//     50-combo generated matrix (src/assets/pixellab/characters/matrix/). It
+//     resolves the owner's three complaints (profile nose / male=female / hair-
+//     over-body) by construction. The code rig stays the automatic zero-PNG
+//     fallback (missing/undecoded sheet → rig for that frame), so boot with zero
+//     PNGs still works. Setting also re-enables the NPC sprite sheets (spriteNpc
+//     reads this same flag) so ALL characters are sprites again. Flip to `false`
+//     to return to the all-rig look; __wh.spriteMode / __wh.npcSpriteMode still
+//     flip either live per-session for A/B. ---
+export const CHARACTER_SPRITES_PRIMARY = true;
+// --- Curated matrix player sprite (art/spriteChar.ts). Cells are 68×68 with a
+//     ~53px character (feet ~row 60); this scale renders her at ~43px apparent
+//     height = the code rig's hat-top-to-boot, so she stands at NPC/rig scale.
+//     Retune here if she reads too big/small next to an NPC. ---
+export const SPRITE_MATRIX_SCALE = 0.82;      // world px per sprite px
+// Skin-tone recolour is OFF (shipped "coming soon" in the creator). The runtime
+// H&S recolour preserves each pixel's LIGHTNESS by design, so it can only shift
+// skin hue/saturation — it cannot actually darken a light-peach base into a
+// deeper tone (verified R1). Hair recolour (keyed vivid purple → 3 naturals) is
+// unaffected and ships. Flip true only if a lightness-aware skin remap lands.
+export const SPRITE_MATRIX_SKIN = false;
 // --- Player heroine sprite (art/spriteChar.ts). The generated sheet is 84x84
 //     with the character ~42-44px tall — the SAME apparent height as the code
 //     rig (hat-top to boot ≈ 43px), so native 1:1 world pixels (scale 1) plant

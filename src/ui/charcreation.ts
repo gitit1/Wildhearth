@@ -1,6 +1,10 @@
 import { openingRoot } from "./titlescreen";
 import { drawRig, type RigParams, type HairStyle, type BodyBuild, type Outfit } from "../art/rig";
-import { spriteCoversLook, drawHeroinePreview } from "../art/spriteChar";
+import {
+  spriteCoversLook, drawHeroinePreview,
+  MATRIX_HAIRS, MATRIX_OUTFITS, HAIR_SHADES,
+} from "../art/spriteChar";
+import { CHARACTER_SPRITES_PRIMARY } from "../config";
 import { DEFAULT_APPEARANCE, type Appearance, type CharacterIdentity, type Gender } from "../systems/meta";
 
 /**
@@ -170,7 +174,9 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     b.dataset.g = gd;
     b.addEventListener("click", () => {
       state.gender = gd;
-      state.appearance.outfit = { ...outfitsFor(gd)[0]! };   // snap to that gender's first curated outfit
+      state.appearance.outfit = { ...outfitsFor(gd)[0]! };   // snap the rig-fallback outfit to that gender
+      const mo = MATRIX_OUTFITS[gd];                          // keep the matrix outfit valid for the new gender
+      if (!mo.some((o) => o.id === state.appearance.matrixOutfit)) state.appearance.matrixOutfit = mo[0]!.id;
       for (const s of syncers) s();
     });
     genderBox.append(b);
@@ -180,17 +186,30 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   syncers.push(syncGender);
   genderField.append(fieldLabel("Gender"), genderBox);
 
-  // appearance groups
-  const skinRow = swatchGroup("Skin", SKINS, () => state.appearance.skin, (c) => (state.appearance.skin = c), syncers);
-  const hairRow = labelGroup("Hair", HAIR_STYLES.map((h) => ({ v: h.id, label: h.label })),
-    () => state.appearance.hair, (v) => (state.appearance.hair = v as HairStyle), syncers);
-  const hairColRow = swatchGroup("Hair colour", HAIR_COLORS, () => state.appearance.hairColor, (c) => (state.appearance.hairColor = c), syncers);
-  const eyeColRow = swatchGroup("Eye colour", EYE_COLORS, () => state.appearance.eyeColor ?? EYE_COLORS[0]!, (c) => (state.appearance.eyeColor = c), syncers);
-  const buildRow = labelGroup("Build", BUILDS.map((b) => ({ v: b.id, label: b.label })),
-    () => state.appearance.build, (v) => (state.appearance.build = v as BodyBuild), syncers);
-  const outfitRow = outfitGroup(() => outfitsFor(state.gender), () => state.appearance.outfit, (o) => (state.appearance.outfit = { ...o }), syncers);
-
-  right.append(nameField, ageField, genderField, skinRow, hairRow, hairColRow, eyeColRow, buildRow, outfitRow);
+  // appearance groups — the MATRIX creator (sprite-primary) shows the curated
+  // sprite options (hair shape / outfit / hair shade), with skin-tone + body-
+  // size reserved "coming soon"; the legacy rig creator (sprites off) keeps the
+  // old free-colour rig controls. ONE flag drives which set is built.
+  if (CHARACTER_SPRITES_PRIMARY) {
+    const hairRow = labelGroup("Hairstyle", MATRIX_HAIRS.map((h) => ({ v: h.id, label: h.label })),
+      () => state.appearance.matrixHair, (v) => (state.appearance.matrixHair = v as Appearance["matrixHair"]), syncers);
+    const outfitRow = matrixOutfitGroup(() => state.gender, () => state.appearance.matrixOutfit, (id) => (state.appearance.matrixOutfit = id), syncers);
+    const shadeRow = indexSwatchGroup("Hair shade", HAIR_SHADES.map((s) => s.hex),
+      () => state.appearance.hairShade, (i) => (state.appearance.hairShade = i), syncers);
+    const skinRow = comingSoonGroup("Skin tone", "Coming soon");
+    const sizeRow = comingSoonGroup("Body size", "M", ["S", "L"]);
+    right.append(nameField, ageField, genderField, hairRow, outfitRow, shadeRow, skinRow, sizeRow);
+  } else {
+    const skinRow = swatchGroup("Skin", SKINS, () => state.appearance.skin, (c) => (state.appearance.skin = c), syncers);
+    const hairRow = labelGroup("Hair", HAIR_STYLES.map((h) => ({ v: h.id, label: h.label })),
+      () => state.appearance.hair, (v) => (state.appearance.hair = v as HairStyle), syncers);
+    const hairColRow = swatchGroup("Hair colour", HAIR_COLORS, () => state.appearance.hairColor, (c) => (state.appearance.hairColor = c), syncers);
+    const eyeColRow = swatchGroup("Eye colour", EYE_COLORS, () => state.appearance.eyeColor ?? EYE_COLORS[0]!, (c) => (state.appearance.eyeColor = c), syncers);
+    const buildRow = labelGroup("Build", BUILDS.map((b) => ({ v: b.id, label: b.label })),
+      () => state.appearance.build, (v) => (state.appearance.build = v as BodyBuild), syncers);
+    const outfitRow = outfitGroup(() => outfitsFor(state.gender), () => state.appearance.outfit, (o) => (state.appearance.outfit = { ...o }), syncers);
+    right.append(nameField, ageField, genderField, skinRow, hairRow, hairColRow, eyeColRow, buildRow, outfitRow);
+  }
 
   body.append(left, right);
 
@@ -211,6 +230,10 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     state.appearance.build = pick(BUILDS).id;
     state.gender = Math.random() < 0.5 ? "female" : "male";
     state.appearance.outfit = { ...pick(outfitsFor(state.gender)) };
+    // matrix look (sprite-primary creator)
+    state.appearance.matrixHair = pick(MATRIX_HAIRS).id;
+    state.appearance.matrixOutfit = pick(MATRIX_OUTFITS[state.gender]).id;
+    state.appearance.hairShade = Math.floor(Math.random() * HAIR_SHADES.length);
     state.firstName = pick(state.gender === "female" ? FIRST_F : FIRST_M);
     state.lastName = pick(LAST);
     state.nickname = pick(NICKS);
@@ -232,7 +255,7 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     g.clearRect(0, 0, CW, CH);
     const facing = ([2, 1, 2, 3] as const)[Math.floor(t / 2.2) % 4]!;   // front, right, front, left
     const covered = spriteCoversLook(state.gender, state.appearance)
-      && drawHeroinePreview(g, state.appearance, CW / 2, CH * 0.82, facing, 2.5, t);
+      && drawHeroinePreview(g, state.gender, state.appearance, CW / 2, CH * 0.82, facing, 2.5, t);
     if (!covered)
       drawRig(g, CW / 2, CH * 0.82, facing, previewRig(state.appearance, 2.5), "idle", 0, t);
     previewRaf = requestAnimationFrame(frame);
@@ -364,5 +387,88 @@ function outfitGroup(getList: () => Outfit[], get: () => Outfit, set: (o: Outfit
   syncers.push(rebuild);
   rebuild();
   field.append(fieldLabel("Outfit"), row);
+  return field;
+}
+
+/** Matrix outfit picker (sprite creator): the 5 labelled outfits for the chosen
+ *  gender; rebuilds (not just re-highlights) when gender changes, like the rig
+ *  outfitGroup, so switching gender swaps the whole outfit set. */
+function matrixOutfitGroup(getGender: () => Gender, get: () => string, set: (id: string) => void, syncers: Array<() => void>): HTMLElement {
+  const field = document.createElement("div");
+  field.className = "cc-field";
+  const row = document.createElement("div");
+  row.className = "cc-row cc-wrap";
+  let ids: string[] = [];
+  const rebuild = () => {
+    ids = MATRIX_OUTFITS[getGender()].map((o) => o.id);
+    row.replaceChildren();
+    MATRIX_OUTFITS[getGender()].forEach((o) => {
+      const b = document.createElement("button");
+      b.className = "cc-btn";
+      b.textContent = o.label;
+      b.addEventListener("click", () => { set(o.id); sync(); });
+      row.append(b);
+    });
+    sync();
+  };
+  const sync = () => {
+    const btns = Array.from(row.children) as HTMLButtonElement[];
+    btns.forEach((b, i) => b.classList.toggle("sel", ids[i] === get()));
+  };
+  syncers.push(rebuild);
+  rebuild();
+  field.append(fieldLabel("Outfit"), row);
+  return field;
+}
+
+/** Swatch group whose selection is an INDEX into `colors` (hair shades: the
+ *  index is what's stored, not the hex). */
+function indexSwatchGroup(
+  label: string, colors: readonly string[], get: () => number, set: (i: number) => void,
+  syncers: Array<() => void>,
+): HTMLElement {
+  const field = document.createElement("div");
+  field.className = "cc-field";
+  const row = document.createElement("div");
+  row.className = "cc-row";
+  const btns: HTMLButtonElement[] = [];
+  colors.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "cc-swatch";
+    b.style.background = c;
+    b.addEventListener("click", () => { set(i); sync(); });
+    row.append(b);
+    btns.push(b);
+  });
+  const sync = () => btns.forEach((b, i) => b.classList.toggle("sel", i === get()));
+  syncers.push(sync);
+  sync();
+  field.append(fieldLabel(label), row);
+  return field;
+}
+
+/** A reserved axis shown but not yet selectable: an active pill (`current`) plus
+ *  greyed "coming soon" options — used for skin tone and body size in v1. */
+function comingSoonGroup(label: string, current: string, soon: readonly string[] = []): HTMLElement {
+  const field = document.createElement("div");
+  field.className = "cc-field";
+  const row = document.createElement("div");
+  row.className = "cc-row cc-wrap";
+  const cur = document.createElement("button");
+  cur.className = "cc-btn sel";
+  cur.textContent = current;
+  cur.disabled = true;
+  row.append(cur);
+  soon.forEach((s) => {
+    const b = document.createElement("button");
+    b.className = "cc-btn";
+    b.textContent = s;
+    b.disabled = true;
+    b.style.opacity = "0.4";
+    b.title = "Coming soon";
+    row.append(b);
+  });
+  if (soon.length === 0) cur.title = "Coming soon";
+  field.append(fieldLabel(label), row);
   return field;
 }
