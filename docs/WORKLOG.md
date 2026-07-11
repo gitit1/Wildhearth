@@ -29,6 +29,40 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## docs — EXECUTION_PLAN_V5: the operational build-order to v5 (Fable → Opus handoff)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Owner directive:** "run, as far as I'm concerned, up to v5 — Fable,
+  prepare an organized plan, then I'll hand it to Opus."
+- **Files changed:** `docs/EXECUTION_PLAN_V5.md` (new). Docs only — zero
+  code/behavior change.
+- **What it is:** the executor-facing companion to `ROADMAP_TO_V5.md`
+  (strategy stays there; order + mechanics live here). Contents:
+  - **§0 Executor's contract** — 11 standing rules distilled from CLAUDE.md
+    + 4 sessions of owner feedback (one block = one commit = one WORKLOG
+    entry; never push without her ask; dual-path art; runnable after every
+    block; Design Principle Zero; screenshot-verified done; old saves
+    survive; one repo-writing agent at a time; milestone ritual incl. the
+    Hebrew hub republish).
+  - **§2 Owner gates** — G1 character face-lock rebuild (deferred, ~1,570
+    gens, do NOT re-probe), G2 mine access, G3 town custom hours (resolved
+    by V2-B2's residents — confirm on ship), G4 push.
+  - **§3–§7 numbered build blocks** — V1-C1..C3 closeout (audit & seal,
+    save-compat harness, gated character rebuild); V2-B1..B12 (town real
+    estate → residents/schedules → customers/wants → reputation → merchants
+    → Fisherwoman ×3 → binoculars/aquarium → transport/fast-travel →
+    wardrobe → town festival + inn sleep); V3-B1..B8 (crafting engine, mine
+    [G2], professions/appearance, storage, employee, active haggling,
+    tier-2, festival 2); V4-B1..B7 (marriage, children, NPC↔NPC, tier-3,
+    dynamic prices, husbandry+pets, festival 3); V5-B1..B8 + SEAL blocks at
+    every version boundary. Each block has accept criteria.
+  - **§8 Verification playbook** — the puppeteer/Edge harness recipe,
+    `window.__wh` DEV-bridge pattern, per-block definition of done,
+    PixelLab workflow (check `*/spare/` before generating; gate on 200).
+  - **§9 Sizing honesty** — ignore ROADMAP's calendar weeks, respect its
+    ratios; real constraints are owner review bandwidth + AI-layer tuning.
+- **Follow-ups:** none — the plan itself is the follow-up ledger. Execution
+  starts at V1-C1 when the owner hands the wheel to Opus.
+
 ## screens — character-creation screen refined (small details pass)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Owner directive:** "redesign the screens better, invest in small details."
