@@ -1,9 +1,11 @@
 /** Global tuning knobs. Change values here, not inside systems. */
 export const T = 32;                    // tile size in px
 // World expansion v1: the farm is the west corner of a much larger open scene
-// (farm -> road -> market -> forest -> river/lake). 108x30 tiles = 3456x960 px
-// — ~4x the old 34x24 area, still one canvas (both sides well under 4096).
-export const MW = 108, MH = 30;         // map size in tiles
+// (farm -> road -> market -> forest -> river/lake). v2 BLOCK #3 extends the map
+// SOUTH (MH 30 -> 46) to add the coastal TOWN region below the market: a cobbled
+// town street, an inn, specialised merchants, NPC homes, a seafront + town dock.
+// 108x46 tiles = 3456x1472 px — both sides still well under the 4096 canvas cap.
+export const MW = 108, MH = 46;         // map size in tiles
 export const WORLD_W = MW * T, WORLD_H = MH * T;
 export const ROAD_W = 2.4;              // dirt road width in tiles
 

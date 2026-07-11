@@ -17,6 +17,7 @@ import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
   FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, WORLD_PROPS, type Rect,
+  INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
@@ -28,7 +29,7 @@ import { buildFoliageScatter, drawScatterItem } from "./art/scatter";
 import { drawBunting, drawLanternPole, drawHarvestCluster } from "./art/festival";
 import { activeFestival, isFestivalDay } from "./systems/festival";
 import { FESTIVALS } from "./data/festivals";
-import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse } from "./art/buildings";
+import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse, drawInn } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen, drawDuck, drawPig, drawSheep, drawNpc } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen, spawnDuck, spawnPig, spawnSheep } from "./entities/animals";
@@ -2177,6 +2178,7 @@ function draw(dt: number) {
   drawWaterShimmer(ctx, time);
   drawOpenWaterShimmer(ctx, time);       // river + lake surface + fishing-spot ripples
   drawDock(ctx, time);                    // walkable, drawn at ground level under entities
+  drawDock(ctx, time, TOWN_DOCK);         // the coastal town's dock (v2 BLOCK #3)
   drawFence(ctx, farm.fence, fieldBounds(farm.plotTiers));
   for (const h of HEDGES) drawHedge(ctx, h, time);   // farm's east natural bound
 
@@ -2220,6 +2222,12 @@ function draw(dt: number) {
   // Each cottage gets its own approved variant (zones.ts CottageDef.variant) —
   // "no two neighbors alike" (building-variety batch).
   COTTAGES.forEach((c, i) => ents.push({ y: c.y + c.h, f: () => drawCottage(ctx, c, 700 + i * 37, c.variant) }));
+  // Coastal town (v2 BLOCK #3): the inn (largest, code-drawn), NPC homes (unused
+  // cottage variants 1/5 + seed-distinct code cottages — no two alike), and the
+  // specialised merchant stalls (each a DISTINCT banked spare-stall sprite).
+  ents.push({ y: INN.y + INN.h, f: () => drawInn(ctx, INN) });
+  TOWN_HOMES.forEach((home) => ents.push({ y: home.y + home.h, f: () => drawCottage(ctx, home, home.seed, home.variant) }));
+  TOWN_MERCHANTS.forEach((m) => ents.push({ y: m.y + m.h, f: () => drawStall(ctx, time, m, m.awning, m.accent, m.sign, true, m.spriteId) }));
   if (festival) {
     FESTIVAL_LANTERN_SPOTS.forEach(([lx, ly]) => ents.push({ y: ly, f: () => drawLanternPole(ctx, lx, ly, time) }));
     FESTIVAL_HARVEST_CLUSTERS.forEach(([hx, hy]) => ents.push({ y: hy + 6, f: () => drawHarvestCluster(ctx, hx, hy) }));

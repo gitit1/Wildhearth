@@ -286,15 +286,22 @@ const STALL_THEMES: Record<StallSign, StallThemeSprite> = {
 export function drawStall(
   g: CanvasRenderingContext2D, t: number, r: Rect = STALL,
   awning = "#c05038", accent = "#7fb0c8", sign: StallSign = "fish", themed = false,
+  themeId?: string,
 ) {
   const { x, y, w, h } = r;
   if (themed) {
-    const theme = STALL_THEMES[sign];
+    // `themeId` (v2 town merchants) points at a DISTINCT banked spare-stall
+    // sprite so a town merchant never duplicates one of the four market stalls;
+    // its base-on-ground anchor is measured off the alpha bbox (like cottages
+    // 6/8). Otherwise use this sign's own themed market sprite (hand-anchored).
+    const theme: { id: string; cx?: number; foot?: number } = themeId ? { id: themeId } : STALL_THEMES[sign];
     const timg = sprite(theme.id);
     if (timg) {
       const gx = x + w / 2, gy = y + h;
+      const a = theme.cx !== undefined && theme.foot !== undefined
+        ? { cx: theme.cx, foot: theme.foot } : spriteBaseAnchor(theme.id, timg);
       castShadow(g, gx, gy, w * 0.5, h * 0.9);
-      drawGroundSprite(g, timg, gx, gy, theme.cx, theme.foot, SPRITE_STALL_SCALE);
+      drawGroundSprite(g, timg, gx, gy, a.cx, a.foot, SPRITE_STALL_SCALE);
       drawStallGoods(g, r, accent, sign);
       return;
     }
@@ -445,6 +452,53 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, 
   drawShingleRoof(g, x + w / 2, y - h * 0.18, x - 7, x + w + 7, y + h * 0.4, roof, false, (seed * 13) | 0);
   // a little chimney
   oRect(g, x + w * 0.68, y - h * 0.1, w * 0.1, h * 0.28, "#8c8c94");
+}
+
+/** The town inn (v2 BLOCK #3) — the coastal town's largest building. A two-
+ *  storey timber-framed hall with a warm-lit lower row of windows, a broad
+ *  gable roof, a chimney, and a hanging "INN" sign on a bracket. Code-drawn
+ *  (no sprite yet — a dedicated PixelLab inn is a logged follow-up), so it
+ *  always renders and always reads distinct from every cottage. */
+export function drawInn(g: CanvasRenderingContext2D, r: Rect) {
+  const { x, y, w, h } = r;
+  const cx = x + w / 2;
+  castShadow(g, cx, y + h, w * 0.5, h * 1.1);
+  shadow(g, cx + 8, y + h + 8, w * 0.6, 12);
+  // two-storey plaster-and-timber wall, rising above r.y for the upper storey
+  const wallTop = y - h * 0.35, wallH = h * 1.35;
+  drawPlankWall(g, x, wallTop, w, wallH, "#d9c7a2", 4241);
+  // a timber band separating the two storeys
+  g.fillStyle = "#6b4a2b";
+  g.fillRect(x, y + h * 0.28, w, h * 0.08);
+  // corner + centre timber posts
+  for (const px of [x + 2, cx - 3, x + w - 5]) g.fillRect(px, wallTop, 4, wallH);
+  // upper-storey windows (dark, small) + lower-storey warm-lit windows
+  for (let i = 0; i < 3; i++) {
+    const wx = x + w * (0.2 + i * 0.3);
+    g.fillStyle = "#5a708a"; g.fillRect(wx - w * 0.06, y - h * 0.16, w * 0.12, h * 0.18);
+    g.strokeStyle = "#4a3320"; g.lineWidth = 2; g.strokeRect(wx - w * 0.06, y - h * 0.16, w * 0.12, h * 0.18);
+  }
+  for (const i of [0, 2]) {
+    const wx = x + w * (0.22 + i * 0.28);
+    g.fillStyle = "#f0d488"; g.fillRect(wx - w * 0.055, y + h * 0.5, w * 0.11, h * 0.26);
+    g.strokeStyle = "#4a3320"; g.lineWidth = 2; g.strokeRect(wx - w * 0.055, y + h * 0.5, w * 0.11, h * 0.26);
+  }
+  // central double door
+  oRect(g, cx - w * 0.09, y + h * 0.46, w * 0.18, h * 0.54, "#6f4a28");
+  g.strokeStyle = "#3a2614"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx, y + h * 0.46); g.lineTo(cx, y + h); g.stroke();
+  g.fillStyle = "#e8c46a"; g.beginPath(); g.arc(cx - w * 0.02, y + h * 0.76, 2, 0, 7); g.fill();
+  // broad gable shingle roof
+  drawShingleRoof(g, cx, wallTop - h * 0.5, x - 10, x + w + 10, wallTop + h * 0.16, "#8a4a3a", false, 913);
+  // chimney with a wisp
+  oRect(g, x + w * 0.78, wallTop - h * 0.28, w * 0.09, h * 0.34, "#8c8c94");
+  // hanging INN sign on a bracket off the left face
+  g.strokeStyle = "#4a3320"; g.lineWidth = 2.5;
+  g.beginPath(); g.moveTo(x - 2, y + h * 0.14); g.lineTo(x - 16, y + h * 0.14); g.stroke();
+  g.fillStyle = "#caa35a"; g.fillRect(x - 22, y + h * 0.16, 20, 16);
+  g.strokeStyle = "#4a3320"; g.lineWidth = 1.5; g.strokeRect(x - 22, y + h * 0.16, 20, 16);
+  g.fillStyle = "#3a2614"; g.font = "bold 9px serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText("INN", x - 12, y + h * 0.16 + 8);
+  g.textAlign = "start"; g.textBaseline = "alphabetic";
 }
 
 /** A rickety wooden outhouse (Needs engine): weathered planks, a mono-pitch

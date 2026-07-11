@@ -2,7 +2,7 @@ import {
   T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER, SPRITE_CROP_SCALE, SPRITE_CROP_BASE_DY,
   SPRITE_BUSH_SCALE, SPRITE_BUSH_JITTER, SPRITE_PROP_SCALE, SPRITE_FENCE_SCALE,
 } from "../config";
-import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS } from "../world/zones";
+import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS, type Rect } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
 import { shadow, outline, oRect, castShadow } from "./shapes";
 import { sprite, drawGroundSprite, spriteBaseAnchor } from "./sprites";
@@ -768,8 +768,8 @@ export function drawOpenWaterShimmer(g: CanvasRenderingContext2D, t: number) {
 
 /** The wooden dock/jetty reaching into the lake — the one walkable spot on the
  *  water. Planks across two rails, with shadowed gaps between boards. */
-export function drawDock(g: CanvasRenderingContext2D, t: number) {
-  const { x, y, w, h } = DOCK;
+export function drawDock(g: CanvasRenderingContext2D, t: number, r: Rect = DOCK) {
+  const { x, y, w, h } = r;
   // soft reflection/shadow on the water
   g.fillStyle = "rgba(15,30,40,.28)";
   g.fillRect(x + 3, y + 6, w, h);

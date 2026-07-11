@@ -66,6 +66,11 @@ function regionSample(region: Region): [number, number] {
       const body = Math.random() < 0.5 ? RIVER : LAKE;
       return [body.x + Math.random() * body.w, body.y + Math.random() * body.h];
     }
+    // Coastal town band (v2 BLOCK #3). No species currently lists "town" in its
+    // regions (data/wildlife.ts), so this is reached only if one ever does — it
+    // samples the town street/grass fringe; pickSpawnPoint's collision guard
+    // keeps critters off the cobble/sea/buildings.
+    case "town": return [41 * T + Math.random() * 50 * T, 31 * T + Math.random() * (MH - 32) * T];
   }
 }
 

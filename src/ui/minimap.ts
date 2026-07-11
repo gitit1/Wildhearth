@@ -2,6 +2,7 @@ import { T, WORLD_W, WORLD_H, MINIMAP_SCALE, WIN_PANEL_SCALE_MIN, WIN_PANEL_SCAL
 import {
   FIELD, YARD, HOUSE, BARN, STALL, POND, WORLD_TREES,
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES,
+  TOWN_STREET, TOWN_SEA, TOWN_DOCK, INN, TOWN_HOMES, TOWN_MERCHANTS,
 } from "../world/zones";
 
 /** The field can grow (plot expansions) — main keeps this current. */
@@ -106,6 +107,8 @@ function paintBase(): HTMLCanvasElement {
   rectFill({ x: 46 * T, y: 0, w: 18 * T, h: 17.5 * T }, "#456a2c", 6);
   // market square apron
   rectFill({ x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T }, "#b19670", 6);
+  // coastal town street apron
+  rectFill(TOWN_STREET, "#b19670", 6);
   // dirt road strips
   for (const seg of ROAD_SEGMENTS) rectFill(seg, "#9c7c50", 2);
   // dirt yard
@@ -118,7 +121,9 @@ function paintBase(): HTMLCanvasElement {
   b.beginPath(); b.ellipse(POND.cx * s, POND.cy * s, POND.rx * s, POND.ry * s, 0, 0, 7); b.fill();
   rectFill(RIVER, "#3d6f8e", 4);
   rectFill(LAKE, "#3d6f8e", 6);
+  rectFill(TOWN_SEA, "#3d6f8e", 4);
   rectFill(DOCK, "#a5814f", 1);
+  rectFill(TOWN_DOCK, "#a5814f", 1);
   // hedges (farm's east bound)
   for (const h of HEDGES) rectFill(h, "#37591f", 1);
   // buildings as coloured blocks
@@ -129,6 +134,10 @@ function paintBase(): HTMLCanvasElement {
   b.fillStyle = "#9c3d34"; b.fillRect(NEIGHBOR.barn.x * s, NEIGHBOR.barn.y * s, NEIGHBOR.barn.w * s, NEIGHBOR.barn.h * s);
   b.fillStyle = "#d9c9a0"; for (const st of MARKET_STALLS) b.fillRect(st.x * s, st.y * s, st.w * s, st.h * s);
   b.fillStyle = "#cbb489"; for (const ct of COTTAGES) b.fillRect(ct.x * s, ct.y * s, ct.w * s, ct.h * s);
+  // coastal town buildings — inn (larger), homes, merchant counters
+  b.fillStyle = "#c08a5a"; b.fillRect(INN.x * s, INN.y * s, INN.w * s, INN.h * s);
+  b.fillStyle = "#cbb489"; for (const h of TOWN_HOMES) b.fillRect(h.x * s, h.y * s, h.w * s, h.h * s);
+  b.fillStyle = "#d9c9a0"; for (const m of TOWN_MERCHANTS) b.fillRect(m.x * s, m.y * s, m.w * s, m.h * s);
   b.fillStyle = "#8a8378"; b.beginPath(); b.arc(WELL.cx * s, WELL.cy * s, Math.max(1.5, WELL.r * s), 0, 7); b.fill();
   // trees
   b.fillStyle = "#3f6b2c";

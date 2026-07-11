@@ -4,6 +4,7 @@ import {
   fieldBounds, PLOT_EXPANSIONS,
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, WELL, STRUCTURES, HEDGES, MARKET_STALLS, COTTAGES,
   FOREST_BUSHES, WORLD_TREES, regionAt, onRoad, inWater, type Rect,
+  TOWN_STREET, TOWN_SEA, TOWN_DOCK,
 } from "./zones";
 import { mulberry32 } from "../engine/rng";
 import { roundR } from "../art/shapes";
@@ -138,6 +139,7 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
   const farmPath = { x: 12.4 * T, y: 8.6 * T, w: 7.8 * T, h: 1.3 * T };
   const field = { x: FIELD.x0 * T, y: FIELD.y0 * T, w: (FIELD.x1 - FIELD.x0) * T, h: (FIELD.y1 - FIELD.y0) * T };
   const plaza = { x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T };
+  const townPlaza = { x: TOWN_STREET.x, y: TOWN_STREET.y, w: TOWN_STREET.w, h: TOWN_STREET.h };
   const forest = { x: 46 * T, y: 0, w: 18 * T, h: 17.5 * T };
   const soilRegions = [...ROAD_SEGMENTS, yard, farmPath];
 
@@ -188,9 +190,9 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
         }
       }
 
-      // --- PLAZA: warm-grey cobble across the market square ---
-      {
-        const e = rectInsetTiles(x, y, plaza);
+      // --- PLAZA: warm-grey cobble across the market square AND the town street ---
+      for (const pz of [plaza, townPlaza]) {
+        const e = rectInsetTiles(x, y, pz);
         const a = e > 0.28 ? 1 : e > -0.6 ? (e + 0.6) / 0.88 : 0;
         if (a > 0 && (a >= 1 || a > thr)) {
           const zi = pickTile(PLAZA_BAG, cx, cy, 5);
@@ -217,8 +219,8 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
           }
         }
       }
-      // river + lake
-      for (const wtr of [RIVER, LAKE]) {
+      // river + lake + coastal sea (the sea's grass-side shore reads as beach)
+      for (const wtr of [RIVER, LAKE, TOWN_SEA]) {
         const e = rectInsetTiles(x, y, wtr);
         if (e <= -0.35) continue;
         let wbag: number[], a = 1;
@@ -311,6 +313,7 @@ export function paintGround(): HTMLCanvasElement {
   paintForestFloor(g);
   paintRoad(g);
   paintMarketGround(g);
+  paintTownGround(g);
   paintWater(g);
 
   // ---- the farm (unchanged) ----
@@ -422,10 +425,32 @@ function paintMarketGround(g: CanvasRenderingContext2D) {
   g.restore();
 }
 
-/** River + lake: a sandy/rocky bank around impassable water (pond technique). */
+/** The coastal town street: a broad cobbled square (painterly fallback), the
+ *  same warm packed-earth-and-cobble technique as the market ground. */
+function paintTownGround(g: CanvasRenderingContext2D) {
+  const { x, y, w, h } = TOWN_STREET;
+  const rnd = mulberry32(2424);
+  g.save();
+  roundR(g, x, y, w, h, 40); g.clip();
+  g.fillStyle = "#b19670"; g.fillRect(x, y, w, h);
+  for (let i = 0; i < (w * h) / 240; i++) {
+    const px = x + rnd() * w, py = y + rnd() * h;
+    g.fillStyle = ["#a3865e", "#bda37c", "#997c54", "#b39a72"][(rnd() * 4) | 0]!;
+    g.beginPath(); g.ellipse(px, py, 2 + rnd() * 5, 1.5 + rnd() * 3, rnd(), 0, 7); g.fill();
+  }
+  // paler cobble stones scattered like the market's well ring, but street-wide
+  for (let i = 0; i < (w * h) / 900; i++) {
+    const px = x + rnd() * w, py = y + rnd() * h;
+    g.fillStyle = ["#8f8a80", "#a29a8c", "#7f786c"][(rnd() * 3) | 0]!;
+    g.beginPath(); g.ellipse(px, py, 3, 2.2, rnd() * 3, 0, 7); g.fill();
+  }
+  g.restore();
+}
+
+/** River + lake + coastal sea: a sandy/rocky bank around impassable water. */
 function paintWater(g: CanvasRenderingContext2D) {
   const rnd = mulberry32(3131);
-  for (const wtr of [RIVER, LAKE]) {
+  for (const wtr of [RIVER, LAKE, TOWN_SEA]) {
     // sandy bank ring (walkable grass margin just outside the water)
     g.fillStyle = "#c7b184";
     roundR(g, wtr.x - 11, wtr.y - 11, wtr.w + 22, wtr.h + 22, 34); g.fill();
@@ -446,7 +471,7 @@ function paintWater(g: CanvasRenderingContext2D) {
   }
   // rocky rim outline where the water sits
   g.strokeStyle = "#8a7a5a"; g.lineWidth = 3;
-  for (const wtr of [RIVER, LAKE]) { roundR(g, wtr.x, wtr.y, wtr.w, wtr.h, 26); g.stroke(); }
+  for (const wtr of [RIVER, LAKE, TOWN_SEA]) { roundR(g, wtr.x, wtr.y, wtr.w, wtr.h, 26); g.stroke(); }
 }
 
 /**
@@ -464,8 +489,10 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
   // it (stones/pebbles/leaves are fine and still land). Matches paintTerrainTiles.
   const plazaCobble = { x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T };
   const onPlaza = (x: number, y: number) =>
-    x > plazaCobble.x && x < plazaCobble.x + plazaCobble.w &&
-    y > plazaCobble.y && y < plazaCobble.y + plazaCobble.h;
+    (x > plazaCobble.x && x < plazaCobble.x + plazaCobble.w &&
+      y > plazaCobble.y && y < plazaCobble.y + plazaCobble.h) ||
+    (x > TOWN_STREET.x && x < TOWN_STREET.x + TOWN_STREET.w &&
+      y > TOWN_STREET.y && y < TOWN_STREET.y + TOWN_STREET.h);
   const inRect = (x: number, y: number, r: Rect, pad: number) =>
     x > r.x - pad && x < r.x + r.w + pad && y > r.y - pad && y < r.y + r.h + pad;
 
@@ -477,8 +504,8 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
     if (inRect(x, y, { x: 12.4 * T, y: 8.6 * T, w: 7.8 * T, h: 1.3 * T }, 6)) return true;   // the path
     // water (+ its bank), the dock, the well
     if (inWater(x, y)) return true;
-    if (inRect(x, y, RIVER, 14) || inRect(x, y, LAKE, 14)) return true;
-    if (inRect(x, y, DOCK, 8)) return true;
+    if (inRect(x, y, RIVER, 14) || inRect(x, y, LAKE, 14) || inRect(x, y, TOWN_SEA, 14)) return true;
+    if (inRect(x, y, DOCK, 8) || inRect(x, y, TOWN_DOCK, 8)) return true;
     if ((x - WELL.cx) ** 2 + (y - WELL.cy) ** 2 < (WELL.r + 40) ** 2) return true;
     // the road
     if (onRoad(x, y)) return true;

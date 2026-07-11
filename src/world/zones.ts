@@ -79,18 +79,20 @@ export const FLOWER_BEDS: Array<[number, number]> = [
 //  All layout lives here; collision/ground/minimap/interact read from it.
 // ===========================================================================
 
-export type Region = "farm" | "road" | "market" | "forest" | "river";
+export type Region = "farm" | "road" | "market" | "forest" | "river" | "town";
 
 export interface Rect { x: number; y: number; w: number; h: number }
 const rect = (xT: number, yT: number, wT: number, hT: number): Rect =>
   ({ x: xT * T, y: yT * T, w: wT * T, h: hT * T });
 
 /** The dirt road as a set of axis-aligned strips (walkable, painted packed
- *  dirt). Main east-west run + the forest branch north + a spur to the dock. */
+ *  dirt). Main east-west run + the forest branch north + a spur to the dock +
+ *  the town spur running SOUTH out of the market square into the coastal town. */
 export const ROAD_SEGMENTS: Rect[] = [
   rect(16, 21.3, 46, 2.4),    // main run: farm gate -> market entrance
   rect(53.8, 3, 2.4, 18.7),   // forest passage branching north off the road
   rect(73.5, 22.9, 10, 1.9),  // market -> lakeside dock spur
+  rect(65.8, 27.6, 2.4, 5.6), // v2 BLOCK #3: market square -> coastal town spur
 ];
 
 /** A leafy hedge line sealing the farm's east side, broken by the road gap —
@@ -192,10 +194,11 @@ export function onDock(x: number, y: number): boolean {
 function inRectPx(x: number, y: number, r: Rect, pad = 0): boolean {
   return x > r.x - pad && x < r.x + r.w + pad && y > r.y - pad && y < r.y + r.h + pad;
 }
-/** True inside the river or lake (the dock is walkable, so it's excluded). */
+/** True inside the river, lake or coastal sea (both docks are walkable, so
+ *  they're excluded). */
 export function inWater(x: number, y: number): boolean {
-  if (onDock(x, y)) return false;
-  return inRectPx(x, y, RIVER) || inRectPx(x, y, LAKE);
+  if (onDock(x, y) || onTownDock(x, y)) return false;
+  return inRectPx(x, y, RIVER) || inRectPx(x, y, LAKE) || inRectPx(x, y, TOWN_SEA);
 }
 
 export interface FishSpot { id: string; loc: "river" | "lake"; wx: number; wy: number; ax: number; ay: number; }
@@ -207,11 +210,75 @@ export const FISH_SPOTS: FishSpot[] = [
   { id: "lake",    loc: "lake",  wx: 84 * T, wy: 27.5 * T, ax: 83.5 * T, ay: 24.3 * T },
 ];
 
+// ===========================================================================
+//  Coastal TOWN region (v2 BLOCK #3). The road spur (above) drops south out of
+//  the market square into a cobbled town street lined with an inn, specialised
+//  merchants and NPC homes, opening onto a seafront with a town dock. All layout
+//  lives here; ground/collision/minimap/interact/schedule read from it. Sits in
+//  the map's new southern band (y 31.5 .. 46), disjoint from the market plaza
+//  above it (y 14.5 .. 28) so the two commerce hubs never overlap.
+// ===========================================================================
+
+/** The cobbled town street/square (plaza tiles) — the walkable heart of town. */
+export const TOWN_STREET = rect(41, 31.5, 50, 9);
+/** The seafront: coastal water along the map's south edge (impassable, fished
+ *  later like the lake). A sandy beach dithers in where it meets the street. */
+export const TOWN_SEA = rect(33, 41, 66, 5);
+/** The town dock — the one walkable finger of decking reaching into the sea. */
+export const TOWN_DOCK = rect(63.5, 39.6, 3, 6);
+/** Where visiting townsfolk gather (schedule "town" stop) — mid-street, clear
+ *  of every building front, the dock mouth and the merchant counters. */
+export const TOWN_SQUARE: [number, number] = [58 * T, 35.4 * T];
+
+/** The inn — the town's largest building (VISION: "Inn, town square"). Code-
+ *  drawn (drawInn) for now; a dedicated PixelLab sprite is a logged follow-up. */
+export const INN = rect(43.5, 31.7, 6, 3.4);
+
+export interface TownHomeDef extends Rect { variant?: number; seed: number }
+/** NPC homes ringing the street. `variant` (1-8) picks a cottage sprite when
+ *  set — only the two market-UNUSED variants (1, 5) are used here so no town
+ *  home duplicates a market cottage; the rest are the seed-driven code painter
+ *  (drawCottage fallback), each seed distinct so no two homes read alike (the
+ *  owner's hard "no two buildings alike" rule). */
+export const TOWN_HOMES: TownHomeDef[] = [
+  { ...rect(51.5, 32, 2.8, 2.3), variant: 1, seed: 5101 },
+  { ...rect(60, 32, 2.8, 2.3), variant: 5, seed: 5205 },
+  { ...rect(70.5, 32, 2.8, 2.3), seed: 5303 },   // code painter, unique seed
+  { ...rect(80, 32, 2.8, 2.3), seed: 5407 },     // code painter, unique seed
+  { ...rect(84.5, 37.4, 2.8, 2.3), seed: 5509 }, // code painter, unique seed
+];
+
+export type MerchantKind = "general" | "fishmonger" | "greengrocer" | "tailor";
+export interface MerchantDef extends Rect {
+  kind: MerchantKind;
+  spriteId: string;            // a distinct banked SPARE stall sprite (drawStall override)
+  sign: StallDef["sign"];      // goods overlay theme (fish/produce/goods/empty)
+  awning: string; accent: string;
+}
+/** The town's specialised merchant stalls — each a DISTINCT banked spare-stall
+ *  sprite (never a market-stall duplicate), staffed by trade wiring in
+ *  systems/shop.ts. General store sells (tools/seeds); fishmonger + greengrocer
+ *  BUY their speciality at a reputation-scaled premium; the tailor is a
+ *  "wardrobe coming soon" counter (open owner question — see the handoff). */
+export const TOWN_MERCHANTS: MerchantDef[] = [
+  { ...rect(55.5, 32.3, 2.4, 1.6), kind: "general", spriteId: "buildings/spare/stall-general-01", sign: "goods", awning: "#b5843c", accent: "#cbb28a" },
+  { ...rect(47.5, 37.6, 2.4, 1.6), kind: "fishmonger", spriteId: "buildings/spare/stall-fish-02", sign: "fish", awning: "#3f86a0", accent: "#7fb0c8" },
+  { ...rect(52.5, 37.6, 2.4, 1.6), kind: "greengrocer", spriteId: "buildings/spare/stall-produce-02", sign: "produce", awning: "#5a9a48", accent: "#e2c24a" },
+  { ...rect(75, 32, 2.4, 1.6), kind: "tailor", spriteId: "buildings/spare/stall-empty-01", sign: "empty", awning: "#a07ab0", accent: "#d8c4e0" },
+];
+
+export function onTownDock(x: number, y: number): boolean {
+  return x >= TOWN_DOCK.x && x <= TOWN_DOCK.x + TOWN_DOCK.w && y >= TOWN_DOCK.y && y <= TOWN_DOCK.y + TOWN_DOCK.h;
+}
+
 /** House-like structures that block their lower ~75% (same 3/4 rule the farm
- *  buildings use): neighbour buildings, cottages, market stall counters. */
+ *  buildings use): neighbour buildings, cottages, market stall counters, and
+ *  the coastal town's inn / homes / merchant counters. */
 export const STRUCTURES: Rect[] = [
   NEIGHBOR.house, NEIGHBOR.barn, ...COTTAGES,
   ...MARKET_STALLS.map((s) => ({ x: s.x, y: s.y, w: s.w, h: s.h })),
+  INN, ...TOWN_HOMES.map((h) => ({ x: h.x, y: h.y, w: h.w, h: h.h })),
+  ...TOWN_MERCHANTS.map((m) => ({ x: m.x, y: m.y, w: m.w, h: m.h })),
 ];
 
 // ===========================================================================
@@ -252,6 +319,20 @@ export const WORLD_PROPS: PropDef[] = [
   // --- Forest / road junction: a signpost + a birdhouse on the forest edge.
   { x: 56.8 * T, y: 20.7 * T, id: "props/signpost" },
   { x: 50.0 * T, y: 15.0 * T, id: "props/birdhouse" },
+  // --- Coastal town (v2 BLOCK #3): a signpost where the spur meets the street,
+  //     lanterns flanking the dock mouth + along the promenade, seafront benches,
+  //     and a cart/crate/barrel giving the merchant end some life. All clear of
+  //     building fronts, the dock decking and the merchant counters.
+  { x: 67.4 * T, y: 33.1 * T, id: "props/signpost" },       // "Tidewater" town marker
+  { x: 62.4 * T, y: 39.3 * T, id: "props/lantern", solid: true, cw: 6 },  // dock mouth W
+  { x: 67.6 * T, y: 39.3 * T, id: "props/lantern", solid: true, cw: 6 },  // dock mouth E
+  { x: 54.0 * T, y: 34.4 * T, id: "props/lantern", solid: true, cw: 6 },  // street lamp
+  { x: 78.0 * T, y: 34.4 * T, id: "props/lantern", solid: true, cw: 6 },  // street lamp
+  { x: 57.5 * T, y: 38.4 * T, id: "props/bench", solid: true, cw: 22 },   // seafront bench W
+  { x: 72.5 * T, y: 38.4 * T, id: "props/bench", solid: true, cw: 22 },   // seafront bench E
+  { x: 50.6 * T, y: 34.6 * T, id: "props/cart", solid: true, cw: 24 },    // by the inn
+  { x: 58.8 * T, y: 33.2 * T, id: "props/crate", solid: true, cw: 12 },   // by the general store
+  { x: 50.4 * T, y: 38.5 * T, id: "props/barrel", solid: true, cw: 12 },  // by the fishmonger
 ];
 
 /** Collision blockers for the SOLID props (small base boxes) — read by
@@ -267,6 +348,7 @@ export function onRoad(x: number, y: number): boolean {
 
 /** Which region a world point sits in (containing rect, farm/water first). */
 export function regionAt(x: number, y: number): Region {
+  if (y >= 31 * T) return "town";   // the whole new southern band is the coastal town
   if (x < 35 * T) return "farm";
   if (x >= 92 * T || (x >= 78 * T && y >= 19.5 * T)) return "river";  // river strip + lake
   if (x >= 48 * T && x < 64 * T && y < 17 * T) return "forest";

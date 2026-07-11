@@ -29,6 +29,66 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## world — the coastal town region (v2 BLOCK #3, part 1: the region)
+- **Date:** 2026-07-11 (v1-foundation)
+- **What & why:** v2's dependency spine (`Customers → Reputation → Town region
+  → merchants → fast travel`) gates everything left on the town EXISTING. This
+  block builds the region itself. The map now extends SOUTH (`MH` 30→46 in
+  `src/config.ts`; `WORLD_H` 960→1472px, both canvas axes still < 4096) to add
+  a coastal town below the market square: a cobbled town street, an inn, NPC
+  homes, three specialised merchant fronts, a seafront + town dock. The market
+  square (v1's commerce hub) is untouched and disjoint above it.
+- **Layout — `src/world/zones.ts`:** new `Region` member `"town"`;
+  `regionAt()` returns `"town"` for the whole new southern band (`y >= 31*T`).
+  New exports: `TOWN_STREET` (cobble plaza rect), `TOWN_SEA` (coastal water
+  along the south edge, added to `inWater()`), `TOWN_DOCK` (walkable decking,
+  `onTownDock()` + excluded from `inWater`), `TOWN_SQUARE` (NPC gather coord),
+  `INN` (largest building rect), `TOWN_HOMES` (`TownHomeDef[]` — cottage
+  variants **1 & 5**, the only two the market doesn't use, + three seed-distinct
+  code-painter cottages, so no two town buildings look alike — the owner's hard
+  rule), and `TOWN_MERCHANTS` (`MerchantDef[]` — general store / fishmonger /
+  greengrocer / tailor, each a DISTINCT banked **spare** stall sprite so none
+  duplicates a market stall). A new `ROAD_SEGMENTS` strip drops the road south
+  out of the market into town. `STRUCTURES` gains the inn/homes/merchant
+  counters (3/4-view collision); `WORLD_PROPS` gains a curated sparse town set
+  (entry signpost, dock-mouth + street lanterns, two seafront benches, a cart,
+  crate and barrel), all clear of building fronts / the dock / counters.
+- **Art:** `src/art/buildings.ts` — new `drawInn()` (a code-drawn two-storey
+  timber-framed hall with warm-lit windows, a broad gable roof, chimney and a
+  hanging "INN" sign; always renders, always distinct — a dedicated PixelLab
+  inn sprite is a logged follow-up). `drawStall()` gains an optional `themeId`
+  param so a town merchant can point at a distinct spare-stall sprite (anchor
+  measured off the alpha bbox, like cottages 6/8). `src/art/props.ts`
+  `drawDock()` gains an optional rect param so the same painter draws the town
+  dock. `src/main.ts` draws the inn/homes/merchants depth-sorted (ents band by
+  `zones.ts`) and the town dock at ground level.
+- **Ground — `src/world/ground.ts`:** the tiled path cobbles the town street
+  (plaza tile set, alongside the market) and paints `TOWN_SEA` as water
+  (deep/shallow ring + a beach-reading mud/sand shore dither); the painterly
+  zero-PNG fallback gets a matching `paintTownGround()` + `TOWN_SEA` in
+  `paintWater()`. Ambient floral/weed scatter skips the town cobble (`onPlaza`
+  extended) and the sea/dock are rejection-zoned, matching the market.
+- **Minimap — `src/ui/minimap.ts`:** paints the town street apron, the sea, the
+  town dock, and the inn/homes/merchant blocks, so the region shows on the map.
+- **Exhaustiveness:** adding `"town"` to `Region` forced a `case "town"` in
+  `entities/wildlife.ts regionSample()` (samples the town band; no species
+  lists `"town"` yet, so behaviour is unchanged — pure compiler safety).
+- **Verified:** `npm run build` green. Live headless-Edge play (fisher path,
+  teleport walk of the whole town): road spur reads as a clean market→town
+  connection; the street is coherent cobble with varied buildings + props; no
+  two buildings alike (INN, thatch/timber cottages, a code-painter cottage,
+  three distinct merchant stalls); the seafront + beach + walkable town dock
+  read as a coast; the minimap shows the town. Screenshots in
+  `scratchpad/v2-block3/01-07`. `drawInn` renders as pure code in-scene,
+  directly proving the zero-PNG building path; the sea/cobble painterly
+  fallbacks reuse the market's proven zero-PNG pattern.
+- **Follow-ups:** merchants are decorative in this commit (trade wiring is
+  BLOCK #3 part 2). WANTED SPRITES (follow-up generation list): a dedicated
+  **inn** sprite, and optionally town-specific **home** sprites so the
+  code-painter cottages can become sprites (only 2 unused cottage variants
+  existed). The beach shore is the water-dither's mud/sand ring (sand-dominant
+  beach tiles would be a nicer touch — a tuning/gen follow-up).
+
 ## ui — the remaining 8 NPC dialogue portraits wired in
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** the generation agent delivered the 8 missing NPC bust
