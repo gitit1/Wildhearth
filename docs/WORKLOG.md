@@ -29,6 +29,37 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## quests — engine wired into the live game (R6, commit 2)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R6 commit 2 — drive the quest engine from the game's real
+  events, apply granted rewards, wipe on New Game, persist, and expose a dev
+  bridge for verification.
+- **`src/main.ts`:** loads the live `quests: QuestLog`; new orchestration block
+  — `heldCount(id)` (bag count → possession steps), `applyQuestResult`
+  (consume delivered items → grant rewards → toasts → memories → refresh the
+  log via an `onQuestsChanged` hook the window sets in commit 3), `grantQuestReward`
+  (coins → economy + day-ledger; items → `gainItem`; Friendship → `dialogueBump`
+  with the giver + heart-threshold firing), `fireQuest(ev)` and per-frame
+  `tickQuests()` (live possession re-check). Event seams wired NEXT TO the
+  existing `fireGuidance` calls: catch, forage, harvest, busk, cook, sell
+  (with `count = qty`), talk (dialogue `onOpen`), and reach (on region change,
+  tracked by `lastQuestRegion`). New Game calls `resetQuests`; `saveAllStores`
+  now also `saveQuests`. Accept/turn-in/abandon flow wrappers
+  (`acceptQuestFlow` / `turnInQuestFlow` / `abandonQuestFlow`) for the dialogue
+  + window layers. Dev bridge `__wh.quests / acceptQuest / turnInQuest /
+  abandonQuest / fireQuest / heldCountOf`.
+- **Verified (live, headless Edge + puppeteer against the dev server):** fresh
+  fisher life → accept "Tavern Night" → hand over 5 fish (mixed carp/perch) →
+  the possession step ticks to READY within a few frames → turn in → coins
+  50→90 (+40), Maren Friendship 0→8, all 5 fish consumed → quest lands in
+  Completed. Finn's tin quest accepts + readies. Save → reload → active (Finn)
+  and completed (Maren) both persist. New Game (a farmer this time) wipes to
+  0 active / 0 completed. Only console error is an unrelated favicon 404.
+  `npm run build` green.
+- **Follow-ups:** commit 3 = the quest-log window (Active/Completed tabs, step
+  checklists, reward preview, abandon) + a step-complete HUD toast; commit 4 =
+  dialogue offers/turn-ins; commit 5 = D3 AI dynamic offer promotion.
+
 ## quests — core engine + authored quest data + save key (R6, commit 1)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R6 — build the real quest system the docs promise (authored

@@ -146,6 +146,11 @@ import {
   initGuidance, setTutorialBubble, setHelpVisible, tutorialBubbleShown, setAspirationPill,
   showGuidancePrompt, hideGuidancePrompt, isGuidancePromptOpen, showGuidancePicker,
 } from "./ui/guidance";
+import {
+  loadQuests, resetQuests, saveQuests, notifyQuests, refreshQuests, turnInQuest,
+  acceptQuest, abandonQuest, activeQuests, completedQuests,
+  type QuestLog, type QuestEvent, type QuestResult,
+} from "./systems/quests";
 import { rigFromCharacter } from "./entities/player";
 import type { RigParams } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
@@ -226,6 +231,7 @@ const needs = loadNeeds();
 const relationships = loadRelationships();
 const meta = loadMeta();
 const guidance = loadGuidance();   // per-playthrough tutorial/aspiration progress
+const quests: QuestLog = loadQuests();   // R6: authored + AI quests, one quest log
 // the player's drawn look, built from her created Character (rebuilt on New
 // Game). Old / pre-character saves fall back to the default farmer rig.
 let playerRigParams: RigParams = rigFromCharacter(meta.character);
@@ -485,6 +491,13 @@ if (import.meta.env.DEV)
     guidance: () => ({ ...guidance }),
     guidanceMode: () => guidanceMode(),
     fireG: (ev: GuidanceEvent) => fireGuidance(ev),
+    // quest verification bridge — drive the whole lifecycle without UI/dialogue
+    quests: () => ({ active: activeQuests(quests).map((s) => ({ ...s })), completed: completedQuests(quests).map((s) => ({ ...s })), aiOffer: quests.aiOffer }),
+    acceptQuest: (id: string) => acceptQuestFlow(id),
+    turnInQuest: (id: string) => turnInQuestFlow(id),
+    abandonQuest: (id: string) => abandonQuestFlow(id),
+    fireQuest: (ev: QuestEvent) => fireQuest(ev),
+    heldCountOf: (id: string) => heldCount(id),
     castPond: () => { const o = byId("pond"); if (o) { player.x = o.anchor[0]; player.y = o.anchor[1]; player.moving = false; clearMoveTarget(); runDefault(o, makeCtx()); } },
     openStallDev: () => { player.x = STALL.x + STALL.w / 2; player.y = STALL.y + STALL.h + 10; player.moving = false; clearMoveTarget(); openPlayerStall(); },
     // save-system verification bridge — force the two save paths and shrink
@@ -596,6 +609,7 @@ initDialogue({
     const n = npcById(npcs, def.id);
     if (n) startTalking(n, player.x, player.y);
     backstory.ensureGenerated(def);   // first meaningful interaction → generate once (background)
+    fireQuest({ kind: "talk", npcId: def.id });   // Quests: "talk to X" steps
     arcs.recordTalk(def.id, (absoluteDay(calendar) - 1) % 7);   // play-pattern tracker (#6)
     if (devNotesOn()) devNotes.observe("talk", absoluteDay(calendar));   // dev observations (#8)
   },
@@ -711,6 +725,7 @@ initShopWindow(economy, skills, farm, livestock,
   toast, remember,
   (coins, qty) => {
     logCoinsEarned(dayLog, coins); logItemsSold(dayLog, qty); fireGuidance({ kind: "sale" });
+    fireQuest({ kind: "sell", count: qty });   // Quests: "sell N goods" activity steps
     arcs.recordActivity("sale");
     if (devNotesOn()) devNotes.observe("sell", absoluteDay(calendar));
   },
@@ -804,6 +819,7 @@ let dwellSeconds = 0;                                 // how long she's lingered
 const npcPrefetchAt: Record<string, number> = {};    // ms of the last opening prefetch per NPC
 const npcThoughtDay: Record<string, number> = {};    // absoluteDay an NPC last voiced an ambient thought
 let festivalGreetedDay = -1;   // absoluteDay the market-entry festival toast last fired
+let lastQuestRegion: string | null = null;   // last region the player was in (drives quest "reach" steps)
 
 /** One in-game minute: roll the clock, fire the daily hooks on a new day, drain
  *  needs. The single source of truth for time passing — both the live tick and
@@ -1086,6 +1102,88 @@ function fireGuidance(ev: GuidanceEvent) {
   applyGuidanceResult(notifyGuidance(guidance, guidanceMode(), curPath(), ev));
 }
 
+// ---- Quest system orchestration (R6) --------------------------------------
+// The engine (systems/quests.ts) owns quest state + progress and returns
+// effects; this layer feeds it the world's real events (the same seams
+// Guidance already hooks), applies granted rewards to economy/relationships,
+// consumes delivered items, and refreshes the quest-log window. Possession
+// steps ("bring me 5 fish") are re-checked live against the bag each frame.
+
+/** How many of an item the player is holding — drives possession steps. */
+const heldCount = (id: string): number => countItem(economy.inv, id);
+
+/** Set by the quest-log window (commit 3) so a progress change refreshes it. */
+let onQuestsChanged: () => void = () => {};
+
+/** Apply a QuestResult: consume delivered items, grant rewards, toasts,
+ *  memories, and (on a change) refresh the log window. */
+function applyQuestResult(res: QuestResult) {
+  if (!res.changed && res.toasts.length === 0 && res.grants.length === 0) return;
+  for (const c of res.consume) removeItem(economy.inv, c.id, c.qty);
+  if (res.consume.length) saveEconomy(economy);
+  for (const g of res.grants) grantQuestReward(g);
+  for (const t of res.toasts) toast(t);
+  for (const [k, txt] of res.memories) remember(k, txt);
+  if (res.changed) onQuestsChanged();
+}
+
+/** Pay out one completed quest's reward (coins / items / Friendship with the
+ *  giver), logging to the day ledger + firing any heart threshold crossed. */
+function grantQuestReward(g: QuestResult["grants"][number]) {
+  const r = g.reward;
+  if (r.coins) {
+    economy.coins += r.coins;
+    saveEconomy(economy);
+    logCoinsEarned(dayLog, r.coins);
+  }
+  if (r.items) for (const it of r.items) gainItem(economy, it.id, it.qty);
+  if (r.friendship) {
+    const npc = npcById(npcs, g.giver);
+    if (npc) {
+      const thresholds = dialogueBump(relationships, npc.def, r.friendship, calendar);
+      logRelationshipChange(dayLog, npc.def.id, "friendship", r.friendship);
+      for (const ev of thresholds) fireHeart(npc, ev);
+    }
+  }
+}
+
+/** A world event advances quests — called from the real action handlers, right
+ *  beside the matching `fireGuidance` calls. */
+function fireQuest(ev: QuestEvent) {
+  if (activeQuests(quests).length === 0) return;   // nothing to advance
+  applyQuestResult(notifyQuests(quests, ev, heldCount));
+}
+
+/** Per-frame: live-check possession steps against the bag (cheap no-op when
+ *  nothing changed). */
+function tickQuests() {
+  if (activeQuests(quests).length === 0) return;
+  const res = refreshQuests(quests, heldCount);
+  if (res.changed) applyQuestResult(res);
+}
+
+/** Accept an offered quest (dialogue / AI offer). Returns whether it took. */
+function acceptQuestFlow(id: string): boolean {
+  const took = acceptQuest(quests, id, absoluteDay(calendar));
+  if (took) { onQuestsChanged(); refreshQuests(quests, heldCount); }
+  return took;
+}
+
+/** Turn a ready quest in at its giver (dialogue). */
+function turnInQuestFlow(id: string): boolean {
+  const res = turnInQuest(quests, id, heldCount);
+  if (!res) return false;
+  applyQuestResult(res);
+  return true;
+}
+
+/** Abandon an active side quest (quest-log window). */
+function abandonQuestFlow(id: string): boolean {
+  const done = abandonQuest(quests, id);
+  if (done) { toast("Quest abandoned."); onQuestsChanged(); }
+  return done;
+}
+
 /** Builds the interaction context (used by the tick and the dev bridge). The
  *  `guidanceEvent` seam lets interactables (repair / expand) advance guidance. */
 function makeCtx(): InteractCtx {
@@ -1205,6 +1303,9 @@ function newGameReset(character: Character, mode: Guidance) {
   setPlayerLook(character.gender, character.appearance);
   setGuidance(mode);                  // the Guidance Mode is a setting (kept across a New Game)
   resetGuidance(guidance);            // per-playthrough tutorial/aspiration progress starts fresh
+  resetQuests(quests);                // R6: a new life carries no quests
+  lastQuestRegion = null;
+  onQuestsChanged();
 }
 
 // ---- Save system (Part A #11): every store already saves itself on every
@@ -1229,6 +1330,7 @@ function saveAllStores() {
   saveRelationships(relationships);
   saveCollections(collections);
   saveMemories(memories);
+  saveQuests(quests);
 }
 
 function manualSave() {
@@ -1550,6 +1652,7 @@ function tick(now: number) {
         remember("first_catch", "Your first catch — the water gave something back.");
         logCatch(dayLog);
         fireGuidance({ kind: "catch" });   // Guidance: fisher tutorial/aspiration progress
+        fireQuest({ kind: "catch" });      // Quests: "catch N fish" activity steps
         // World-event narration (#5): the first catch of a NEW species.
         if (firstOfKind) narration.enrich({ key: `species:${haul.id}`, prompt: `The player just landed their first ${haulName.toLowerCase()} — a new species for their book.` });
       }
@@ -1572,6 +1675,7 @@ function tick(now: number) {
       record("forage", found);
       remember("first_forage", "The forest fed you today — first wild pickings.");
       logForage(dayLog);
+      fireQuest({ kind: "forage" });   // Quests: "forage N" activity steps
     } else toast("Backpack full — no room for the find!");
     arcs.recordActivity("forage");
     if (devNotesOn()) devNotes.observe("forage", absoluteDay(calendar));
@@ -1588,6 +1692,7 @@ function tick(now: number) {
     logCoinsEarned(dayLog, tip);
     remember("first_busk", "You played for strangers, and they paid — first tips.");
     fireGuidance({ kind: "busk", tip });   // Guidance: musician tutorial/aspiration progress
+    fireQuest({ kind: "busk" });           // Quests: "busk N times" activity steps
     arcs.recordActivity("busk");
     if (devNotesOn()) devNotes.observe("busk", absoluteDay(calendar));
     applyExertion(needs, "busking");
@@ -1605,6 +1710,7 @@ function tick(now: number) {
         remember("first_cook", "A warm meal from your own hearth — first dish.");
         logDishCooked(dayLog);
         fireGuidance({ kind: "cook" });   // Guidance: keeper tutorial/aspiration progress
+        fireQuest({ kind: "cook" });      // Quests: "cook N dishes" activity steps
         if (devNotesOn()) devNotes.observe("cook", absoluteDay(calendar));
       } else toast("Backpack full — the dish burns while you rummage!");
       const gained = gainSkill(skills, "cooking", moodPerfMult(needs));
@@ -1647,6 +1753,7 @@ function tick(now: number) {
         remember("first_harvest", "The first harvest from your own soil.");
         logHarvest(dayLog);
         fireGuidance({ kind: "harvest" });   // Guidance: farmer aspiration progress
+        fireQuest({ kind: "harvest" });      // Quests: "harvest N crops" activity steps
         arcs.recordActivity("harvest");
         if (devNotesOn()) devNotes.observe("farm", absoluteDay(calendar));
         const gained = gainSkill(skills, "farming", moodPerfMult(needs));
@@ -1681,6 +1788,8 @@ function tick(now: number) {
   // and (when toggled) the dev inspector — never a second call per frame.
   // location: the player's current region (interior counts as the farm).
   const region = scene === "world" ? regionAt(player.x, player.y) : "farm";
+  // Quests: crossing into a new region advances any "reach <region>" step.
+  if (region !== lastQuestRegion) { lastQuestRegion = region; fireQuest({ kind: "reach", region }); }
   // Festival engine: first time entering the market during festival hours
   // TODAY, greet it with a toast; the very first time EVER, that's also the
   // Memory Book entry (remember() only celebrates it once, ever).
@@ -1717,7 +1826,7 @@ function tick(now: number) {
   updateShopWindow();
   updateStorageWindow();
   updateMemoryBook();
-  if (!openingActive) tickGuidance();   // keep the tutorial bubble / aspiration pill live
+  if (!openingActive) { tickGuidance(); tickQuests(); }   // guidance bubble/pill + live quest possession checks
   updateToast(dt);
   // One-time ground re-bake once the pixel tiles have decoded (see boot note).
   if (!groundRebaked && groundTilesAvailable()) {
