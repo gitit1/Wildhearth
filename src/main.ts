@@ -2156,7 +2156,16 @@ function tick(now: number) {
   // location: the player's current region (interior counts as the farm).
   const region = scene === "world" ? regionAt(player.x, player.y) : "farm";
   // Quests: crossing into a new region advances any "reach <region>" step.
-  if (region !== lastQuestRegion) { lastQuestRegion = region; fireQuest({ kind: "reach", region }); }
+  if (region !== lastQuestRegion) {
+    lastQuestRegion = region;
+    fireQuest({ kind: "reach", region });
+    // v2 BLOCK #3: the FIRST time she reaches the coastal town, greet it + point
+    // the way. addMemory celebrates it once, ever, into the Memory Book.
+    if (region === "town" && addMemory(memories, "first_town", "You followed the road to its end and found the coastal town.", calendar)) {
+      logMemory(dayLog, "You followed the road to its end and found the coastal town.");
+      toast("The road opens onto a coastal town — an inn, merchants, and the sea beyond. 🌊");
+    }
+  }
   // Festival engine: first time entering the market during festival hours
   // TODAY, greet it with a toast; the very first time EVER, that's also the
   // Memory Book entry (remember() only celebrates it once, ever).

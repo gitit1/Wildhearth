@@ -29,6 +29,40 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## npc — town life + first-arrival hint (v2 BLOCK #3, part 3)
+- **Date:** 2026-07-11 (v1-foundation)
+- **What & why:** so the coastal town isn't a ghost street, a few existing
+  townsfolk now walk down to it on a schedule, and the player is greeted +
+  pointed the way the first time she arrives.
+- **Schedule — `src/systems/schedule.ts`:** new `NpcState` member `"town"`
+  (added to the `OUTDOOR` set so a storm still sends visitors home). New
+  `townVisitsToday(def, dow)` routes a handful of NON-stall roles to town in
+  the afternoon (Finn the fisher-kid any weekday; Bram the handyman and Liora
+  the musician on Tue/Thu) — stallkeepers stay at the market so it keeps
+  trading. The default `daySchedule` branch gets a town variant (work the
+  morning → `"town"` 15:00 → `"socializing"` 18:00 → home); `placeFor` gets a
+  `case "town"` → new `townSpot(idx)` (spreads visitors along the promenade,
+  keyed by roster index so they don't stack). `entities/npc.ts` needs no change
+  — its `poseFor`/`idleFacing` fall through to idle/face-south for the new state,
+  and `buildRoute` already straight-lines them there.
+- **First-arrival hint — `src/main.ts`:** in the region-entry seam (beside the
+  existing `fireQuest({kind:"reach"})`), the first time `regionAt` returns
+  `"town"` fires a one-time Memory Book entry (`first_town`, via `addMemory`) +
+  a guiding toast ("The road opens onto a coastal town — an inn, merchants, and
+  the sea beyond"). The `reach:"town"` quest event now also fires for free
+  (regionAt returns the new region), and the minimap already shows the town
+  (part 1), so the player has three ways to find it.
+- **Verified (live headless-Edge, `scratchpad/v2-block3/L1-L2`):** on a Tuesday
+  16:00, **Finn, Bram and Liora** are all in the town band (y ≥ 31·T), spread
+  along the street (screenshot shows them milling between the inn and the
+  merchant stalls). Stepping from the market into the town region fired the
+  exact arrival toast. A save + full page **reload + resume** kept Fame (42)
+  and coins (321) — save/reload in town works. `npm run build` green.
+- **Follow-ups:** town visitors just stand/mingle (no town-specific idle pose or
+  a seafront busk spot for Liora) — a future life-polish pass. Only 3 of 10
+  NPCs visit; widening the roster (and a town-square social ring like the
+  market's) is easy content once more town anchors exist.
+
 ## economy — the town's specialised merchants (v2 BLOCK #3, part 2)
 - **Date:** 2026-07-11 (v1-foundation)
 - **What & why:** the coastal town's shops now trade. VISION §town wants

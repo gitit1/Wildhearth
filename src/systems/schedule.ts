@@ -21,12 +21,12 @@
 import { absoluteDay, type CalendarState } from "./calendar";
 import type { WeatherState } from "./weather";
 import { T } from "../config";
-import { WELL, BUSK_SPOT } from "../world/zones";
+import { WELL, BUSK_SPOT, TOWN_SQUARE } from "../world/zones";
 import {
   FOREST_CORNERS, ADA_FOREST_REST, BRAM_FARM_SPOT, BRAM_MARKET_SPOT, type NpcDef,
 } from "../data/npcs";
 
-export type NpcState = "atHome" | "atWork" | "atMarket" | "socializing" | "asleep" | "festival";
+export type NpcState = "atHome" | "atWork" | "atMarket" | "socializing" | "asleep" | "festival" | "town";
 
 export interface ScheduleEntry { startHour: number; state: NpcState; }
 
@@ -42,9 +42,23 @@ export function dayName(c: CalendarState): string {
   return DAY_NAMES[dayOfWeek(c)]!;
 }
 
-const OUTDOOR = new Set<NpcState>(["atWork", "atMarket", "socializing"]);
+const OUTDOOR = new Set<NpcState>(["atWork", "atMarket", "socializing", "town"]);
 const clampHour = (h: number) => Math.max(0, Math.min(23, h));
 const isWeekend = (dow: number) => dow === 0 || dow === 6;
+
+/** Which townsfolk pay the new coastal TOWN a visit, and on which weekdays
+ *  (v2 BLOCK #3 — so the town isn't a ghost street). A handful of non-stall
+ *  roles wander down to the seafront in the afternoon; stallkeepers stay put so
+ *  the market keeps trading. Deterministic from role + day-of-week — no state. */
+function townVisitsToday(def: NpcDef, dow: number): boolean {
+  if (dow === 0) return false;   // Sunday gathering stays at the market well
+  switch (def.role) {
+    case "fisher-kid": return true;                 // Finn loves the harbour, any weekday
+    case "handyman": return dow === 2 || dow === 4; // Bram: odd jobs in town Tue/Thu
+    case "musician": return dow === 2 || dow === 4; // Liora plays the seafront Tue/Thu
+    default: return false;
+  }
+}
 
 /** Deterministic ±1h personality jitter on wake/bedtime, stable per NPC. */
 function jitter(def: NpcDef): number {
@@ -97,6 +111,12 @@ export function daySchedule(def: NpcDef, dow: number): ScheduleEntry[] {
       e.push({ startHour: 11, state: "atMarket" });
       e.push({ startHour: 14, state: "atWork" });
       e.push({ startHour: end, state: "socializing" });
+      e.push({ startHour: clampHour(end + 2), state: "atHome" });
+    } else if (townVisitsToday(def, dow)) {
+      // work the morning, then head down to the coastal town for the afternoon
+      e.push({ startHour: start, state: "atWork" });
+      e.push({ startHour: 15, state: "town" });
+      e.push({ startHour: 18, state: "socializing" });
       e.push({ startHour: clampHour(end + 2), state: "atHome" });
     } else {
       e.push({ startHour: start, state: "atWork" });
@@ -158,6 +178,12 @@ function socialSpot(idx: number): [number, number] {
   return [WELL.cx + Math.cos(a) * 2.3 * T, WELL.cy + 1.3 * T + Math.sin(a) * 1.5 * T];
 }
 
+/** A spot along the coastal town street, spread by roster index so town
+ *  visitors mill along the promenade rather than stacking on one tile. */
+function townSpot(idx: number): [number, number] {
+  return [TOWN_SQUARE[0] + ((idx % 4) - 1.5) * 2.6 * T, TOWN_SQUARE[1] + ((idx % 2) - 0.5) * 1.6 * T];
+}
+
 /** The world point an NPC should head to for a given state. */
 export function placeFor(def: NpcDef, state: NpcState, dow: number, idx: number): [number, number] {
   switch (state) {
@@ -175,6 +201,8 @@ export function placeFor(def: NpcDef, state: NpcState, dow: number, idx: number)
       // festival day pulls EVERYONE to the square, Ada included — Liora takes
       // the busking spot to perform, everyone else spreads around the well
       return def.role === "musician" ? [BUSK_SPOT[0], BUSK_SPOT[1]] : socialSpot(idx);
+    case "town":
+      return townSpot(idx);
   }
 }
 
