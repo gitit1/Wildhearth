@@ -67,7 +67,8 @@ function bucket(wc: WorldContext): string {
   const c = wc.calendar;
   const w = wc.weather?.state ?? "clear";
   const fr = tierOf(wc.relationship?.friendship ?? 0);
-  return `${c?.season ?? "?"}|${c?.phase ?? "?"}|${w}|f${fr}|${wc.location ?? "?"}`;
+  const rep = wc.reputation?.tier ?? "?";
+  return `${c?.season ?? "?"}|${c?.phase ?? "?"}|${w}|f${fr}|r${rep}|${wc.location ?? "?"}`;
 }
 
 function keyFor(npcId: string, purpose: string, scripted: string, wc: WorldContext): string {
@@ -90,6 +91,8 @@ function buildUser(
   ];
   if (thought) lines.push(`Right now they're thinking: ${thought}`);
   if (rel) lines.push(`They regard the player as a ${tierWord(rel.friendship)}.`);
+  if (wc.reputation && wc.reputation.tier !== "Unknown")
+    lines.push(`Around town the player is ${wc.reputation.tier.toLowerCase()} — that reputation colours how warmly they're greeted.`);
   if (c) lines.push(`It is ${c.season}, ${c.phase}${wc.weather ? `, weather ${wc.weather.state}` : ""}${wc.location ? `, at the ${wc.location}` : ""}.`);
   if (notes.length) lines.push(`Things they've quietly noticed about the player: ${notes.join("; ")}.`);
   lines.push(``);

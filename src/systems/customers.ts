@@ -61,8 +61,8 @@ export interface CustomerWant {
   total: number;       // unitPrice * qty (precomputed for the UI)
 }
 
-function priceFor(itemId: string): number {
-  return Math.max(1, Math.round((GOOD_PRICES[itemId] ?? 0) * CUSTOMER_PREMIUM));
+function priceFor(itemId: string, premium: number): number {
+  return Math.max(1, Math.round((GOOD_PRICES[itemId] ?? 0) * premium));
 }
 
 /**
@@ -70,9 +70,11 @@ function priceFor(itemId: string): number {
  * preferred category she actually has stock in, then a held item within it, a
  * quantity capped by both the knob and her stock, at the premium price.
  * Returns null when she's holding nothing this NPC would buy — the caller then
- * simply doesn't send that customer.
+ * simply doesn't send that customer. `premium` is the current price multiplier:
+ * block #1's flat CUSTOMER_PREMIUM by default, or a Reputation-scaled band the
+ * caller supplies (v2 block #2 — higher Fame, better prices).
  */
-export function rollCustomerWant(def: NpcDef, inv: Inventory): CustomerWant | null {
+export function rollCustomerWant(def: NpcDef, inv: Inventory, premium: number = CUSTOMER_PREMIUM): CustomerWant | null {
   const prefs = CUSTOMER_WANTS[def.role] ?? [];
   // categories this NPC likes AND the player currently has at least one of
   const stocked = prefs
@@ -84,7 +86,7 @@ export function rollCustomerWant(def: NpcDef, inv: Inventory): CustomerWant | nu
   const itemId = bucket[Math.floor(Math.random() * bucket.length)]!;
   const have = countItem(inv, itemId);
   const qty = Math.max(1, Math.min(have, 1 + Math.floor(Math.random() * CUSTOMER_QTY_MAX)));
-  const unitPrice = priceFor(itemId);
+  const unitPrice = priceFor(itemId, premium);
   return { itemId, qty, unitPrice, total: unitPrice * qty };
 }
 
@@ -121,9 +123,11 @@ export function rolloverDay(l: CustomerLedger, absDay: number) {
   if (l.day !== absDay) { l.day = absDay; l.served = 0; saveCustomers(l); }
 }
 
-/** True while the day still has customer sales left in it. */
-export function customersRemain(l: CustomerLedger): boolean {
-  return l.served < CUSTOMER_DAILY_CAP;
+/** True while the day still has customer sales left in it. `cap` defaults to the
+ *  flat CUSTOMER_DAILY_CAP (block #1); the caller may pass a Reputation-scaled cap
+ *  (v2 block #2 — a busier stall the better-known she is). */
+export function customersRemain(l: CustomerLedger, cap: number = CUSTOMER_DAILY_CAP): boolean {
+  return l.served < cap;
 }
 
 /** Record one served customer. */

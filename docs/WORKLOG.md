@@ -29,6 +29,90 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## systems — town-wide Reputation / Fame (v2 economy block #2)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** v2 BLOCK #2 per `ROADMAP_TO_V5.md` §v2 ("`systems/reputation.ts`
+  — town-wide Fame, independent of any one NPC and of Haggling") and the DAY 2
+  handoff spine `Customers → Reputation → Town`. Doc-verified before building:
+  VISION §Economy ("Town-wide Fame/Reputation … borrowed from UO's fame/karma:
+  a single town-facing number that shifts general treatment … distinct from
+  Haggling and from any one friendship — all three can move independently") and
+  the block #1 seams it explicitly left waiting (flat 1.3× premium, spawn/cap
+  knobs, the deliberately-deferred ignored-customer penalty).
+- **What shipped (player-facing):** a single town-wide **Fame** score, 0-100,
+  shown in the Skills window header as `🏛️ <tier> · NN/100` across five warm
+  tiers (**Unknown → Familiar Face → Well-Liked → Respected → Beloved**). It
+  **rises** when she serves a customer (+1.5), completes a quest (+4), turns up
+  at a festival (+3, once/day), or gives a warmly-received gift (loved/liked,
+  +0.5); crossing a tier fires a warm toast + a Memory Book entry. It **falls**
+  gently when a customer is left to give up waiting (−1 — the ignored-customer
+  penalty block #1 deferred; smaller than a sale's gain so engaging always nets
+  positive), and drifts down after 5 idle days — but **floored at the current
+  tier's min, so neglect never demotes a tier she earned** (mirrors the shipped
+  skills/relationships neglect-decay). Fame then **modulates the customer
+  economy**, live: the price premium is now a **band 1.15×→1.45×** (replacing the
+  flat 1.3×), the daily customer cap grows **6→10**, and the per-attempt spawn
+  odds gain up to **+0.25**. With the AI dialogue feature on, Fame also colours
+  villager dialogue (a fallback-safe prompt line; off = byte-identical).
+- **New file:** `src/systems/reputation.ts` — the pure rules half (versioned,
+  tolerant, private-mode-safe store matching relationships.ts / customers.ts):
+  `Reputation {version, fame, lastGainDay}`; the `REP_TIERS` ladder +
+  `reputationTier()`; effect readers `reputationPremium/reputationDailyCap/
+  reputationSpawnBonus(fame)`; writers `gainReputation()` (returns the applied
+  delta + any tier newly crossed up), `penalizeReputation()` (gentle, floored at
+  0), `decayReputation()` (idle, tier-floored); `load/save/resetReputation`.
+- **Config (`src/config.ts`):** a REPUTATION knob block — `REP_GAIN_SALE 1.5`,
+  `REP_GAIN_QUEST 4`, `REP_GAIN_FESTIVAL 3`, `REP_GAIN_GIFT 0.5`,
+  `REP_LOSS_TIMEOUT 1`, `REP_DECAY_IDLE_DAYS 5`, `REP_DECAY_PER_DAY 0.5`,
+  `REP_PREMIUM_MIN 1.15` / `REP_PREMIUM_MAX 1.45`, `REP_DAILY_CAP_BONUS_MAX 4`,
+  `REP_SPAWN_CHANCE_BONUS_MAX 0.25`; new `REPUTATION_KEY` save key.
+- **Wired (not just tracked):**
+  - `systems/customers.ts` — `rollCustomerWant(def, inv, premium?)` and
+    `customersRemain(ledger, cap?)` now take the live Fame-scaled premium/cap
+    (defaulting to the flat block-#1 knobs, so the pure module still stands
+    alone). `priceFor(itemId, premium)`.
+  - `main.ts` — `const reputation = loadReputation()`; `awardReputation(amount)`
+    helper (gain + tier-cross toast/memory) fired at the serve seam, in
+    `grantQuestReward` (every completed quest), at the festival market-entry
+    greeting, and in `giveGiftFlow` (loved/liked only). `penalizeReputation` at
+    the customer-timeout cull; `reputationPremium` passed into `trySpawnCustomer`;
+    `reputationDailyCap`/`reputationSpawnBonus` into `customerLiveMinute`;
+    `decayReputation` on day rollover; `resetReputation` on New Game.
+  - `systems/saves.ts` — `REPUTATION_KEY` folded into `GAME_KEYS` (New Game wipes it).
+  - `systems/worldContext.ts` — optional `reputation` source → a
+    `{fame, tier}` slice on the snapshot.
+  - `systems/ai/features/dialogueVariation.ts` — the prompt gains a Fame line
+    ("Around town the player is <tier> …") when present + non-Unknown, and the
+    variation bucket keys on the tier; both no-ops with AI dialogue off.
+  - `ui/skills.ts` + `index.html` — `#skillsRep` line in the Skills panel,
+    `updateReputationUI(fame, tier)` (writes only when the window is open).
+- **Verified (fable-mode):** `npm run build` green. A node/esbuild logic harness
+  (`scratchpad/v2-block2/rep.test.ts`) — **32/32** assertions: tier boundaries,
+  premium/cap/spawn bands at 0/50/100, gain + tier-crossing report, penalty
+  gentleness (< a sale's gain) + 0-floor, idle decay respecting the grace window
+  AND flooring at the tier min (never demoting), save/load round-trip, New Game
+  wipe. Live headless-Edge/puppeteer (`scratchpad/driver/drive-b2.mjs` +
+  `quest-rep.mjs`): fresh game = Unknown/0; premium band read 1.15→1.405 (fame 0
+  vs 85); serving climbs fame +1.5/sale with the served count; a customer
+  timeout drops it gently; a real quest (`petra_bread_run`: accept → give 3
+  wheat → turn in) bumps fame exactly +4; fame 52 survives a reload; New Game
+  wipes to Unknown/0. Screenshots in `scratchpad/v2-block2/`:
+  `01-fame0-customers.png` (Jonas buys corn at 6/unit = base 5 × 1.15) and
+  `02-fame85-skills-and-customer.png` (Skills header "🏛️ BELOVED · 85/100", the
+  tier-crossing toast, Maren buying berry compote at the higher premium). Zero
+  console errors bar a benign 404. Zero-PNG boot unaffected — no sprite/asset
+  code was touched.
+- **Follow-ups:** (1) which NPCs come could gate on Fame (higher rep → pickier/
+  premium roles) — deliberately left out to keep the early game welcoming;
+  logged, not built. (2) An AI-accepted quest instance still pays the authored
+  template's reward (block #1 note, unchanged). (3) The timeout penalty is per
+  timed-out customer, so a burst that all give up at once compounds (correct, but
+  worth a glance if it ever feels harsh). (4) Fame is not yet shown on the HUD
+  proper (only the Skills window) — a small dock/pill could come with the town
+  buildout. (5) `AI_ARCHITECTURE.md` does not yet list reputation in prompt
+  context; the dialogue hook was added anyway (fallback-safe) — worth a doc line
+  in a future R9-style sync.
+
 ## ui — Project Docs, a developer/archive reading room on the main menu
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given (owner request):** a developer screen, opened from the MAIN

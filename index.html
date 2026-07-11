@@ -75,6 +75,13 @@
     #skillsPanel{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(12px*var(--s));min-width:calc(210px*var(--s))}
     #skillsTotal{text-align:center;font-size:calc(11px*var(--s));color:#cdb98a;font-weight:700;
       margin-bottom:calc(6px*var(--s));font-variant-numeric:tabular-nums}
+    /* v2 block #2: town Fame line above the skills total */
+    #skillsRep{display:flex;align-items:center;justify-content:center;gap:calc(6px*var(--s));
+      font-size:calc(11px*var(--s));font-weight:800;margin-bottom:calc(6px*var(--s));
+      padding-bottom:calc(6px*var(--s));border-bottom:1px solid rgba(240,234,214,.12);
+      color:#ffd08a;font-variant-numeric:tabular-nums}
+    #skillsRep .rep-tier{letter-spacing:.03em;text-transform:uppercase;font-size:calc(10px*var(--s))}
+    #skillsRep .rep-val{color:#ffd54f}
     #skillsList{display:flex;flex-direction:column;gap:calc(4px*var(--s));
       max-height:calc(150px*var(--s));overflow-y:auto}
     .sk-row{position:relative;display:flex;align-items:center;gap:calc(8px*var(--s));
@@ -828,6 +835,7 @@
     <div id="backpackGrid"></div>
   </div>
   <div id="skillsPanel">
+    <div id="skillsRep" title="Town Fame — how the whole town regards you (UO-style), apart from any one friendship"></div>
     <div id="skillsTotal"></div>
     <div id="skillsList"></div>
   </div>

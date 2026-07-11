@@ -94,6 +94,15 @@ export function updateSkillsUI() {
   if (win.isOpen()) refresh();
 }
 
+/** Town Fame line in the skills window (v2 block #2). Cheap; only writes when the
+ *  window is open. `tier` is the warm name (Unknown … Beloved), `fame` the 0-100. */
+export function updateReputationUI(fame: number, tier: string) {
+  if (!win.isOpen()) return;
+  const el = document.getElementById("skillsRep");
+  if (!el) return;
+  el.innerHTML = `🏛️ <span class="rep-tier">${tier}</span> · <span class="rep-val">${Math.round(fame)}/100</span>`;
+}
+
 /** Floating "+0.3" popup on the skill's row (visible when the window is open). */
 export function skillGainPopup(id: string, amount: number) {
   const i = sk.list.findIndex((s) => s.id === id);

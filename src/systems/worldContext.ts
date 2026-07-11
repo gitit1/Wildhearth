@@ -6,6 +6,7 @@ import type { WeatherState, WeatherKind } from "./weather";
 import { activeFlagsRecord, type WorldFlags } from "./worldFlags";
 import { needsRecord, type NeedsState } from "./needs";
 import { readRelationship, type Relationships } from "./relationships";
+import { reputationTier, type Reputation } from "./reputation";
 import type { Region } from "../world/zones";
 
 /**
@@ -29,6 +30,7 @@ export interface WorldContextSources {
   flags?: WorldFlags;         // Block 5
   needs?: NeedsState;         // Needs engine (Part A #2)
   relationships?: Relationships;   // Relationship engine (Part A #3) — scoped by query.npcId
+  reputation?: Reputation;    // Town Fame (v2 block #2) — town-wide, not NPC-scoped
   location?: Region;          // World expansion v1: player's current region
 }
 
@@ -75,6 +77,9 @@ export interface WorldContext {
   /** Only present when the query names an npcId and a relationships source is
    *  passed — a dialogue check wants "this NPC", not every bond at once. */
   relationship?: { npcId: string; friendship: number; romance: number };
+  /** Town-wide Fame (v2 block #2) — present only when a reputation source is
+   *  passed. Fame is the 0-100 score; tier is its warm name (Unknown … Beloved). */
+  reputation?: { fame: number; tier: string };
   location?: Region;
 }
 
@@ -115,6 +120,9 @@ export function getWorldContext(
     flags: sources.flags ? activeFlagsRecord(sources.flags, sources.calendar ? absoluteDay(sources.calendar) : 0) : {},
     needs: sources.needs ? needsRecord(sources.needs) : undefined,
     relationship,
+    reputation: sources.reputation
+      ? { fame: sources.reputation.fame, tier: reputationTier(sources.reputation.fame).name }
+      : undefined,
     location: sources.location,
   };
 }

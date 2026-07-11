@@ -187,6 +187,27 @@ export const CUSTOMER_TEND_TILES = 5;     // player must be within this (tiles) 
 export const CUSTOMER_FRIENDSHIP_BUMP = 1; // small repeatable Friendship nudge per sale
 
 // ===========================================================================
+//  Town Reputation / Fame (v2 economy block #2) — a single town-wide 0-100
+//  number (UO fame/karma), independent of any one NPC's Friendship and of the
+//  Haggling skill. It RISES on good custom (served customers, quests, festival
+//  turnout, generous gifts) and dips gently when a customer is left waiting.
+//  It then MODULATES the customer economy: how much they pay, how many come,
+//  how often. Every magnitude a knob. DECISIONS' forgiving tone: losses are
+//  smaller than the matching gain, and idle decay can never demote a tier.
+// ===========================================================================
+export const REP_GAIN_SALE = 1.5;         // fame per customer served at your stall
+export const REP_GAIN_QUEST = 4;          // fame per quest completed (word gets around)
+export const REP_GAIN_FESTIVAL = 3;       // fame for turning up at a festival (once/day)
+export const REP_GAIN_GIFT = 0.5;         // fame per warmly-received gift (loved/liked only)
+export const REP_LOSS_TIMEOUT = 1;        // fame lost when a customer gives up waiting (gentle)
+export const REP_DECAY_IDLE_DAYS = 5;     // days with no fame-earning act before idle decay starts
+export const REP_DECAY_PER_DAY = 0.5;     // fame shed per idle day — FLOORED at the current tier's min
+export const REP_PREMIUM_MIN = 1.15;      // customer price multiplier at fame 0
+export const REP_PREMIUM_MAX = 1.45;      // customer price multiplier at fame 100
+export const REP_DAILY_CAP_BONUS_MAX = 4; // extra daily customer sales at fame 100 (on top of the base cap)
+export const REP_SPAWN_CHANCE_BONUS_MAX = 0.25; // extra spawn odds at fame 100 (added to CUSTOMER_SPAWN_CHANCE)
+
+// ===========================================================================
 //  Dialogue engine (Part A #4, mechanical layer) — condition-keyed opening
 //  lines + shallow choice trees, shown in the bottom-box. Every magnitude a knob.
 // ===========================================================================
@@ -554,6 +575,7 @@ export const SLOT_KEY = "wildhearth-slot-v1";        // save-slot manifest (Save
 export const GUIDANCE_KEY = "wildhearth-guidance-v1"; // tutorial/aspiration progress (Guidance Mode engine)
 export const QUESTS_KEY = "wildhearth-quests-v1";    // quest log: accepted/active/completed + AI offer (R6 quest system)
 export const CUSTOMERS_KEY = "wildhearth-customers-v1"; // daily customer ledger (v2: customers come to your stall)
+export const REPUTATION_KEY = "wildhearth-reputation-v1"; // town-wide Fame 0-100 (v2 block #2)
 
 // ===========================================================================
 //  Quest system (R6) — authored quests + AI dynamic offers → one quest log.

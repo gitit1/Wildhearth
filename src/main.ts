@@ -5,6 +5,7 @@ import {
   CAM_NORTH_SKY_MARGIN,
   CUSTOMER_MARKET_START, CUSTOMER_MARKET_END, CUSTOMER_MAX_CONCURRENT, CUSTOMER_SPAWN_GAP_MIN,
   CUSTOMER_SPAWN_CHANCE, CUSTOMER_PATIENCE_MIN, CUSTOMER_TEND_TILES, CUSTOMER_FRIENDSHIP_BUMP,
+  REP_GAIN_SALE, REP_GAIN_QUEST, REP_GAIN_FESTIVAL, REP_GAIN_GIFT,
 } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
@@ -39,6 +40,10 @@ import { loadEconomy, gainItem, saveEconomy, goodCount, sellGoodAt } from "./sys
 import {
   loadCustomers, resetCustomers, rolloverDay, customersRemain, noteServed, rollCustomerWant,
 } from "./systems/customers";
+import {
+  loadReputation, resetReputation, gainReputation, penalizeReputation, decayReputation,
+  reputationTier, reputationPremium, reputationDailyCap, reputationSpawnBonus,
+} from "./systems/reputation";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
 import {
@@ -125,7 +130,7 @@ import { initFade, fadeThrough } from "./ui/fade";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initQuestLog, updateQuestLog } from "./ui/questlog";
 import { initMinimap, updateMinimap, setMinimapField } from "./ui/minimap";
-import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
+import { initSkillsUI, updateSkillsUI, skillGainPopup, updateReputationUI } from "./ui/skills";
 import {
   initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow,
   refreshShopWindow, type CustomerRow,
@@ -302,6 +307,10 @@ for (const trade of NPC_STALL_TRADES) {
 // saves without the key simply start fresh (loadCustomers -> zeroed).
 const customerLedger = loadCustomers();
 let customerSpawnGapMin = 0;   // in-game minutes counted toward the next spawn attempt
+// Town Reputation / Fame (v2 economy block #2): one town-wide 0-100 score that
+// rises on good custom and modulates the customer economy. Old saves without the
+// key start at Unknown (loadReputation -> zeroed).
+const reputation = loadReputation();
 
 /** Talk seam: opens the dialogue bottom-box (condition-keyed opening line +
  *  shallow choice turns). The window drives the conversation; the Social-need
@@ -376,6 +385,8 @@ function giveGiftFlow(npc: Npc, itemId: string) {
   const line = GIFT_REACTIONS[out.rating](npc.def.name);
   toast(out.birthday ? `🎂 A birthday gift! ${line}` : line);
   logRelationshipChange(dayLog, npc.def.id, "friendship", out.delta);   // gifts always move Friendship in v1
+  // v2 block #2: a warmly-received gift (loved/liked) is a small public kindness — a touch of Fame
+  if (out.rating === "loved" || out.rating === "liked") awardReputation(REP_GAIN_GIFT);
   if (out.firstEver) remember("first_gift", "You gave your first gift — a small kindness offered.");
   if (devNotesOn()) devNotes.observe("gift", absoluteDay(calendar));
   for (const ev of out.thresholds) fireHeart(npc, ev);
@@ -573,6 +584,17 @@ if (import.meta.env.DEV)
     customers: () => customerRows(),
     serveCustomerDev: (npcId: string) => serveCustomer(npcId),
     customerLedger: () => ({ ...customerLedger }),
+    // reputation verification bridge (v2 block #2): read Fame + its live effects,
+    // or nudge Fame directly to inspect the premium/cap/spawn band without grinding.
+    reputation: () => ({
+      fame: reputation.fame, tier: reputationTier(reputation.fame).name,
+      premium: reputationPremium(reputation.fame), dailyCap: reputationDailyCap(reputation.fame),
+      spawnBonus: reputationSpawnBonus(reputation.fame),
+    }),
+    setReputation: (fame: number) => { awardReputation(fame - reputation.fame); return reputation.fame; },
+    // step one live minute of stall custom (patience decay + spawn) so a timeout
+    // — and its gentle Fame penalty — can be driven deterministically in tests.
+    customerMinuteDev: () => customerLiveMinute(),
   };
 
 initBackpack(economy, eatItem);
@@ -619,7 +641,7 @@ let stormNarratedSeason = -1;   // seasonIndex whose first storm has been narrat
  *  prefetch hooks so they all read the same "what's true right now". */
 function worldForNpc(npcId: string) {
   return getWorldContext(
-    { economy, skills, farm, calendar, weather, flags: worldFlags, needs, relationships, location: playerRegion() },
+    { economy, skills, farm, calendar, weather, flags: worldFlags, needs, relationships, reputation, location: playerRegion() },
     { npcId },
   );
 }
@@ -847,6 +869,21 @@ function onNpcSale(npcId: string) {
   }
 }
 
+// ---- town reputation / fame (v2 economy block #2) --------------------------
+// One town-wide 0-100 number (UO fame). Good custom raises it; it then shifts
+// the customer economy (premium band + daily cap + spawn odds, read live below)
+// and colours AI dialogue. This helper applies a gain and celebrates a tier
+// crossing with a warm toast; the raw penalty/decay go straight through.
+function awardReputation(amount: number) {
+  const change = gainReputation(reputation, amount, absoluteDay(calendar));
+  if (change.crossedUp) {
+    toast(`🏛️ The town is warming to you — you're now a ${change.crossedUp.name}!`);
+    remember(`fame_${change.crossedUp.name.toLowerCase().replace(/\s+/g, "_")}`,
+      `The whole town has come to see you as a ${change.crossedUp.name}.`);
+  }
+  return change;
+}
+
 // ---- customers come to your stall (v2 economy block #1) --------------------
 // The single sell seam every sale fires — the FLAT-price stall sale (shop
 // window's own Sell button) AND premium customer sales both route through this,
@@ -905,6 +942,7 @@ function serveCustomer(npcId: string) {
   if (earned > 0) {
     logSale(earned, qty);
     noteServed(customerLedger);
+    awardReputation(REP_GAIN_SALE);   // v2 block #2: a served customer spreads the word
     const thresholds = dialogueBump(relationships, n.def, CUSTOMER_FRIENDSHIP_BUMP, calendar);
     logRelationshipChange(dayLog, npcId, "friendship", CUSTOMER_FRIENDSHIP_BUMP);
     const itemName = (ITEM_NAMES[w.itemId] ?? w.itemId).toLowerCase();
@@ -923,8 +961,9 @@ function trySpawnCustomer(slot: number): boolean {
     !n.visit && !n.indoors && n.talkTimer <= 0 &&
     (n.state === "atMarket" || n.state === "socializing") &&
     n.x > 44 * T);   // in the market/road belt, not off at the lake or deep forest
+  const premium = reputationPremium(reputation.fame);   // v2 block #2: fame lifts the price band
   for (const n of pool.sort(() => Math.random() - 0.5)) {
-    const want = rollCustomerWant(n.def, economy.inv);
+    const want = rollCustomerWant(n.def, economy.inv, premium);
     if (want) {
       sendCustomer(n, customerSpot(slot), want, CUSTOMER_PATIENCE_MIN);
       refreshShopWindow();
@@ -938,8 +977,9 @@ function trySpawnCustomer(slot: number): boolean {
  *  a fresh customer while she's minding the stall in market hours. */
 function customerLiveMinute() {
   if (scene !== "world") return;
-  // patience: cull anyone who has waited too long — no reputation hit (that's
-  // the NEXT block); they simply wander off
+  // patience: cull anyone who has waited too long. v2 block #2 wires the penalty
+  // block #1 deferred — a customer left to give up costs a gentle sliver of Fame
+  // (smaller than a sale's gain, so serving always nets ahead).
   for (const n of npcs) {
     if (!n.visit) continue;
     n.visit.patience -= 1;
@@ -947,20 +987,21 @@ function customerLiveMinute() {
       const name = n.def.name;
       const wasWaiting = n.visit.arrived;
       clearVisit(n, calendar, weather);
-      if (wasWaiting && nearStall()) toast(`${name} gives up waiting and drifts off.`);
+      penalizeReputation(reputation);
+      if (wasWaiting && nearStall()) toast(`${name} gives up waiting and drifts off. (word travels — a little Fame lost)`);
       refreshShopWindow();
     }
   }
   const h = calendar.hour;
   if (h < CUSTOMER_MARKET_START || h >= CUSTOMER_MARKET_END) return;
   if (!nearStall()) { customerSpawnGapMin = 0; return; }   // only when she's minding it
-  if (!customersRemain(customerLedger)) return;
+  if (!customersRemain(customerLedger, reputationDailyCap(reputation.fame))) return;  // v2 block #2: fame widens the daily cap
   const active = npcs.reduce((k, n) => k + (n.visit ? 1 : 0), 0);
   if (active >= CUSTOMER_MAX_CONCURRENT) return;
   customerSpawnGapMin += 1;
   if (customerSpawnGapMin < CUSTOMER_SPAWN_GAP_MIN) return;
   customerSpawnGapMin = 0;
-  if (Math.random() > CUSTOMER_SPAWN_CHANCE) return;
+  if (Math.random() > CUSTOMER_SPAWN_CHANCE + reputationSpawnBonus(reputation.fame)) return;  // v2 block #2: fame lifts the odds
   trySpawnCustomer(active);
 }
 
@@ -1029,6 +1070,7 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     // ---- AI daily hooks (Part D) — all no-ops with their features off --------
     const abs = absoluteDay(calendar);
     rolloverDay(customerLedger, abs);   // v2: reset the day's customer-sales count
+    decayReputation(reputation, abs);   // v2 block #2: gentle Fame drift after long inactivity (floored at tier)
     // Quest offers (#3, D3): maybe surface one validated AI offer (scripted
     // fallback on any failure; inert with the feature off).
     questOffers.maybeGenerateDaily(
@@ -1328,6 +1370,7 @@ function applyQuestResult(res: QuestResult) {
 /** Pay out one completed quest's reward (coins / items / Friendship with the
  *  giver), logging to the day ledger + firing any heart threshold crossed. */
 function grantQuestReward(g: QuestResult["grants"][number]) {
+  awardReputation(REP_GAIN_QUEST);   // v2 block #2: a finished quest raises your standing in town
   const r = g.reward;
   if (r.coins) {
     economy.coins += r.coins;
@@ -1543,6 +1586,7 @@ function newGameReset(character: Character, mode: Guidance) {
   resetGarden(garden);
   resetStorage(storage);              // R5: a new life starts with an empty barn
   resetCustomers(customerLedger);     // v2: a new life has served no customers
+  resetReputation(reputation);        // v2 block #2: an unknown newcomer again
   for (const n of npcs) n.visit = null;   // no one is queued at the stall in a fresh world
   resetCollections(collections);
   resetMemories(memories);
@@ -2068,6 +2112,7 @@ function tick(now: number) {
     festivalGreetedDay = absoluteDay(calendar);
     remember("first_harvest_festival", "Your first Harvest Festival — banners over the square, music in the air.");
     toast("The square is alive with the Harvest Festival! 🎉");
+    awardReputation(REP_GAIN_FESTIVAL);   // v2 block #2: turning up at the festival raises your standing (once/day)
   }
   // scope the relationship slice to the NPC in reach (if any), so the dev
   // inspector shows "this bond, right now" the way a dialogue check would ask
@@ -2094,6 +2139,7 @@ function tick(now: number) {
   updateBackpack();
   if (scene === "world") updateMinimap(player);   // inside, the dot would be room coords
   updateSkillsUI();
+  updateReputationUI(reputation.fame, reputationTier(reputation.fame).name);   // v2 block #2: town Fame line
   updateShopWindow();
   updateStorageWindow();
   updateMemoryBook();
