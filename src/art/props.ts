@@ -1,7 +1,7 @@
 import {
   T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER, SPRITE_CROP_SCALE, SPRITE_CROP_BASE_DY,
   SPRITE_BUSH_SCALE, SPRITE_BUSH_JITTER, SPRITE_PROP_SCALE, SPRITE_FENCE_SCALE,
-  SPRITE_HEDGE_SCALE, SPRITE_BUSK_SIGN_SCALE,
+  SPRITE_HEDGE_SCALE, SPRITE_BUSK_SIGN_SCALE, SPRITE_FLOWER_BED_SCALE,
 } from "../config";
 import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS, type Rect } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
@@ -668,10 +668,22 @@ export function drawFlowerBed(
   g: CanvasRenderingContext2D, x: number, y: number,
   bed: { species: string | null; growth: number; watered: boolean; bloomed: boolean }, t: number,
 ) {
-  // the bed itself: an oval of turned earth
-  g.fillStyle = "#57402a";
-  g.beginPath(); g.ellipse(x, y, 15, 10, 0, 0, 7); g.fill();
-  outline(g);
+  // the bed FIXTURE: a PixelLab empty-soil bed sprite centred on the point when
+  // present (the per-species seedlings/blooms below still layer on top in code),
+  // else the code-drawn oval of turned earth (zero-PNG fallback, rule #1).
+  const soil = sprite("props/flower-bed-soil");
+  if (soil) {
+    const prev = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = false;
+    const bw = soil.naturalWidth * SPRITE_FLOWER_BED_SCALE;
+    const bh = soil.naturalHeight * SPRITE_FLOWER_BED_SCALE;
+    g.drawImage(soil, x - bw / 2, y - bh / 2, bw, bh);
+    g.imageSmoothingEnabled = prev;
+  } else {
+    g.fillStyle = "#57402a";
+    g.beginPath(); g.ellipse(x, y, 15, 10, 0, 0, 7); g.fill();
+    outline(g);
+  }
   if (!bed.species) return;
   const sp = flowerById(bed.species);
   const pal = sp?.palette ?? { petal: "#d16a9a", center: "#e8c34f", leaf: "#4a7a2a" };

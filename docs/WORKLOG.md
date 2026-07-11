@@ -29,6 +29,40 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## everything-pixels — flowers/forage/produce/junk icons + a pixel flower-bed
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** finishes the item-icon coverage started by the fish+tools+dishes
+  block (its generation run had stopped early at the Claude spend limit). The
+  owner re-opened the PixelLab budget ("use the ceiling I raised") for this, so
+  a background agent generated the remaining categories (68 gens, balance
+  7162→7094); this block integrates them.
+- **What shipped:**
+  - **67 more pixel icons** dropped flat under `src/assets/pixellab/icons/<id>.png`
+    — **20 flowers** (rose, tulip, sunflower, daffodil, dahlia, poppy, marigold,
+    lavender, camellia, hellebore, crocus, …), **26 forage** (mushroom, hazelnuts,
+    sorrel, wild_garlic, elderflower, …), **18 produce** (carrot, potato, tomato,
+    pumpkin, wheat, strawberry, … — corn + glass-gem-corn deliberately skipped,
+    they keep bespoke painters), **3 junk** (boot, tin, rope). No code change —
+    the `drawItemIcon` sprite seam from the previous block already resolves them.
+    Icon library is now 151 PNGs; only seed packets (deferred, low value) and a
+    handful of bespoke items still fall to code painters.
+  - **Pixel flower-bed fixture** → `src/assets/pixellab/props/flower-bed-soil.png`
+    (64×48 empty round wooden-framed soil bed, no plants). `drawFlowerBed`
+    (`src/art/props.ts`) now draws this sprite **centred on the bed point** in
+    place of the code-drawn soil oval; the per-species seedlings and blooms still
+    layer on top in code (so per-flower colours are preserved). New
+    `SPRITE_FLOWER_BED_SCALE = 0.5`. Code oval remains the zero-PNG fallback.
+- **Verified** (headless Edge + puppeteer-core, `scratchpad/icons/`): 497/497
+  sprites loaded; the flower/forage/produce icons render in the Backpack window
+  (`ingame-backpack2.png`); the three farm flower beds render as pixel
+  wooden-framed soil beds with seedlings AND a layered rose bloom on top
+  (`flowerbeds.png`). `npm run build` green (`1.94s`). Category montages in
+  `scratchpad/icons/`.
+- **Follow-ups:** seed-packet icons (41, deferred) still code-painted. The
+  face-locked character mass run remains owner-deferred ("not for the character
+  right now"). Minor accepted icon quirks noted in `scratchpad/icons/LEDGER-part2.md`
+  (morel reads generic, wild_strawberry as one berry) — no retry.
+
 ## everything-pixels — item icons (50 fish + 25 tools + 9 dishes) become PixelLab sprites
 - **Date:** 2026-07-11 (v1-foundation)
 - **Owner complaint (verbatim intent):** "גם הדגים הם לא פיקסלים הם ציור שלך —

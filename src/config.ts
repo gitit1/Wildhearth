@@ -553,6 +553,10 @@ export const SPRITE_STABLE_SCALE = 0.76;
 // The dock is a top-down flat deck drawn stretched to fill its DOCK/TOWN_DOCK
 // rect (posts baked in at the south end), so it needs no scale knob.
 export const SPRITE_BUSK_SIGN_SCALE = 0.5;
+// Flower-bed soil FIXTURE (64×48 empty round wooden bed) drawn CENTERED on the
+// bed point; the per-species seedlings/blooms still layer on top in code, so
+// this replaces only the code-drawn soil oval (~30px wide → scale 0.5).
+export const SPRITE_FLOWER_BED_SCALE = 0.5;
 // --- Building variety batch: 6 distinct market cottages (art/buildings.ts
 //     COTTAGE_SPRITES), one scale for every variant (all cottage canvases are
 //     the same 112x128 size, same "footprint <= zone rect" recipe as above;
