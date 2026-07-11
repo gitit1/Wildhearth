@@ -39,7 +39,7 @@ import { createWildlife, updateWildlife, type WildlifeInst } from "./entities/wi
 import { drawWildlife } from "./art/wildlife";
 import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcById, npcNeedComment, sendCustomer, clearVisit, customerWaiting, type Npc } from "./entities/npc";
 import { loadLivestock, resetLivestock, saveLivestock } from "./systems/livestock";
-import { loadEconomy, gainItem, saveEconomy, goodCount, sellGoodAt } from "./systems/economy";
+import { loadEconomy, gainItem, saveEconomy, goodCount, sellGoodAt, sellGood, GOOD_PRICES } from "./systems/economy";
 import {
   loadCustomers, resetCustomers, rolloverDay, customersRemain, noteServed, rollCustomerWant,
 } from "./systems/customers";
@@ -66,6 +66,9 @@ import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
 import { recipeById } from "./data/recipes";
 import { loadGarden, resetGarden, saveGarden, updateGarden, rollGardenDay } from "./systems/gardening";
 import { loadStorage, resetStorage, type Storage } from "./systems/storage";
+import {
+  loadAnimalProduce, saveAnimalProduce, resetAnimalProduce, collectMorningProduce, markFed, takeDelivered,
+} from "./systems/animalProduce";
 import { loadCollections, resetCollections, discover, discoveredName, saveCollections } from "./systems/collections";
 import { sellableGoodIds } from "./systems/sellCategories";
 import { NPC_STALL_TRADES, MERCHANT_STOCK, type NpcStallTrade } from "./systems/shop";
@@ -155,7 +158,7 @@ import {
   refreshShopWindow, type CustomerRow,
 } from "./ui/shopwindow";
 import {
-  initStorageWindow, openStorageWindow, closeStorageWindow, isStorageOpen, updateStorageWindow,
+  initStorageWindow, openStorageWindow, closeStorageWindow, isStorageOpen, updateStorageWindow, setStorageNote,
 } from "./ui/storagewindow";
 import { hideOpening } from "./ui/titlescreen";
 import { showMainMenu, menuConfirm } from "./ui/mainmenu";
@@ -261,6 +264,7 @@ const cooking = createCooking();
 const skills = loadSkills();
 const garden = loadGarden();
 const storage: Storage = loadStorage();   // R5: the barn's storage chest
+const animalProduce = loadAnimalProduce();   // barn collection loop: fed-today flags + overnight produce
 const collections = loadCollections();
 const memories = loadMemories();
 const dayLog = freshDayLog();   // End-of-day summary ledger — not persisted, reset every in-game day
@@ -545,6 +549,27 @@ if (import.meta.env.DEV)
       cell.cropId = cropId; cell.growth = growth; cell.watered = true; cell.dryDays = 0;
     },
     give: (id: string, n = 1) => { addItem(economy.inv, id, n); saveEconomy(economy); },
+    // barn produce loop verification: grant animals (mirrors the shop buy — sets
+    // livestock + spawns + registers so Feed works), mark a species fed, and read
+    // the produce state / barn contents directly.
+    animalProduce,
+    giveAnimal: (kind: AnimalKind, n = 1) => {
+      for (let i = 0; i < n; i++) {
+        if (kind === "cow") { if (!livestock.cow) { livestock.cow = true; const c = spawnCow(); cows.push(c); registerAnimal("cow", c, cows); } }
+        else if (kind === "duck") { livestock.ducks++; const d = spawnDuck(); ducks.push(d); registerAnimal("duck", d, ducks); }
+        else if (kind === "pig") { livestock.pigs++; const p = spawnPig(); pigs.push(p); registerAnimal("pig", p, pigs); }
+        else if (kind === "sheep") { livestock.sheep++; const s = spawnSheep(); sheep.push(s); registerAnimal("sheep", s, sheep); }
+        else { livestock.hens++; const h = spawnHen(); hens.push(h); registerAnimal("hen", h, hens); }
+      }
+      saveLivestock(livestock);
+      return { cow: livestock.cow, hens: livestock.hens, ducks: livestock.ducks, pigs: livestock.pigs, sheep: livestock.sheep };
+    },
+    feedSpecies: (kind: AnimalKind) => { markFed(animalProduce, kind); return { ...animalProduce.fed }; },
+    barnStacks: () => storage.inv.slots.filter((s) => s).map((s) => ({ id: s!.id, qty: s!.qty })),
+    openBarn: () => openBarnStorage(),   // opens the barn window (surfaces the overnight-produce note)
+    priceOf: (id: string) => GOOD_PRICES[id],   // one price per id (proves truffle stays single-priced)
+    sellAll: (id: string) => sellGood(economy, id),   // sells everything of an id, returns coins earned
+    fillBarn: () => { for (let i = 0; i < storage.inv.slots.length; i++) storage.inv.slots[i] = { id: `filler-${i}`, qty: 1 }; return storage.inv.slots.length; },
     // relationship verification bridge — drive gifts/interactions/decay without UI
     relationships,
     relOf: (npcId: string) => relationshipSummary(npcs.find((n) => n.def.id === npcId)!.def, relationships),
@@ -959,6 +984,12 @@ function openPlayerStall() {
 /** R5: open the barn's storage chest (the barn's own interactable gates this on
  *  the barn being mended). Walking away from the barn closes it (see tick). */
 function openBarnStorage() {
+  // surface any produce that arrived overnight since the barn was last opened,
+  // then clear the pending tally so the note shows once per batch (barn loop).
+  const delivered = takeDelivered(animalProduce);
+  setStorageNote(Object.keys(delivered).length
+    ? `Your animals left: ${produceSummary(delivered)}.`
+    : null);
   openStorageWindow();
 }
 
@@ -1245,6 +1276,13 @@ const npcThoughtDay: Record<string, number> = {};    // absoluteDay an NPC last 
 let festivalGreetedDay = -1;   // absoluteDay the market-entry festival toast last fired
 let lastQuestRegion: string | null = null;   // last region the player was in (drives quest "reach" steps)
 
+/** Formats an overnight-produce tally into "3× Egg, 1× Milk" (barn loop). */
+function produceSummary(dropped: Record<string, number>): string {
+  return Object.entries(dropped)
+    .map(([id, qty]) => `${qty}× ${ITEM_NAMES[id] ?? id}`)
+    .join(", ");
+}
+
 /** One in-game minute: roll the clock, fire the daily hooks on a new day, drain
  *  needs. The single source of truth for time passing — both the live tick and
  *  the sleep/collapse skip call it, so a skipped night fires every daily hook
@@ -1263,6 +1301,13 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     pruneExpired(worldFlags, absoluteDay(calendar));
     rollPlotsDay(plots, isRaining(weather));   // rain waters for free; dry crops bank a day toward wilting
     rollGardenDay(garden, isRaining(weather)); // flower beds: rain waters, hand-water drains (flowers don't wilt)
+    // barn collection loop (VISION §122): every fed, owned animal leaves its base
+    // produce in the barn overnight; the fed flags then clear for the new day.
+    const dropped = collectMorningProduce(animalProduce, livestock, storage);
+    if (Object.keys(dropped).length) {
+      toast(`Your animals left produce in the barn overnight. ${produceSummary(dropped)} 🥚`);
+      updateStorageWindow();   // keep the barn grid honest if it happens to be open
+    }
     // neglect decay: any NPC not contacted during the day that just ended drifts
     // down (faster the shallower the bond); also expires a stale birthday flag
     decayRelationships(relationships, endedDay, absoluteDay(calendar));
@@ -1830,6 +1875,7 @@ function makeCtx(): InteractCtx {
     openStable,
     ownsRowboat: () => ownsTransport(transport, "rowboat"),
     openStorage: openBarnStorage,
+    feedAnimal: (kind) => markFed(animalProduce, kind),   // barn loop: species fed today → produces overnight
     guidanceEvent: fireGuidance,
   };
 }
@@ -1933,6 +1979,7 @@ function newGameReset(character: Character, mode: Guidance) {
   devNotes.reset();
   stormNarratedSeason = -1;
   resetLivestock(livestock);
+  resetAnimalProduce(animalProduce);   // barn loop: unfed, nothing pending, nothing to announce
   cows.length = 0; hens.length = 0; ducks.length = 0; pigs.length = 0; sheep.length = 0;   // the yard empties with the new life
   initNpcPositions(npcs, calendar, weather);   // re-snap townsfolk to fresh day-1 morning
   meta.character = character;
@@ -1963,6 +2010,7 @@ function saveAllStores() {
   savePlots(plots);
   saveGarden(garden);
   saveLivestock(livestock);
+  saveAnimalProduce(animalProduce);
   saveCalendar(calendar);
   saveWeather(weather);
   saveWorldFlags(worldFlags);

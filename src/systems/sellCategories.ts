@@ -3,6 +3,7 @@ import { JUNK } from "../data/junk";
 import { CROPS } from "../data/crops";
 import { FORAGE } from "../data/forage";
 import { FLOWERS } from "../data/flowers";
+import { NEW_PRODUCE } from "../data/produce";
 import { GOOD_PRICES } from "./economy";
 import { countItem, type Inventory } from "./inventory";
 import { discoveredCount, type Collections } from "./collections";
@@ -52,7 +53,12 @@ const produce: SellCategory = {
   id: "produce",
   label: "produce",
   applies: () => true,
-  itemIds: [...CROPS.map((c) => c.id), ...FORAGE.map((f) => f.id), ...FLOWERS.map((f) => f.id)],
+  // crops, wild forage, cut flowers, and now the barn's animal produce (milk,
+  // eggs, wool) — the whole farmyard basket the greengrocer buys. The pig's
+  // truffle is already a FORAGE id above, so NEW_PRODUCE (which excludes it)
+  // avoids listing it twice.
+  itemIds: [...CROPS.map((c) => c.id), ...FORAGE.map((f) => f.id), ...FLOWERS.map((f) => f.id),
+    ...NEW_PRODUCE.map((p) => p.id)],
 };
 
 export const SELL_CATEGORIES: SellCategory[] = [fishing, produce];

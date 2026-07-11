@@ -21,6 +21,7 @@ let win: WindowHandle;
 let storagePanel: HTMLElement;
 let barnGrid: HTMLElement;
 let bagGrid: HTMLElement;
+let noteEl: HTMLElement;
 let st: Storage;
 let eco: Economy;
 let toastFn: (s: string) => void = () => {};
@@ -49,6 +50,7 @@ export function initStorageWindow(storage: Storage, economy: Economy, toast: (s:
   storagePanel = document.getElementById("storageWindow")!;
   barnGrid = document.getElementById("storageGrid")!;
   bagGrid = document.getElementById("storageBag")!;
+  noteEl = document.getElementById("storageNote")!;
 
   for (let i = 0; i < st.inv.slots.length; i++) {
     barnSlots.push(buildSlot(barnGrid, () => {
@@ -108,6 +110,15 @@ function paintGrid(slots: SlotEl[], stacks: (import("../systems/inventory").Item
 function render() {
   paintGrid(barnSlots, st.inv.slots);
   paintGrid(bagSlots, eco.inv.slots);
+}
+
+/** Sets (or clears) the "your animals left …" banner shown when overnight
+ *  produce arrived (barn collection loop). Pass null/"" to hide it. Call BEFORE
+ *  openStorageWindow so it's in place when the window renders. */
+export function setStorageNote(text: string | null) {
+  if (!noteEl) return;
+  if (text) { noteEl.textContent = text; noteEl.style.display = ""; }
+  else { noteEl.textContent = ""; noteEl.style.display = "none"; }
 }
 
 export function isStorageOpen(): boolean { return win.isOpen(); }

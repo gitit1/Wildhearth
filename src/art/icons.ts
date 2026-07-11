@@ -703,6 +703,65 @@ function paintGiftBox(g: CanvasRenderingContext2D, s: number) {
   g.beginPath(); g.arc(s * 0.5, s * 0.41, s * 0.04, 0, 7); g.fill();
 }
 
+// ===========================================================================
+//  Animal produce (barn collection loop) — code-drawn fallbacks for the 5 base
+//  yields. Pixel icons dropped into src/assets/pixellab/icons/<id> override
+//  these automatically via drawItemIcon's sprite seam. Same recipe as the icons
+//  above: 2-3 flat colour layers + a small highlight, read at 34px.
+// ===========================================================================
+
+/** A glass milk bottle — cream body, foil cap, white highlight. */
+function paintMilk(g: CanvasRenderingContext2D, s: number) {
+  // bottle body
+  g.fillStyle = "#f4f1e8";
+  roundR(g, s * 0.36, s * 0.34, s * 0.28, s * 0.46, s * 0.06); g.fill();
+  // shoulder + neck
+  g.beginPath();
+  g.moveTo(s * 0.4, s * 0.36); g.lineTo(s * 0.44, s * 0.24);
+  g.lineTo(s * 0.56, s * 0.24); g.lineTo(s * 0.6, s * 0.36); g.closePath(); g.fill();
+  // foil cap
+  g.fillStyle = "#cf6b7a";
+  g.fillRect(s * 0.43, s * 0.18, s * 0.14, s * 0.08);
+  // milk line + highlight
+  g.fillStyle = "#e8e2cf";
+  g.fillRect(s * 0.37, s * 0.44, s * 0.26, s * 0.35);
+  g.fillStyle = "rgba(255,255,255,.6)";
+  g.fillRect(s * 0.4, s * 0.4, s * 0.045, s * 0.36);
+}
+
+/** A single egg — warm cream oval with a soft top highlight. */
+function paintEggShape(g: CanvasRenderingContext2D, s: number, body: string) {
+  g.fillStyle = body;
+  g.beginPath(); g.ellipse(s * 0.5, s * 0.54, s * 0.2, s * 0.26, 0, 0, 7); g.fill();
+  g.fillStyle = "rgba(255,255,255,.5)";
+  g.beginPath(); g.ellipse(s * 0.43, s * 0.42, s * 0.06, s * 0.09, -0.3, 0, 7); g.fill();
+  g.fillStyle = "rgba(0,0,0,.08)";
+  g.beginPath(); g.ellipse(s * 0.58, s * 0.66, s * 0.09, s * 0.11, 0.2, 0, 7); g.fill();
+}
+const paintEgg: IconPainter = (g, s) => paintEggShape(g, s, "#f3e6c9");
+/** A duck egg — the same egg, in a cool pale-green (duck-egg blue) shell. */
+const paintDuckEgg: IconPainter = (g, s) => paintEggShape(g, s, "#cfe3d2");
+
+/** A rolled bundle of wool — a fluffy cream cloud bound with a twine tie. */
+function paintWool(g: CanvasRenderingContext2D, s: number) {
+  g.fillStyle = "#f2efe4";
+  for (const [ox, oy, r] of [[0.38, 0.5, 0.15], [0.52, 0.42, 0.17], [0.64, 0.52, 0.14],
+    [0.48, 0.62, 0.16], [0.6, 0.64, 0.12]] as const) {
+    g.beginPath(); g.arc(s * ox, s * oy, s * r, 0, 7); g.fill();
+  }
+  // twine binding across the middle
+  g.strokeStyle = "#b9925a"; g.lineWidth = Math.max(2, s * 0.06); g.lineCap = "round";
+  g.beginPath(); g.moveTo(s * 0.34, s * 0.6); g.lineTo(s * 0.66, s * 0.46); g.stroke();
+  // curl highlights
+  g.strokeStyle = "rgba(255,255,255,.5)"; g.lineWidth = Math.max(1, s * 0.02);
+  g.beginPath(); g.arc(s * 0.45, s * 0.48, s * 0.05, 0.4, 3.4); g.stroke();
+  g.beginPath(); g.arc(s * 0.58, s * 0.56, s * 0.045, 0.6, 3.6); g.stroke();
+}
+
+// NOTE: no truffle painter here — the pig's truffle IS the forage truffle,
+// which already registers its own nut-silhouette painter (and a pixel sprite),
+// so re-adding one would be dead/competing code.
+
 const PAINTERS: Record<string, IconPainter> = {
   fish: paintFish,
   coins: paintCoinPouch,
@@ -722,6 +781,12 @@ const PAINTERS: Record<string, IconPainter> = {
   boot: paintBoot,
   tin: paintTin,
   rope: paintRope,
+  // animal produce (barn collection loop) — code fallbacks; pixel icons override.
+  // (truffle is intentionally absent: it reuses the forage truffle's icon/sprite.)
+  milk: paintMilk,
+  egg: paintEgg,
+  duck_egg: paintDuckEgg,
+  wool: paintWool,
   // Part C content-library commit 2: 15 forward-content tool/accessory icons
   "watering-can": paintWateringCan,
   basket: paintBasket,

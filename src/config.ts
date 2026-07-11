@@ -73,6 +73,14 @@ export const COW_PRICE = 175;           // livestock (price anchor: first cow 15
 // Part C content-library commit 2: three more barn-gated animals, priced on
 // the same anchor scale between the hen (45) and the cow (175).
 export const DUCK_PRICE = 35, PIG_PRICE = 90, SHEEP_PRICE = 110;
+// Animal-produce daily yield (the barn's collection loop, VISION §122): a fed,
+// owned animal leaves ONE base good in the barn each morning. Per-unit SELL
+// prices on the VISION anchor scale — an egg is a coin or two, milk a modest
+// staple, wool a bit more. Base produce only (no cheese/cloth crafting — that's
+// a v3+ chain, out of scope). Data (id/name/species) lives in data/produce.ts.
+// NOTE: the pig's produce is the EXISTING forage truffle (data/forage.ts, price
+// 18) — it has no entry here so there stays exactly one truffle price/sell path.
+export const PRODUCE_PRICES = { milk: 12, egg: 4, duck_egg: 5, wool: 14 } as const;
 // Farm plot expansions: above fence-repair scale (10), at animal-tier spends —
 // tier 1 lands between hen and cow, tier 2 at cow tier. Each adds 22 tiles (+20%).
 export const PLOT_EXPANSION_PRICES = [120, 180] as const;
@@ -659,6 +667,7 @@ export const LIVESTOCK_KEY = "wildhearth-livestock-v1"; // owned animals (no-fre
 export const PLOTS_KEY = "wildhearth-plots-v1";      // field state incl. crops/watering (crop-variety block)
 export const GARDEN_KEY = "wildhearth-garden-v1";    // ornamental flower beds (base-skill-set block)
 export const STORAGE_KEY = "wildhearth-storage-v1";  // barn storage chest (R5 — the barn's first real use)
+export const PRODUCE_KEY = "wildhearth-produce-v1";  // animal-produce state: fed-today flags + overnight pending/delivered (barn collection loop)
 export const COLLECTIONS_KEY = "wildhearth-collections-v1"; // Memory Book: discoveries
 export const MEMORIES_KEY = "wildhearth-memories-v1";       // Memory Book: life events
 export const NEEDS_KEY = "wildhearth-needs-v1";             // 7 needs (hunger/thirst/energy/hygiene/bathroom/mood/social)

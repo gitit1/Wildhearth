@@ -29,6 +29,77 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Barn does something — animal-produce collection loop (feed → overnight yield → collect at the barn)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** owner directive — "the barn must DO something, it isn't really
+  used." Until now the barn was only a 24-slot chest. This builds the core loop
+  `VISION.md` §122 describes: feed your owned animals → the next morning they
+  leave produce → you collect it at the barn. BASE produce only; milk→cheese /
+  wool→cloth crafting chains stay a v3+ feature (`docs/ROADMAP_TO_V5.md`), out
+  of scope.
+- **What shipped (player-facing):**
+  - Feeding any owned animal now marks that **species "fed today"** (persisted).
+  - On each **new-day rollover**, every fed, owned species drops its base
+    produce into the **barn storage**: cow → 1× `milk`, each hen → `egg`, each
+    duck → `duck_egg`, each sheep → `wool`, each pig → `truffle`; fed flags then
+    clear. A toast announces it ("Your animals left produce in the barn
+    overnight. 1× Milk, 2× Egg 🥚").
+  - Opening the **barn window** shows a gold banner at the top — "Your animals
+    left: 1× Milk, 2× Egg." — cleared once shown. The existing list/withdraw UI
+    is the collection UX.
+  - The 5 produce items are **real sellable goods** (farm stall + town
+    greengrocer), priced in `config.ts`.
+  - If the barn's 24 shelves are full, overflow is **held as pending** (retried
+    next rollover) — never silently lost.
+- **What shipped (code):**
+  - New `src/systems/animalProduce.ts` — own versioned, junk-tolerant save
+    (`PRODUCE_KEY = "wildhearth-produce-v1"`, added to `config.ts` + `GAME_KEYS`
+    in `src/systems/saves.ts` so New Game wipes it; old saves with no key load as
+    unfed / nothing pending). State: `fed` flags, `pending` overflow,
+    `delivered` tally. Fns: `loadAnimalProduce`/`saveAnimalProduce`/
+    `resetAnimalProduce`, `markFed`, `collectMorningProduce`, `hasDelivered`,
+    `takeDelivered`.
+  - New `src/data/produce.ts` — `ANIMAL_PRODUCE` species→item table (single
+    source of truth) + `NEW_PRODUCE` (the 4 genuinely-new items) + `PRODUCE_SPECIES`.
+  - `src/config.ts` — `PRODUCE_PRICES` (milk 12 / egg 4 / duck_egg 5 / wool 14)
+    and `PRODUCE_KEY`.
+  - `src/systems/inventory.ts` `ITEM_NAMES`, `src/systems/economy.ts`
+    `GOOD_PRICES`, `src/systems/sellCategories.ts` (greengrocer `produce`
+    basket) all register from `NEW_PRODUCE`.
+  - `src/art/icons.ts` — 4 code-painter fallbacks (`milk` bottle, `egg`,
+    `duck_egg`, `wool` bundle); pixel icons under `assets/pixellab/icons/<id>`
+    override via the existing `drawItemIcon` seam.
+  - `src/systems/interact.ts` — the `feed` action calls new
+    `InteractCtx.feedAnimal(kind)`.
+  - `src/ui/storagewindow.ts` + `index.html` — `#storageNote` banner +
+    `setStorageNote()`.
+  - `src/main.ts` — loads produce state; fires `collectMorningProduce` in the
+    new-day block of `stepGameMinute` (so a slept/collapsed night rolls it too);
+    `produceSummary()` helper; `openBarnStorage` surfaces + clears the note;
+    `makeCtx().feedAnimal`; reset + save wiring; DEV-only `__wh` hooks
+    (`giveAnimal`, `feedSpecies`, `barnStacks`, `openBarn`, `priceOf`, `sellAll`,
+    `fillBarn`, `animalProduce`) for headless verification.
+- **Truffle id collision — reconciled:** the pig's `truffle` is the SAME item
+  the player forages (`src/data/forage.ts`, price **18**, own name/icon/sprite).
+  `data/produce.ts` flags it `existing` and EXCLUDES it from every registration
+  spread (`NEW_PRODUCE`), and it has no `PRODUCE_PRICES` entry — so there stays
+  exactly one `truffle` with one price and one sell path. The pig loop only maps
+  the species onto that existing id. No second/competing truffle painter.
+- **Verified (headless, puppeteer-core + Edge, `window.__wh`):** full loop —
+  grant cow+2 hens+1 duck, feed cow+hens only, `sleep()` a day → barn holds
+  `milk×1, egg×2`, duck (unfed) produced nothing (**fed gate works**), fed flags
+  cleared. Barn window screenshot shows the gold "Your animals left: 1× Milk, 2×
+  Egg." banner + the produce
+  (`scratchpad/barn-produce/barn-window-with-produce.png`). Zero-animals game
+  sleeps with no crash / empty barn. Old save (no produce key) loads unfed.
+  Barn-full → milk held pending (not in barn, not lost). Truffle single-price:
+  `priceOf("truffle")===18`, foraged truffle sells 18, pig-produce truffle sells
+  18; new produce priced 12/4/5/14. `npm run build` green.
+- **Follow-ups:** the pig truffle uses the forage nut silhouette / existing
+  sprite (intentional — same item). Optional later: a small Husbandry bump on
+  collecting (not added — kept the gain on feeding only). Crafting chains
+  (cheese/cloth) remain v3+.
+
 ## everything-pixels — seed-packet icons (the last category; item icons now 100% sprite)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** the final code-painted item-icon category. Completes the

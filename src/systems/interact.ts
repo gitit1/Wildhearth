@@ -67,6 +67,7 @@ export interface InteractCtx {
   memory: (key: string, text: string) => void;   // once-only Memory Book events
   expandFarm: () => void;                        // materialize a just-bought plot tier
   openStorage: () => void;                        // open the barn's storage chest (R5)
+  feedAnimal: (kind: AnimalKind) => void;         // mark a species fed today (barn produce loop)
   openGiftFor: (n: Npc) => void;                 // open the gift chooser for an NPC (Relationship engine)
   doInteraction: (n: Npc, it: InteractionDef) => void;  // run a categorized social interaction
   openNpcTrade: (trade: NpcStallTrade) => void;   // opens the sell-only window for an NPC-specialty stall
@@ -649,6 +650,7 @@ export function registerAnimal(kind: AnimalKind, a: Cow | Hen | Duck | Pig | She
           }
           removeItem(c.economy.inv, FEED_GAIN_ITEM, 1);
           saveEconomy(c.economy);
+          c.feedAnimal(kind);   // fed today → this species leaves produce in the barn come morning
           c.toast(eatLine);
           const gained = gainSkill(c.skills, "husbandry", moodPerfMult(c.needs));
           if (gained > 0) c.skillPopup("husbandry", gained);
