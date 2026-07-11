@@ -952,7 +952,10 @@ export function drawRod(g: CanvasRenderingContext2D, hand: [number, number], t: 
   g.beginPath(); g.moveTo(tipX, tipY); g.lineTo(tipX + 4 * s, hy + 12 * s + Math.sin(t * 5) * 2); g.stroke();
 }
 
-function drawHoe(g: CanvasRenderingContext2D, rHand: [number, number], lHand: [number, number], s: number) {
+/** The hoe (also reused as a sprite-path prop overlay for the player — see
+ *  art/spriteChar.ts). Handle runs from the upper (lHand) to the lower (rHand)
+ *  grip; the blade sits at the lower end. */
+export function drawHoe(g: CanvasRenderingContext2D, rHand: [number, number], lHand: [number, number], s: number) {
   const [hx, hy] = rHand;
   const topX = lHand[0] - 4 * s, topY = lHand[1] - 12 * s;
   const botX = hx + 6 * s, botY = hy + 12 * s;
@@ -964,7 +967,10 @@ function drawHoe(g: CanvasRenderingContext2D, rHand: [number, number], lHand: [n
   g.restore();
 }
 
-function drawLute(g: CanvasRenderingContext2D, ux: number, chestY: number, s: number) {
+/** The lute (also reused as a sprite-path prop overlay for the player — see
+ *  art/spriteChar.ts). Body sits at (ux, chestY) with the neck up toward the
+ *  facing shoulder. */
+export function drawLute(g: CanvasRenderingContext2D, ux: number, chestY: number, s: number) {
   g.save(); g.translate(ux + 3.5 * s, chestY + 7 * s); g.rotate(0.55);
   g.strokeStyle = "#7a4e20"; g.lineWidth = 2.4 * s; g.lineCap = "round";
   g.beginPath(); g.moveTo(1 * s, -1 * s); g.lineTo(13 * s, -9 * s); g.stroke();
@@ -976,7 +982,9 @@ function drawLute(g: CanvasRenderingContext2D, ux: number, chestY: number, s: nu
   g.restore();
 }
 
-function drawBasket(g: CanvasRenderingContext2D, hand: [number, number], s: number) {
+/** The foraging basket (also reused as a sprite-path prop overlay for the
+ *  player — see art/spriteChar.ts). Drawn at the given hand/hip anchor. */
+export function drawBasket(g: CanvasRenderingContext2D, hand: [number, number], s: number) {
   const [hx, hy] = hand;
   g.fillStyle = "#b98a4e";
   roundR(g, hx - 4 * s, hy - 1 * s, 8 * s, 5 * s, 1.5 * s); g.fill(); outline(g);

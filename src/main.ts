@@ -188,7 +188,7 @@ import {
 import { questById as questDefById } from "./data/quests";
 import type { QuestDialogueOption, QuestPickResult } from "./ui/dialoguebox";
 import { rigFromCharacter } from "./entities/player";
-import type { RigParams } from "./art/rig";
+import type { RigParams, PoseName } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
 import { paintDayNightTint, shadowFactors } from "./art/daynight";
 import { setSunFactors, getSunFactors } from "./art/shapes";
@@ -281,6 +281,11 @@ let playerRigParams: RigParams = rigFromCharacter(meta.character);
 // Does the heroine sprite cover this Character (default female look)? If not
 // (male / customised), the code rig draws her — recomputed on New Game below.
 let playerUsesSprite = spriteCoversCharacter(meta.character);
+// Dev/verification only (null in normal play): pins the player's action pose so a
+// headless harness can screenshot the fishing/hoeing/foraging/busking look
+// without having to walk to a spot and trigger the real activity. Set via
+// __wh.forcePose; overridden by nothing in gameplay.
+let devForcedPose: PoseName | null = null;
 // the matrix sprite reads the live look from module state (RigParams can't carry
 // the gender + matrix selection); keep it in sync on boot and every New Game.
 setPlayerLook(meta.character?.gender ?? "female", meta.character?.appearance ?? DEFAULT_APPEARANCE);
@@ -490,6 +495,23 @@ if (import.meta.env.DEV)
       return meta.character.appearance.bodySize;
     },
     coversChar: (c: Character | null) => spriteCoversCharacter(c),
+    // action-pose verification: pin/clear the player's pose (fishing/hoeing/
+    // foraging/busking/talking/idle/walking) so the sprite's action overlay can
+    // be screenshotted without staging the real activity. null = back to live.
+    forcePose: (name: PoseName | null) => { devForcedPose = name; return devForcedPose; },
+    // set the LIVE player's matrix look in place (gender + hair + outfit + shade)
+    // for A/B verification across two chosen characters. Re-resolves her sheet.
+    setLook: (gender: "female" | "male", matrixHair: string, matrixOutfit: string, hairShade: number) => {
+      if (!meta.character) return null;
+      const a = meta.character.appearance;
+      meta.character.gender = gender;
+      a.matrixHair = matrixHair as typeof a.matrixHair;
+      a.matrixOutfit = matrixOutfit;
+      a.hairShade = hairShade;
+      setPlayerLook(gender, a);
+      playerUsesSprite = spriteCoversCharacter(meta.character);
+      return { gender, matrixHair, matrixOutfit, hairShade, usesSprite: playerUsesSprite };
+    },
     spritesReady: () => spritesReady(),
     spriteProgress: () => spriteLoadProgress(),
     shadowFactorsNow: () => shadowFactors(calendar.hour, calendar.minute),
@@ -2455,13 +2477,15 @@ function tick(now: number) {
     { npcId: nearNpcId },
   );
   // the player's action-pose for this frame, derived from the live activity
-  // flags (no separate state machine) — the rig paints whatever it reads here
-  player.pose =
-    fishing.casting  ? "fishing" :
+  // flags (no separate state machine) — the rig/sprite paints whatever it reads
+  // here. `devForcedPose` (dev bridge, null in normal play) lets a verification
+  // harness pin a pose to screenshot the action look without staging the spot.
+  player.pose = devForcedPose ??
+    (fishing.casting  ? "fishing" :
     foraging.picking ? "foraging" :
     farmwork.working ? "hoeing" :
     busking.playing  ? "busking" :
-    player.moving    ? "walking" : "idle";
+    player.moving    ? "walking" : "idle");
 
   updateHud(economy, wc.calendar, wc.weather, isFestivalDay(calendar)?.name);
   updateNeedsStrip(wc.needs, time);

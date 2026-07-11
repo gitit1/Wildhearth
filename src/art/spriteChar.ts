@@ -33,7 +33,7 @@ import {
   CHARACTER_SPRITES_PRIMARY, SPRITE_MATRIX_SKIN,
 } from "../config";
 import { type Appearance, type BodySize, type Character, type Gender, type MatrixHair } from "../systems/meta";
-import type { Facing } from "./rig";
+import { drawRod, drawHoe, drawLute, drawBasket, type Facing, type PoseName } from "./rig";
 import type { Player } from "../entities/player";
 
 // ---- creator option tables (exported for ui/charcreation.ts) --------------
@@ -205,26 +205,103 @@ function blitMatrix(g: CanvasRenderingContext2D, fr: MatrixFrame, sheetId: strin
 const DIR4: Record<0 | 1 | 2 | 3, "north" | "east" | "south" | "west"> =
   { 0: "north", 1: "east", 2: "south", 3: "west" };
 
+// ---- action poses: the sprite stays HER, code tools overlay ---------------
+// The owner's complaint: performing an action (fishing/hoeing/foraging/busking)
+// dropped her CHOSEN sprite to the code rig — an identity swap mid-play. The fix
+// (this section): during an action she stays her matrix sprite (the facing's
+// static rotation frame) with (a) a subtle code-driven action RHYTHM — a small
+// bob/dip/lean keyed to the SAME timers the rig's poseLimbs use — and (b) the
+// existing code tool painters (drawRod/drawHoe/drawLute/drawBasket) drawn over
+// the sprite at hand-appropriate anchors. This mirrors the proven NPC precedent
+// (art/spriteNpc.ts drawNpcProps: Finn's static sprite + a code rod). The rig is
+// still the zero-PNG fallback — never an identity swap.
+//
+// Anchors are expressed in world px UP from the sprite's foot line (negative y =
+// up, matching the canvas after we translate to the foot). They're tuned to the
+// ~48px-tall matrix silhouette, not the shorter rig, so they read on the sprite.
+const ACTION_POSES = new Set<PoseName>(["fishing", "hoeing", "foraging", "busking", "talking"]);
+const TOOL_S = 1.0;              // tool painters were tuned at rig scale 1; the sprite footprint matches closely
+// hand/anchor heights above the foot line (world px)
+const A_FISH_HAND: [number, number] = [7, -19];    // rod grip: forward, chest height
+const A_HOE_TOP: [number, number]   = [4, -24];    // upper grip (near chest)
+const A_HOE_BOT_X = 11, A_HOE_BOT_Y = -15;         // lower grip (forward hip), dips on the swing
+const A_FORAGE_HAND: [number, number] = [9, -13];  // basket at the hip, forward
+const A_LUTE: [number, number] = [2, -23];         // lute body across the lower chest
+
+/** Draw the action rhythm + tool over the already-resolved sprite frame. The
+ *  sprite itself is blitted here (swayed/dipped by the pose's rhythm) so the
+ *  tool anchors track the body. `t` is wall-clock seconds — the same clock the
+ *  rig's poseLimbs read, so the cadence matches the rig fallback. */
+function drawActionSprite(
+  g: CanvasRenderingContext2D, p: Player, fr: MatrixFrame, sheetId: string, pose: PoseName, t: number,
+) {
+  const footY = p.y + SPRITE_PLAYER_FOOT_DY;
+  const fwd = p.dir === 3 ? -1 : 1;   // west faces left → mirror the tool
+
+  // body rhythm: a small offset keyed to the pose's own beat (matches the rig)
+  let dx = 0, dy = 0;
+  switch (pose) {
+    case "fishing":  dy = Math.sin(t * 2) * 0.5; break;                       // gentle rod bob
+    case "hoeing":   dy = Math.max(0, Math.sin(t * 4.2)) * 2.4; break;        // dip on the down-swing
+    case "foraging": dy = 1.8 + Math.sin(t * 3) * 0.4; break;                 // stooped, small dig
+    case "busking":  dx = Math.sin(t * 2) * 1.4; break;                       // sway to the tune
+    case "talking":  dy = Math.sin(t * 2) * 0.5; break;                       // idle-ish (player never poses this; safe)
+  }
+  const bx = p.x + dx;
+  blitMatrix(g, fr, sheetId, bx, footY + dy, 1);
+
+  // tools drawn over the sprite, mirrored for a west facing
+  g.save();
+  g.translate(bx, footY + dy);
+  g.scale(fwd, 1);
+  switch (pose) {
+    case "fishing":
+      drawRod(g, A_FISH_HAND, t, TOOL_S);
+      break;
+    case "hoeing": {
+      const down = Math.max(0, Math.sin(t * 4.2));
+      drawHoe(g, [A_HOE_BOT_X, A_HOE_BOT_Y + down * 10], A_HOE_TOP, TOOL_S);
+      break;
+    }
+    case "foraging":
+      drawBasket(g, [A_FORAGE_HAND[0], A_FORAGE_HAND[1] + Math.sin(t * 3) * 1.0], TOOL_S);
+      break;
+    case "busking":
+      drawLute(g, A_LUTE[0], A_LUTE[1], TOOL_S);   // music notes are drawn by main.ts while busking
+      break;
+    // talking → no tool
+  }
+  g.restore();
+}
+
 // ---- draw: in-world player ------------------------------------------------
 /**
  * Draw the player from her chosen matrix combo (hair recoloured). Returns false
- * (drawing NOTHING) when matrix mode is off, the look isn't covered, the pose
- * has no sprite coverage, or the needed frame hasn't decoded yet — the caller
- * then draws the code rig (which paints its own shadow). When it DOES draw, it
- * paints the same under-ellipse + cast shadow the rig would.
+ * (drawing NOTHING) when matrix mode is off, the look isn't covered, or the
+ * needed frame hasn't decoded yet — the caller then draws the code rig (which
+ * paints its own shadow). When it DOES draw, it paints the same under-ellipse +
+ * cast shadow the rig would.
+ *
+ * Walk/idle use the walk cycle / static rotation. ACTION poses (fishing /
+ * hoeing / foraging / busking / talking) ALSO stay the sprite — the facing's
+ * rotation frame + a code action rhythm + a code tool overlay (drawActionSprite)
+ * — so the player never turns into the rig mid-action (the owner's complaint).
+ * Only a pose with NO sprite handling (e.g. sleeping, which the player never
+ * enters) or an undecoded frame still falls through to the rig.
  */
-export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, _t: number): boolean {
+export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, t: number): boolean {
   if (!spriteEnabled || !playerAppear) return false;
   const a = playerAppear, gender = playerGender;
   if (!spriteCoversLook(gender, a)) return false;
-  const kind = p.pose === "walking" ? "walk" : p.pose === "idle" ? "idle" : null;
-  if (!kind) return false;   // fishing / hoeing / foraging / busking / sleeping → rig
+  const isWalk = p.pose === "walking";
+  const isAction = ACTION_POSES.has(p.pose);
+  if (!isWalk && p.pose !== "idle" && !isAction) return false;   // sleeping etc. → rig
 
   const sheetId = matrixSheetId(gender, sizeFor(a), hairFor(a), outfitFor(gender, a));
   const dir = DIR4[p.dir];
-  const frameName = kind === "walk"
+  const frameName = isWalk
     ? `walk_${dir}_${walkFrame(p.dist, SPRITE_WALK_STRIDE, WALK_FRAMES)}`
-    : `rot_${dir}`;   // no baked idle → the static rotation stands in
+    : `rot_${dir}`;   // no baked idle/action → the static rotation stands in
 
   // resolve readiness BEFORE the shadows so a not-yet-decoded frame doesn't
   // double-shadow with the rig fallback
@@ -233,7 +310,8 @@ export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, _t: num
 
   castShadow(g, p.x, p.y + 13, 7, 13);
   shadow(g, p.x, p.y + 13, 10, 4.3);
-  blitMatrix(g, fr, sheetId, p.x, p.y + SPRITE_PLAYER_FOOT_DY, 1);
+  if (isAction) drawActionSprite(g, p, fr, sheetId, p.pose, t);
+  else blitMatrix(g, fr, sheetId, p.x, p.y + SPRITE_PLAYER_FOOT_DY, 1);
   return true;
 }
 

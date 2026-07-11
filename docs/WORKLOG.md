@@ -29,6 +29,72 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## character — actions keep HER sprite (no more mid-action rig swap)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Owner complaint (verbatim intent):** "הדמויות בפעולות הן לא הדמויות שבחרתי —
+  הן הופכות לפולבק שלהן" — when the player performs an ACTION (fishing / hoeing /
+  foraging / busking) her CHOSEN matrix sprite dropped to the code rig (the
+  straw-hat farmer), an identity swap mid-play. Root cause: `spriteChar.ts`
+  `drawPlayerSprite` returned `false` for any pose that wasn't walk/idle, so
+  `drawFarmer` drew the rig for those frames.
+- **Fix (identity-safe interim; may REMAIN as the fallback layer under the real
+  tier-2 PixelLab action animations when they land):** during an action she now
+  stays her matrix sprite. `drawPlayerSprite` handles fishing/hoeing/foraging/
+  busking/talking by drawing the facing's static rotation frame + a subtle
+  code-driven action RHYTHM (bob/dip/lean keyed to the SAME `t`-based timers the
+  rig's `poseLimbs` use) + the existing code tool painters over the sprite at
+  hand anchors. Mirrors the proven NPC precedent (`art/spriteNpc.ts` drawNpcProps
+  — Finn's static sprite + a code rod). The rig stays ONLY the zero-PNG /
+  no-coverage fallback (CLAUDE.md hard rule #1) — never an identity swap.
+- **Files / functions changed:**
+  - `src/art/spriteChar.ts` — new `drawActionSprite()` (blits the swayed sprite +
+    overlays the tool, mirrored for a west facing via `scale(fwd,1)`); new
+    `ACTION_POSES` set + local anchor constants (`A_FISH_HAND`, `A_HOE_TOP` /
+    `A_HOE_BOT_*`, `A_FORAGE_HAND`, `A_LUTE`, `TOOL_S`). `drawPlayerSprite` now
+    keeps the sprite for the action poses (was: return false → rig). Rhythms:
+    fishing gentle bob `sin(t·2)`; hoeing dips on the down-swing `max(0,sin(t·4.2))`
+    and the hoe grip drops on the same beat; foraging stoops + a small dig
+    `sin(t·3)`; busking sways `sin(t·2)` (music notes still drawn by main.ts).
+  - `src/art/rig.ts` — EXPORTED `drawHoe` / `drawLute` / `drawBasket` (were
+    file-private; `drawRod` was already exported) so the sprite path can reuse the
+    exact same tool painters. No behavior change to the rig.
+  - `src/main.ts` — pose assignment reads an optional `devForcedPose` (null in
+    normal play). Two dev/verification bridges added to `__wh` (consistent with
+    the existing A/B hooks): `forcePose(pose|null)` pins a pose for screenshots,
+    `setLook(gender,hair,outfit,shade)` swaps the live matrix look in place. These
+    are inert in gameplay and also serve the coming tier-2 action-anim verify.
+- **Verified (fable-mode, headless Edge/puppeteer-core; screenshots in scratchpad
+  `action-fix/`):** two looks — (A) female / long / golden-blonde / rust dress,
+  (B) male / short / espresso / denim overalls — screenshotted across idle +
+  fishing + hoeing + foraging + busking, south/east/west facings. In BOTH looks
+  the on-screen character is visibly the SAME chosen sprite in every action
+  (same silhouette/outfit as her idle), with the tool present (rod out, hoe angled
+  to the ground, basket at the hip, lute across the chest) and a readable rhythm;
+  the west facing mirrors the tool correctly; walk↔action doesn't pop (action &
+  idle share the static rotation frame). Forcing the rig (`__wh.spriteMode(false)`)
+  still draws the straw-hat rig cleanly for actions — the zero-PNG fallback is
+  intact. `npm run build` green.
+- **Follow-ups:**
+  - **PRE-EXISTING BUG found in verification (NOT this change; affects male
+    idle/walk too — same recolor path):** the MALE matrix sprites' keyed hair is
+    baked at hue ≈320 (magenta), but the runtime purple→natural recolor bands in
+    `spriteChar.ts` only cover hue 240–305 (`PURPLE_BAND` 240–300 + `PURPLE_BAND_SOFT`
+    255–305). So male hair is never recoloured and shows raw magenta regardless of
+    the chosen shade. Female hair (measured p50 hue ≈282) is in-band and recolours
+    correctly. Fix = widen the purple bands' `hueMax` toward ~330 — BUT this needs
+    a dedicated verification pass: a naive widen also catches trailing hair (fine)
+    AND risks skin-blush / any warm outfit at that hue, so it must be checked
+    across all male combos × 3 shades before shipping. Measured, not guessed
+    (`pngjs` hue histograms over the sheets). Its own targeted fix, not folded in
+    here.
+  - Tier-2 real PixelLab action animations are being probed separately; this
+    code-tool overlay is the identity-safe interim and is designed to sit UNDER
+    them as the fallback (rig remains the zero-PNG floor below both).
+  - Minor art: the busking lute sits a touch large/low over the apron (reads as a
+    held instrument, acceptable); a NORTH-facing action draws the tool over her
+    back (rare — fishing/hoeing normally face the work). Both easy anchor tweaks
+    if the owner wants them.
+
 ## character — Small/Large body sizes go live in the creator (matrix phase 2)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Scope:** Light up the reserved Body Size axis (S/M/L). Phase-2 of the sprite
