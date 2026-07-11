@@ -32,6 +32,19 @@ export const ROD_PRICE = 12;            // shop: fishing rod (basic-tool tier, s
 export const JUNK_CHANCE_BASE = 0.35;   // junk-catch odds at Fishing 0...
 export const JUNK_CHANCE_MIN = 0.05;    // ...falling to this at Fishing 100
 
+// ---- Rod tiers + bait (v2 BLOCK #6 slice 2 — the Riverside Fisherwoman's gear).
+//      Rods scale up from the basic 12c tool; bait sits on VISION's price table
+//      ("cheap 2-3 / rare-shifting 8-12"). The Master Rod is trust-gated: Nerys
+//      only sells it once she trusts your technique — a lesson count OR a proven
+//      Fishing skill (slice 3 wires the lessons). Data lives in
+//      data/fishinggear.ts; these are the tuning knobs. ------------------------
+export const RIVER_ROD_PRICE = 30;      // Nerys' better rod (upper basic-tool band)
+export const MASTER_ROD_PRICE = 75;     // her own make — a mid-game sink, trust-gated
+export const BAIT_WORMS_PRICE = 3;      // cheap everyday bait (VISION "cheap 2-3")
+export const BAIT_SPINNER_PRICE = 10;   // rare-shifting lure (VISION "rare-shifting 8-12")
+export const MASTER_ROD_LESSONS = 3;    // lessons from Nerys that earn her trust for the Master Rod...
+export const MASTER_ROD_SKILL = 55;     // ...or a Fishing skill high enough that she trusts it anyway
+
 export const FORAGE_TIME = 1.2;         // seconds to pick a bush (per-item prices live in data/forage.ts)
 export const BUSH_RESPAWN = 25;         // seconds until a picked bush regrows
 export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds a bonus chance)

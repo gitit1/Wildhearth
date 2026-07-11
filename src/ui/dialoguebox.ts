@@ -54,6 +54,11 @@ export interface DialogueHooks {
   /** Quest offers / turn-ins to surface as extra opening choices for this NPC
    *  (R6). Empty/absent → no quest choices (the dialogue tree is unchanged). */
   questOptions?: (npcId: string) => QuestDialogueOption[];
+  /** NPC-specific service options to surface on the opening turn (v2 BLOCK #6):
+   *  a vendor NPC's "browse my wares" / "teach me" beats. Same generic
+   *  QuestDialogueOption shape as quest offers. Empty/absent → no service
+   *  choices. Rendered after the quest options, before the authored choices. */
+  serviceOptions?: (npcId: string) => QuestDialogueOption[];
 }
 
 /** A dynamic quest-related choice injected into the giver's opening turn (R6).
@@ -173,6 +178,13 @@ function questButtons(): Button[] {
   return hooks.questOptions(def.id).map((opt) => ({ label: opt.label, onClick: () => runQuestOption(opt) }));
 }
 
+/** Vendor-NPC service buttons (v2 BLOCK #6): "browse my wares" / "teach me",
+ *  shown after quest options. Same run path as a quest option. */
+function serviceButtons(): Button[] {
+  if (!def || !hooks.serviceOptions) return [];
+  return hooks.serviceOptions(def.id).map((opt) => ({ label: opt.label, onClick: () => runQuestOption(opt) }));
+}
+
 /** Run a picked quest option: show the NPC's reply, then its follow-up options
  *  (Accept / Not now) plus a way back to the conversation and out. */
 function runQuestOption(opt: QuestDialogueOption) {
@@ -186,7 +198,7 @@ function runQuestOption(opt: QuestDialogueOption) {
 /** The full opening button row: quest options first, then the authored/meta
  *  choices mapped to buttons. */
 function openingButtons(root: DialogueChoice[]): Button[] {
-  return [...questButtons(), ...openingChoices(root).map((c) => ({ label: c.label, onClick: () => choose(c) }))];
+  return [...questButtons(), ...serviceButtons(), ...openingChoices(root).map((c) => ({ label: c.label, onClick: () => choose(c) }))];
 }
 
 /** Open a conversation with `def`: resolve the condition-keyed opening line and

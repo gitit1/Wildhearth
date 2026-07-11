@@ -8,6 +8,7 @@ import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
 import { saveFarm, repairsLeft, type FarmState, type FarmPart } from "./renovation";
 import { startCast, type FishingState } from "./fishing";
+import { computeCastGear, ownsAnyRod } from "./fishinggear";
 import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
 import { startBusk, type BuskingState } from "./busking";
@@ -15,6 +16,7 @@ import { startCook, cookableRecipes, type CookingState } from "./cooking";
 import { saveGarden, plantBed, harvestBed, type Garden } from "./gardening";
 import { countItem, removeItem, addItem, ITEM_NAMES } from "./inventory";
 import { skillValue, gainSkill, type Skills } from "./skills";
+import type { FishLocation } from "../data/fish";
 import { FLOWERS, flowerById, flowerBySeed } from "../data/flowers";
 import { currentSeason } from "./calendar";
 import {
@@ -79,6 +81,19 @@ function busy(c: InteractCtx): boolean {
   return c.fishing.casting || c.foraging.picking || c.farmwork.working || c.busking.playing || c.cooking.cooking;
 }
 
+/** Start a cast with the player's current gear (v2 BLOCK #6 slice 2): resolve the
+ *  best owned rod + cheapest held bait into this cast's bite-speed/quality/rare
+ *  bonuses, spend one unit of that bait, and hand the quality/rare bonus to the
+ *  fishing state so the catch rolls with the same gear. */
+function beginCast(c: InteractCtx, location: FishLocation) {
+  const skill = skillValue(c.skills, "fishing");
+  const gear = computeCastGear(c.economy.inv, skill);
+  if (gear.consumeBaitId) { removeItem(c.economy.inv, gear.consumeBaitId, 1); saveEconomy(c.economy); }
+  startCast(c.fishing, skill, location, gear.biteMult, { qualityBonus: gear.qualityBonus, rareBias: gear.rareBias });
+  c.player.fishing = true;
+  if (gear.baitName) c.toast(`You bait the line with ${gear.baitName.toLowerCase()}.`);
+}
+
 export interface MenuAction { id: string; label: string; run: (c: InteractCtx) => void; }
 
 export type InteractScene = "world" | "interior";
@@ -111,9 +126,8 @@ const pond: Interactable = {
       run: (c) => {
         if (busy(c)) return;
         // fishing is a hard tool gate (unlike bare-hand foraging) — no rod, no cast
-        if (countItem(c.economy.inv, "rod") === 0) { c.toast("You need a fishing rod — the stall sells one."); return; }
-        startCast(c.fishing, skillValue(c.skills, "fishing"), "pond");
-        c.player.fishing = true;
+        if (!ownsAnyRod(c.economy.inv)) { c.toast("You need a fishing rod — the stall sells one."); return; }
+        beginCast(c, "pond");
       },
     },
     { id: "look", label: "Look", run: (c) => c.toast("A calm pond. Fish glint below the surface.") },
@@ -137,9 +151,8 @@ function makeFishSpot(s: FishSpot): Interactable {
         id: "fish", label: "Fish",
         run: (c) => {
           if (busy(c)) return;
-          if (countItem(c.economy.inv, "rod") === 0) { c.toast("You need a fishing rod — the market sells one."); return; }
-          startCast(c.fishing, skillValue(c.skills, "fishing"), s.loc);
-          c.player.fishing = true;
+          if (!ownsAnyRod(c.economy.inv)) { c.toast("You need a fishing rod — the market sells one."); return; }
+          beginCast(c, s.loc);
         },
       },
       { id: "look", label: "Look", run: (c) => c.toast(`A good spot to cast into ${label}.`) },

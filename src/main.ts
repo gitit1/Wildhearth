@@ -142,6 +142,9 @@ import { initMinimap, updateMinimap, setMinimapField, setTravelHooks } from "./u
 import {
   initStableWindow, openStableWindow, closeStableWindow, isStableOpen, updateStableWindow,
 } from "./ui/stablewindow";
+import {
+  initFisherWindow, openFisherWindow, closeFisherWindow, isFisherOpen, updateFisherWindow,
+} from "./ui/fisherwindow";
 import { initSkillsUI, updateSkillsUI, skillGainPopup, updateReputationUI } from "./ui/skills";
 import {
   initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow, openMerchantBuyWindow,
@@ -712,6 +715,7 @@ initDialogue({
   recentScripted: (id) => aiCtx.enabled("memory") ? antiRep.recentScripted(id) : new Set<string>(),
   recordScripted: (id, text) => { if (aiCtx.enabled("memory")) antiRep.recordScripted(id, text); },
   questOptions: questOptionsFor,   // R6: quest offers / turn-ins as dialogue choices
+  serviceOptions: serviceOptionsFor,   // v2 BLOCK #6: Nerys' gear shop + lessons
   onOpen: (def) => {
     const n = npcById(npcs, def.id);
     if (n) startTalking(n, player.x, player.y);
@@ -851,6 +855,16 @@ initStableWindow({
   isMounted: () => mounted,
   canMount: () => canMountNow(),
   toggleMount,
+});
+// v2 BLOCK #6 slice 2: the Riverside Fisherwoman's gear shop (rods + bait).
+// `lessonCount` is 0 until slice 3 wires teaching; the Master Rod is then also
+// reachable via a proven Fishing skill (MASTER_ROD_SKILL).
+initFisherWindow({
+  economy,
+  fishingSkill: () => skillValue(skills, "fishing"),
+  lessonCount: () => 0,   // slice 3 wires this to the teaching ledger (lessonsTaken)
+  toast, memory: remember,
+  logPurchase: (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); },
 });
 // R6: the quest-log window (a window-system citizen like the backpack). Its
 // "Getting Started" panel mirrors the live Guidance layer so tutorial/aspiration
@@ -1679,6 +1693,23 @@ function questOptionsFor(npcId: string): QuestDialogueOption[] {
   return opts;
 }
 
+/** v2 BLOCK #6 slice 2-3: vendor NPC service options on the opening dialogue turn.
+ *  Only Nerys, the Riverside Fisherwoman, has any — her gear shop (slice 2) and
+ *  her paid fishing lessons (slice 3). Same generic QuestDialogueOption shape the
+ *  quest offers use, so the dialogue box renders them with no special casing. */
+function serviceOptionsFor(npcId: string): QuestDialogueOption[] {
+  if (npcId !== "nerys") return [];
+  const opts: QuestDialogueOption[] = [];
+  opts.push({
+    label: "Show me your rods and bait",
+    pick: () => {
+      openFisherWindow();
+      return { line: "\"Everything a body needs to work this river. Take your time — no rushing the water.\"" };
+    },
+  });
+  return opts;
+}
+
 /** D3: surface a validated (or scripted-fallback) AI offer — store it so its
  *  giver offers it in dialogue, and drop a subtle nudge. Only ever called with
  *  the AI feature on (the generator is gated); with AI off nothing calls this. */
@@ -2118,6 +2149,12 @@ function tick(now: number) {
   if (isStorageOpen() && !nearRect(player.x, player.y, BARN)) closeStorageWindow();
   // walking away from the stable closes its transport shop (v2 block #5)
   if (isStableOpen() && !nearRect(player.x, player.y, STABLE)) closeStableWindow();
+  // walking away from Nerys closes her gear shop (v2 block #6) — she moves, so
+  // this reads her live position rather than a fixed rect
+  if (isFisherOpen()) {
+    const ner = npcById(npcs, "nerys");
+    if (!ner || ner.indoors || Math.hypot(player.x - ner.x, player.y - ner.y) > 96) closeFisherWindow();
+  }
 
   // A queued "walk there, then act" click fires once the player arrives in
   // reach. MUST run before this frame's left/right-click handling below: a
@@ -2193,7 +2230,10 @@ function tick(now: number) {
     burst("splash", ...bobberSpot());
     // what actually bit: species/junk table roll against skill, season, weather,
     // and WHERE the line was cast (pond / river / lake — set by the fishing spot)
-    const haul = resolveCatch(skillValue(skills, "fishing"), currentSeason(calendar), weather.kind, fishing.location);
+    const haul = resolveCatch(
+      skillValue(skills, "fishing"), currentSeason(calendar), weather.kind, fishing.location,
+      fishing.gear.qualityBonus, fishing.gear.rareBias,   // v2 BLOCK #6: rod + bait bonuses fixed at cast time
+    );
     const haulName = ITEM_NAMES[haul.id] ?? haul.id;
     if (gainItem(economy, haul.id)) {
       toast(haul.kind === "junk" ? `You fished up... ${haulName.toLowerCase()}.` : `Caught a ${haulName}! 🐟`);
@@ -2386,6 +2426,7 @@ function tick(now: number) {
   updateShopWindow();
   updateStorageWindow();
   updateStableWindow();
+  updateFisherWindow();
   updateMemoryBook();
   updateQuestLog();
   if (!openingActive) { tickGuidance(); tickQuests(); }   // guidance bubble/pill + live quest possession checks

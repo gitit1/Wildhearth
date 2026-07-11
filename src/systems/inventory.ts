@@ -5,6 +5,7 @@ import { CROPS } from "../data/crops";
 import { FORAGE } from "../data/forage";
 import { RECIPES } from "../data/recipes";
 import { FLOWERS } from "../data/flowers";
+import { ROD_TIERS, BAITS } from "../data/fishinggear";
 
 /**
  * Slot-based item store. Pure state + operations, no persistence —
@@ -54,6 +55,8 @@ export const ITEM_NAMES: Record<string, string> = {
   ...Object.fromEntries(RECIPES.map((r) => [r.id, r.name])),
   ...Object.fromEntries(FLOWERS.map((f) => [f.id, f.name])),         // cut flowers
   ...Object.fromEntries(FLOWERS.map((f) => [f.seedId, f.seedName])), // flower seed packets
+  ...Object.fromEntries(ROD_TIERS.map((r) => [r.id, r.name])),       // rod tiers (v2 BLOCK #6)
+  ...Object.fromEntries(BAITS.map((b) => [b.id, b.name])),           // bait
 };
 
 export function createInventory(size = INVENTORY_SLOTS): Inventory {

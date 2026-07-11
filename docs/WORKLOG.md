@@ -29,6 +29,70 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Fisherwoman — rod tiers + bait, bought from Nerys (v2 BLOCK #6, slice 2 of 4)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Doc-verified scope:** ROADMAP_TO_V5 §v2 ("rod tiers, bait system" in her deep
+  kit, line 49-50/302-303/348); VISION §fishing gear price table (line 296-300:
+  basic tool 20-30, "Bait cheap 2-3 / rare-shifting 8-12") + §skills ("Tools and
+  consumables require a skill floor to pay off, or they're wasted… a higher rod
+  tier… using any of these below the skill level they're meant for" is wasted,
+  line 235-238) + §economy ("better rod" opens loops). Built to those rules.
+- **New `src/data/fishinggear.ts`** — `ROD_TIERS` (basic `rod` tier 0, existing;
+  **River Rod** tier 1, 30c, Fishing-floor 15, +12 quality, 0.85× bite;
+  **Master Rod** tier 2, 75c, floor 40, +25 quality, 0.72× bite, `trustGated`)
+  and `BAITS` (**Worm Bait** 3c, 0.7× bite +4 quality; **Spinner Lure** 10c,
+  0.85× bite +10 quality +0.6 rare-bias, its own Fishing-floor 20). Rods are
+  unique items; bait stacks and is spent one unit per cast.
+- **New `src/systems/fishinggear.ts`** — the RULES: `bestRod(inv)` (highest owned
+  tier), `ownsAnyRod(inv)` (the fishing gate now opens on ANY rod, not only the
+  basic id), `pickBait(inv)` (spends the CHEAPEST held bait so a costly rare lure
+  is never auto-burned), and `computeCastGear(inv, skill)` → this cast's
+  `{biteMult, qualityBonus, rareBias, consumeBaitId}`. A rod's bonus applies
+  **only at/above its skillFloor** (below it the rod is wasted, per VISION); a
+  rare lure below its own floor still shortens the bite but grants no rare shift.
+- **`src/systems/fishing.ts`** — `FishingState` gains a `gear:{qualityBonus,
+  rareBias}` fixed at cast time; `startCast()` takes `biteMult` + `gear`;
+  `resolveCatch()` takes `qualityBonus` + `rareBias` and rolls at an EFFECTIVE
+  Fishing = `skill + qualityBonus` (so gear lowers junk odds AND brings higher-
+  skillFloor species into reach), with a new `weightedPickBiased()` that boosts
+  rarer (higher-floor) fish weight by `rareBias`.
+- **`src/systems/interact.ts`** — both Fish actions (pond + river/lake spots) now
+  go through a shared `beginCast(c, location)` that resolves gear, spends the
+  bait, and starts the cast with the bonuses; the gate check is `ownsAnyRod`.
+  `src/main.ts`'s catch resolution passes `fishing.gear.qualityBonus/rareBias`.
+- **`src/systems/inventory.ts`** — `ITEM_NAMES` now spreads `ROD_TIERS` + `BAITS`
+  so the new gear names itself in toasts / the bag.
+- **New `src/ui/fisherwindow.ts`** — her buy-only gear gump (a real wm scale-
+  window reusing the shared `shop-*`/`stable-*` chrome, no new CSS): rows for the
+  River Rod + Master Rod (unique; "Owned" once bought) and the two baits (stack;
+  shows how many you hold). The **Master Rod is trust-gated** — shown "Locked"
+  (disabled, with a tooltip) until Nerys trusts your technique: `MASTER_ROD_LESSONS`
+  (3, slice 3) lessons OR a proven `MASTER_ROD_SKILL` (Fishing 55). Opened from
+  her dialogue's new service option; walking away from her live position closes it.
+- **`src/ui/dialoguebox.ts`** — new generic `serviceOptions?(npcId)` hook (same
+  `QuestDialogueOption` shape as quest offers), rendered on the opening turn after
+  the quest options. `src/main.ts` `serviceOptionsFor("nerys")` surfaces "Show me
+  your rods and bait" → opens the gear window; wired into `initDialogue`,
+  `initFisherWindow`, the window-proximity close, and the live coin refresh.
+- **`src/config.ts`** — `RIVER_ROD_PRICE`/`MASTER_ROD_PRICE`/`BAIT_WORMS_PRICE`/
+  `BAIT_SPINNER_PRICE`/`MASTER_ROD_LESSONS`/`MASTER_ROD_SKILL` knobs.
+- **Verified:** (1) a node/esbuild logic harness (`scratchpad/v2-block6a/
+  gear-test.*`) — **23/23 asserts**: gate/bestRod, every `computeCastGear`
+  combination (wasted below floor, stacks, cheapest-bait preference), and a
+  20 000-sample `resolveCatch` odds check — with River-Rod+Spinner gear at
+  Fishing 20 junk fell **29.2%→22.3%** and rare (floor≥20) catches rose **0→
+  4 233** (the +22 effective skill + rare-bias reach pike/barbel/ide/rainbow
+  trout that raw skill-20 can't). (2) Live (headless Edge + `__wh`,
+  `scratchpad/v2-block6a/03-fisher-shop.png`): her dialogue surfaces the service
+  option first; it opens the gear window; buying River Rod + Worm Bait moved
+  coins 200→167 (−30 −3) and added `river_rod`×1 + `worms`×1; the Master Rod row
+  reads "Locked" (disabled) at 0 lessons / 0 skill; no console errors (only the
+  benign missing-sprite 404 fallback). `tsc --noEmit` green.
+- **Follow-ups:** the gear window's default width slightly clips the price/Buy
+  column with the longer rod blurbs (it's a resizable wm window, and buying works
+  — a width-fit polish item). Master-Rod unlock via lessons is wired but inert
+  until slice 3 (teaching); via skill it already works.
+
 ## Nerys — the Riverside Fisherwoman joins the roster (v2 BLOCK #6, slice 1 of 4)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Doc-verified scope:** ROADMAP_TO_V5 §v2 (line 47-50 "her *basic* presence —
