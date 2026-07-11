@@ -29,6 +29,41 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## everything-pixels — town inn + stable become PixelLab sprites (retires the fillText("INN") glyph)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** the "everything-pixels" audit (`scratchpad/pixel-audit/AUDIT.md`)
+  flagged the two largest TOWN buildings as code-only holdouts — the author's
+  own painter comments said as much ("Code-drawn — a dedicated PixelLab sprite
+  is a logged follow-up"). The inn also painted its signage with canvas
+  `fillText("INN")` in a serif web-font — a text glyph, the most off-medium
+  thing in the world.
+- **What shipped:** both resolve a PixelLab sprite first, dual-path over the
+  unchanged code painter (CLAUDE.md rule #1).
+  - **Inn** → `src/assets/pixellab/buildings/inn.png` (192×176, flat-front
+    two-storey plaster+timber, thatch gable roof, four warm-lit windows, a
+    carved wooden "INN" sign baked into the art). `drawInn`
+    (`src/art/buildings.ts`) gains the standard building dual-path
+    (`castShadow` + `shadow` + `drawGroundSprite` base-on-ground at the INN
+    rect's bottom, measured `spriteBaseAnchor`; else painter). New
+    `SPRITE_INN_SCALE = 1.0` (the art is sized to the 6-tile/192px rect, so 1:1
+    with roof/upper-storey overhang above — the house/barn recipe). This
+    **retires the `fillText("INN")` canvas-text signage** — the sprite bakes its
+    own pixel sign. `townInn` interaction keyed to the rect — unchanged.
+  - **Stable** → `buildings/stable.png` (160×144, flat-front timber, hayloft
+    window, two X-braced stall doors, a horse peering out). `drawStable` gains
+    the same dual-path; new `SPRITE_STABLE_SCALE = 0.76` (160px art onto the
+    ~3.8-tile/122px rect). The code painter's little right-side paddock rail is
+    dropped in the sprite path (cosmetic; the sprite stands on its own). `stable`
+    interaction keyed to the rect — unchanged.
+- **Verified** (headless Edge + puppeteer-core, `scratchpad/pixel-audit/shots/`):
+  343/343 sprites loaded; inn renders as a flat-front pixel inn with a pixel
+  "INN" sign (no text glyph), stable as a flat-front pixel stable; both correctly
+  ground-anchored at their rects, matching the farmhouse/barn medium. Town is the
+  same "world" scene (teleport-reachable). `npm run build` green (`3.55s`).
+- **Follow-ups:** remaining audit props still code-drawn — dock, busk-sign,
+  flower-bed frame (all PASS in scratchpad). Item icons (fish/tools/dishes)
+  generated, integration pending. `drawCorn` dead code still flagged.
+
 ## everything-pixels — outhouse + hedge become PixelLab sprites (owner's two caught holdouts)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Owner complaint (verbatim intent):** "יש עדיין חלקים במשחק שהם לא פיקסלים —

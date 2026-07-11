@@ -544,6 +544,11 @@ export const SPRITE_WELL_SCALE = 1.05;
 //     band, tiled down each strip. ---
 export const SPRITE_OUTHOUSE_SCALE = 0.56;
 export const SPRITE_HEDGE_SCALE = 0.7;
+// Town buildings: inn art is sized to its 6-tile-wide (192px) rect -> scale 1.0
+// (roof/upper storey overhang above, same recipe as the house/barn); stable art
+// (160px) maps onto its ~3.8-tile (122px) rect.
+export const SPRITE_INN_SCALE = 1.0;
+export const SPRITE_STABLE_SCALE = 0.76;
 // --- Building variety batch: 6 distinct market cottages (art/buildings.ts
 //     COTTAGE_SPRITES), one scale for every variant (all cottage canvases are
 //     the same 112x128 size, same "footprint <= zone rect" recipe as above;

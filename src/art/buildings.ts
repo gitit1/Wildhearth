@@ -4,7 +4,7 @@ import { mulberry32 } from "../engine/rng";
 import { sprite, drawGroundSprite, spriteBaseAnchor, recolorSprite, type SpritePlacement, type HueBand } from "./sprites";
 import {
   SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE, SPRITE_STALL_SCALE, SPRITE_WELL_SCALE, SPRITE_COTTAGE_SCALE,
-  SPRITE_OUTHOUSE_SCALE,
+  SPRITE_OUTHOUSE_SCALE, SPRITE_INN_SCALE, SPRITE_STABLE_SCALE,
 } from "../config";
 
 // ---- static-sprite sheet anchors (measured alpha bbox: horizontal centre col
@@ -463,6 +463,20 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, 
 export function drawInn(g: CanvasRenderingContext2D, r: Rect) {
   const { x, y, w, h } = r;
   const cx = x + w / 2;
+  // ---- sprite path: the flat-front two-storey inn, base-on-ground at the
+  // rect's bottom edge (upper storey + roof overhang above), measured anchor;
+  // this retires the code fillText("INN") signage glyph (the sprite bakes its
+  // own sign). Code painter below is the fallback. townInn interaction keyed to
+  // the rect — unchanged. ----
+  const inn = sprite("buildings/inn");
+  if (inn) {
+    const a = spriteBaseAnchor("buildings/inn", inn);
+    castShadow(g, cx, y + h, w * 0.5, h * 1.1);
+    shadow(g, cx + 8, y + h + 8, w * 0.6, 12);
+    drawGroundSprite(g, inn, cx, y + h, a.cx, a.foot, SPRITE_INN_SCALE);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   castShadow(g, cx, y + h, w * 0.5, h * 1.1);
   shadow(g, cx + 8, y + h + 8, w * 0.6, 12);
   // two-storey plaster-and-timber wall, rising above r.y for the upper storey
@@ -510,6 +524,19 @@ export function drawInn(g: CanvasRenderingContext2D, r: Rect) {
 export function drawStable(g: CanvasRenderingContext2D, r: Rect) {
   const { x, y, w, h } = r;
   const cx = x + w / 2;
+  // ---- sprite path: the flat-front stable (X-braced stall doors, horseshoe
+  // sign, hayloft window), base-on-ground at the rect's bottom edge, measured
+  // anchor; the code painter (incl. the little right-side paddock rail) is the
+  // fallback. stable interaction keyed to the rect — unchanged. ----
+  const stbl = sprite("buildings/stable");
+  if (stbl) {
+    const a = spriteBaseAnchor("buildings/stable", stbl);
+    castShadow(g, cx, y + h, w * 0.5, h * 1.05);
+    shadow(g, cx + 7, y + h + 7, w * 0.58, 11);
+    drawGroundSprite(g, stbl, cx, y + h, a.cx, a.foot, SPRITE_STABLE_SCALE);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   castShadow(g, cx, y + h, w * 0.5, h * 1.05);
   shadow(g, cx + 7, y + h + 7, w * 0.58, 11);
   // weathered plank body
