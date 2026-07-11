@@ -29,6 +29,51 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## quests — D3 AI dynamic offers, promoted from the stub (R6, commit 5)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R6 commit 5 — promote the debug-only AI quest STUB to real
+  dynamic offers behind the AI master toggle, validated against the closed
+  schema, with a scripted fallback on any failure and byte-identical behaviour
+  when AI is off.
+- **New `src/systems/ai/features/questOffers.ts`** (replaces `questStub.ts`,
+  removed): `createQuestOffers(ai, { onOffer })`. On day rollover (≤ once per
+  `QUEST_AI_OFFER_MIN_INTERVAL_DAYS`), when `ai.enabled("quests")`, it sends the
+  model a MENU of surfaceable AI templates + the world state and asks it to pick
+  ONE id and rewrite its title + pitch in the giver's voice. The `offer_quest`
+  action is validated by the existing closed-schema `validateNpcAction` with
+  referential integrity (`refs.questExists = isAiTemplate` → the id must be an
+  AI template); the reward is clamped into `template.reward × [1±QUEST_AI_REWARD_CLAMP]`.
+  On success → an `AiOffer` with the AI's words + clamped reward (`source:"ai"`).
+  On ANY failure (call error / bad JSON / off-menu id / off-character) → a
+  ROTATED scripted fallback from an authored template (`source:"fallback"`).
+  The accepted quest's steps + GRANTED reward are always the authored
+  template's — the model only flavours the words.
+- **`src/systems/quests.ts`:** new `eligibleAiTemplates(log, ctx)` (the
+  surfaceable `ai:true` templates — availability + not-active/-completed).
+- **`src/main.ts`:** swapped `createQuestStub` → `createQuestOffers` with
+  `applyAiQuestOffer` (`setAiOffer` + a subtle "<Giver> has a favour to ask"
+  toast + refresh); the day-rollover hook now passes `eligibleTemplateInfos()`;
+  `questOffers.reset()` on New Game; the debug panel + `__wh.ai.questGenerate/
+  questLatest` repointed. `questOptionsFor` already prefers an AI offer over an
+  authored one, so a surfaced offer appears as the giver's dialogue choice.
+- **Verified — node harness (`scratchpad/quests/offers.test.ts`, 13 assertions):**
+  AI off → no offer, no `latest`; valid AI offer → AI words + reward clamped
+  (500 → 36 for a base-24 template); failed call → scripted fallback (authored
+  words + reward); off-menu id → fallback; the min-interval gate holds. **Live
+  (headless Edge + puppeteer):** AI OFF (default) → provider `none`, no `aiOffer`
+  after 4 day-rollovers, `questGenerate` returns null, **0 requests to
+  anthropic.com** (byte-identical). AI ON (`?aimock`) → an offer is produced and
+  Maren then offers "A Fresh Catch" in dialogue (screenshot
+  `scratchpad/quests/dialogue-ai-offer.png`); the mock's non-conforming reply
+  correctly drove the scripted FALLBACK — real proof of the failure path. `npm
+  run build` green.
+- **Follow-ups:** R6 is COMPLETE. The clamped AI reward is validated + stored on
+  the offer but the authoritative payout stays the template's (intentional, for
+  balance); a future refinement could let the accepted instance carry the
+  clamped reward. Possible R8/R9: a dock badge for active-quest count; more
+  authored quests; wiring `talk`/`reach` step kinds into an authored quest
+  (they're supported + tested but no shipped quest uses them yet).
+
 ## quests — dialogue offers + turn-ins at the giver NPCs (R6, commit 4)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R6 commit 4 — quest offers and turn-ins surface as dialogue

@@ -400,6 +400,27 @@ export function offerableFor(log: QuestLog, npcId: string, ctx: AvailCtx): Quest
   return QUESTS.filter((q) => q.giver === npcId && isOfferable(log, q, ctx));
 }
 
+/** The AI-eligible templates that could be surfaced right now (ai:true, not
+ *  active, not completed-unless-repeatable, availability met) — the menu the
+ *  D3 generator picks + flavours from. */
+export function eligibleAiTemplates(log: QuestLog, ctx: AvailCtx): QuestDef[] {
+  return QUESTS.filter((q) => {
+    if (!q.ai) return false;
+    const st = log.quests[q.id];
+    if (st?.status === "active") return false;
+    if (st?.status === "completed" && !q.repeatable) return false;
+    const a = q.availability;
+    if (a) {
+      if (a.minDay !== undefined && ctx.absoluteDay < a.minDay) return false;
+      if (a.season !== undefined && ctx.season !== a.season) return false;
+      if (a.skill && ctx.skillValue(a.skill.id) < a.skill.min) return false;
+      if (a.relationship && ctx.friendship(q.giver) < a.relationship.min) return false;
+      if (a.requires && log.quests[a.requires]?.status !== "completed") return false;
+    }
+    return true;
+  });
+}
+
 /** The pending AI offer for a giver, if any (a validated dynamic template). */
 export function aiOfferFor(log: QuestLog, npcId: string): AiOffer | null {
   if (!log.aiOffer) return null;

@@ -98,7 +98,7 @@ import { createThoughts } from "./systems/ai/features/thoughts";
 import { createDialogueVariation } from "./systems/ai/features/dialogueVariation";
 import { createNarration } from "./systems/ai/features/narration";
 import { createArcs } from "./systems/ai/features/arcs";
-import { createQuestStub } from "./systems/ai/features/questStub";
+import { createQuestOffers, type TemplateInfo } from "./systems/ai/features/questOffers";
 import { createDevNotes } from "./systems/ai/features/devNotes";
 import type { NpcDef } from "./data/npcs";
 import { isBirthday } from "./data/npcs";
@@ -150,8 +150,8 @@ import {
 import {
   loadQuests, resetQuests, saveQuests, notifyQuests, refreshQuests, turnInQuest,
   acceptQuest, abandonQuest, activeQuests, completedQuests,
-  turnInReadyFor, offerableFor, aiOfferFor,
-  type QuestLog, type QuestEvent, type QuestResult, type AvailCtx,
+  turnInReadyFor, offerableFor, aiOfferFor, eligibleAiTemplates, setAiOffer,
+  type QuestLog, type QuestEvent, type QuestResult, type AvailCtx, type AiOffer,
 } from "./systems/quests";
 import { questById as questDefById } from "./data/quests";
 import type { QuestDialogueOption } from "./ui/dialoguebox";
@@ -579,7 +579,7 @@ const narration = createNarration({          // feature #5
   attachFlavor: (key, flavor) => { if (attachMemoryFlavor(memories, key, flavor)) logMemory(dayLog, flavor); },
 });
 const arcs = createArcs();                     // feature #6 (plain-code tracker)
-const questStub = createQuestStub(aiCtx);      // feature #3 (validated stub, debug-only)
+const questOffers = createQuestOffers(aiCtx, { onOffer: applyAiQuestOffer });   // feature #3 (D3 real offers)
 const devNotes = createDevNotes();             // feature #8 (dev observations)
 // arc notes feed the dialogue-variation prompt — only when the arcs feature is on
 // (with it off the notes are simply never read, so no scripted content changes).
@@ -655,8 +655,8 @@ if (import.meta.env.DEV) {
     arcRecordActivity: (k: "cast" | "harvest" | "busk" | "forage" | "sale") => arcs.recordActivity(k),
     arcNotes: (id: string) => aiCtx.enabled("arcs") ? arcs.notesFor(id) : [],
     arcSnapshot: () => arcs.snapshot(),
-    questGenerate: (day: number) => questStub.maybeGenerateDaily(worldForNpc("maren"), day),
-    questLatest: () => questStub.latest(),
+    questGenerate: (day: number) => questOffers.maybeGenerateDaily(worldForNpc("maren"), day, eligibleTemplateInfos()),
+    questLatest: () => questOffers.latest(),
     devObserve: (k: string, day: number) => devNotes.observe(k, day),
     devNotes: (day: number) => devNotes.notes(day),
   };
@@ -869,10 +869,11 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     if (isFestivalDay(calendar)) setWorldFlag(worldFlags, "festival_today", 1, absoluteDay(calendar));
     // ---- AI daily hooks (Part D) — all no-ops with their features off --------
     const abs = absoluteDay(calendar);
-    // Quest-generation stub (#3): build one validated offer for the debug panel.
-    questStub.maybeGenerateDaily(
+    // Quest offers (#3, D3): maybe surface one validated AI offer (scripted
+    // fallback on any failure; inert with the feature off).
+    questOffers.maybeGenerateDaily(
       getWorldContext({ economy, skills, farm, calendar, weather, flags: worldFlags, needs, relationships }),
-      abs,
+      abs, eligibleTemplateInfos(),
     );
     // Event narration (#5): the season's first storm.
     if (weather.kind === "storm" && stormNarratedSeason !== calendar.seasonIndex) {
@@ -1037,11 +1038,11 @@ function maybeNpcPrefetch(npcTagId: string, dt: number) {
   dlgVar.prefetch(id, "opening", peekOpeningText(n.def, wc), wc);
 }
 
-/** The debug panel's read of the latest AI quest offer (never shown to the player). */
+/** The debug panel's read of the latest AI quest offer (D3). */
 function questOfferDebugLines(): string[] {
-  const q = questStub.latest();
+  const q = questOffers.latest();
   if (!q) return aiCtx.enabled("quests") ? ["(none generated yet — waits for a day rollover)"] : ["(quests feature off)"];
-  return [`"${q.title}" — ${q.text}`, `questId=${q.questId}  reward=${q.reward}  (day ${q.day})`];
+  return [`"${q.title}" — ${q.description}`, `questId=${q.questId}  reward=${q.rewardCoins}  source=${q.source}  (day ${q.day})`];
 }
 
 /** Ambient thought bubble (Part D #4): occasionally, when the player walks close
@@ -1255,6 +1256,24 @@ function questOptionsFor(npcId: string): QuestDialogueOption[] {
   return opts;
 }
 
+/** D3: surface a validated (or scripted-fallback) AI offer — store it so its
+ *  giver offers it in dialogue, and drop a subtle nudge. Only ever called with
+ *  the AI feature on (the generator is gated); with AI off nothing calls this. */
+function applyAiQuestOffer(offer: AiOffer) {
+  setAiOffer(quests, offer);
+  const giver = npcById(npcs, offer.questId ? (questDefById(offer.questId)?.giver ?? "") : "");
+  toast(giver ? `${giver.def.name} has a favour to ask, next time you pass by.` : "Someone in the village could use a hand.");
+  onQuestsChanged();
+}
+
+/** The AI generator's "menu" of surfaceable templates right now (D3). */
+function eligibleTemplateInfos(): TemplateInfo[] {
+  return eligibleAiTemplates(quests, questAvailCtx()).map((def) => ({
+    id: def.id, giver: def.giver, title: def.title, description: def.description,
+    rewardCoins: def.reward.coins ?? 0,
+  }));
+}
+
 /** One "will you take this?" option: the giver states the ask, then Accept /
  *  Not now. Accepting takes the AUTHORED quest (its steps + reward). */
 function offerOption(questId: string, title: string, ask: string): QuestDialogueOption {
@@ -1375,7 +1394,7 @@ function newGameReset(character: Character, mode: Guidance) {
   thoughts.reset();
   narration.reset();
   arcs.reset();
-  questStub.reset();
+  questOffers.reset();
   devNotes.reset();
   stormNarratedSeason = -1;
   resetLivestock(livestock);
