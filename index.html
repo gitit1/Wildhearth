@@ -78,6 +78,12 @@
       color:#e8c34f;font-size:calc(11px*var(--s));width:calc(24px*var(--s));height:calc(22px*var(--s));
       cursor:pointer;padding:0;line-height:1}
     .sk-name{flex:1;font-size:calc(13px*var(--s));font-weight:700}
+    /* R8/B1: the earned tier (Novice/Skilled/Expert), colour-keyed */
+    .sk-tier{font-size:calc(10px*var(--s));font-weight:800;letter-spacing:.04em;
+      text-transform:uppercase;padding:calc(1px*var(--s)) calc(6px*var(--s));border-radius:6px;
+      color:#cdb98a;background:rgba(240,234,214,.08);border:1px solid rgba(240,234,214,.14)}
+    .sk-tier[data-tier="Skilled"]{color:#9fe36a;background:rgba(159,227,106,.12);border-color:rgba(159,227,106,.3)}
+    .sk-tier[data-tier="Expert"]{color:#ffd54f;background:rgba(230,190,80,.16);border-color:rgba(230,190,80,.4)}
     .sk-value{font-size:calc(13px*var(--s));font-weight:700;color:#ffd54f;min-width:calc(36px*var(--s));
       text-align:right;font-variant-numeric:tabular-nums}
     .sk-float{position:absolute;right:calc(40px*var(--s));top:0;pointer-events:none}

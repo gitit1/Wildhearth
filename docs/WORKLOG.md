@@ -29,6 +29,19 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## skills — show the earned tier per skill in the Skills window (R8/B1)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R7 exposed `skillTier(value)` (Novice/Skilled/Expert) but the
+  Skills window never showed it. Surface it.
+- **`src/ui/skills.ts`:** imported `skillTier`; each row now builds a `.sk-tier`
+  tag (between the name and the value) set to `skillTier(s.value)` with a
+  `data-tier` attribute; `refresh()` keeps both the label and `data-tier` live
+  as values climb, so a skill visibly graduates Novice → Skilled → Expert.
+- **`index.html`:** `.sk-tier` chrome — a small uppercase pill, colour-keyed by
+  `data-tier` (Novice muted cream, Skilled green, Expert gold).
+- **Verified:** headless Edge — the Skills window shows "NOVICE" tags beside
+  Fishing / Foraging / Farming. `npm run build` green.
+
 ## screens — re-skin with the generated UI kit (R8, Mission A)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R8 Mission A — dress the whole UI in the PixelLab-generated

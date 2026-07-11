@@ -1,5 +1,5 @@
 import { SKILL_CAP } from "../config";
-import { SKILL_NAMES, cycleLock, totalSkills, type Skills, type SkillLock } from "../systems/skills";
+import { SKILL_NAMES, cycleLock, totalSkills, skillTier, type Skills, type SkillLock } from "../systems/skills";
 import { createScaleWindow } from "./windows/scalewindow";
 import { toggleWindow } from "./windows/manager";
 import type { WindowHandle } from "./windows/window";
@@ -19,7 +19,7 @@ const GAP = 12;
 let win: WindowHandle;
 let skillsBtn: HTMLElement | null;
 let sk: Skills;
-let rows: { value: HTMLElement; lock: HTMLElement; float: HTMLElement }[] = [];
+let rows: { value: HTMLElement; lock: HTMLElement; float: HTMLElement; tier: HTMLElement }[] = [];
 
 export function initSkillsUI(skills: Skills) {
   sk = skills;
@@ -44,6 +44,11 @@ export function initSkillsUI(skills: Skills) {
     name.className = "sk-name";
     name.textContent = SKILL_NAMES[s.id] ?? s.id;
 
+    const tier = document.createElement("span");
+    tier.className = "sk-tier";
+    tier.dataset.tier = skillTier(s.value);
+    tier.textContent = skillTier(s.value);
+
     const value = document.createElement("span");
     value.className = "sk-value";
     value.textContent = s.value.toFixed(1);
@@ -51,9 +56,9 @@ export function initSkillsUI(skills: Skills) {
     const float = document.createElement("span");
     float.className = "sk-float";
 
-    row.append(lock, name, float, value);
+    row.append(lock, name, float, tier, value);
     list.append(row);
-    rows.push({ value, lock, float });
+    rows.push({ value, lock, float, tier });
   }
 
   win = createScaleWindow({
@@ -73,8 +78,12 @@ export function initSkillsUI(skills: Skills) {
 
 function refresh() {
   for (let i = 0; i < sk.list.length; i++) {
-    rows[i]!.value.textContent = sk.list[i]!.value.toFixed(1);
+    const v = sk.list[i]!.value;
+    rows[i]!.value.textContent = v.toFixed(1);
     rows[i]!.lock.textContent = LOCK_GLYPH[sk.list[i]!.lock];
+    const t = skillTier(v);
+    rows[i]!.tier.textContent = t;
+    rows[i]!.tier.dataset.tier = t;
   }
   const totalEl = document.getElementById("skillsTotal");
   if (totalEl) totalEl.textContent = `Total ${totalSkills(sk).toFixed(1)} / ${SKILL_CAP}`;
