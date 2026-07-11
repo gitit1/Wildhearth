@@ -42,7 +42,10 @@ const SOIL_PATH_BAG = bag([[6, 10], [7, 10], [14, 10], [12, 3]]);   // smooth pa
 /** Furrowed tilled-soil tiles (the plot + freshly-hoed cells). Exported so the
  *  per-cell tilled painter (art/props.ts drawTilledTile) draws the SAME soil
  *  base as the baked field — seamless, no tone clash. */
-export const SOIL_TILLED_BAG = bag([[0, 4], [1, 4], [2, 4], [8, 4], [10, 2], [3, 1], [15, 1]]);
+// Plain furrows (0,1,2 — clean vertical furrows) dominate ~86%; the feature
+// variants (8/15 green-sprout, 3 wet-clumpy) stay a sparse minority so the
+// field reads as evenly tilled soil, not a patchwork of sprouted/wet cells.
+export const SOIL_TILLED_BAG = bag([[0, 8], [1, 8], [2, 8], [8, 2], [3, 1], [15, 1]]);
 const WATER_DEEP_BAG    = bag([[10, 7], [11, 7], [14, 7], [1, 3], [7, 2], [5, 2], [9, 1]]);
 const WATER_SHALLOW_BAG = bag([[15, 5], [8, 4], [4, 2]]);          // muted shallow only (bright teal dropped — LEDGER)
 const WATER_SHORE_BAG   = bag([[12, 3], [2, 2], [0, 1]]);          // mud/sand shore, mud-dominant (supervisor note)
@@ -456,6 +459,13 @@ function paintWater(g: CanvasRenderingContext2D) {
 function scatterAmbientProps(g: CanvasRenderingContext2D) {
   const rnd = mulberry32(4242);
   const fb = fieldBounds(PLOT_EXPANSIONS.length);   // widest the field can get
+  // The market plaza cobble (same rect the tiled ground cobbles). Flowers/weeds/
+  // clover growing out of paved stone read wrong — floral & grass scatter skips
+  // it (stones/pebbles/leaves are fine and still land). Matches paintTerrainTiles.
+  const plazaCobble = { x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T };
+  const onPlaza = (x: number, y: number) =>
+    x > plazaCobble.x && x < plazaCobble.x + plazaCobble.w &&
+    y > plazaCobble.y && y < plazaCobble.y + plazaCobble.h;
   const inRect = (x: number, y: number, r: Rect, pad: number) =>
     x > r.x - pad && x < r.x + r.w + pad && y > r.y - pad && y < r.y + r.h + pad;
 
@@ -574,7 +584,7 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
   for (let i = 0; i < 40 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
-    if (regionAt(x, y) === "forest") continue;
+    if (regionAt(x, y) === "forest" || onPlaza(x, y)) continue;
     g.strokeStyle = "rgba(120,110,60,.8)"; g.lineWidth = 1.1;
     for (let b = 0; b < 3; b++) {
       const lean = (b - 1) * 3, h = 6 + rnd() * 4;
@@ -587,7 +597,7 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
   for (let i = 0; i < 34 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
-    if (regionAt(x, y) === "forest") continue;
+    if (regionAt(x, y) === "forest" || onPlaza(x, y)) continue;
     g.fillStyle = "#3f7a3a";
     for (const [ox, oy] of [[-2.2, -1], [2.2, -1], [0, 1.6]] as const) {
       g.beginPath(); g.arc(x + ox, y + oy, 1.6, 0, 7); g.fill();
@@ -610,6 +620,7 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
   for (let i = 0; i < 46 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
+    if (onPlaza(x, y)) continue;
     if (regionAt(x, y) === "forest" && rnd() < 0.7) continue;
     const kind = rnd();
     if (kind < 0.3) drawTinyFlower(g, x, y, rnd, 6, "#f2f2ea", 2.6, "#e8c34f");         // daisy
@@ -621,7 +632,7 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
   for (let i = 0; i < 14 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
-    if (regionAt(x, y) === "forest") continue;
+    if (regionAt(x, y) === "forest" || onPlaza(x, y)) continue;
     g.strokeStyle = "#5f8a4a"; g.lineWidth = 1.2;
     g.beginPath(); g.moveTo(x, y + 3); g.lineTo(x, y - 5); g.stroke();
     g.fillStyle = "#3f7a3a";
@@ -635,7 +646,9 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
   for (let i = 0; i < 20 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
-    if (regionAt(x, y) !== "market" && rnd() < 0.55) continue;
+    // (was biased toward the market square; now the square is paved cobble, so
+    // clumps just avoid the cobble and land on the surrounding grass instead)
+    if (onPlaza(x, y)) continue;
     const colors = ["#d16a9a", "#e8c34f", "#8a7ac2", "#e0e6f0"];
     for (const [ox, oy] of [[-4, 1], [3, -1], [0, 2]] as const) {
       drawTinyFlower(g, x + ox, y + oy, rnd, 5, colors[(rnd() * colors.length) | 0]!, 2.2, "#e8c34f");

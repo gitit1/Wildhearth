@@ -720,25 +720,41 @@ export function drawMusicNotes(g: CanvasRenderingContext2D, x: number, y: number
   g.globalAlpha = 1;
 }
 
+/** A single chunky, pixel-stepped water glint: a short run of 2px blocks on a
+ *  2px grid, the ends dropped one block so it reads as a little stepped crest —
+ *  a pixel sparkle that sits naturally on the tiled water instead of a smooth
+ *  white ellipse (D-3 "everything pixels"). */
+function pixelGlint(g: CanvasRenderingContext2D, cx: number, cy: number, len: number) {
+  const S = 2;
+  const bx = Math.round(cx / S) * S - ((len * S) >> 1);
+  const by = Math.round(cy / S) * S;
+  for (let k = 0; k < len; k++) {
+    const end = k === 0 || k === len - 1;
+    g.fillRect(bx + k * S, by + (end ? S : 0), S, S);
+  }
+  // a brighter one-block core catches the light
+  g.fillRect(bx + (((len - 1) >> 1) * S), by - S, S, S);
+}
+
 export function drawWaterShimmer(g: CanvasRenderingContext2D, t: number) {
-  g.fillStyle = "rgba(255,255,255,.22)";
+  g.fillStyle = "rgba(235,245,255,.30)";
   for (let i = 0; i < 7; i++) {
     const px = POND.cx + Math.sin(t * 0.9 + i * 2.2) * POND.rx * 0.55;
     const py = POND.cy + Math.cos(t * 0.7 + i * 1.7) * POND.ry * 0.5;
-    g.beginPath(); g.ellipse(px, py, 7, 1.7, 0, 0, 7); g.fill();
+    pixelGlint(g, px, py, 3 + (i & 1));
   }
 }
 
-/** Drifting highlights across the river + lake surface (same technique as the
+/** Drifting pixel glints across the river + lake surface (same technique as the
  *  pond), plus persistent ripple markers at the designated fishing spots. */
 export function drawOpenWaterShimmer(g: CanvasRenderingContext2D, t: number) {
-  g.fillStyle = "rgba(255,255,255,.16)";
+  g.fillStyle = "rgba(230,242,255,.24)";
   for (const wtr of [RIVER, LAKE]) {
     const n = wtr === LAKE ? 14 : 8;
     for (let i = 0; i < n; i++) {
       const px = wtr.x + wtr.w * (0.5 + Math.sin(t * 0.6 + i * 1.9) * 0.42);
       const py = wtr.y + wtr.h * (0.5 + Math.cos(t * 0.5 + i * 1.3) * 0.42);
-      g.beginPath(); g.ellipse(px, py, 8, 1.8, 0, 0, 7); g.fill();
+      pixelGlint(g, px, py, 4 + (i & 1));
     }
   }
   // fishing-spot ripples: gentle expanding rings so the spots read as "fishable"

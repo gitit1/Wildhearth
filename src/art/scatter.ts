@@ -79,6 +79,14 @@ function blockedLand(x: number, y: number): boolean {
 
 const FLOWERS = ["foliage/flowers-red", "foliage/flowers-yellow", "foliage/flowers-purple", "foliage/flowers-mixed"] as const;
 
+/** The market plaza cobble rect (mirrors world/ground.ts's plaza tiles). Flowers
+ *  and dense grass growing out of paved stone read wrong, so foliage on the
+ *  cobble is heavily reduced to the occasional grass sprig in a crack. */
+const PLAZA_COBBLE = { x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T };
+const onPlaza = (x: number, y: number): boolean =>
+  x > PLAZA_COBBLE.x && x < PLAZA_COBBLE.x + PLAZA_COBBLE.w &&
+  y > PLAZA_COBBLE.y && y < PLAZA_COBBLE.y + PLAZA_COBBLE.h;
+
 /** Pick the sprite id appropriate for this point, or null to place nothing. */
 function pickKind(x: number, y: number, roll: number, flowerRoll: number): string | null {
   // water: a sparse lily-pad, but only near the shore (never mid-lake)
@@ -86,6 +94,8 @@ function pickKind(x: number, y: number, roll: number, flowerRoll: number): strin
     if (inRect(x, y, DOCK, 14)) return null;
     return waterEdge(x, y) && roll < 0.5 ? "foliage/lily-pad" : null;
   }
+  // paved plaza cobble: no flowers/ferns, just the rare grass sprig in a crack
+  if (onPlaza(x, y)) return roll < 0.15 ? "foliage/grass-tuft" : null;
   // shore band: reeds (and a little grass) fringing the water
   if (nearWater(x, y)) return roll < 0.75 ? "foliage/reeds" : "foliage/grass-tuft";
   // land, by region

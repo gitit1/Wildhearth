@@ -29,6 +29,35 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## world — pixel water glints + field-furrow / plaza-cobble ground niggles (R8/B5, B4)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R8/B5 — restyle the water shimmer from smooth white ellipses
+  to chunky pixel glints. R8/B4 — furrow tiles read patchwork (make plain
+  furrows dominant), and flower/grass scatter shouldn't sit on the plaza cobble.
+- **B5 `src/art/props.ts`:** new `pixelGlint()` draws a short run of 2px blocks
+  snapped to a 2px grid with the ends dropped one block + a brighter one-block
+  core — a stepped pixel crest that sits on the tiled water. `drawWaterShimmer`
+  (pond) and `drawOpenWaterShimmer` (river/lake) now emit `pixelGlint`s instead
+  of `ellipse()` fills. The fishing-spot ripple RINGS are left as-is (a
+  deliberate "fishable here" affordance, not ambient shimmer).
+- **B4 furrows `src/world/ground.ts`:** re-weighted `SOIL_TILLED_BAG` (the shared
+  field + hoed-plot bag) from an even 7-way spread to plain-furrow-dominant —
+  `[[0,8],[1,8],[2,8],[8,2],[3,1],[15,1]]`: tiles 0/1/2 are clean vertical
+  furrows (~86%), the sprout (8/15) + wet-clumpy (3) feature tiles a sparse
+  minority, so the field reads as evenly tilled soil rather than a patchwork.
+- **B4 plaza scatter `src/world/ground.ts` + `src/art/scatter.ts`:** both
+  ambient layers now skip the market plaza cobble rect. In `scatterAmbientProps`
+  a new `onPlaza()` rejects weed tufts / clover / wildflowers / thistle /
+  wildflower clumps on the cobble (stones/pebbles/leaves still land); the
+  wildflower-clump loop dropped its now-obsolete market bias. In the live
+  foliage scatter (`pickKind`) an `onPlaza()` gate drops flowers/ferns on the
+  cobble and reduces grass to a rare in-crack sprig. Grassy plaza fringes keep
+  their foliage.
+- **Verified:** headless Edge, zoomed — the field reads as clean furrows with a
+  sparse sprout/wet minority; the pond/river show chunky pixel glints; the
+  market cobble is clear of flowers with only a few sprigs left. `npm run build`
+  green.
+
 ## assets — delete the legacy heroine sprite sheets, replaced by the matrix (R8/B2)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R1's curated matrix (`characters/matrix/*`) became the shipped
