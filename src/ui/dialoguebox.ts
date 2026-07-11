@@ -29,6 +29,7 @@ import {
 } from "../systems/dialogue";
 import { getNpcDialogue } from "../data/dialogue";
 import { wm } from "./windows/manager";
+import { npcPortraitUrl } from "./skin";
 import type { WindowHandle } from "./windows/window";
 
 export interface DialogueHooks {
@@ -70,6 +71,8 @@ export interface QuestPickResult {
 let win: WindowHandle;
 let textEl: HTMLElement;
 let choicesEl: HTMLElement;
+let portraitEl: HTMLImageElement;
+let panelEl: HTMLElement;
 
 let def: NpcDef | null = null;
 let dlg: NpcDialogue | null = null;
@@ -98,6 +101,8 @@ const DLG_W = 680, DLG_H = 240;
 export function initDialogue(h: DialogueHooks) {
   hooks = h;
   const panel = document.getElementById("dialogueBox")!;
+  panelEl = panel;
+  portraitEl = document.getElementById("dlgPortrait") as HTMLImageElement;
   textEl = document.getElementById("dlgText")!;
   choicesEl = document.getElementById("dlgChoices")!;
 
@@ -133,6 +138,15 @@ export function initDialogue(h: DialogueHooks) {
 }
 
 export function isDialogueOpen(): boolean { return win.isOpen(); }
+
+/** Show the NPC's portrait bust in the notch when one has shipped; otherwise
+ *  collapse the notch so the line + choices reflow full-width. Data-driven —
+ *  dropping `ui/portraits/<id>.png` in makes it appear with no code change. */
+function setPortrait(npcId: string): void {
+  const url = npcPortraitUrl(npcId);
+  if (url) { portraitEl.src = url; panelEl.classList.remove("dlg-noportrait"); }
+  else { portraitEl.removeAttribute("src"); panelEl.classList.add("dlg-noportrait"); }
+}
 
 /** Resolve one displayed line: pick the scripted line (avoiding recent repeats),
  *  record it for cross-session variety, then route it through the AI seam. Always
@@ -184,6 +198,7 @@ export function openDialogue(target: NpcDef) {
   hooks.onOpen(target);
 
   win.setTitle(target.name);   // set once — can't change mid-conversation
+  setPortrait(target.id);
   const wc = hooks.worldFor(target.id);
   const text = lineFor(target, wc, dlg.openings, "opening");
   paint(text, openingButtons(dlg.root));

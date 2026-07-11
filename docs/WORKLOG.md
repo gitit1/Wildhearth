@@ -29,6 +29,64 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## screens — re-skin with the generated UI kit (R8, Mission A)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R8 Mission A — dress the whole UI in the PixelLab-generated
+  UI kit (wood/parchment nine-slice panels + the WildhearthStorybook pixel
+  font + NPC portraits in the dialogue window), strictly dual-path.
+- **Assets copied into the repo:** `src/assets/pixellab/ui/window.png` (the
+  ornate wood+gold frame, from the kit's `window-frame-trim`),
+  `src/assets/pixellab/ui/tooltip.png` (compact parchment tooltip),
+  `src/assets/pixellab/ui/portraits/maren.png` + `tobin.png` (64px busts),
+  and `src/assets/fonts/WildhearthStorybook.ttf`. The kit's `button` / `tabs` /
+  `dialogue` panels were evaluated and NOT shipped (see Follow-ups).
+- **New `src/ui/skin.ts`** (`initSkin()`, called once at the top of boot in
+  `main.ts` before the first window is built): injects the `@font-face` and
+  sets `--font-title` (storybook prepended to the sans stack) UNCONDITIONALLY
+  (the font is a plain source asset with a natural fallback); then, ONLY when
+  `ui/window` is present in `SPRITE_MANIFEST`, publishes the panel URLs as
+  `--skin-window` / `--skin-tooltip` custom props and adds the `wh-skinned`
+  class to `<html>`. With zero ui PNGs nothing is added and the code-drawn CSS
+  chrome stands (CLAUDE.md rule #1). Also exports `npcPortraitUrl(npcId)` →
+  `ui/portraits/<id>` URL or null (data-driven — dropping a PNG in makes it
+  appear).
+- **`index.html`:** added a `--font-title` token (default = sans) and a gated
+  R8 style block: `var(--font-title)` on all display titles / section heads /
+  window title-text / menu buttons; the ornate frame as `border-image` on every
+  utility/panel `.wh-window` EXCEPT the permanent chrome (viewport + clock /
+  coins / needs / dock — a 22px wood border would dwarf the HUD pills and box
+  the game viewport), no `fill` so interiors keep the dark readable
+  `--panel-bg`; the same frame on the full-screen `.menu-panel` / `.screen-panel`
+  modals (char creation, pause, exit, title-screen back screens); the parchment
+  tooltip on `#prompt`; and the dialogue portrait-notch styles. `image-rendering:
+  pixelated` on every scaled panel.
+- **Dialogue portrait notch:** `#dialogueBox` restructured (`index.html`) into
+  `#dlgPortrait` (a wood-framed 76px bust) + `#dlgMain` (line + choices);
+  `src/ui/dialoguebox.ts` `setPortrait(npcId)` sets the bust from
+  `npcPortraitUrl()` on open, or adds `.dlg-noportrait` (notch hidden, text
+  reflows full-width) for NPCs with no portrait yet. Maren + Tobin have busts;
+  the other 8 gracefully show none.
+- **Verified (headless Edge / puppeteer, screenshots viewed):** main menu, char
+  creation, in-game with backpack + quest log + skills open, dialogue with Maren
+  (portrait present) and Sera (no portrait, full-width), settings, pause, plus a
+  **zero-UI-PNG fallback boot** (ui dir removed → no frames, pure CSS chrome,
+  no broken layout, game fully boots, dialogue gracefully portrait-less). Shots
+  in `scratchpad/ui-kit/ingame-*.png` + `fallback-*.png`. `npm run build` green.
+- **Follow-ups:**
+  - The kit's `button` + `tabs` panels were dropped: the gold CSS buttons/tabs
+    already read as one family with the storybook font, and the wood button
+    plaque (baked "Button" center text; heavy at small sizes) looked gaudier,
+    not better — honest call. Available in the kit scratchpad for a future
+    dedicated pass.
+  - The kit's `dialogue-panel` PNG (portrait notch baked in) was not used — the
+    dialogue window already gets the generic wood frame, and a CSS notch is
+    simpler/robust than nine-slicing around a baked notch.
+  - The storage window shares the same `.wh-window` frame + shop-grid chrome
+    (both confirmed via the shop window) but has no `__wh` dev hook to force it
+    open for a dedicated screenshot; not worth adding dev-only code.
+  - The other 8 NPC portraits arrive next budget day (recipe in the kit LEDGER);
+    dropping `ui/portraits/<id>.png` in wires them with no code change.
+
 ## quests — D3 AI dynamic offers, promoted from the stub (R6, commit 5)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R6 commit 5 — promote the debug-only AI quest STUB to real

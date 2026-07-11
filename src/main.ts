@@ -133,6 +133,7 @@ import { showPause } from "./ui/pausescreen";
 import { showExitDialog } from "./ui/exitscreen";
 import { applyGlobalPrefs, applyHudPrefs } from "./ui/uiPrefs";
 import { setupWindows, isViewportActive, finishWindowSetup, escCloseTopWindow } from "./ui/windows/setup";
+import { initSkin } from "./ui/skin";
 import { showIntro, showReveal } from "./ui/intro";
 import { showPathAndGoal } from "./ui/newgame";
 import { showCharacterCreation } from "./ui/charcreation";
@@ -181,6 +182,10 @@ function fit() {
   const h = Math.round(r.height * devicePixelRatio);
   if (w > 0 && h > 0) { cv.width = w; cv.height = h; }
 }
+// Apply the UI kit skin (nine-slice panels + pixel font) BEFORE any window is
+// built, so the very first chrome renders skinned. Strictly dual-path: with no
+// ui PNGs it toggles nothing and the CSS chrome stands (see src/ui/skin.ts).
+initSkin();
 // Turn the screen into a desktop of windows (viewport + clock/coins/needs/dock)
 // BEFORE the first fit(), so the canvas measures its real window body. The
 // manager owns viewport-resize refits from here on (no separate resize listener).

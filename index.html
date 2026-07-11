@@ -185,6 +185,10 @@
     :root{
       --ink:#f0ead6; --gold:#ffd54f; --gold-soft:#e8c34f; --muted:#cdb98a;
       --wood:#7a5c34; --wood-dark:#5d4630;
+      /* Title/heading font — the sans stack by default; src/ui/skin.ts swaps in
+         the "WildhearthStorybook" pixel font (prepended, sans kept as fallback)
+         once it loads. With no font asset the fallback simply stands. */
+      --font-title:-apple-system,Segoe UI,Roboto,sans-serif;
       --panel-bg:linear-gradient(180deg,rgba(34,42,25,.95),rgba(20,26,14,.95));
       --hairline:rgba(232,195,79,.28);
       --cell-bg:rgba(240,234,214,.07); --cell-edge:rgba(240,234,214,.16);
@@ -561,6 +565,85 @@
     .wh-menu-item:hover{background:rgba(230,190,80,.9);color:#241d0e}
     .wh-menu-empty{color:var(--muted);font-size:12px;font-style:italic;padding:7px 12px;white-space:nowrap}
     /* Settings → Windows preset buttons reuse the segmented-button chrome. */
+
+    /* ======================================================================
+       R8 — UI kit re-skin (PixelLab wood/parchment nine-slice panels + the
+       WildhearthStorybook pixel font). Dual-path: the `--font-title` glyph swap
+       and the `.wh-skinned` class are toggled by src/ui/skin.ts ONLY when the
+       assets shipped; with no ui PNGs everything below is inert and the
+       code-drawn CSS chrome above stands (CLAUDE.md hard rule #1).
+       ====================================================================== */
+    /* -- pixel font on titles/headings + the primary (menu) buttons. Dense body
+          text keeps the readable sans stack. -- */
+    .menu-title,.menu-modal-title,.screen-title,.cc-title,.cc-section-head,
+    .set-section-title,.shop-section,.wn-title,.q-title,.credits-head,
+    .wh-title-text,#tutTitle,.mm-big-title,.choice-card h3,.cc-goal-title,
+    #gpTitle,.eod-achieve-head,.book-cat,.help-tab,.book-tab,.q-tab,
+    .menu-btn,.mm-big-title{ font-family:var(--font-title) }
+    /* the pixel font sits a touch tall — nudge tracking on the big display titles */
+    .menu-title,.screen-title,.cc-title{ letter-spacing:.02em }
+
+    /* -- the ornate wood frame on every UTILITY/PANEL window. Excludes the
+          permanent chrome (viewport + clock/coins/needs/dock): a 22px wood
+          border would dwarf the tiny HUD pills and box the game viewport. The
+          interior stays the dark readable --panel-bg (no `fill`), so all the
+          inner content keeps its designed contrast; only the border ring is the
+          PNG. -- */
+    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"]){
+      border-style:solid;
+      border-width:20px 18px 22px 18px;
+      border-image:var(--skin-window) 34 30 36 30 / auto / 0 stretch;
+      background:var(--panel-bg);
+      border-radius:9px;
+      box-shadow:0 10px 26px rgba(0,0,0,.55);
+      image-rendering:pixelated;
+    }
+    /* the title bar becomes a slim strip sitting just inside the frame's top
+       band — transparent (the wood frame shows around it), no rounded corners */
+    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"])>.wh-titlebar{
+      background:transparent;box-shadow:none;border-radius:0;height:22px;
+      margin:-4px -2px 2px;padding:0 2px 0 4px;
+    }
+    /* darken + shadow the title so it reads on the medium wood band */
+    .wh-skinned .wh-window>.wh-titlebar .wh-title-text{text-shadow:0 1px 1px rgba(0,0,0,.65)}
+    .wh-skinned .wh-window>.wh-body{border-radius:0}
+
+    /* -- the full-screen menu modals (char creation, pause, exit, and the
+          title-screen back-able screens) share the wood frame so they read as
+          one family with the in-game windows. Same no-fill dark interior. -- */
+    .wh-skinned .menu-panel,.wh-skinned .screen-panel{
+      border-style:solid;border-width:24px 22px 26px 22px;
+      border-image:var(--skin-window) 34 30 36 30 / auto / 0 stretch;
+      border-radius:14px;image-rendering:pixelated;
+    }
+    /* minimized strips + the resizable-window inner padding stay as-is; the
+       frame's own border already supplies the breathing room */
+    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"]):not(.wh-resizable)>.wh-body{
+      padding:2px 3px;
+    }
+
+    /* -- interaction prompt: the compact parchment tooltip panel with dark ink -- */
+    .wh-skinned #prompt{
+      background:transparent;border:0;box-shadow:0 4px 12px rgba(0,0,0,.4);
+      border-image:var(--skin-tooltip) 18 fill / 18px stretch;
+      color:#4a3418;text-shadow:none;image-rendering:pixelated;
+      padding:10px 20px;
+    }
+
+    /* -- dialogue portrait notch (R8): a wood-framed bust to the left of the
+          line + choices. The <img> src is wired per-NPC by dialoguebox.ts; NPCs
+          with no portrait yet get .dlg-noportrait (notch hidden, text reflows
+          full-width). Reads fine with or without the panel skin. -- */
+    #dialogueBox{display:flex;gap:14px;align-items:flex-start}
+    #dlgPortrait{flex:none;width:76px;height:76px;border-radius:8px;
+      background:#241a10;border:2px solid var(--wood);
+      box-shadow:inset 0 0 0 1px var(--hairline),0 2px 6px rgba(0,0,0,.5);
+      image-rendering:pixelated;object-fit:cover;object-position:top center;
+      overflow:hidden}
+    #dlgMain{flex:1;min-width:0;display:flex;flex-direction:column}
+    #dialogueBox.dlg-noportrait #dlgPortrait{display:none}
+    .wh-skinned #dlgPortrait{border-color:#6b4f30;
+      box-shadow:inset 0 0 0 1px rgba(255,213,79,.4),0 2px 8px rgba(0,0,0,.55)}
   </style>
 </head>
 <body>
@@ -599,8 +682,11 @@
        src/ui/dayendpanel.ts — chrome (position/background/border/show-hide,
        the NPC's name / "<Season>, Day N" title) lives in .wh-window instead. -->
   <div id="dialogueBox">
-    <div id="dlgText"></div>
-    <div id="dlgChoices"></div>
+    <img id="dlgPortrait" alt="" />
+    <div id="dlgMain">
+      <div id="dlgText"></div>
+      <div id="dlgChoices"></div>
+    </div>
   </div>
   <div id="eodPanel">
     <div id="eodBody"></div>
