@@ -146,6 +146,44 @@ export function gainSkill(s: Skills, id: string, chanceMult = 1): number {
 }
 
 /**
+ * Deliberate learning — a PAID lesson from a teacher NPC (VISION §skills:
+ * "Skills also rise from deliberate learning — a teacher NPC… which is faster
+ * than grinding"). Unlike gainSkill this is DETERMINISTIC (you paid, you learn):
+ * it adds a fixed `amount`, no gain-roll, no Gain-Guard. It still RESPECTS THE
+ * CAPS — the 0-100 per-skill ceiling and the total SKILL_CAP budget (freeing room
+ * from "down"-marked skills exactly as gainSkill does). Locked skills don't move.
+ * Any lesson also resets the neglect-decay clock. Returns the amount applied.
+ */
+export function teachSkill(s: Skills, id: string, amount: number): number {
+  const sk = getSkill(s, id);
+  if (!sk) return 0;
+  sk.idleDays = 0;
+  if (sk.lock === "locked" || sk.value >= 100) { saveSkills(s); return 0; }
+
+  let applied = r1(Math.min(amount, 100 - sk.value));
+  const capRoom = Math.max(0, r1(SKILL_CAP - totalSkills(s)));
+  if (applied > capRoom) {
+    // free the difference from "down" skills, richest first (mirrors gainSkill)
+    let need = r1(applied - capRoom);
+    let freed = 0;
+    const downs = s.list
+      .filter((x) => x.lock === "down" && x.value > 0 && x.id !== id)
+      .sort((a, b) => b.value - a.value);
+    for (const d of downs) {
+      if (freed >= need) break;
+      const take = r1(Math.min(d.value, need - freed));
+      d.value = r1(d.value - take);
+      freed = r1(freed + take);
+    }
+    applied = r1(capRoom + freed);
+  }
+  if (applied <= 0) { saveSkills(s); return 0; }
+  sk.value = r1(sk.value + applied);
+  saveSkills(s);
+  return applied;
+}
+
+/**
  * Neglect-decay (DECISIONS "unused skills decay slowly") — call once per new
  * in-game day (mirrors decayRelationships). Every non-locked skill banks an idle
  * day; once idle past SKILL_DECAY_IDLE_DAYS it sheds SKILL_DECAY_PER_DAY points

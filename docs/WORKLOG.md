@@ -29,6 +29,64 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Fisherwoman — paid fishing lessons + her introduce-her quest (v2 BLOCK #6, slice 3 of 4)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Doc-verified scope:** VISION §skills — the pillar "**Skills also rise from
+  deliberate learning — a teacher NPC… which is faster than grinding**" (line
+  216-219); DECISIONS' teaching principle; ROADMAP_TO_V5 §v2 ("teaching" in her
+  basic presence, line 48/303/348). Plus "a small introduce-her quest wired
+  through the existing quest system." The best rod being gated behind "she trusts
+  your technique" is VISION's relationship-gating (line 60-64) + skill-floor
+  (235-238) — implemented as a lesson count OR proven skill (slice 2's hook).
+- **New `src/systems/teaching.ts`** — the lesson LEDGER + cadence: `Teaching`
+  store (per-teacher `{count,lastDay}`, versioned/corrupt-tolerant/private-mode
+  safe, nothing at import time) with load/save/`resetTeaching`; `lessonsTaken`
+  (earns rod trust), `canLearnToday` (one lesson per teacher per in-game day),
+  `lessonGain(skill)` (diminishing bump, floored — `LESSON_GAIN_BASE`=5 at skill
+  0 down to `LESSON_GAIN_MIN`=1), `recordLesson`.
+- **New `teachSkill(skills, id, amount)` in `src/systems/skills.ts`** — the
+  DETERMINISTIC learning bump (no gain-roll, no Gain-Guard — you paid, you learn)
+  that still RESPECTS THE CAPS: the 0-100 per-skill ceiling and the total
+  SKILL_CAP budget (freeing room from "down"-marked skills exactly as `gainSkill`
+  does), and resets the neglect-decay clock. Locked skills don't move.
+- **Lesson flow in `src/main.ts`** — `serviceOptionsFor("nerys")` gains a
+  "Teach me to read the water (18 coins)" option → `takeFishingLesson()`: gates
+  on `canLearnToday` + coins, sinks `LESSON_PRICE`, applies `teachSkill(skills,
+  "fishing", lessonGain(before))` with the gold-glint skill popup + day-log,
+  records the lesson, stamps a once-only `first_lesson` Memory, and returns a
+  scripted lesson beat (with the `(Fishing +N)` gain, and a trust line once she'd
+  sell the Master Rod). `initFisherWindow`'s `lessonCount` is now the real
+  `lessonsTaken(teaching,"nerys")`, so the **Master Rod unlocks after 3 lessons**
+  (`MASTER_ROD_LESSONS`) — slice 2's trust gate goes live.
+- **Intro quest** `nerys_reading_the_water` in `src/data/quests.ts` (giver
+  `nerys`, story): "land me three fish from this bend and bring them back" — a
+  `gatherAny:fish×3` step turned in at Nerys through the EXISTING quest system
+  (the `questOptions` dialogue seam already surfaces her offer + turn-in),
+  rewarding 15 coins + 12 Friendship + 3 Worm Bait (a reason to come back for a
+  paid lesson).
+- **Persistence:** `TEACHING_KEY` added to `src/config.ts` and to `saves.ts`
+  `GAME_KEYS` (New Game wipes it); `resetTeaching(teaching)` in the New-Game
+  reset. `src/config.ts` knobs: `LESSON_PRICE`/`LESSON_GAIN_BASE`/`LESSON_GAIN_MIN`.
+- **Verified:** (1) node/esbuild logic harness (`scratchpad/v2-block6a/
+  teach-test.*`) — **16/16**: `lessonGain` diminishing (5/3/1/1), `teachSkill`
+  deterministic, the 100 ceiling, the total SKILL_CAP budget (clamps then frees
+  from a "down" skill), locked-skill no-op. (2) Live (headless Edge + `__wh`,
+  `scratchpad/v2-block6a/04-teaching-shop-unlocked.png`): the lesson sinks 18c +
+  bumps Fishing 10→15 with the beat "(Fishing +5)"; a SECOND lesson the same day
+  is refused (coins/skill unchanged); 3 lessons across days climb Fishing 10→23
+  (diminishing 5→4→4) and flip the Master Rod row from "Locked" to **"Buy"**; the
+  intro quest offers in her dialogue, accepts, and — with 3 carp held — turns in
+  (coins +15, +3 worms, the 3 carp consumed, quest completed, Friendship 12);
+  reload keeps Fishing 23 + the unlocked Master Rod; New Game wipes to Fishing 10
+  + a re-Locked Master Rod. No console errors (only the benign sprite 404
+  fallback). `tsc --noEmit` green.
+- **Follow-ups:** the paid lesson is a dialogue beat, not a scripted mini-scene
+  (a future juice pass). The intro quest completes on "catch 3 fish" (existing
+  step kinds) rather than a dedicated "take a lesson" step (would need a new quest
+  event/step kind — deliberately avoided this slice). Reminder: `npm run build`'s
+  vite step is still environmentally broken at HEAD (see slice 1's follow-up) —
+  tsc is the compile bar and the dev build/game run fine.
+
 ## Fisherwoman — rod tiers + bait, bought from Nerys (v2 BLOCK #6, slice 2 of 4)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Doc-verified scope:** ROADMAP_TO_V5 §v2 ("rod tiers, bait system" in her deep

@@ -44,6 +44,14 @@ export const BAIT_WORMS_PRICE = 3;      // cheap everyday bait (VISION "cheap 2-
 export const BAIT_SPINNER_PRICE = 10;   // rare-shifting lure (VISION "rare-shifting 8-12")
 export const MASTER_ROD_LESSONS = 3;    // lessons from Nerys that earn her trust for the Master Rod...
 export const MASTER_ROD_SKILL = 55;     // ...or a Fishing skill high enough that she trusts it anyway
+// ---- Teaching (v2 BLOCK #6 slice 3 — the VISION pillar "skills rise from
+//      deliberate learning… faster than grinding"). A paid lesson from Nerys is a
+//      deterministic Fishing bump (respecting the skill caps), diminishing as the
+//      skill climbs, capped to one lesson per teacher per in-game day so it paces
+//      like a real apprenticeship rather than buying mastery outright. ----------
+export const LESSON_PRICE = 18;         // coins per fishing lesson from Nerys
+export const LESSON_GAIN_BASE = 5;      // lesson bump at Fishing 0 (≈16 successful grinds)...
+export const LESSON_GAIN_MIN = 1;       // ...never less than this, so a lesson always teaches something
 
 export const FORAGE_TIME = 1.2;         // seconds to pick a bush (per-item prices live in data/forage.ts)
 export const BUSH_RESPAWN = 25;         // seconds until a picked bush regrows
@@ -642,6 +650,7 @@ export const CUSTOMERS_KEY = "wildhearth-customers-v1"; // daily customer ledger
 export const REPUTATION_KEY = "wildhearth-reputation-v1"; // town-wide Fame 0-100 (v2 block #2)
 export const DISCOVERY_KEY = "wildhearth-discovery-v1"; // fast-travel nodes reached on foot (v2 block #4)
 export const TRANSPORT_KEY = "wildhearth-transport-v1"; // owned transport: rowboat/horse/carriage (v2 block #5)
+export const TEACHING_KEY = "wildhearth-teaching-v1"; // paid lessons taken per teacher NPC (v2 block #6 slice 3)
 
 // ===========================================================================
 //  Quest system (R6) — authored quests + AI dynamic offers → one quest log.

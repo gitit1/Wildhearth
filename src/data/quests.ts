@@ -199,6 +199,25 @@ export const QUESTS: QuestDef[] = [
     availability: { season: "autumn" },
   },
 
+  // -- Nerys, the Riverside Fisherwoman: the introduce-her quest (v2 BLOCK #6).
+  //    Meeting her = the offer; her "first lesson" is to go FEEL the river by
+  //    landing a few from her bend, then bring them back. Turned in at Nerys;
+  //    rewards a little coin, real Friendship, and a starter tin of bait so the
+  //    player has a reason to come back and take a paid lesson. -----------------
+  {
+    id: "nerys_reading_the_water",
+    giver: "nerys",
+    kind: "story",
+    title: "Reading the Water",
+    description:
+      "\"So you want to learn this river. First you feel it — no shortcut for that. Go land me three fish from this bend, any three, and bring them back. Then we'll talk about catching the ones that matter.\"",
+    steps: [
+      { kind: "gatherAny", category: "fish", count: 3, label: "Catch 3 fish from the river for Nerys" },
+    ],
+    reward: { coins: 15, friendship: 12, items: [{ id: "worms", qty: 3 }] },
+    availability: {},
+  },
+
   // -- A flower-themed quest for Liora, using the R3 gardening system ---------
   {
     id: "liora_a_song_in_bloom",

@@ -7,6 +7,7 @@ import {
   CUSTOMER_SPAWN_CHANCE, CUSTOMER_PATIENCE_MIN, CUSTOMER_TEND_TILES, CUSTOMER_FRIENDSHIP_BUMP,
   REP_GAIN_SALE, REP_GAIN_QUEST, REP_GAIN_FESTIVAL, REP_GAIN_GIFT,
   TOWN_SHOP_OPEN_HOUR, TOWN_SHOP_CLOSE_HOUR,
+  LESSON_PRICE, MASTER_ROD_LESSONS,
 } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
@@ -72,7 +73,10 @@ import { loadMemories, resetMemories, addMemory, saveMemories, attachMemoryFlavo
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
-import { loadSkills, gainSkill, skillValue, getSkill, saveSkills, decaySkills } from "./systems/skills";
+import { loadSkills, gainSkill, skillValue, getSkill, saveSkills, decaySkills, teachSkill } from "./systems/skills";
+import {
+  loadTeaching, resetTeaching, lessonsTaken, canLearnToday, lessonGain, recordLesson,
+} from "./systems/teaching";
 import { saveSettings, guidanceMode, setGuidance, dayLengthSeconds, endOfDaySummaryMode, type Guidance } from "./systems/settings";
 import { loadFarm, resetFarm, saveFarm } from "./systems/renovation";
 import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
@@ -182,7 +186,7 @@ import {
   type QuestLog, type QuestEvent, type QuestResult, type AvailCtx, type AiOffer,
 } from "./systems/quests";
 import { questById as questDefById } from "./data/quests";
-import type { QuestDialogueOption } from "./ui/dialoguebox";
+import type { QuestDialogueOption, QuestPickResult } from "./ui/dialoguebox";
 import { rigFromCharacter } from "./entities/player";
 import type { RigParams } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
@@ -336,6 +340,9 @@ const discovery = loadDiscovery();
 // each session on her own two feet — you never wake up already on a horse).
 const transport = loadTransport();
 let mounted = false;
+// Teaching ledger (v2 block #6 slice 3): paid lessons taken per teacher NPC —
+// paces the skill bump (one/day) and earns Nerys' trust for the Master Rod.
+const teaching = loadTeaching();
 
 /** Talk seam: opens the dialogue bottom-box (condition-keyed opening line +
  *  shallow choice turns). The window drives the conversation; the Social-need
@@ -862,7 +869,7 @@ initStableWindow({
 initFisherWindow({
   economy,
   fishingSkill: () => skillValue(skills, "fishing"),
-  lessonCount: () => 0,   // slice 3 wires this to the teaching ledger (lessonsTaken)
+  lessonCount: () => lessonsTaken(teaching, "nerys"),   // slice 3: her trust for the Master Rod
   toast, memory: remember,
   logPurchase: (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); },
 });
@@ -1707,7 +1714,40 @@ function serviceOptionsFor(npcId: string): QuestDialogueOption[] {
       return { line: "\"Everything a body needs to work this river. Take your time — no rushing the water.\"" };
     },
   });
+  opts.push({
+    label: `Teach me to read the water (${LESSON_PRICE} coins)`,
+    pick: () => takeFishingLesson(),
+  });
   return opts;
+}
+
+/** A paid Fishing lesson from Nerys (v2 BLOCK #6 slice 3, the VISION teaching
+ *  pillar): pay the fee, a short scripted lesson beat, a REAL deterministic
+ *  Fishing bump beyond the use-grind (respecting the skill caps), one per day.
+ *  The lesson count earns her trust for the Master Rod. */
+function takeFishingLesson(): QuestPickResult {
+  if (!canLearnToday(teaching, "nerys", calendar))
+    return { line: "\"We've done enough for one day — the river won't be rushed, and neither will you. Come back tomorrow.\"" };
+  if (economy.coins < LESSON_PRICE)
+    return { line: `"A lesson's ${LESSON_PRICE} coins — I've a living to make too. Come back when you can spare it."` };
+
+  economy.coins -= LESSON_PRICE;
+  saveEconomy(economy);
+  logCoinsSpent(dayLog, LESSON_PRICE);
+  const before = skillValue(skills, "fishing");
+  const gained = teachSkill(skills, "fishing", lessonGain(before));
+  recordLesson(teaching, "nerys", calendar);
+  if (gained > 0) onSkillGain("fishing", gained);
+  remember("first_lesson", "Nerys taught you to read the river — your first real lesson.");
+  const count = lessonsTaken(teaching, "nerys");
+  const trustLine = count >= MASTER_ROD_LESSONS
+    ? " \"You've the patience now. I'd trust you with my own rod.\""
+    : "";
+  return {
+    line: `"Watch the eddies — that's where they hold. Feel the line, don't fight it." `
+      + (gained > 0 ? `(Fishing +${gained})` : "(You've little left to learn from me on that.)")
+      + trustLine,
+  };
 }
 
 /** D3: surface a validated (or scripted-fallback) AI offer — store it so its
@@ -1839,6 +1879,7 @@ function newGameReset(character: Character, mode: Guidance) {
   resetReputation(reputation);        // v2 block #2: an unknown newcomer again
   resetDiscovery(discovery);          // v2 block #4: the world is unknown again — only the farm
   resetTransport(transport);          // v2 block #5: back on her own two feet — no boat/horse/carriage
+  resetTeaching(teaching);            // v2 block #6: a new life has taken no lessons
   setMounted(false);
   for (const n of npcs) n.visit = null;   // no one is queued at the stall in a fresh world
   resetCollections(collections);
