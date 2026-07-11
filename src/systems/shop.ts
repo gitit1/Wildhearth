@@ -45,20 +45,37 @@ export const SHOP_STOCK: ShopEntry[] = [
   { id: "cow", price: COW_PRICE, livestock: "cow", unique: true },
 ];
 
+/**
+ * The town general store's buy list (v2 BLOCK #3): the same tools + seeds as the
+ * farm market stall, but the seed packets carry NO season gate — a specialised
+ * town merchant keeps a fuller shelf year-round ("better stock than the farm
+ * market stall"). No livestock (those stay barn-gated at the farm). Prices are
+ * the same anchors; the town's edge is availability + the reputation discount.
+ */
+export const MERCHANT_STOCK: ShopEntry[] = [
+  { id: "hoe", price: HOE_PRICE, unique: true },
+  { id: "rod", price: ROD_PRICE, unique: true },
+  ...CROPS.map((c): ShopEntry => ({ id: c.seedId, price: c.seedPrice })),   // year-round, no `seasons` gate
+  { id: "flower-seeds", price: FLOWER_SEEDS_PRICE },
+  ...FLOWERS.map((f): ShopEntry => ({ id: f.seedId, price: f.seedPrice })),
+];
+
 export type BuyResult = "ok" | "no-coins" | "owned" | "bag-full";
 
 export function owned(e: Economy, entry: ShopEntry): boolean {
   return !!entry.unique && countItem(e.inv, entry.id) > 0;
 }
 
-/** Haggling shaves prices linearly, up to HAGGLE_MAX_DISCOUNT at skill 100. */
-export function discountedPrice(price: number, hagglingSkill: number): number {
-  return Math.max(1, Math.round(price * (1 - HAGGLE_MAX_DISCOUNT * (hagglingSkill / 100))));
+/** Haggling shaves prices linearly, up to HAGGLE_MAX_DISCOUNT at skill 100.
+ *  `extraDiscount` (0..1) stacks a further reduction — the town merchant's
+ *  reputation "better opening prices" discount (v2 BLOCK #3). */
+export function discountedPrice(price: number, hagglingSkill: number, extraDiscount = 0): number {
+  return Math.max(1, Math.round(price * (1 - HAGGLE_MAX_DISCOUNT * (hagglingSkill / 100)) * (1 - extraDiscount)));
 }
 
-export function tryBuy(e: Economy, entry: ShopEntry, hagglingSkill = 0): BuyResult {
+export function tryBuy(e: Economy, entry: ShopEntry, hagglingSkill = 0, extraDiscount = 0): BuyResult {
   if (owned(e, entry)) return "owned";
-  const price = discountedPrice(entry.price, hagglingSkill);
+  const price = discountedPrice(entry.price, hagglingSkill, extraDiscount);
   if (e.coins < price) return "no-coins";
   if (!addItem(e.inv, entry.id, 1)) return "bag-full";
   e.coins -= price;

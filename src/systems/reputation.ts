@@ -20,7 +20,7 @@
 import {
   REPUTATION_KEY, REP_LOSS_TIMEOUT, REP_DECAY_IDLE_DAYS, REP_DECAY_PER_DAY,
   REP_PREMIUM_MIN, REP_PREMIUM_MAX, REP_DAILY_CAP_BONUS_MAX, REP_SPAWN_CHANCE_BONUS_MAX,
-  CUSTOMER_DAILY_CAP,
+  CUSTOMER_DAILY_CAP, REP_BUY_DISCOUNT_MAX,
 } from "../config";
 
 export interface Reputation {
@@ -100,6 +100,14 @@ export function reputationDailyCap(fame: number): number {
 /** Extra spawn odds added to the base per-attempt chance, scaling with Fame. */
 export function reputationSpawnBonus(fame: number): number {
   return REP_SPAWN_CHANCE_BONUS_MAX * (clamp100(fame) / 100);
+}
+
+/** A town MERCHANT's purchase discount for the current Fame (v2 BLOCK #3):
+ *  0 at fame 0 up to REP_BUY_DISCOUNT_MAX at fame 100 — VISION's "the better
+ *  known you are, the better your opening prices". Applied on TOP of the
+ *  passive Haggling discount at the general store's buy counter. */
+export function reputationBuyDiscount(fame: number): number {
+  return REP_BUY_DISCOUNT_MAX * (clamp100(fame) / 100);
 }
 
 // ---- writes -----------------------------------------------------------------

@@ -208,6 +208,17 @@ export const REP_PREMIUM_MIN = 1.15;      // customer price multiplier at fame 0
 export const REP_PREMIUM_MAX = 1.45;      // customer price multiplier at fame 100
 export const REP_DAILY_CAP_BONUS_MAX = 4; // extra daily customer sales at fame 100 (on top of the base cap)
 export const REP_SPAWN_CHANCE_BONUS_MAX = 0.25; // extra spawn odds at fame 100 (added to CUSTOMER_SPAWN_CHANCE)
+export const REP_BUY_DISCOUNT_MAX = 0.12; // town-merchant purchase discount at fame 100 (VISION "better opening prices")
+
+// ===========================================================================
+//  Coastal town merchants (v2 BLOCK #3) — the specialised town shops. The
+//  fishmonger + greengrocer BUY their speciality from the player at a
+//  reputation-scaled premium (reuses reputationPremium, the customer band); the
+//  general store SELLS tools/seeds (better/year-round stock vs the seasonal farm
+//  stall) at a reputation-scaled discount. Shops trade during daytime hours.
+// ===========================================================================
+export const TOWN_SHOP_OPEN_HOUR = 8;    // town shops open at this hour...
+export const TOWN_SHOP_CLOSE_HOUR = 20;  // ...and shut at this one (sleep at the inn is later town life)
 
 // ===========================================================================
 //  Dialogue engine (Part A #4, mechanical layer) — condition-keyed opening

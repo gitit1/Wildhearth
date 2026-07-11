@@ -29,6 +29,66 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## economy — the town's specialised merchants (v2 BLOCK #3, part 2)
+- **Date:** 2026-07-11 (v1-foundation)
+- **What & why:** the coastal town's shops now trade. VISION §town wants
+  "multiple specialised merchants from the start (fish buyer, tool smith, seed
+  seller) — not one generic shop", and ROADMAP_TO_V5 §v2 wants Reputation's band
+  to shape merchant pricing. Three working merchants + a stubbed tailor, each a
+  distinct banked stall sprite already placed in part 1.
+- **The three merchants + tailor:**
+  - **General Store** (`stall-general-01`): SELLS tools + seeds. New
+    `MERCHANT_STOCK` in `src/systems/shop.ts` — the same tools/seeds as the farm
+    stall but the seed packets carry **no season gate** (a fuller year-round
+    shelf = "better stock than the farm-market stall"). Reputation gives a
+    purchase discount on top of Haggling (VISION "the better known you are, the
+    better your opening prices").
+  - **Fishmonger** (`stall-fish-02`): BUYS the `fishing` category at a
+    reputation-scaled **premium** (the same 1.15→1.45 band customers pay).
+  - **Greengrocer** (`stall-produce-02`): BUYS a new `produce` category —
+    crops + wild forage + cut flowers — at the same reputation premium.
+  - **Tailor** (`stall-empty-01`): a "wardrobe fittings coming soon" counter
+    (opens no window). Wardrobe buy/swap is v1-vs-v2 ambiguous in the docs — an
+    OPEN OWNER QUESTION, logged in the handoff.
+- **Pricing plumbing:**
+  - `src/systems/reputation.ts` — new `reputationBuyDiscount(fame)` (0 →
+    `REP_BUY_DISCOUNT_MAX` at fame 100), parallel to `reputationPremium`.
+  - `src/systems/shop.ts` — `discountedPrice()` + `tryBuy()` take an optional
+    `extraDiscount` so the shown price and the charged price stay identical when
+    the general store's reputation discount stacks on Haggling.
+  - `src/systems/sellCategories.ts` — new `produce` `SellCategory`
+    (`applies: () => true`, so crops/forage/flowers stay freely sellable at the
+    player's OWN stall exactly as before — no regression; the category exists so
+    `categoryItemIds("produce")` feeds the greengrocer).
+  - `src/ui/shopwindow.ts` — the `SellMode` union gains a `priceMult` on the
+    `npc` (buying-stall) mode and a new `merchant` (selling-shop) mode
+    (`openMerchantBuyWindow`). The sell rows pay `GOOD_PRICES × priceMult` via
+    `economy.sellGoodAt`; the buy rows use the merchant's own stock + discount.
+    The static `Sell`/`Buy` headings hide per mode.
+- **Wiring:** `src/systems/interact.ts` — one `Interactable` per town merchant
+  (counter hit/reach → `c.openTownMerchant(kind)`), the inn (a Look prop hinting
+  at lodging to come), and the NPC homes (Look props). New `InteractCtx`
+  callback `openTownMerchant`. `src/main.ts` — `openTownMerchant(kind)` gates on
+  daytime hours (`TOWN_SHOP_OPEN_HOUR`/`CLOSE_HOUR`), opens the right window with
+  the live reputation premium/discount, sets the merchant rect as
+  `openStallRect` so walking away closes it; `onMerchantSale()` nudges Fame
+  (`REP_GAIN_SALE`) + a one-time Memory note; the existing `logSale` seam already
+  fires guidance/quests. New config knobs `REP_BUY_DISCOUNT_MAX`,
+  `TOWN_SHOP_OPEN_HOUR`, `TOWN_SHOP_CLOSE_HOUR`. Dev bridge
+  `__wh.openTownMerchantDev(kind)`.
+- **Verified (live headless-Edge, `scratchpad/v2-block3/m1-m5`):** fishmonger
+  pays **30 → 40 coins** for 10 fish as Fame goes 0 → 90 (premium band);
+  greengrocer buys corn (7) + berries (3) (produce category live); general
+  store discounts the hoe **12 → 11** at high Fame and lists seeds year-round
+  ("better stock"); tailor opens **no window** (coming-soon toast); a real
+  fishmonger sale moved coins **500 → 540** and Fame **90 → 91.5** (the sale
+  awards reputation). Save toast fired. `npm run build` green.
+- **Follow-ups:** the tailor/wardrobe is an OPEN OWNER QUESTION (v1 or v2?).
+  Merchants keep no shopkeeper NPC (they're always open in daytime) — a future
+  pass could staff them (needs new NPC sprites → a generation follow-up). The
+  fishmonger/greengrocer are the first non-Maren `openNpcStallWindow` users, so
+  the sell-only window is now exercised by three stalls.
+
 ## world — the coastal town region (v2 BLOCK #3, part 1: the region)
 - **Date:** 2026-07-11 (v1-foundation)
 - **What & why:** v2's dependency spine (`Customers → Reputation → Town region

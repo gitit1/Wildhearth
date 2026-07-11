@@ -6,6 +6,7 @@ import {
   CUSTOMER_MARKET_START, CUSTOMER_MARKET_END, CUSTOMER_MAX_CONCURRENT, CUSTOMER_SPAWN_GAP_MIN,
   CUSTOMER_SPAWN_CHANCE, CUSTOMER_PATIENCE_MIN, CUSTOMER_TEND_TILES, CUSTOMER_FRIENDSHIP_BUMP,
   REP_GAIN_SALE, REP_GAIN_QUEST, REP_GAIN_FESTIVAL, REP_GAIN_GIFT,
+  TOWN_SHOP_OPEN_HOUR, TOWN_SHOP_CLOSE_HOUR,
 } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
@@ -17,7 +18,7 @@ import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
   FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, WORLD_PROPS, type Rect,
-  INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK,
+  INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK, type MerchantKind,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
@@ -43,7 +44,7 @@ import {
 } from "./systems/customers";
 import {
   loadReputation, resetReputation, gainReputation, penalizeReputation, decayReputation,
-  reputationTier, reputationPremium, reputationDailyCap, reputationSpawnBonus,
+  reputationTier, reputationPremium, reputationDailyCap, reputationSpawnBonus, reputationBuyDiscount,
 } from "./systems/reputation";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
@@ -59,7 +60,7 @@ import { loadGarden, resetGarden, saveGarden, updateGarden, rollGardenDay } from
 import { loadStorage, resetStorage, type Storage } from "./systems/storage";
 import { loadCollections, resetCollections, discover, discoveredName, saveCollections } from "./systems/collections";
 import { sellableGoodIds } from "./systems/sellCategories";
-import { NPC_STALL_TRADES, type NpcStallTrade } from "./systems/shop";
+import { NPC_STALL_TRADES, MERCHANT_STOCK, type NpcStallTrade } from "./systems/shop";
 import { loadMemories, resetMemories, addMemory, saveMemories, attachMemoryFlavor } from "./systems/memories";
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
@@ -133,7 +134,7 @@ import { initQuestLog, updateQuestLog } from "./ui/questlog";
 import { initMinimap, updateMinimap, setMinimapField } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup, updateReputationUI } from "./ui/skills";
 import {
-  initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow,
+  initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow, openMerchantBuyWindow,
   refreshShopWindow, type CustomerRow,
 } from "./ui/shopwindow";
 import {
@@ -537,6 +538,14 @@ if (import.meta.env.DEV)
     heldCountOf: (id: string) => heldCount(id),
     castPond: () => { const o = byId("pond"); if (o) { player.x = o.anchor[0]; player.y = o.anchor[1]; player.moving = false; clearMoveTarget(); runDefault(o, makeCtx()); } },
     openStallDev: () => { player.x = STALL.x + STALL.w / 2; player.y = STALL.y + STALL.h + 10; player.moving = false; clearMoveTarget(); openPlayerStall(); },
+    // town-merchant verification bridge (v2 BLOCK #3): stand at a merchant and
+    // open its window (buy for the general store, sell for fishmonger/greengrocer,
+    // "coming soon" for the tailor), the same path a real click takes.
+    openTownMerchantDev: (kind: MerchantKind) => {
+      const m = TOWN_MERCHANTS.find((x) => x.kind === kind); if (!m) return;
+      player.x = m.x + m.w / 2; player.y = m.y + m.h + 10; player.moving = false; clearMoveTarget();
+      openTownMerchant(kind);
+    },
     // save-system verification bridge — force the two save paths and shrink
     // the autosave interval instead of waiting 10 real minutes
     saveNow: manualSave,
@@ -868,6 +877,47 @@ function onNpcSale(npcId: string) {
     toast(`${seller.def.name} gives a small approving nod. (+${NPC_SALE_FRIENDSHIP_BUMP} ♥)`);
     for (const ev of thresholds) fireHeart(seller, ev);
   }
+}
+
+/** Coastal-town merchants (v2 BLOCK #3). Opens the right trade window by kind:
+ *  the general store SELLS tools/seeds (year-round stock) at a reputation
+ *  discount; the fishmonger + greengrocer BUY their speciality at a reputation
+ *  premium (the same band customers pay); the tailor is a "coming soon" counter.
+ *  Shops keep daytime hours. The merchant's rect becomes `openStallRect` so
+ *  walking away closes the window (same as the farm stall / NPC stalls). */
+function openTownMerchant(kind: MerchantKind) {
+  const m = TOWN_MERCHANTS.find((x) => x.kind === kind);
+  if (!m) return;
+  if (calendar.hour < TOWN_SHOP_OPEN_HOUR || calendar.hour >= TOWN_SHOP_CLOSE_HOUR) {
+    toast("The town's shops are shut — come back in daylight hours.");
+    return;
+  }
+  openStallRect = m;
+  if (kind === "tailor") {
+    toast("The tailor's counter is bare — wardrobe fittings are coming soon.");
+    openStallRect = null;
+    return;
+  }
+  if (kind === "general") {
+    openMerchantBuyWindow("General Store", MERCHANT_STOCK, reputationBuyDiscount(reputation.fame));
+    return;
+  }
+  // fishmonger / greengrocer: sell-only, reputation premium on the price paid
+  const premium = reputationPremium(reputation.fame);
+  if (kind === "fishmonger") openNpcStallWindow("The Fishmonger", "fishing", () => onMerchantSale("fishmonger"), premium);
+  else openNpcStallWindow("The Greengrocer", "produce", () => onMerchantSale("greengrocer"), premium);
+}
+
+/** A sale to a town buying-merchant: the same sell seam (guidance/quests/day
+ *  log/arcs, via logSale) already fires through the shop window's logSaleFn; the
+ *  merchant sale additionally nudges town Fame, like serving a customer, and
+ *  drops a one-time Memory Book note the first time. */
+function onMerchantSale(kind: "fishmonger" | "greengrocer") {
+  awardReputation(REP_GAIN_SALE);
+  const text = kind === "fishmonger"
+    ? "Your first sale to the town fishmonger."
+    : "Your first sale to the town greengrocer.";
+  if (addMemory(memories, `first_town_${kind}`, text, calendar)) logMemory(dayLog, text);
 }
 
 // ---- town reputation / fame (v2 economy block #2) --------------------------
@@ -1509,6 +1559,7 @@ function makeCtx(): InteractCtx {
     memory: remember,
     expandFarm, openGiftFor, doInteraction,
     openNpcTrade: openNpcStallTrade,
+    openTownMerchant,
     openStorage: openBarnStorage,
     guidanceEvent: fireGuidance,
   };

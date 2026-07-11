@@ -1,5 +1,8 @@
 import { FISH } from "../data/fish";
 import { JUNK } from "../data/junk";
+import { CROPS } from "../data/crops";
+import { FORAGE } from "../data/forage";
+import { FLOWERS } from "../data/flowers";
 import { GOOD_PRICES } from "./economy";
 import { countItem, type Inventory } from "./inventory";
 import { discoveredCount, type Collections } from "./collections";
@@ -40,7 +43,19 @@ const fishing: SellCategory = {
   itemIds: [...FISH.map((f) => f.id), ...JUNK.map((j) => j.id), "fish"],
 };
 
-export const SELL_CATEGORIES: SellCategory[] = [fishing];
+// The town greengrocer's basket (v2 BLOCK #3): everything the land yields —
+// crops, wild forage and cut flowers. `applies: () => true` keeps these freely
+// sellable at the PLAYER'S own stall exactly as before (they were previously
+// "unclaimed" pass-through goods); the category exists so the greengrocer can
+// buy the whole produce basket at a reputation-scaled premium via categoryItemIds.
+const produce: SellCategory = {
+  id: "produce",
+  label: "produce",
+  applies: () => true,
+  itemIds: [...CROPS.map((c) => c.id), ...FORAGE.map((f) => f.id), ...FLOWERS.map((f) => f.id)],
+};
+
+export const SELL_CATEGORIES: SellCategory[] = [fishing, produce];
 
 /** Looks up a category by id (e.g. an NPC-stall trade's `categoryId`). */
 export function categoryById(id: string): SellCategory | undefined {

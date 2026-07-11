@@ -1,6 +1,7 @@
 import {
   POND, STALL, BARN, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
   FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot, type StallDef,
+  TOWN_MERCHANTS, INN, TOWN_HOMES, type MerchantKind,
 } from "../world/zones";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
 import { nearPond, nearRect } from "../world/collision";
@@ -67,6 +68,7 @@ export interface InteractCtx {
   openGiftFor: (n: Npc) => void;                 // open the gift chooser for an NPC (Relationship engine)
   doInteraction: (n: Npc, it: InteractionDef) => void;  // run a categorized social interaction
   openNpcTrade: (trade: NpcStallTrade) => void;   // opens the sell-only window for an NPC-specialty stall
+  openTownMerchant: (kind: MerchantKind) => void; // opens a coastal-town merchant (v2 BLOCK #3)
   guidanceEvent: (ev: GuidanceEvent) => void;    // advance Guidance Mode (repair/expand) — main owns the engine
 }
 
@@ -181,6 +183,53 @@ const cottages: Interactable[] = COTTAGES.map((c, i) =>
     { x: c.x - 8, y: c.y - c.h * 0.3, w: c.w + 16, h: c.h * 1.3 },
     [c.x + c.w / 2, c.y + c.h + 18], c,
     "A snug little cottage. Its door is shut — someone may live here one day.",
+  ));
+
+// ---- coastal town (v2 BLOCK #3) ----
+/** Per-merchant counter label + Look line. The trade window itself (buy stock,
+ *  reputation-priced buying, hours gate, the tailor "coming soon") is opened by
+ *  main.ts's openTownMerchant — the interactable just dispatches by kind. */
+const MERCHANT_INFO: Record<MerchantKind, { name: string; action: string; look: string }> = {
+  general:     { name: "General store", action: "Browse goods",   look: "The general store — tools and seeds kept in stock the whole year round." },
+  fishmonger:  { name: "Fishmonger",    action: "Sell your catch", look: "The fishmonger — buys your fish, and pays better the more the town knows you." },
+  greengrocer: { name: "Greengrocer",   action: "Sell produce",    look: "The greengrocer — buys crops, wild forage and cut flowers at a fair price." },
+  tailor:      { name: "Tailor",        action: "Browse",          look: "The tailor's counter. Wardrobe fittings are coming soon." },
+};
+const townMerchants: Interactable[] = TOWN_MERCHANTS.map((m) => {
+  const info = MERCHANT_INFO[m.kind];
+  const box = { x: m.x - 6, y: m.y - m.h * 0.4, w: m.w + 12, h: m.h * 1.45 };
+  return {
+    id: `town-merchant-${m.kind}`,
+    name: info.name,
+    anchor: [m.x + m.w / 2, m.y + m.h + 22] as [number, number],
+    defaultActionId: "trade",
+    hit: (wx, wy) => wx >= box.x && wx <= box.x + box.w && wy >= box.y && wy <= box.y + box.h,
+    inReach: (px, py) => nearRect(px, py, m),
+    actions: () => [
+      { id: "trade", label: info.action, run: (c) => c.openTownMerchant(m.kind) },
+      { id: "look", label: "Look", run: (c) => c.toast(info.look) },
+    ],
+    drawHover: (g, t) => glowRect(g, box.x - 2, box.y - 2, box.w + 4, box.h + 4, t),
+  };
+});
+const innBox = { x: INN.x - 8, y: INN.y - INN.h * 0.4, w: INN.w + 16, h: INN.h * 1.35 };
+const townInn: Interactable = {
+  id: "town-inn", name: "The Inn",
+  anchor: [INN.x + INN.w / 2, INN.y + INN.h + 22],
+  defaultActionId: "look",
+  hit: (wx, wy) => wx >= innBox.x && wx <= innBox.x + innBox.w && wy >= innBox.y && wy <= innBox.y + innBox.h,
+  inReach: (px, py) => nearRect(px, py, INN),
+  actions: () => [
+    { id: "look", label: "Look", run: (c) => c.toast("The town inn — a warm hearth and rooms upstairs. Lodging for the night comes with town life.") },
+  ],
+  drawHover: (g, t) => glowRect(g, innBox.x - 2, innBox.y - 2, innBox.w + 4, innBox.h + 4, t),
+};
+const townHomes: Interactable[] = TOWN_HOMES.map((h, i) =>
+  lookProp(
+    `townhome-${i}`, "Home",
+    { x: h.x - 8, y: h.y - h.h * 0.3, w: h.w + 16, h: h.h * 1.3 },
+    [h.x + h.w / 2, h.y + h.h + 18], h,
+    "A townsperson's home, its door shut against the sea breeze.",
   ));
 const wellProp: Interactable = {
   id: "well", name: "Well",
@@ -482,6 +531,7 @@ const doorMat: Interactable = {
 export const INTERACTABLES: Interactable[] = [
   pond, stall, barn, buskSpot, houseDoor, house, outhouseSpot,
   ...fishSpots, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
+  ...townMerchants, townInn, ...townHomes,   // coastal town (v2 BLOCK #3)
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];
 

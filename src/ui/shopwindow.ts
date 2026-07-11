@@ -1,5 +1,5 @@
-import { GOOD_PRICES, goodCount, sellGood, type Economy } from "../systems/economy";
-import { SHOP_STOCK, tryBuy, tryBuyLivestock, owned, discountedPrice } from "../systems/shop";
+import { GOOD_PRICES, goodCount, sellGood, sellGoodAt, type Economy } from "../systems/economy";
+import { SHOP_STOCK, tryBuy, tryBuyLivestock, owned, discountedPrice, type ShopEntry } from "../systems/shop";
 import { ITEM_NAMES } from "../systems/inventory";
 import { skillValue, gainSkill, type Skills } from "../systems/skills";
 import type { FarmState } from "../systems/renovation";
@@ -28,15 +28,21 @@ const ICON_PX = 26;
 
 let win: WindowHandle;
 let sellList: HTMLElement;
+let sellLabelEl: HTMLElement;
 let custList: HTMLElement;
 let buyList: HTMLElement;
 let buyLabelEl: HTMLElement;
 let coinsEl: HTMLElement;
 
 /** "player" = the farm stall (sell everything + buy stock). "npc" = a single
- *  NPC-specialty stall (Maren's fish stall, and future produce/etc. stalls):
- *  one sell category, no buy side, its own title. */
-type SellMode = { kind: "player" } | { kind: "npc"; npcName: string; categoryId: string; onSale: () => void };
+ *  buying stall (Maren's fish stall; the town fishmonger/greengrocer): one sell
+ *  category, no buy side, its own title, an optional `priceMult` premium on the
+ *  price it pays (v2 BLOCK #3 reputation premium). "merchant" = a town SELLING
+ *  shop (the general store): buy side only, its own stock + reputation discount. */
+type SellMode =
+  | { kind: "player" }
+  | { kind: "npc"; npcName: string; categoryId: string; onSale: () => void; priceMult: number }
+  | { kind: "merchant"; title: string; stock: ShopEntry[]; discount: number };
 let mode: SellMode = { kind: "player" };
 let eco: Economy;
 let sk: Skills;
@@ -89,6 +95,7 @@ export function initShopWindow(
   onServeFn = onServe;
   const panel = document.getElementById("shopWindow")!;
   sellList = document.getElementById("shopSell")!;
+  sellLabelEl = document.getElementById("shopSellLabel")!;
   custList = document.getElementById("shopCustomers")!;
   buyList = document.getElementById("shopBuy")!;
   buyLabelEl = document.getElementById("shopBuyLabel")!;
@@ -133,8 +140,18 @@ export function openShopWindow() {
  * worth a reaction, mirroring how the player-stall path always calls its own
  * first-sale memory hook regardless of whether it's actually the first time.
  */
-export function openNpcStallWindow(npcName: string, categoryId: string, onSale: () => void) {
-  mode = { kind: "npc", npcName, categoryId, onSale };
+export function openNpcStallWindow(npcName: string, categoryId: string, onSale: () => void, priceMult = 1) {
+  mode = { kind: "npc", npcName, categoryId, onSale, priceMult };
+  render();
+  win.open();
+  fitHeight();
+}
+
+/** A town SELLING merchant (v2 BLOCK #3 — the general store): a buy-only window
+ *  over its own `stock`, with a reputation `discount` (0..1) stacked on top of
+ *  the passive Haggling discount. No sell side, no customers. */
+export function openMerchantBuyWindow(title: string, merchantStock: ShopEntry[], discount = 0) {
+  mode = { kind: "merchant", title, stock: merchantStock, discount };
   render();
   win.open();
   fitHeight();
@@ -172,16 +189,21 @@ function stepper(get: () => number, set: (n: number) => void, max: () => number)
 function render() {
   coinsEl.textContent = String(eco.coins);
   const npc = mode.kind === "npc" ? mode : null;
-  win.setTitle(npc ? `${npc.npcName}'s stall` : "Market stall");
+  const merchant = mode.kind === "merchant" ? mode : null;
+  win.setTitle(merchant ? merchant.title : npc ? `${npc.npcName}'s stall` : "Market stall");
+  // buy side hidden for a BUYING stall (npc); sell side hidden for a SELLING
+  // merchant (general store). The player's own stall shows both.
   buyLabelEl.style.display = npc ? "none" : "";
   buyList.style.display = npc ? "none" : "";
+  sellLabelEl.style.display = merchant ? "none" : "";
+  sellList.style.display = merchant ? "none" : "";
 
   // ----- customers at your stall (player mode only): townsfolk who walked up
   // wanting to buy, paying a premium over the flat rate. Serving one is handled
   // by main.ts (onServeFn): coins + the same sell seam a flat sale fires + a
   // small Friendship bump + the customer leaving. -----
   custList.replaceChildren();
-  if (!npc) {
+  if (!npc && !merchant) {
     const waiting = customersFn();
     if (waiting.length > 0) {
       const head = document.createElement("div");
@@ -213,15 +235,18 @@ function render() {
     }
   }
 
-  // ----- sell side -----
+  // ----- sell side (skipped for a SELLING merchant — the general store only
+  // sells TO you). -----
   // player mode: path/category-aware union of everything this player can sell.
-  // npc mode: ONLY the one category this stall buys, regardless of the
-  // player's own capability gate (Maren buys fish whether or not you're a
-  // "fishing path" player) — looked up straight from sellCategories.ts, never
-  // a hand-listed id set.
+  // npc mode: ONLY the one category this stall buys, regardless of the player's
+  // own capability gate (Maren buys fish whether or not you're a "fishing path"
+  // player); the town fishmonger/greengrocer add a reputation `priceMult` premium
+  // on the price they pay — looked up straight from sellCategories.ts.
   sellList.replaceChildren();
-  const goods = (npc ? categoryItemIds(npc.categoryId) : sellableIds()).filter((id) => goodCount(eco, id) > 0);
-  if (goods.length === 0) {
+  // the price this stall pays per unit of `id` (npc premium applied, rounded).
+  const payFor = (id: string) => npc ? Math.max(1, Math.round(GOOD_PRICES[id]! * npc.priceMult)) : GOOD_PRICES[id]!;
+  const goods = merchant ? [] : (npc ? categoryItemIds(npc.categoryId) : sellableIds()).filter((id) => goodCount(eco, id) > 0);
+  if (!merchant && goods.length === 0) {
     const empty = document.createElement("div");
     empty.className = "shop-empty";
     empty.textContent = npc ? `Nothing in your bag ${npc.npcName} wants.` : "Nothing in your bag the stall wants.";
@@ -231,7 +256,7 @@ function render() {
     const have = goodCount(eco, id);
     const q = Math.min(sellQty.get(id) ?? have, have);
     sellQty.set(id, q);
-    const price = GOOD_PRICES[id]!;
+    const price = payFor(id);
 
     const row = document.createElement("div");
     row.className = "shop-row";
@@ -245,7 +270,9 @@ function render() {
     btn.className = "shop-btn";
     btn.textContent = "Sell";
     btn.addEventListener("click", () => {
-      const earned = sellGood(eco, id, q);
+      // npc stalls pay the premium unit price (sellGoodAt); the player's own
+      // stall sells at the flat GOOD_PRICES rate (sellGood).
+      const earned = npc ? sellGoodAt(eco, id, q, price) : sellGood(eco, id, q);
       if (earned > 0) {
         toastFn(`Sold ${q} ${(ITEM_NAMES[id] ?? id).toLowerCase()} for ${earned} coins!`);
         logSaleFn(earned, q);
@@ -266,7 +293,7 @@ function render() {
       let earned = 0, units = 0;
       for (const id of goods) {
         const have = goodCount(eco, id);
-        const e = sellGood(eco, id);
+        const e = npc ? sellGoodAt(eco, id, have, payFor(id)) : sellGood(eco, id);
         earned += e;
         if (e > 0) units += have;
       }
@@ -287,7 +314,11 @@ function render() {
   buyList.replaceChildren();
   if (npc) return;
   const haggling = skillValue(sk, "haggling");
-  for (const entry of SHOP_STOCK) {
+  // a town SELLING merchant uses its OWN stock + a reputation discount stacked on
+  // the passive Haggling one; the player's own stall uses SHOP_STOCK, no extra.
+  const buyStock = merchant ? merchant.stock : SHOP_STOCK;
+  const extra = merchant ? merchant.discount : 0;
+  for (const entry of buyStock) {
     // seasonal stock (seed packets) only appears in its planting season
     if (entry.seasons && !entry.seasons.includes(seasonNow())) continue;
     // livestock rows: barn-gated, never enter the backpack, spawn in the yard.
@@ -342,7 +373,7 @@ function render() {
     if (owned(eco, entry)) continue;
     const q = entry.unique ? 1 : Math.max(1, buyQty.get(entry.id) ?? 1);
     buyQty.set(entry.id, q);
-    const price = discountedPrice(entry.price, haggling);
+    const price = discountedPrice(entry.price, haggling, extra);
     const tag = price < entry.price ? ` (was ${entry.price})` : "";
 
     const row = document.createElement("div");
@@ -360,7 +391,7 @@ function render() {
       if (eco.coins < price * q) { toastFn(`Not enough coins — that costs ${price * q}.`); return; }
       let bought = 0;
       for (let i = 0; i < q; i++) {
-        const r = tryBuy(eco, entry, haggling);
+        const r = tryBuy(eco, entry, haggling, extra);
         if (r !== "ok") { if (r === "bag-full") toastFn("Backpack full — no room for more."); break; }
         bought++;
       }
