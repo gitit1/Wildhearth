@@ -565,6 +565,11 @@ export const SPRITE_BUSK_SIGN_SCALE = 0.5;
 // bed point; the per-species seedlings/blooms still layer on top in code, so
 // this replaces only the code-drawn soil oval (~30px wide → scale 0.5).
 export const SPRITE_FLOWER_BED_SCALE = 0.5;
+// Festival decorations: the harvest cluster (64px art onto its ~33px footprint)
+// and the lantern pole (48×64; the warm flicker GLOW stays code-drawn over the
+// unlit paper-lantern sprite). Festival-only, base-on-ground.
+export const SPRITE_HARVEST_CLUSTER_SCALE = 0.5;
+export const SPRITE_FESTIVAL_LANTERN_SCALE = 0.62;
 // --- Building variety batch: 6 distinct market cottages (art/buildings.ts
 //     COTTAGE_SPRITES), one scale for every variant (all cottage canvases are
 //     the same 112x128 size, same "footprint <= zone rect" recipe as above;

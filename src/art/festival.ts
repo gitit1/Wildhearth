@@ -1,6 +1,8 @@
 import { MARKET_STALLS } from "../world/zones";
 import { outline, oRect, shadow } from "./shapes";
 import { mulberry32 } from "../engine/rng";
+import { sprite, drawGroundSprite, spriteBaseAnchor } from "./sprites";
+import { SPRITE_HARVEST_CLUSTER_SCALE, SPRITE_FESTIVAL_LANTERN_SCALE } from "../config";
 
 /**
  * Festival decorations (Festival engine, Part A #6) — code-drawn, only
@@ -63,10 +65,29 @@ export function drawBunting(g: CanvasRenderingContext2D, t: number) {
 /** A wooden pole topped with a glowing paper lantern — a gentle flicker, no
  *  animation cost beyond a sine. Warm against the well's stonework. */
 export function drawLanternPole(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  const flicker = 0.75 + Math.sin(t * 3 + x) * 0.15;
+  // ---- sprite path: the pole + UNLIT paper lantern as a sprite, base-on-ground;
+  // the warm flicker GLOW below stays code-drawn ON TOP so the lantern reads lit.
+  // Code painter is the zero-PNG fallback. ----
+  const img = sprite("props/festival-lantern");
+  if (img) {
+    shadow(g, x + 2, y + 3, 6, 3);
+    const a = spriteBaseAnchor("props/festival-lantern", img);
+    const p = drawGroundSprite(g, img, x, y, a.cx, a.foot, SPRITE_FESTIVAL_LANTERN_SCALE);
+    // the paper lantern sits near the sprite's top — glow there
+    const gy = p.dy + a.foot * SPRITE_FESTIVAL_LANTERN_SCALE - (img.naturalHeight - 8) * SPRITE_FESTIVAL_LANTERN_SCALE;
+    const glowR = g.createRadialGradient(x, gy, 1, x, gy, 16);
+    glowR.addColorStop(0, `rgba(255,190,90,${0.55 * flicker})`);
+    glowR.addColorStop(1, "rgba(255,190,90,0)");
+    g.fillStyle = glowR; g.beginPath(); g.arc(x, gy, 16, 0, 7); g.fill();
+    g.fillStyle = `rgba(255,170,80,${0.32 * flicker})`;   // soft lit tint on the paper
+    g.beginPath(); g.ellipse(x, gy, 5.5, 7.5, 0, 0, 7); g.fill();
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   shadow(g, x + 2, y + 3, 6, 3);
   oRect(g, x - 2, y - 34, 4, 34, "#6f5334");   // pole
 
-  const flicker = 0.75 + Math.sin(t * 3 + x) * 0.15;
   const cy = y - 38;
   const glow = g.createRadialGradient(x, cy, 1, x, cy, 16);
   glow.addColorStop(0, `rgba(255,190,90,${0.55 * flicker})`);
@@ -87,6 +108,21 @@ export function drawLanternPole(g: CanvasRenderingContext2D, x: number, y: numbe
 /** A little harvest cluster: two pumpkins and a bound wheat sheaf, deterministic
  *  per position so it never shimmers between frames. */
 export function drawHarvestCluster(g: CanvasRenderingContext2D, x: number, y: number) {
+  // ---- sprite path: a harvest pile sprite base-on-ground, alternating the two
+  // variants per position so clusters don't read as clones; code painter is the
+  // zero-PNG fallback. ----
+  const clA = sprite("props/harvest-cluster-a");
+  if (clA) {
+    const clB = sprite("props/harvest-cluster-b");
+    const useB = clB && ((((x * 13) ^ (y * 7)) & 1) === 1);
+    const img = useB ? clB! : clA;
+    const id = useB ? "props/harvest-cluster-b" : "props/harvest-cluster-a";
+    const an = spriteBaseAnchor(id, img);
+    shadow(g, x + 2, y + 5, 16, 6);
+    drawGroundSprite(g, img, x, y, an.cx, an.foot, SPRITE_HARVEST_CLUSTER_SCALE);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   const rnd = mulberry32(((x * 13) ^ (y * 7)) | 0);
   shadow(g, x + 2, y + 5, 16, 6);
 

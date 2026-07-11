@@ -29,6 +29,32 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## everything-pixels — festival decorations (harvest clusters + lantern poles) become sprites
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** the last code-drawn WORLD objects — the Harvest Festival
+  decorations that ring the market well on the festival date. Now the world is
+  pixel even during the festival. (Bunting between the stalls stays code-drawn:
+  a variable-length catenary can't be a fixed sprite.)
+- **What shipped:** dual-path over the festival painters (`src/art/festival.ts`),
+  code painters kept as the zero-PNG fallback (CLAUDE.md rule #1).
+  - **Harvest cluster** → `props/harvest-cluster-a.png` + `-b.png` (64×64
+    pumpkins+wheat piles). `drawHarvestCluster` picks a variant per position
+    (position-hash) so clusters don't read as clones, base-on-ground, measured
+    anchor. New `SPRITE_HARVEST_CLUSTER_SCALE = 0.5`.
+  - **Lantern pole** → `props/festival-lantern.png` (48×64 pole + UNLIT paper
+    lantern). `drawLanternPole` draws the sprite base-on-ground, then keeps the
+    warm **flicker GLOW code-drawn ON TOP** (radial gradient + a soft lit tint on
+    the paper) so the lantern reads lit and animated with zero extra sprites. New
+    `SPRITE_FESTIVAL_LANTERN_SCALE = 0.62`.
+- **Verified** (headless Edge + puppeteer-core, `scratchpad/festival-props/`):
+  forced the Harvest Festival active (autumn, day 5, noon) and screenshotted the
+  well — lantern poles render as pixel lanterns with the glow correctly aligned
+  on the lantern body, harvest clusters render as pixel pumpkin+wheat piles,
+  ground-anchored. 545/545 sprites, no console errors. `npm run build` green.
+- **Follow-ups:** festival bunting + the busk-spot hat remain code-drawn
+  (intentional / tiny). With this, every non-character world object is pixel;
+  the only remaining "everything-pixels" item is the owner-deferred character.
+
 ## everything-pixels — animal-produce pixel icons (milk / egg / duck_egg / wool)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** the barn animal-produce feature (commit `8980149`) added five
