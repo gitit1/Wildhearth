@@ -232,10 +232,15 @@ export function refreshQuests(log: QuestLog, held: (id: string) => number): Ques
 
 /** Move to the next step; celebrate the finished step. Does NOT grant rewards. */
 function advanceStep(def: QuestDef, st: QuestState, res: QuestResult) {
+  const finished = def.steps[st.step];
   st.step += 1;
   st.progress = 0;
-  if (st.step >= def.steps.length && wantsTurnIn(def))
-    res.toasts.push(`Quest ready to turn in: “${def.title}” — see ${giverName(def)}.`);
+  if (st.step >= def.steps.length) {
+    if (wantsTurnIn(def)) res.toasts.push(`Quest ready to turn in: “${def.title}” — see ${giverName(def)}.`);
+  } else if (finished) {
+    // a subtle nudge when an intermediate step of a multi-step quest completes
+    res.toasts.push(`✓ ${finished.label}`);
+  }
 }
 
 /** Auto-complete any ready `turnIn:false` quest right where it finished. */
@@ -330,9 +335,11 @@ function pushCategoryConsume(res: QuestResult, cat: keyof typeof CATEGORY_IDS, c
 // ---- reads for the UI + dialogue -------------------------------------------
 
 function giverName(def: QuestDef): string {
-  // The dialogue/UI layer has the display name; the engine keeps it giver-id
-  // based, so callers pass names in. This is the raw id fallback.
-  return def.giver;
+  // The dialogue/UI layer has the real display names; the engine stays giver-id
+  // based. Every roster id IS the lowercased name (maren, henrik, …), so a
+  // capitalised id is the right display name for a toast without coupling the
+  // engine to data/npcs.
+  return def.giver.charAt(0).toUpperCase() + def.giver.slice(1);
 }
 
 /** Every active quest state (for the log's Active tab). */

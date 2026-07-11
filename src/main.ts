@@ -117,6 +117,7 @@ import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
 import { updateHud, updateNeedsStrip, setPrompt, toast, updateToast } from "./ui/hud";
 import { initFade, fadeThrough } from "./ui/fade";
 import { initBackpack, updateBackpack } from "./ui/backpack";
+import { initQuestLog, updateQuestLog } from "./ui/questlog";
 import { initMinimap, updateMinimap, setMinimapField } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
 import {
@@ -232,6 +233,9 @@ const relationships = loadRelationships();
 const meta = loadMeta();
 const guidance = loadGuidance();   // per-playthrough tutorial/aspiration progress
 const quests: QuestLog = loadQuests();   // R6: authored + AI quests, one quest log
+// Set by the quest-log window so a progress tick / completion repaints it live.
+// Declared here (before the boot-time initQuestLog wiring) to dodge a TDZ.
+let onQuestsChanged: () => void = () => {};
 // the player's drawn look, built from her created Character (rebuilt on New
 // Game). Old / pre-character saves fall back to the default farmer rig.
 let playerRigParams: RigParams = rigFromCharacter(meta.character);
@@ -731,6 +735,16 @@ initShopWindow(economy, skills, farm, livestock,
   },
   (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); });
 initStorageWindow(storage, economy, toast);   // R5: the barn's storage chest
+// R6: the quest-log window (a window-system citizen like the backpack). Its
+// "Getting Started" panel mirrors the live Guidance layer so tutorial/aspiration
+// and quests read coherently in one place. Wire the change hook so a step tick
+// or completion repaints it live.
+initQuestLog(quests, {
+  heldCount,
+  onAbandon: abandonQuestFlow,
+  gettingStarted: questGettingStarted,
+});
+onQuestsChanged = updateQuestLog;
 
 // Every migrated panel window (backpack/skills/minimap/memory book/shop/gift)
 // now exists — restore the saved desktop layout (or lay out Classic), per
@@ -1096,6 +1110,22 @@ function applyGuidanceResult(res: GuidanceResult) {
   refreshGuidanceUI(res.advanced);
 }
 
+/** The live Guidance summary the quest log's "Getting Started" panel mirrors —
+ *  the tutorial's current step or the aspiration objective — so the how-to-play
+ *  layer and the goal layer read coherently in one place (never duplicated;
+ *  this is a read of the guidance engine, not a second copy of it). */
+function questGettingStarted(): { kicker: string; title: string; body: string } | null {
+  const mode = guidanceMode();
+  if (mode === "tutorial" && !guidance.tutorialDone) {
+    const step = currentTutorialStep(guidance, curPath());
+    if (step) return { kicker: "Tutorial", title: step.title, body: step.body };
+  } else if (mode === "aspiration" && !guidance.aspirationDone) {
+    const obj = currentAspiration(guidance, curPath(), economy.coins);
+    if (obj) return { kicker: "Your aspiration", title: "Current goal", body: obj };
+  }
+  return null;
+}
+
 /** A world event advances guidance — called from the real action handlers. */
 function fireGuidance(ev: GuidanceEvent) {
   if (guidanceMode() === "none") return;
@@ -1109,11 +1139,10 @@ function fireGuidance(ev: GuidanceEvent) {
 // consumes delivered items, and refreshes the quest-log window. Possession
 // steps ("bring me 5 fish") are re-checked live against the bag each frame.
 
-/** How many of an item the player is holding — drives possession steps. */
-const heldCount = (id: string): number => countItem(economy.inv, id);
-
-/** Set by the quest-log window (commit 3) so a progress change refreshes it. */
-let onQuestsChanged: () => void = () => {};
+/** How many of an item the player is holding — drives possession steps.
+ *  A function declaration (hoisted) so the boot-time initQuestLog wiring can
+ *  pass it before this point in the file. */
+function heldCount(id: string): number { return countItem(economy.inv, id); }
 
 /** Apply a QuestResult: consume delivered items, grant rewards, toasts,
  *  memories, and (on a change) refresh the log window. */
@@ -1826,6 +1855,7 @@ function tick(now: number) {
   updateShopWindow();
   updateStorageWindow();
   updateMemoryBook();
+  updateQuestLog();
   if (!openingActive) { tickGuidance(); tickQuests(); }   // guidance bubble/pill + live quest possession checks
   updateToast(dt);
   // One-time ground re-bake once the pixel tiles have decoded (see boot note).

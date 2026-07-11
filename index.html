@@ -84,6 +84,46 @@
     .sk-pop{position:absolute;right:0;color:#9fe36a;font-size:calc(12px*var(--s));font-weight:700;
       text-shadow:0 1px 2px rgba(0,0,0,.8);animation:skpop 1.1s ease-out forwards}
     @keyframes skpop{from{transform:translateY(2px);opacity:1}to{transform:translateY(-16px);opacity:0}}
+    /* Quest log window (R6): Active / Completed tabs, per-quest step checklist +
+       reward preview + abandon. Reuses the shared --s scale + cell chrome. */
+    #questPanel{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(12px*var(--s));min-width:calc(300px*var(--s))}
+    #questTabs{display:flex;gap:calc(6px*var(--s));margin-bottom:calc(8px*var(--s))}
+    .q-tab{flex:1;border:1px solid #7a5c34;border-radius:8px;background:rgba(240,234,214,.07);
+      color:#cdb98a;font-size:calc(12px*var(--s));font-weight:700;padding:calc(4px*var(--s));cursor:pointer}
+    .q-tab.active{background:rgba(230,190,80,.85);color:#2b2313;border-color:#b8912f}
+    #questBody{display:flex;flex-direction:column;gap:calc(8px*var(--s));
+      min-height:calc(240px*var(--s));max-height:calc(360px*var(--s));
+      overflow-y:auto;width:calc(300px*var(--s))}
+    .q-getting{background:rgba(90,120,70,.12);border:1px solid var(--hairline);border-radius:var(--r-s);
+      padding:calc(7px*var(--s)) calc(10px*var(--s))}
+    .q-getting .q-kicker{color:var(--muted);font-size:calc(10px*var(--s));font-weight:800;
+      letter-spacing:.06em;text-transform:uppercase}
+    .q-getting .q-gtitle{color:var(--gold);font-weight:800;font-size:calc(13px*var(--s));margin-top:2px}
+    .q-getting .q-gbody{font-size:calc(12px*var(--s));line-height:1.45;opacity:.92;margin-top:2px}
+    .q-card{background:var(--cell-bg);border:1px solid var(--cell-edge);border-radius:var(--r-s);
+      padding:calc(8px*var(--s)) calc(11px*var(--s))}
+    .q-card.q-ready{border-color:var(--gold-soft);box-shadow:0 0 0 1px var(--hairline) inset}
+    .q-title{display:flex;align-items:center;gap:calc(6px*var(--s));font-size:calc(14px*var(--s));
+      font-weight:800;color:var(--gold)}
+    .q-giver{font-size:calc(11px*var(--s));color:var(--muted);font-weight:700;margin:1px 0 5px}
+    .q-desc{font-size:calc(12px*var(--s));line-height:1.5;opacity:.9;margin-bottom:calc(6px*var(--s))}
+    .q-steps{display:flex;flex-direction:column;gap:calc(3px*var(--s));margin-bottom:calc(6px*var(--s))}
+    .q-step{display:flex;align-items:center;gap:calc(7px*var(--s));font-size:calc(12px*var(--s))}
+    .q-tick{flex:none;width:calc(16px*var(--s));height:calc(16px*var(--s));border-radius:5px;
+      display:flex;align-items:center;justify-content:center;font-size:calc(11px*var(--s));
+      border:1px solid var(--cell-edge);background:rgba(0,0,0,.15);color:var(--muted)}
+    .q-step.done .q-tick{background:rgba(159,227,106,.22);border-color:#6ea84a;color:#9fe36a}
+    .q-step.done .q-slabel{opacity:.7;text-decoration:line-through}
+    .q-slabel{flex:1}
+    .q-scount{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:700;font-size:calc(11px*var(--s))}
+    .q-reward{font-size:calc(11.5px*var(--s));color:#cfe8b0;font-weight:700;margin-top:calc(2px*var(--s))}
+    .q-readytag{font-size:calc(10px*var(--s));font-weight:800;letter-spacing:.05em;color:#241d0e;
+      background:rgba(230,190,80,.92);border-radius:6px;padding:1px calc(6px*var(--s))}
+    .q-abandon{margin-top:calc(6px*var(--s));background:transparent;border:1px solid var(--cell-edge);
+      border-radius:7px;color:var(--muted);font:inherit;font-size:calc(11px*var(--s));font-weight:700;
+      padding:calc(3px*var(--s)) calc(9px*var(--s));cursor:pointer}
+    .q-abandon:hover{border-color:#c94f3a;color:#f0906f}
+    .q-empty{color:#9a8f74;font-style:italic;font-size:calc(12px*var(--s));padding:calc(6px*var(--s))}
     #shopWindow{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(14px*var(--s));min-width:calc(320px*var(--s))}
     /* gift chooser: a small item picker reusing the shop's row/button chrome */
     #giftChooser{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(14px*var(--s));min-width:calc(280px*var(--s))}
@@ -592,6 +632,13 @@
     </div>
     <div id="bookBody"></div>
   </div>
+  <div id="questPanel">
+    <div id="questTabs">
+      <button class="q-tab active" id="qTabActive">Active</button>
+      <button class="q-tab" id="qTabDone">Completed</button>
+    </div>
+    <div id="questBody"></div>
+  </div>
   <div id="shopWindow">
     <div class="shop-head">🪙 <span id="shopCoins">0</span></div>
     <div class="shop-section">Sell</div>
@@ -619,6 +666,7 @@
     <button class="tool-btn" id="mapBtn" title="Map (M)">🗺️</button>
     <button class="tool-btn" id="skillsBtn" title="Skills (K)">📜</button>
     <button class="tool-btn" id="bookBtn" title="Memory Book (B)">📖</button>
+    <button class="tool-btn" id="questBtn" title="Quests (J)">📋</button>
     <button class="tool-btn" id="bagBtn" title="Backpack (I)">🎒</button>
     <button class="tool-btn" id="saveBtn" title="Save game">💾</button>
     <button class="tool-btn" id="settingsBtn" title="Settings">⚙️</button>

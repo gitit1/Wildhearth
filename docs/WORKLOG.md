@@ -29,6 +29,46 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## quests — the quest-log window + step-complete nudge (R6, commit 3)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R6 commit 3 — a proper quest-log window (window-system
+  citizen), Active/Completed tabs, per-quest step checklist + progress counts,
+  reward preview, abandon for side quests, and a subtle HUD nudge on a step
+  completing. Must SUBSUME/display the Guidance layer, not duplicate it.
+- **New `src/ui/questlog.ts`:** `initQuestLog(log, hooks)` builds a
+  `createScaleWindow` (icon 📋, key J, default hidden) over the new
+  `#questPanel`. `render()` paints the active tab as a "Getting Started" box
+  that MIRRORS the live Guidance layer (tutorial step / aspiration objective —
+  read from a `gettingStarted()` hook, never a second copy of guidance state)
+  followed by one card per active quest: title, `from <Giver>`, description,
+  a step checklist (✓/○ + `n/goal` for multi-count steps, strike-through when
+  done), a reward preview (`rewardText` formats coins · items via `ITEM_NAMES` ·
+  `+N ♥ Giver`), a READY tag + "Turn in with <Giver>" line once all steps are
+  met, and an Abandon button on side quests. Completed tab lists finished
+  quests (+ `Done N×` for repeatables). Giver display names from `NPCS`.
+  `render()` runs once before the window measures so its default size is
+  readable (the panel body carries a `min-height`).
+- **`index.html`:** `#questBtn` tool button (📋, in the dock), the `#questPanel`
+  content root (tabs + body), and the `.q-*` CSS (cards, checklist ticks, ready
+  tag, reward, abandon) reusing the shared `--s` scale + wood/gold chrome.
+- **`src/systems/quests.ts`:** `advanceStep` now emits a subtle `✓ <step label>`
+  toast when an INTERMEDIATE step of a multi-step quest completes (the ready /
+  complete toasts already existed); `giverName` capitalises the giver id (every
+  roster id is the lowercased name) so toasts read "see Maren", not "see maren".
+- **`src/main.ts`:** `initQuestLog` wired (before `finishWindowSetup` so it
+  joins the saved layout), `onQuestsChanged = updateQuestLog`, `updateQuestLog()`
+  in the frame loop, and `questGettingStarted()` (reads the guidance engine).
+  `heldCount` / `onQuestsChanged` hoisted to dodge a boot-time TDZ.
+- **Verified (headless Edge + puppeteer):** screenshots in
+  `scratchpad/quests/questlog-{active,active-ready,completed}.png` — Active tab
+  shows the aspiration mirror ("Catch 3 fish 0/3") + Maren's "Tavern Night"
+  card with a live `3/5` step and `Reward: 40 coins · +8 ♥ Maren`; the READY
+  shot shows the READY tag + checked `5/5` step after handing over the fish;
+  the Completed tab lists both finished quests, coins 50→145 (Maren 40 +
+  Henrik 55), delivered items consumed from the bag. `npm run build` green.
+- **Follow-ups:** commit 4 = dialogue offers/turn-ins at the giver NPCs;
+  commit 5 = D3 AI dynamic offer promotion.
+
 ## quests — engine wired into the live game (R6, commit 2)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R6 commit 2 — drive the quest engine from the game's real
