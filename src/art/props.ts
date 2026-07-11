@@ -1,7 +1,7 @@
 import {
   T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER, SPRITE_CROP_SCALE, SPRITE_CROP_BASE_DY,
   SPRITE_BUSH_SCALE, SPRITE_BUSH_JITTER, SPRITE_PROP_SCALE, SPRITE_FENCE_SCALE,
-  SPRITE_HEDGE_SCALE,
+  SPRITE_HEDGE_SCALE, SPRITE_BUSK_SIGN_SCALE,
 } from "../config";
 import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS, type Rect } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
@@ -801,6 +801,27 @@ export function drawOpenWaterShimmer(g: CanvasRenderingContext2D, t: number) {
  *  water. Planks across two rails, with shadowed gaps between boards. */
 export function drawDock(g: CanvasRenderingContext2D, t: number, r: Rect = DOCK) {
   const { x, y, w, h } = r;
+  // ---- sprite path: a top-down plank deck stretched to fill the rect (posts
+  // baked in at the south end); keep the soft on-water reflection under it. The
+  // code deck below is the zero-PNG fallback. Drawn at ground level under
+  // entities, same as the call site. ----
+  const deck = sprite("props/dock");
+  if (deck) {
+    g.fillStyle = "rgba(15,30,40,.28)";
+    g.fillRect(x + 3, y + 6, w, h);
+    const prev = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = false;
+    // flip vertically so the baked mooring posts land at the SOUTH (lake) end,
+    // matching the code fallback's convention (posts at r.y+r.h)
+    g.save();
+    g.translate(0, 2 * y + h);
+    g.scale(1, -1);
+    g.drawImage(deck, x, y, w, h);
+    g.restore();
+    g.imageSmoothingEnabled = prev;
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   // soft reflection/shadow on the water
   g.fillStyle = "rgba(15,30,40,.28)";
   g.fillRect(x + 3, y + 6, w, h);
@@ -826,6 +847,17 @@ export function drawDock(g: CanvasRenderingContext2D, t: number, r: Rect = DOCK)
 /** A little wooden signpost where buskers used to play on the farm, now
  *  pointing them to the market square. */
 export function drawBuskSign(g: CanvasRenderingContext2D, x: number, y: number) {
+  // ---- sprite path: the little signpost, base-on-ground at the post foot,
+  // measured anchor; the code painter below is the fallback. The busk-sign
+  // interaction is keyed to OLD_BUSK_SIGN, not this painter — unchanged. ----
+  const img = sprite("props/busk-sign");
+  if (img) {
+    shadow(g, x + 2, y + 6, 9, 4);
+    const a = spriteBaseAnchor("props/busk-sign", img);
+    drawGroundSprite(g, img, x, y, a.cx, a.foot, SPRITE_BUSK_SIGN_SCALE);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   shadow(g, x + 2, y + 6, 9, 4);
   oRect(g, x - 2, y - 18, 4, 22, "#7a5230");           // post
   oRect(g, x - 12, y - 26, 24, 11, "#a5814f");         // board

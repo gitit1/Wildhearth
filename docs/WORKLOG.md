@@ -29,6 +29,42 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## everything-pixels — dock + busk signpost become PixelLab sprites
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** two more code-drawn holdouts from the "everything-pixels" audit
+  (`scratchpad/pixel-audit/AUDIT.md`) — the wooden dock/jetty (both the farm
+  lake `DOCK` and the town waterfront `TOWN_DOCK` share one painter) and the
+  farm's old busk signpost.
+- **What shipped:** dual-path over the unchanged painters (CLAUDE.md rule #1).
+  - **Dock** → `src/assets/pixellab/props/dock.png` (96×176 top-down plank
+    deck). `drawDock` (`src/art/props.ts`) gains a sprite path: keep the soft
+    on-water reflection, then `drawImage` the deck **stretched to fill the rect**
+    (nearest-neighbour), **flipped vertically** so the baked mooring posts land
+    at the SOUTH (lake) end — matching the code fallback's convention. It's a
+    fill-rect top-down deck (not base-on-ground), drawn at ground level under
+    entities, same as the two call sites (`DOCK` + `TOWN_DOCK`). No scale knob
+    (fills the rect). The code deck/planks/posts are the zero-PNG fallback.
+  - **Busk signpost** → `props/busk-sign.png` (48×64). `drawBuskSign` gains the
+    standard base-on-ground dual-path (measured `spriteBaseAnchor`, new
+    `SPRITE_BUSK_SIGN_SCALE = 0.5`); the sign interaction keyed to
+    `OLD_BUSK_SIGN` is unchanged.
+- **Verified** (headless Edge + puppeteer-core, `scratchpad/pixel-audit/shots/`):
+  345/345 sprites loaded; the **dock renders as a clean pixel plank jetty over
+  the lake water**, correctly filling its rect. `npm run build` green (`2.19s`).
+  - **Honest note on the busk sign:** its fixed spot (`OLD_BUSK_SIGN`, tile
+    18.3,10.4) sits in the barn's north-east corner and is **occluded by the
+    barn sprite's roof overhang** at the default camera (the barn depth-sorts
+    over it) — the identical occlusion affects the code fallback, so this is a
+    pre-existing placement quirk, not introduced here. The sprite loads with the
+    manifest and its dual-path is structurally identical to the verified
+    outhouse/inn paths; a full head-on capture is blocked by the barn.
+- **Follow-ups:** flower-bed frame still code-drawn — the generated
+  `flower-bed.png` bakes blooms in, so a *soil-only* regen is needed to keep the
+  per-species bloom colours layered on top (a PixelLab gen, deferred while the
+  Claude spend limit blocks new generation agents). Item icons integration and
+  the busk-sign camera/placement polish also pending. `drawCorn` dead code still
+  flagged for deletion.
+
 ## everything-pixels — town inn + stable become PixelLab sprites (retires the fillText("INN") glyph)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** the "everything-pixels" audit (`scratchpad/pixel-audit/AUDIT.md`)

@@ -549,6 +549,10 @@ export const SPRITE_HEDGE_SCALE = 0.7;
 // (160px) maps onto its ~3.8-tile (122px) rect.
 export const SPRITE_INN_SCALE = 1.0;
 export const SPRITE_STABLE_SCALE = 0.76;
+// Props: busk signpost (48x64 art onto the small post+board), base-on-ground.
+// The dock is a top-down flat deck drawn stretched to fill its DOCK/TOWN_DOCK
+// rect (posts baked in at the south end), so it needs no scale knob.
+export const SPRITE_BUSK_SIGN_SCALE = 0.5;
 // --- Building variety batch: 6 distinct market cottages (art/buildings.ts
 //     COTTAGE_SPRITES), one scale for every variant (all cottage canvases are
 //     the same 112x128 size, same "footprint <= zone rect" recipe as above;
