@@ -29,6 +29,17 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## saves — fold STORAGE_KEY into GAME_KEYS so New Game wipes the barn (R8/B3)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R5's barn-storage `STORAGE_KEY` was missing from
+  `saves.ts` GAME_KEYS. New Game already re-seeded storage via `resetStorage()`,
+  but the raw localStorage key was never swept by the generic wipe — fold it in.
+- **`src/systems/saves.ts`:** imported `STORAGE_KEY` from config and added it to
+  the `GAME_KEYS` array, so the New-Game wipe loop now removes the barn-storage
+  key directly (belt-and-braces alongside `resetStorage`).
+- **Verified:** `npm run build` green. (`resetStorage` still runs on New Game;
+  this just guarantees the persisted key is cleared even if reset paths change.)
+
 ## skills — show the earned tier per skill in the Skills window (R8/B1)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R7 exposed `skillTier(value)` (Novice/Skilled/Expert) but the
