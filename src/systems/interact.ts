@@ -335,7 +335,7 @@ const stallBox = {
 
 const stall: Interactable = {
   id: "stall",
-  name: "Market stall",
+  name: "Your stall",
   anchor: [STALL.x + STALL.w / 2, STALL.y + STALL.h + 22],
   defaultActionId: "trade",
   hit: (wx, wy) =>
@@ -344,7 +344,7 @@ const stall: Interactable = {
   inReach: (px, py) => nearRect(px, py, STALL),
   actions: () => [
     { id: "trade", label: "Trade", run: (c) => c.openShop() },
-    { id: "look", label: "Look", run: (c) => c.toast("A weathered market stall. Buy tools, sell goods.") },
+    { id: "look", label: "Look", run: (c) => c.toast("Your own stall on the town street. Buy tools, sell goods — townsfolk stop by to buy.") },
   ],
   drawHover: (g, t) => glowRect(g, stallBox.x - 2, stallBox.y - 2, stallBox.w + 4, stallBox.h + 4, t),
 };

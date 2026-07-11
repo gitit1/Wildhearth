@@ -5,13 +5,18 @@ export const FIELD = { x0: 20, y0: 5, x1: 31, y1: 15 };      // tiles
 export const YARD  = { x0: 6,  y0: 4, x1: 18, y1: 15 };      // tiles
 export const HOUSE = { x: 7.5 * T, y: 5 * T,    w: 5 * T,   h: 3.4 * T };
 export const BARN  = { x: 14 * T,  y: 10.4 * T, w: 3.6 * T, h: 2.8 * T };
-// The player's OWN buy/sell stall. Relocated (R4) from the farmyard to the
-// market's WEST edge — DECISIONS "Selling paths: your own stall (in stall-area
-// or on-farm)" + the owner's note that stalls belong in the market/town. Sits
-// right where the road enters the square (shortest sane walk), clear of the
-// NPC stall row (y 16), the entrance signpost, and the nearest cottage. The
-// buy-tools + sell-goods mechanic is unchanged — only the location moved.
-export const STALL = { x: 58.4 * T, y: 17.6 * T, w: 2.4 * T, h: 1.6 * T };
+// The player's OWN buy/sell stall. Relocated into the coastal TOWN — the game's
+// commercial heart, where VISION has NPCs come to her shop (owner directive
+// "move the farm-side stall to the town"; supersedes the earlier market-WEST-
+// edge home). Stands free on the TOWN_STREET plaza a short step east of
+// TOWN_SQUARE, its counter facing south into the open street so townsfolk have
+// clear room to queue in front. Placed in the gap between TOWN_HOMES[1] (ends
+// x 62.8) and the town spur (west edge x 65.8), and dropped to y 33.4 so its
+// body/awning clear the spur mouth (spur ends y 33.2) — no clip of home, spur,
+// dock or sea. The buy-tools + sell-goods + customers mechanic is unchanged;
+// only the location moved (collision/ground/minimap/interact/customers all
+// derive from this rect, so they follow it). */
+export const STALL = { x: 63.5 * T, y: 33.4 * T, w: 2.4 * T, h: 1.6 * T };
 export const POND  = { cx: 9 * T, cy: 19.4 * T, rx: 3.6 * T, ry: 2.2 * T };
 // The two trees south of the field sit below tile row 20.5 so the tier-2
 // plot expansion's fence (bottom row 19) never swallows them.
@@ -322,6 +327,11 @@ export const WORLD_PROPS: PropDef[] = [
   { x: 68.0 * T, y: 21.6 * T, id: "props/bench", solid: true, cw: 22 },
   { x: 63.5 * T, y: 18.6 * T, id: "props/cart", solid: true, cw: 24 },
   { x: 58.5 * T, y: 20.6 * T, id: "props/signpost" },     // market entrance marker
+  // Where the player's stall used to stand (now moved to the town): a delivery
+  // cart + a crate keep the market's west entrance from reading empty. Neutral
+  // clutter, not a building — clear of the road (y 21.3+) and the signpost below.
+  { x: 58.4 * T, y: 18.0 * T, id: "props/cart", solid: true, cw: 24 },
+  { x: 57.3 * T, y: 18.5 * T, id: "props/crate", solid: true, cw: 12 },
   // --- Forest / road junction: a signpost + a birdhouse on the forest edge.
   { x: 56.8 * T, y: 20.7 * T, id: "props/signpost" },
   { x: 50.0 * T, y: 15.0 * T, id: "props/birdhouse" },

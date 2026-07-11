@@ -1196,8 +1196,9 @@ function serveCustomer(npcId: string) {
 function trySpawnCustomer(slot: number): boolean {
   const pool = npcs.filter((n) =>
     !n.visit && !n.indoors && n.talkTimer <= 0 &&
-    (n.state === "atMarket" || n.state === "socializing") &&
-    n.x > 44 * T);   // in the market/road belt, not off at the lake or deep forest
+    n.state === "town" &&
+    n.y >= 31 * T);   // physically down in the coastal town (her stall's new home) —
+                      // a short straight walk to the counter, no cross-region pathing
   const premium = reputationPremium(reputation.fame);   // v2 block #2: fame lifts the price band
   for (const n of pool.sort(() => Math.random() - 0.5)) {
     const want = rollCustomerWant(n.def, economy.inv, premium);

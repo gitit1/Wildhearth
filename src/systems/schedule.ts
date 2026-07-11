@@ -46,16 +46,20 @@ const OUTDOOR = new Set<NpcState>(["atWork", "atMarket", "socializing", "town"])
 const clampHour = (h: number) => Math.max(0, Math.min(23, h));
 const isWeekend = (dow: number) => dow === 0 || dow === 6;
 
-/** Which townsfolk pay the new coastal TOWN a visit, and on which weekdays
- *  (v2 BLOCK #3 — so the town isn't a ghost street). A handful of non-stall
- *  roles wander down to the seafront in the afternoon; stallkeepers stay put so
- *  the market keeps trading. Deterministic from role + day-of-week — no state. */
+/** Which townsfolk pay the coastal TOWN a visit, and on which weekdays (v2
+ *  BLOCK #3 — so the town isn't a ghost street; broadened when the player's own
+ *  stall moved into the town, so her counter has a real afternoon crowd to sell
+ *  to — see the customer pool in main.ts). A rotating handful of non-stall roles
+ *  wander down to the seafront each afternoon; stallkeepers stay put so the
+ *  market keeps trading. Deterministic from role + day-of-week — no state. */
 function townVisitsToday(def: NpcDef, dow: number): boolean {
   if (dow === 0) return false;   // Sunday gathering stays at the market well
   switch (def.role) {
     case "fisher-kid": return true;                 // Finn loves the harbour, any weekday
+    case "peddler": return true;                    // Jonas carries his wares down every road
     case "handyman": return dow === 2 || dow === 4; // Bram: odd jobs in town Tue/Thu
     case "musician": return dow === 2 || dow === 4; // Liora plays the seafront Tue/Thu
+    case "farmer": return dow === 3;                // Henrik brings surplus to the seafront Wed
     default: return false;
   }
 }

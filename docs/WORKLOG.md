@@ -29,6 +29,56 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## stall-to-town — the player's own selling stall moves into the coastal town
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** owner directive "move the farm-side stall to the town." The
+  player's own buy/sell stall (`STALL`) sat at the market square's west edge;
+  the town is the game's commercial heart (VISION: NPCs come to her shop), so
+  the stall — and its whole customer loop — belongs there.
+- **What shipped:**
+  - **Relocated `STALL`** in `src/world/zones.ts` from `(58.4, 17.6)` (market
+    west edge) to `(63.5, 33.4)` tiles — free-standing on the `TOWN_STREET`
+    plaza a step east of `TOWN_SQUARE`, counter facing south with clear queue
+    space. Placed in the gap between `TOWN_HOMES[1]` (ends x 62.8) and the town
+    spur (west edge x 65.8) and dropped to y 33.4 so its body/awning clear the
+    spur mouth (spur ends y 33.2) — verified no clip of home, spur, dock or sea.
+    Everything STALL-derived follows it automatically: collision
+    (`world/collision.ts`), ground-scatter exclusion (`world/ground.ts`,
+    `art/scatter.ts`), minimap dot (`ui/minimap.ts`), the draw call and
+    `nearStall`/`customerSpot` waiting-spot (`main.ts`), and the stall
+    interactable + `stallBox` hover (`systems/interact.ts`).
+  - **Customer pool retargeted** (`trySpawnCustomer` in `src/main.ts`): buyers
+    are now drawn from townsfolk physically in the town (schedule state
+    `"town"`, `n.y >= 31*T`) instead of market-plaza dwellers, so the walk to
+    her counter is a short straight line with no cross-region pathing. Serve /
+    flat-sell / patience / reputation paths unchanged.
+  - **Broadened `townVisitsToday`** (`src/systems/schedule.ts`) so the town
+    street has a real afternoon (15:00–18:00) crowd to sell to: added the
+    peddler (Jonas, any weekday) and the farmer (Henrik, Wed) to the existing
+    Finn (daily) + Bram/Liora (Tue/Thu).
+  - **Old spot dressed** (`WORLD_PROPS` in `zones.ts`): a `props/cart` +
+    `props/crate` cluster at the market's west entrance so it doesn't read
+    empty. No new building.
+  - **Labels** (`systems/interact.ts`): stall renamed "Market stall" →
+    "Your stall"; Look line now describes her own town-street stall.
+- **Verified headless** (puppeteer-core + Edge driving `window.__wh`, shots in
+  `scratchpad/stall-town/`): new game → stall renders in the town with no clip
+  (`01`); flat-sell window opens and a Carp sale pays out 50→65 coins (`02`);
+  set the clock to Tue 16:00, `snap()` puts 4 town visitors on the street, then
+  `forceCustomer()` sent Jonas, who **walked the full way to the counter**
+  (2044,1149 ≈ target 2048,1149) and waited with a 🛒 bubble (`04`);
+  `serveCustomerDev` completed a premium sale (coins +4, item removed, ledger
+  served=1, `05`); autosave + reload restored the game (`06`). `npm run build`
+  green.
+- **Follow-ups:**
+  - The `customerSpot` still offsets two slots by ±0.7 tile; fine on the open
+    town plaza, but if a third concurrent buyer is ever enabled they'd stack —
+    revisit slot spacing then.
+  - Town customers are afternoon-only (town-visit window 15:00–18:00); if the
+    owner wants all-day custom at the town stall, widen the visit hours or add
+    town-resident NPCs (the `TOWN_HOMES` are currently decorative — no NPC
+    actually lives in them).
+
 ## everything-pixels — festival decorations (harvest clusters + lantern poles) become sprites
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** the last code-drawn WORLD objects — the Harvest Festival

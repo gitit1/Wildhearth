@@ -115,8 +115,18 @@ Order: Character Creation → Guidance Mode selection → straight to farm (no c
 - **Bank/storage v1:** backpack only. v3+: house storage (cabinets, boxes, wardrobes) + items as decorations (Sims + UO hybrid)
 - **Prices v1:** fixed. v5: fully dynamic (season + supply + demand + reputation)
 - **Haggling v1:** no. Fixed price. Haggling skill = v3+
+- **Player's stall lives in the TOWN (owner directive 2026-07-11):** her own
+  buy/sell stall moved out of the market's west edge into the coastal town
+  (`STALL` in `zones.ts`, now on the `TOWN_STREET` plaza just east of
+  `TOWN_SQUARE`) — the town is the game's commercial heart where NPCs come to
+  her shop. The customers-to-your-stall loop now draws its walk-up buyers from
+  town-present townsfolk (schedule state `"town"`), and `townVisitsToday`
+  (`schedule.ts`) was broadened so a real afternoon crowd (Finn + Jonas daily,
+  Bram/Liora Tue/Thu, Henrik Wed) strolls the town street to buy. The old
+  market-west spot is dressed with a delivery cart + crate so it doesn't read
+  empty. Mechanic (flat buy/sell + premium customers) unchanged.
 - **Selling paths (universal principle):**
-  1. Your own stall (in stall-area or on-farm) — primary. v3+ can hire employee
+  1. Your own stall (in the town) — primary. v3+ can hire employee
   2. NPC stalls of matching specialty (fisher-stall buys fish, produce-stall buys crops)
   3. Town (v3+)
   - Priority: your stall → specialty stall → other stalls (may refuse)
