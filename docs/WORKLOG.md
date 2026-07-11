@@ -29,6 +29,57 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## title-vista-pixel — the title-screen background becomes pixel art
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** owner directive "the main screen is not pixel — its whole
+  background needs to change." The title/menu vista (`src/art/vista.ts`
+  `drawVista`, shown by `src/ui/mainmenu.ts`) was a smooth, anti-aliased
+  painterly dawn (continuous gradient sky, soft ellipse clouds/hills, glowing
+  radial sun) — the one screen still reading as non-pixel while the whole game
+  (sprites + the code Bayer-dither ground) is pixel art. Kept the same warm
+  sunrise-over-the-rundown-farm scene; changed the STYLE to genuine pixel art.
+- **What shipped (files: `src/art/vista.ts` rewritten, `src/config.ts`,
+  new `src/assets/pixellab/ui/title-vista.png`):**
+  - **PRIMARY path — a wide PixelLab pixel-art landscape.** Generated one
+    `create_map_object` (BASIC, side view, 400×240, 1 gen, clean first try) —
+    a cozy rundown farm at sunrise: rolling green hills, a slate-roof farmhouse
+    with lit warm windows + a stone chimney with smoke, a low glowing sun,
+    layered mountains, drifting clouds, a gliding bird. Saved to
+    `src/assets/pixellab/ui/title-vista.png` (fully opaque 400×240, no
+    transparent padding). `drawVista` prefers it via `sprite("ui/title-vista")`,
+    drawn scaled-to-COVER the viewport with `imageSmoothingEnabled = false`
+    (chunky, crisp, no smooth-scale blur), plus a few code-drawn gliding pixel
+    birds (snapped to the scene's pixel grid) and a soft warm vignette so the
+    logo + button column stay readable.
+  - **FALLBACK path (zero-PNG, CLAUDE.md rule #1) — the SAME scene rebuilt in
+    code as true pixel art.** Rendered into a LOW-RESOLUTION offscreen buffer
+    (`VISTA_PIXEL`-driven width, clamped `VISTA_BUF_MIN..MAX`), then blitted to
+    the screen nearest-neighbour so every pixel is chunky. Uses a limited warm
+    sunrise palette with ordered/Bayer DITHERING (`BAYER`, mirroring
+    `world/ground.ts`) for the sky bands + hill crests, a flat pixel sun with a
+    dithered halo, flat pixel hills/farmhouse/trees/leaning fence. Gently
+    animated but cheap: drifting clouds, gliding birds, a lit flickering window,
+    rising chimney smoke, a breathing sun, a faint sky shimmer. Both paths share
+    the `vignette()` overlay.
+  - **`drawLogo` pixel-ified.** The "Wildhearth" wordmark + heart-sprout motif
+    now render into a buffer at `1/VISTA_LOGO_PIXEL` resolution (warm-gold
+    banded fill, dark outline, hard drop-shadow, slim highlight) and upscale
+    nearest-neighbour, so the wordmark reads as chunky pixel type instead of
+    smooth serif. Still bobs. (The small italic tagline in `mainmenu.ts` is
+    left as crisp text for legibility.)
+  - **`src/config.ts`:** new tuning knobs `VISTA_PIXEL` (fallback art-pixel size
+    in screen px), `VISTA_BUF_MIN`/`VISTA_BUF_MAX` (low-res buffer width clamp),
+    `VISTA_LOGO_PIXEL` (logo upscale factor).
+  - **Verified** headless (puppeteer-core + Edge) at 1280×720 and 480×900: the
+    shipped PixelLab scene reads as crisp pixel art, logo + New Game/Continue
+    buttons readable, fills the viewport with no blur; and with the PNG removed,
+    the code fallback renders as dithered banded pixel art too. `npm run build`
+    green. Screenshots in `scratchpad/title-vista/`.
+- **Follow-ups:** the pixel wordmark still uses a serif face (Georgia) upscaled;
+  a dedicated pixel display font (the game already ships
+  `WildhearthStorybook.ttf`) could sharpen it further if canvas-font timing at
+  boot is made reliable. PixelLab spend this task: 1 generation.
+
 ## stall-to-town — the player's own selling stall moves into the coastal town
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** owner directive "move the farm-side stall to the town." The

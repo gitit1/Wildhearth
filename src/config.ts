@@ -786,3 +786,15 @@ export const CAST_SHADOW_LEN_EDGE = 1.6;       // longest — dawn/dusk (low sun
 export const CAST_SHADOW_LEN_NIGHT = 0.3;      // moot — alpha fades to ~0 anyway
 export const CAST_SHADOW_ALPHA_NIGHT = 0.05;   // near-invisible at night
 export const CAST_SHADOW_ALPHA_DAY = 0.9;      // full strength by day (× CAST_SHADOW_ALPHA)
+
+// ---- Title-screen vista (art/vista.ts) — the PIXEL-ART dawn scene ----
+// Primary path draws the PixelLab landscape (ui/title-vista.png) scaled-to-
+// cover with nearest-neighbour; the fallback rebuilds the scene in code into a
+// low-resolution buffer, then upscales nearest-neighbour so every pixel is
+// chunky. VISTA_PIXEL is roughly how many screen px one art-pixel spans in the
+// code fallback (bigger = chunkier); the buffer width is clamped to stay both
+// chunky and cheap.
+export const VISTA_PIXEL = 5;                  // fallback: target art-pixel size in screen px
+export const VISTA_BUF_MIN = 220;              // clamp: min low-res buffer width (px)
+export const VISTA_BUF_MAX = 460;              // clamp: max low-res buffer width (px)
+export const VISTA_LOGO_PIXEL = 3;             // logo wordmark: render at 1/this then upscale nearest-neighbour
