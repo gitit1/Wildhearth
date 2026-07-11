@@ -29,6 +29,27 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## everything-pixels — animal-produce pixel icons (milk / egg / duck_egg / wool)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** the barn animal-produce feature (commit `8980149`) added five
+  produce goods with code-painter fallback icons. This drops in the PixelLab
+  pixel icons for four of them so they match the rest of the (100%-sprite) item
+  set. (`truffle` is intentionally the existing forage item — its
+  `icons/truffle.png` was already present — so no new truffle icon.)
+- **What shipped:** `milk` (a glass bottle of milk), `egg` (a pale hen's egg),
+  `duck_egg` (a larger blue-green duck egg), `wool` (a cream wool/yarn bundle) →
+  `src/assets/pixellab/icons/<id>.png`. No code change — the `drawItemIcon`
+  sprite seam resolves them by id and they override the barn feature's code
+  painters automatically. Icon library is now 196 PNGs.
+- **Verified:** `npm run build` green; the four are valid transparent PNGs with
+  id-exact names; they route through the same `drawItemIcon` seam already
+  verified in-game for every other icon category. (The barn feature's own
+  screenshot showed the produce collecting into the barn via the code-painter
+  versions; these sprites simply replace those.)
+- **Follow-ups:** wool reads as a wound yarn ball rather than a raw fleece skein
+  (PixelLab kept drawing a whole sheep for "fleece" prompts) — acceptable, reads
+  clearly as a wool product; regen later if the owner prefers raw fleece.
+
 ## Barn does something — animal-produce collection loop (feed → overnight yield → collect at the barn)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** owner directive — "the barn must DO something, it isn't really
