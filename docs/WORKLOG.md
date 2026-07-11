@@ -29,6 +29,56 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## trade-window-polish — the market/shop trade window, refined for detail
+- **Date:** 2026-07-11 (v1-foundation)
+- **Context:** owner directive "redesign the screens better, invest in small
+  details." A refinement pass (not a redesign) on the market trade window
+  (`src/ui/shopwindow.ts` — sell list with qty steppers + live totals, buy
+  list, and premium-paying customers at the player's own stall). Structure and
+  trade logic unchanged; only presentation sharpened. All three modes verified
+  (player stall, customer-present, general-store merchant) plus empty and
+  long-list cases via puppeteer-core + Edge over `window.__wh`.
+- **What changed (files: `index.html` shop CSS block; `src/ui/shopwindow.ts`):**
+  - **Number alignment:** the per-row total now lives in a fixed-min-width,
+    right-aligned, `tabular-nums` column (`#shopWindow .shop-total`) so
+    `= 21 / = 24 / = 54` and buy prices line up in one column across sell and
+    buy rows. Coins head + qty steppers already tabular; kept.
+  - **Item names no longer wrap:** the "×N in bag" count was split out of the
+    name into its own quiet tabular chip (`.shop-have`; `name.textContent` in
+    the sell loop is now just the item name, nowrap + ellipsis via
+    `#shopWindow .shop-name`), so "Berries", "Brown mushroom" etc. stay on one
+    line and rows are even height.
+  - **Customer premium made visible:** each customer row now shows a small gold
+    `+N` badge (`.shop-premium`) when the offered unit price beats the flat
+    `GOOD_PRICES` rate, with a tooltip spelling out the markup — the reward
+    now reads at a glance.
+  - **Running grand total:** the "Sell everything / Sell all <cat>" button is
+    now a full-width gold bar carrying the summed payout in a `.sa-total` chip
+    (`allTotal = Σ payFor(id)·count`) — a clear number before committing.
+  - **Steppers & buttons:** `−`/`+` steppers get filled cells, hover/active/
+    focus-visible states, and a real disabled look at the min/max bound
+    (`minus.disabled = get()<=1; plus.disabled = get()>=max()` + `:disabled`
+    styling). `.shop-btn` gained a subtle gradient, hover-brighten, pressed,
+    and focus ring; rows get a quiet hover affordance.
+  - **Crisp icons:** `.shop-icon` now sets `image-rendering:pixelated/crisp-edges`
+    so the code-drawn `drawItemIcon` canvases (ICON_PX=26) stay sharp at
+    non-integer window scale.
+  - **Hierarchy:** section labels (SELL / BUY / customers) gained a hairline
+    rule beneath them for band separation; discounted buy prices show the old
+    price struck-through (`.shop-was`) instead of an inline "(was N)"; empty
+    state ("Nothing in your bag…") is centered + italic.
+  - **Window fit:** raised `#shopWindow` opening `min-width` to 396 (from 320) —
+    the scale window fixes the body width from the EMPTY panel, so it must
+    cover the widest populated sell row (icon+name+count+stepper+total+button);
+    measured body 388 vs widest row 372. Scoped all new layout rules to
+    `#shopWindow`/`#shopCustomers` so the shared `shop-*` chrome borrowed by the
+    stable / gift / fisher gumps is untouched. Empty-list open still fits (the
+    prior collapse bug stays fixed).
+- **Verified:** `npm run build` green; before/after screenshots of all three
+  modes + min-size (empty) + long-list + a min-scale resize in
+  `scratchpad/trade-polish/`. tabular_nums ✓, crisp icons ✓, premium badge ✓,
+  buttons visible / no clip at s=1 and s≈0.9 ✓.
+
 ## title-vista-pixel — the title-screen background becomes pixel art
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** owner directive "the main screen is not pixel — its whole

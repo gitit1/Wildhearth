@@ -158,7 +158,12 @@
       padding:calc(3px*var(--s)) calc(9px*var(--s));cursor:pointer}
     .q-abandon:hover{border-color:#c94f3a;color:#f0906f}
     .q-empty{color:#9a8f74;font-style:italic;font-size:calc(12px*var(--s));padding:calc(6px*var(--s))}
-    #shopWindow{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(14px*var(--s));min-width:calc(320px*var(--s))}
+    /* min-width sets the trade window's opening width: the scale window measures
+       this EMPTY panel once to fix the body width, so it must be wide enough for
+       the widest populated sell row (icon + name + ×count + stepper + total +
+       button) or the button clips under the frame. */
+    #shopWindow{--s:1;--sp:calc(6px*var(--s));display:inline-block;
+      padding:calc(11px*var(--s)) calc(14px*var(--s)) calc(13px*var(--s));min-width:calc(396px*var(--s))}
     /* stable (v2 transport vendor): buy-only gump reusing the shop chrome */
     #stableWindow{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(14px*var(--s));min-width:calc(330px*var(--s));max-width:calc(380px*var(--s))}
     #stableList{display:flex;flex-direction:column;gap:calc(5px*var(--s))}
@@ -169,30 +174,70 @@
     #giftChooser{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(14px*var(--s));min-width:calc(280px*var(--s))}
     #giftList{display:flex;flex-direction:column;gap:calc(4px*var(--s));
       max-height:calc(300px*var(--s));overflow-y:auto}
-    .shop-head{display:flex;justify-content:center;gap:6px;font-size:calc(13px*var(--s));
-      margin-bottom:calc(8px*var(--s));color:#ffd54f;font-weight:700}
-    .shop-section{font-size:calc(12px*var(--s));font-weight:700;color:#cdb98a;text-transform:uppercase;
-      letter-spacing:.06em;margin:calc(8px*var(--s)) 0 calc(4px*var(--s))}
-    .shop-row{display:flex;align-items:center;gap:calc(8px*var(--s));padding:calc(4px*var(--s)) calc(6px*var(--s));
-      border-radius:8px;background:rgba(240,234,214,.07);margin-bottom:calc(4px*var(--s))}
-    .shop-icon{flex:none;background:rgba(240,234,214,.08);border-radius:6px}
+    .shop-head{display:flex;align-items:center;justify-content:center;gap:calc(6px*var(--s));
+      font-size:calc(15px*var(--s));margin-bottom:calc(4px*var(--s));color:var(--gold);font-weight:800;
+      font-variant-numeric:tabular-nums}
+    /* quiet section header with a hairline rule below, so SELL / BUY / customers
+       read as distinct bands the eye can skip between */
+    .shop-section{font-size:calc(11px*var(--s));font-weight:800;color:var(--muted);text-transform:uppercase;
+      letter-spacing:.09em;margin:calc(11px*var(--s)) 0 calc(6px*var(--s));
+      padding-bottom:calc(4px*var(--s));border-bottom:1px solid var(--hairline)}
+    .shop-row{display:flex;align-items:center;gap:calc(9px*var(--s));padding:calc(6px*var(--s)) calc(8px*var(--s));
+      border-radius:9px;background:var(--cell-bg);margin-bottom:calc(5px*var(--s))}
+    .shop-icon{flex:none;background:rgba(240,234,214,.08);border-radius:6px;
+      image-rendering:pixelated;image-rendering:crisp-edges}
     .shop-name{flex:1;font-size:calc(13px*var(--s));font-weight:700}
-    .shop-total{font-size:calc(12px*var(--s));color:#ffd54f;font-variant-numeric:tabular-nums;white-space:nowrap}
-    .shop-step{display:flex;align-items:center;gap:4px}
-    .shop-step button{width:calc(22px*var(--s));height:calc(22px*var(--s));border-radius:6px;cursor:pointer;
-      border:1px solid rgba(240,234,214,.3);background:transparent;color:#f0ead6;
-      font-size:calc(13px*var(--s));line-height:1;padding:0}
-    .shop-qty{min-width:calc(20px*var(--s));text-align:center;font-size:calc(13px*var(--s));
-      font-weight:700;font-variant-numeric:tabular-nums}
-    .shop-btn{border:2px solid #b8912f;border-radius:8px;background:rgba(230,190,80,.9);color:#241d0e;
-      font-weight:700;font-size:calc(12px*var(--s));padding:calc(4px*var(--s)) calc(10px*var(--s));cursor:pointer}
-    .shop-btn:hover{background:#f2cf6b}
-    .shop-sellall{display:block;margin:calc(2px*var(--s)) auto 0}
-    .shop-empty{font-size:calc(12px*var(--s));opacity:.75;padding:calc(4px*var(--s)) calc(6px*var(--s))}
+    .shop-total{font-size:calc(12px*var(--s));color:var(--gold);font-weight:700;
+      font-variant-numeric:tabular-nums;white-space:nowrap}
+    .shop-step{display:inline-flex;align-items:center;gap:calc(3px*var(--s));flex:none}
+    .shop-step button{width:calc(24px*var(--s));height:calc(24px*var(--s));border-radius:7px;cursor:pointer;
+      border:1px solid var(--cell-edge);background:var(--cell-bg);color:var(--ink);
+      font-size:calc(15px*var(--s));font-weight:700;line-height:1;padding:0;
+      display:flex;align-items:center;justify-content:center;
+      transition:border-color .1s,background .1s,transform .05s}
+    .shop-step button:hover:not(:disabled){border-color:var(--gold-soft);background:rgba(230,190,80,.16)}
+    .shop-step button:active:not(:disabled){transform:translateY(1px)}
+    .shop-step button:disabled{opacity:.32;cursor:default}
+    .shop-step button:focus-visible{outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,213,79,.4)}
+    .shop-qty{min-width:calc(24px*var(--s));text-align:center;font-size:calc(13px*var(--s));
+      font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink)}
+    .shop-btn{border:2px solid #b8912f;border-radius:8px;flex:none;
+      background:linear-gradient(180deg,#f2cf6b,#e6be50);color:#241d0e;
+      font-weight:800;font-size:calc(12px*var(--s));padding:calc(5px*var(--s)) calc(12px*var(--s));cursor:pointer;
+      box-shadow:0 1px 2px rgba(0,0,0,.25);transition:filter .1s,transform .05s,box-shadow .1s}
+    .shop-btn:hover{filter:brightness(1.08)}
+    .shop-btn:active{transform:translateY(1px);box-shadow:none}
+    .shop-btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,213,79,.45)}
+    .shop-sellall{display:flex;align-items:center;justify-content:center;gap:calc(8px*var(--s));
+      width:100%;margin:calc(7px*var(--s)) 0 calc(2px*var(--s));padding:calc(7px*var(--s))}
+    .shop-sellall .sa-total{font-variant-numeric:tabular-nums;
+      background:rgba(36,29,14,.16);border-radius:6px;padding:calc(1px*var(--s)) calc(7px*var(--s))}
+    .shop-empty{font-size:calc(12px*var(--s));opacity:.7;font-style:italic;text-align:center;
+      padding:calc(11px*var(--s)) calc(6px*var(--s))}
+    /* ---- refinements scoped to the trade window (player/npc/merchant modes) so
+       the shared shop-* chrome the stable/gift/fisher gumps borrow is untouched -- */
+    #shopWindow .shop-row{min-height:calc(34px*var(--s));border-color:var(--cell-edge);
+      transition:border-color .1s,background .1s}
+    #shopWindow .shop-row:hover{border-color:var(--gold-soft);background:rgba(230,190,80,.07)}
+    #shopWindow .shop-name{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #shopWindow .shop-total{flex:none;min-width:calc(66px*var(--s));text-align:right}
+    /* the "×N in bag" count as a quiet tabular chip that never forces the name to wrap */
+    .shop-have{flex:none;font-size:calc(11px*var(--s));font-weight:800;color:var(--muted);
+      font-variant-numeric:tabular-nums;background:rgba(240,234,214,.08);border-radius:6px;
+      padding:calc(1px*var(--s)) calc(6px*var(--s))}
+    /* the customer's premium call-out — a small gold badge so the reward reads */
+    .shop-premium{flex:none;display:inline-flex;align-items:center;font-size:calc(9.5px*var(--s));
+      font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#3a2c0c;
+      background:linear-gradient(180deg,#ffe08a,#f0b94f);border-radius:5px;
+      padding:calc(1px*var(--s)) calc(5px*var(--s));box-shadow:0 1px 2px rgba(0,0,0,.3)}
+    /* struck-through "was" price on a discounted buy line */
+    .shop-was{color:var(--muted);text-decoration:line-through;font-weight:600;
+      font-size:calc(10.5px*var(--s));margin-left:calc(5px*var(--s));opacity:.8}
     /* Customers at your stall (v2): a warmer-tinted row that reads apart from
        the flat sell list, with the premium price called out in the same gold. */
-    #shopCustomers .shop-row{background:rgba(230,190,80,.12);border:1px solid rgba(230,190,80,.28)}
-    .shop-cust-want{font-size:calc(11px*var(--s));opacity:.8;font-weight:600}
+    #shopCustomers .shop-row{background:rgba(230,190,80,.12);border-color:rgba(230,190,80,.34)}
+    #shopCustomers .shop-row:hover{background:rgba(230,190,80,.18);border-color:rgba(230,190,80,.5)}
+    .shop-cust-want{font-size:calc(11px*var(--s));opacity:.82;font-weight:600}
     /* Each list scrolls within a bounded region (the scale-window model: the
        window's height controls how much of the scroll region shows), so the
        trade window opens at a sensible size instead of collapsing / running off

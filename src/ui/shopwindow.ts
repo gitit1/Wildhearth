@@ -176,9 +176,12 @@ function stepper(get: () => number, set: (n: number) => void, max: () => number)
   const box = document.createElement("span");
   box.className = "shop-step";
   const minus = document.createElement("button"); minus.textContent = "−";
+  minus.setAttribute("aria-label", "one fewer");
   const qty = document.createElement("span"); qty.className = "shop-qty";
   const plus = document.createElement("button"); plus.textContent = "+";
-  const sync = () => { qty.textContent = String(get()); };
+  plus.setAttribute("aria-label", "one more");
+  // reflect the bounds so at-min / at-max buttons read as intentionally inert
+  const sync = () => { qty.textContent = String(get()); minus.disabled = get() <= 1; plus.disabled = get() >= max(); };
   minus.addEventListener("click", () => { set(Math.max(1, get() - 1)); render(); });
   plus.addEventListener("click", () => { set(Math.min(max(), get() + 1)); render(); });
   sync();
@@ -229,7 +232,17 @@ function render() {
         btn.className = "shop-btn";
         btn.textContent = "Sell";
         btn.addEventListener("click", () => { onServeFn(c.npcId); render(); });
-        row.append(iconCanvas(c.itemId), name, total, btn);
+        row.append(iconCanvas(c.itemId), name);
+        // a customer pays over the flat rate — badge the reward so it's felt
+        const base = GOOD_PRICES[c.itemId];
+        if (base !== undefined && c.unitPrice > base) {
+          const prem = document.createElement("span");
+          prem.className = "shop-premium";
+          prem.textContent = `+${c.unitPrice - base}`;
+          prem.title = `Pays ${c.unitPrice} each — ${c.unitPrice - base} over the flat ${base}`;
+          row.append(prem);
+        }
+        row.append(total, btn);
         custList.append(row);
       }
     }
@@ -262,7 +275,11 @@ function render() {
     row.className = "shop-row";
     const name = document.createElement("span");
     name.className = "shop-name";
-    name.textContent = `${ITEM_NAMES[id] ?? id} ×${have}`;
+    name.textContent = ITEM_NAMES[id] ?? id;
+    const haveChip = document.createElement("span");
+    haveChip.className = "shop-have";
+    haveChip.textContent = `×${have}`;
+    haveChip.title = `${have} in your bag`;
     const total = document.createElement("span");
     total.className = "shop-total";
     total.textContent = `${price} × ${q} = ${price * q}`;
@@ -281,13 +298,21 @@ function render() {
       sellQty.delete(id);
       render();
     });
-    row.append(iconCanvas(id), name, stepper(() => q, (n) => sellQty.set(id, n), () => have), total, btn);
+    row.append(iconCanvas(id), name, haveChip, stepper(() => q, (n) => sellQty.set(id, n), () => have), total, btn);
     sellList.append(row);
   }
   if (goods.length > 1) {
+    // the grand total "Sell all" would fetch (every unit at this stall's rate) —
+    // a clear reward number the player can read before committing
+    const allTotal = goods.reduce((sum, id) => sum + payFor(id) * goodCount(eco, id), 0);
     const all = document.createElement("button");
     all.className = "shop-btn shop-sellall";
-    all.textContent = npc ? `Sell all ${categoryById(npc.categoryId)?.label ?? "goods"}` : "Sell everything";
+    const allLabel = document.createElement("span");
+    allLabel.textContent = npc ? `Sell all ${categoryById(npc.categoryId)?.label ?? "goods"}` : "Sell everything";
+    const allSum = document.createElement("span");
+    allSum.className = "sa-total";
+    allSum.textContent = `${allTotal}`;
+    all.append(allLabel, allSum);
     all.addEventListener("click", () => {
       // sell everything THE STALL SHOWS — hidden-category goods stay in the bag
       let earned = 0, units = 0;
@@ -327,7 +352,7 @@ function render() {
     if (entry.livestock) {
       if (entry.livestock === "cow" && stock.cow) continue;   // one cow, like the hoe
       const price = discountedPrice(entry.price, haggling);
-      const tag = price < entry.price ? ` (was ${entry.price})` : "";
+      const discounted = price < entry.price;
       const flockCount = entry.livestock === "hen" ? stock.hens
         : entry.livestock === "duck" ? stock.ducks
         : entry.livestock === "pig" ? stock.pigs
@@ -341,7 +366,8 @@ function render() {
         ? `${ITEM_NAMES[entry.id]} (have ${flockCount})` : ITEM_NAMES[entry.id]!;
       const total = document.createElement("span");
       total.className = "shop-total";
-      total.textContent = `${price}${tag}`;
+      total.textContent = `${price}`;
+      if (discounted) { const was = document.createElement("span"); was.className = "shop-was"; was.textContent = `${entry.price}`; total.append(was); }
       const btn = document.createElement("button");
       btn.className = "shop-btn";
       btn.textContent = "Buy";
@@ -374,7 +400,7 @@ function render() {
     const q = entry.unique ? 1 : Math.max(1, buyQty.get(entry.id) ?? 1);
     buyQty.set(entry.id, q);
     const price = discountedPrice(entry.price, haggling, extra);
-    const tag = price < entry.price ? ` (was ${entry.price})` : "";
+    const discounted = price < entry.price;
 
     const row = document.createElement("div");
     row.className = "shop-row";
@@ -383,7 +409,8 @@ function render() {
     name.textContent = ITEM_NAMES[entry.id] ?? entry.id;
     const total = document.createElement("span");
     total.className = "shop-total";
-    total.textContent = entry.unique ? `${price}${tag}` : `${price} × ${q} = ${price * q}${tag}`;
+    total.textContent = entry.unique ? `${price}` : `${price} × ${q} = ${price * q}`;
+    if (discounted) { const was = document.createElement("span"); was.className = "shop-was"; was.textContent = `${entry.price}`; total.append(was); }
     const btn = document.createElement("button");
     btn.className = "shop-btn";
     btn.textContent = "Buy";
