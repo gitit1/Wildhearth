@@ -6,6 +6,73 @@ final version at the session's end is authoritative.
 
 ---
 
+# SESSION 4 (2026-07-11) — Overnight run: mediums re-flip, quest system, variety push
+
+**Full detail lives in `runs/handoff-2026-07-11.md`** (the run's master
+plan + block-by-block resume log) — this section is the short version for
+anyone who only reads HANDOFF.md.
+
+## The re-flip + probe chain, one-liners
+- Owner reviewed session 3's rig characters in play and reversed the
+  decision again: rig nose read too long in profile, male/female looked
+  like the same character, long hair drew in front of the body. All three
+  disappear with baked sprites, not the rig — **D-1: characters move to a
+  curated PixelLab sprite MATRIX** (2 genders × 3 sizes × 5 hair × 5
+  outfits; session 4 shipped the MEDIUM-size 50-combo slice). Keyed
+  vivid-purple hair generation + runtime recolor to 3 shades avoids
+  per-shade regeneration. Rig is now the fallback (reverse of session 3).
+- Ground probes: Wang `topdown_tileset` REJECTED (always lime, can't chain
+  from `tiles_pro`); `tiles_pro` segmentation mode GO — **D-2: ground
+  becomes PixelLab pixel tiles**, terrain edges dithered in code (0 gens).
+  Painterly ground painter kept as fallback.
+- **D-3 everything-one-pixel-medium**: with characters + ground now
+  sprite/tile-sourced, remaining smooth visuals (water shimmer etc.) get
+  audited and restyled to chunky pixel code — done for water glints this
+  run.
+- See `docs/DECISIONS.md` "Art medium division — FINAL FLIP" and "Ground
+  medium" for the full writeup; `CLAUDE.md` hard rule #1 updated to match.
+
+## Everything shipped this run (commit list, oldest → newest, all local-only)
+`79506c7` fable-mode skill · `7760a7d` master plan doc · `619144b`/`61d3fee`/
+`4facc09`/`b731ddb`/`c479f92` R3 variety (fish 50, forage 26, recipes 21,
+crops 20, flowers 0→20 + gardening species system) · `49593b4` R4 stall→
+market + cottage anti-repetition · `372cad3` R5 barn storage + night shelter
+· `2702f98` R7 skill neglect-decay · `6adeacc` R2 ground→pixel tiles ·
+`0c7aea2` R1 character sprite matrix · `4343dfb`/`cf3dfdd`/`fac1fd6`/
+`f34bd29`/`8d44aaf` R6 quest system + log + AI offers (5 commits: core
+engine, main.ts wiring, quest-log window, dialogue offers/turn-ins, D3 AI
+dynamic offers) · `7385a64`/`f23c9b8`/`8f3418d`/`d3fb35f`/`6ee70b5`/
+`ba7f904` R8 screens re-skin (UI kit panels + WildhearthStorybook font +
+Maren/Tobin portraits) + polish backlog (skill tiers shown, STORAGE_KEY
+folded into saves, legacy heroine sheets deleted, plain-furrow field +
+plaza scatter fix + pixel water glints, quest dock badge). Plus assorted
+`docs —` resume-state commits between blocks. **R1–R8 all done; this R9
+docs-sync entry is the run's close-out.**
+
+## PixelLab spend
+~520 generations across the whole overnight run (char matrix 50 combos +
+walks, ground production tile sets, UI kit panels/font/portraits). Balance
+~8,063 at the last meter (Tier 3, plan-time balance was 8,583) — comfortably
+inside the ≤1,500/day pacing rule.
+
+## Next-day queue (not done this run, don't re-decide, just pick up)
+1. 8 more NPC portraits (Maren + Tobin shipped; recipe in
+   `docs/PIXELLAB_ASSETS.md`'s ledger — drop a PNG in, no code change).
+2. Character matrix S/L body sizes (+100 combos ≈ +500 gens incl. walks) —
+   currently "coming soon" in Character Creation.
+3. Lightness-aware skin recolor (shipped OFF this run — the current
+   `recolorSheet` mechanism preserves lightness and can't darken skin; needs
+   a different recolor approach, not just a flag flip).
+4. Window-title legibility check (the WildhearthStorybook pixel font on
+   small titles/buttons — spot-check readability at default zoom).
+5. Puppeteer QA re-run — the overnight puppeteer play-through's recon
+   (`recon-driver.mjs`/`recon-faces.mjs`) never reported back before this
+   run ended; those temp files are still sitting untracked in the working
+   tree (not ours to commit or clean up — leave them for whoever owns that
+   thread, or re-run a light QA pass fresh if the session is confirmed dead).
+
+---
+
 # SESSION 3 (2026-07-10) — The art-medium division (characters = rig, world = sprites)
 
 **The decisive session for art direction.** Session 2 shipped a full

@@ -546,19 +546,29 @@ the game, ever** (this was explicitly considered and ruled out — see the
 project's early history with an isometric-asset detour that got abandoned,
 in CLAUDE.md/this doc's earlier drafts).
 
-**Medium division (decided 2026-07-10 — supersedes this doc's original
-"everything drawn in code, no image assets" wording):** the world is
-produced by two pipelines split by subject, never mixed arbitrarily.
-**Characters (player + all NPCs) are hand-crafted, decomposed CODE-rig
-art** (`src/art/rig.ts`) — parametric build/skin/hair/outfit/age/eyeColor/
-hairstyle, which is exactly what enables the deep character creation in
-#11; PixelLab structurally cannot decompose a character, so only the code
-rig can power that pillar. **The environment (buildings, animals, props,
-trees, crops, items) uses PixelLab pixel-art sprites**, dual-path over
-code painters. The rig is drawn in the same pixel-art language as the
-sprites (nearest-neighbour, dark outline, warm palette, 3-tone shading),
-so the two pipelines read as one world. See CLAUDE.md hard rule #1 and
-docs/DECISIONS.md "Art medium division" for the full rationale.
+**Medium division (FINAL as of 2026-07-11, session 4 — supersedes this
+doc's original "everything drawn in code, no image assets" wording, and
+supersedes the 2026-07-10 code-rig-for-characters wording below that the
+owner reversed after seeing it in play):** the world is produced by
+PixelLab pixel-art sprites/tiles across all three subjects — characters,
+environment, and ground — with code as the universal dual-path fallback,
+never mixed arbitrarily with a shipped sprite. **Characters (player + all
+NPCs) render via a curated PixelLab sprite MATRIX** (gender × body size ×
+hairstyle × outfit, hair generated in a keyed color and runtime-recolored
+to natural shades) — this is what actually powers the deep character
+creation in #11, since a fixed face descriptor + shared eye color per
+gender keeps combos reading as siblings while still letting her pick a
+look. The decomposed code rig (`src/art/rig.ts`, parametric build/skin/
+hair/outfit/age/eyeColor/hairstyle) is the dual-path FALLBACK, not the
+shipped look — kept because the game must still run with zero sprite
+files. **The environment (buildings, animals, props, trees, crops, items)
+and the ground (grass/tilled field/paths/water/plaza)** both use PixelLab
+pixel-art sprites/tiles, dual-path over code painters, with terrain-edge
+blending done in code. The sprite matrix is drawn in the same pixel-art
+language as the environment (nearest-neighbour, dark outline, warm
+palette, 3-tone shading), so all three pipelines read as one world. See
+CLAUDE.md hard rule #1 and docs/DECISIONS.md "Art medium division — FINAL
+FLIP" + "Ground medium" for the full rationale and history.
 
 **The single depth technique, used everywhere, not just as late polish:**
 a consistent 2D "depth illusion" toolkit — jointed/volumetric character

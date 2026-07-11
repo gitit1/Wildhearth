@@ -96,8 +96,11 @@ down-skill draining. 🟢 today: the full base-9 (Fishing, Foraging, Farming,
 Busking, Haggling, Animal Husbandry, Cooking, Building, Gardening), each
 wired to a real mechanic; chance-based use gains with the UO-style Gain
 Guard pity mechanism. 🟢 skill floors now gate content (fish species, crop
-planting, forage finds, recipes). 🔵 not built: the 12 town/expansion
-skills (see the appendix) and dynamic decay from neglect.
+planting, forage finds, recipes). 🟢 **neglect decay built** (`systems/
+skills.ts`): unused skills decay slowly, floored at their tier boundary
+(Novice/Skilled/Expert) so decay never drags a skill back down a whole tier
+— the Skills window now shows each skill's earned tier tag. 🔵 not built:
+the 12 town/expansion skills (see the appendix).
 
 ### Inventory & Economy 🟢
 Slot-based backpack (🟢), dual currency+barter economy (🟢 currency, ⚪
@@ -119,19 +122,25 @@ Depth is the player's choice — always buy finished, or invest in the
 production chain yourself. A handful of 3-4 step chains (wheat→flour→
 bread, wool→yarn→cloth, milk→cheese). Not built.
 
-### Quests 🟡 (guidance delivery 🟢, a real quest system still 🔵)
-Hybrid, still fully speced this way: fixed authored quests work with AI
-off; AI-on layers dynamic offers on top of the same quest-log UI — **that
-quest-log UI itself is not built.** **Built (🟢):** the Guidance Mode
-ENGINE that stands in for quests in v1 — Tutorial (4 real-action steps:
-move → first action → first sale → first purchase, clock-freeze per step,
-one-way Skip, a persistent Help icon, a mid-progress reload prompt) and
-Aspiration (path-biased 3-4 step background chains + life-goal flavor, a
-HUD pill), switchable in Settings. AI quest-generation exists only as a
-**validated STUB** (debug panel only, a v2 preview — no quest log, no
-player-facing offers yet). **Not built (🔵):** an actual quest system — a
-persistent quest log, fixed authored quests beyond the guidance chains, and
-dynamic AI quest offers as real gameplay.
+### Quests 🟢 (the v1's one large gap is now CLOSED)
+**Built** (`data/quests.ts` + `systems/quests.ts`): a real hybrid quest
+system on top of (not replacing) the Guidance Mode engine. Six authored
+quests across the roster (Maren's fish delivery, Petra's bread run,
+Henrik's barn favour, Finn's repeatable junk quest, Tobin's and Liora's
+seasonal flower quests) with sequential steps (activity counters — catch/
+harvest/forage/cook/busk/sell/talk/reach — and possession/gather steps
+live-checked against the bag), a persisted `QuestLog`, and a real
+**quest-log window** (`ui/questlog.ts`, 📋/J) with Active/Completed tabs,
+a step checklist + progress counts, a reward preview, and abandon for side
+quests — it MIRRORS the Guidance layer rather than duplicating it. Offers
+and turn-ins surface as the giver NPC's own dialogue choices. **AI
+quest-generation is promoted from stub to real dynamic offers** (D3,
+`ai/features/questOffers.ts`): behind the AI master toggle, the model picks
+one eligible template and flavors its words in the giver's voice, reward
+clamped to the authored template's range, with a scripted fallback on any
+failure — byte-identical to AI-off when AI is off. The dock icon shows a
+live active-quest count badge. Guidance Mode (Tutorial/Aspiration/None)
+is unchanged and still the v1 onboarding layer these quests sit alongside.
 
 ### Relationships 🟢 (marriage/children/pets still 🔵)
 Built (`systems/relationships.ts`): a pillar equal to the economy, not a
@@ -176,7 +185,11 @@ states 🟢 (4 repairs: roof/window/barn/fence), tier-2 is template-based
 room/furniture upgrades 🔵, tier-3 is full freeform placement 🔵. Farm-plot
 expansion is 🟢 built: two discrete money-gated tiers (120/180) bought at
 the farmhouse, each visibly leaping the fence southward with 22 new
-tillable tiles, persisted with the farm state.
+tillable tiles, persisted with the farm state. **The barn now does
+something 🟢** (`systems/storage.ts`, a versioned save key): interacting
+with it opens a real storage-chest window (the existing window system) for
+overflow beyond the backpack, and farm animals shelter inside the barn
+overnight (a schedule tweak) instead of standing out in the open.
 
 ### Needs 🟢 (7, not 5)
 Built (`systems/needs.ts`): **7** needs — hunger, thirst, energy, hygiene,
@@ -192,12 +205,19 @@ basin, bed, rest chair) is the minimum needed to restore all seven, and
 (session 2) all four now render as PixelLab sprites with the code painter
 kept as fallback.
 
-### Collections & Memories 🟢 (engine + first categories) / 🔵 (sightings)
+### Collections & Memories 🟢 (engine + variety pushed toward the v1 bar) / 🔵 (sightings)
 One book, two tabs, built. **Collections**: the generic per-category engine
-is real with fish (12) and wild finds (11) as the first live categories —
-discoveries log on first catch/pick. Birds/animals/flowers join through the
-same engine when the binoculars sighting mechanic (Fisherwoman block) lands
-🔵. **Memories**: the curated life-event log is real — ten "firsts" (sale,
+is real, table-driven, and its live categories were pushed hard toward the
+DECISIONS "20 in v1" variety bar this run — **fish 12→50**, **forage
+11→26** (both well past the bar), plus a brand-new **flowers 0→20**
+ornamental category (`data/flowers.ts` + a species-driven gardening system
+in `systems/gardening.ts` — plant/water/bloom/sell) — discoveries log on
+first catch/pick/bloom. Recipes (6→21) and crops (18→20) got the same push,
+propagating through prices/names/icons/collections/shop with zero per-item
+code (every table is fully data-driven — future variety is just more
+rows). Birds/animals join through the same engine when the binoculars
+sighting mechanic (Fisherwoman block) lands 🔵. **Memories**: the curated
+life-event log is real — ten "firsts" (sale,
 catch, harvest, animal, repair, farm-whole…) each written once with an
 in-game date stamp. Opens from the 📖 icon or M.
 
@@ -220,14 +240,17 @@ skippable intro story, the farm reveal *before* any choice is asked, the 4
 Starting Path cards (Fisher/Farmer/Musician/Animal-Keeper — each a kit + a
 seeded skill at 10 + 50 starting coins + food), and a life-goal pick
 (Family/Independence/Community/Mastery/Fortune). Old saves synthesize a
-default character. The player's chosen hair style + hair/dress colours now
-render on her actual in-game sprite via a runtime recolour
-(`spriteChar.ts` `recolorSheet`) — "what she designs is what she sees," not
-just a creation-screen preview — with an honest coverage matrix (5 hair
-styles + all 6 hair colours + the skirted outfit styles recolour cleanly;
-overalls, non-default skin tones, and male fall back to the
-design-accurate code rig). **Deep customization** (tailored clothing, real
-hairstyling) is still deferred to the future Fashion/Hairdressing
+default character. **Updated (session 4):** appearance now picks a look
+from the **curated PixelLab sprite matrix** — gender × 5 hairstyles × 5
+outfits, plus a hair-shade choice (3 natural shades, runtime-recoloured
+from the sprite's keyed base via `spriteChar.ts` `recolorSheet`) — so both
+genders, not just a default female look, are sprite-covered; "what she
+designs is what she sees" now holds for the whole matrix, not a partial
+coverage table. Body size (S/L) and skin-tone recolour show "coming soon"
+pending the next generation wave (skin recolour specifically needs a
+lightness-aware mechanism the current one doesn't have). **Deep
+customization** (tailored clothing, real hairstyling) is still deferred
+to the future Fashion/Hairdressing
 professions (🔵, v3).
 
 ### Persistence & Save 🟢
@@ -329,24 +352,49 @@ z-ordered by focus, edge-snapping, keep-on-screen clamped), including the
 window, falling through to Pause only once nothing is left open. Only the
 title screen, Pause, the Exit-confirm dialog, and What's New/Help/Credits
 deliberately stay full-screen overlays — they're menus, not workspace
-content, so dragging them out of the way would defeat the point.
+content, so dragging them out of the way would defeat the point. **Re-skinned
+(session 4):** a generated PixelLab UI kit dresses the chrome —
+`src/ui/skin.ts` (dual-path: PNG panels + font when present, the existing
+CSS chrome otherwise) applies a wood+gold nine-slice frame to every panel
+window and the full-screen modals, a warm pixel display font
+(WildhearthStorybook) on titles/buttons, a parchment tooltip, and NPC bust
+portraits in the dialogue notch (Maren + Tobin shipped; 8 more NPCs queued).
+The quest-log dock icon also carries a live active-quest-count badge.
 
-## Art direction 🟢 (the depth-illusion pass is built, alongside a proven sprite layer) / 🔵 (fullest version)
-Top-down 2D, no true 3D ever. **Updated (session 2):** the original "no
-image assets, ever" rule was deliberately amended — art is now **code-drawn
-OR PixelLab-generated**, always **dual-path**: a sprite PNG draws when
-present and loaded, the code painter/rig draws otherwise, and the game must
-(and does, verified) boot and play complete with the sprite folder emptied.
+## Art direction 🟢 (all three mediums — characters, environment, ground — are now PixelLab-sprite-first)
+Top-down 2D, no true 3D ever. Art is **code-drawn OR PixelLab-generated**,
+always **dual-path**: a sprite/tile PNG draws when present and loaded, the
+code painter/rig draws otherwise, and the game must (and does, verified)
+boot and play complete with the sprite folder emptied.
+
+**The medium division, FINAL as of session 4 (2026-07-11)** — see
+`docs/DECISIONS.md` "Art medium division — FINAL FLIP" + "Ground medium"
+for the full history (it flipped once at session 3, then flipped back with
+a different mechanism at session 4):
+- **Characters** (player + all NPCs) render via a **curated PixelLab sprite
+  matrix** — 2 genders × 5 hairstyles × 5 outfits at the MEDIUM body size
+  (S/L queued next), keyed vivid-purple hair runtime-recolored to 3 natural
+  shades + skin tone. The decomposed code rig (`art/rig.ts`) is the
+  zero-PNG dual-path **fallback**, not the shipped look (reverse of session
+  3's framing — the rig's side-profile nose, same-look-both-genders, and
+  hair-over-body issues are exactly what the sprite matrix fixes).
+- **Ground** (grass, tilled field, paths, water, plaza) renders via
+  **PixelLab `tiles_pro` segmentation tiles** (`world/ground.ts`), with
+  terrain-to-terrain edges dithered in CODE (zero gens). The original
+  painterly ground painter is the dual-path fallback.
+- **The environment** (buildings, animals, props, trees, crops, items,
+  UI chrome) uses PixelLab sprites, dual-path over code painters, as
+  before session 3/4 — this half of the division never changed.
 
 🟢 **Built:**
 - The **segmented rig** (`art/rig.ts`/`art/animalRig.ts`) — jointed
-  player/NPC/animal figures with per-action poses (idle, walking, fishing,
-  hoeing, foraging, busking, talking, sleeping for the player; quadruped +
-  bird presets for animals) — now doubles as the universal fallback
-  beneath every sprite category.
+  player/NPC/animal figures with per-action poses — is now the universal
+  fallback beneath every sprite/tile category (characters included).
 - **Day/night + weather visuals** — a continuous time-of-day colour grade;
   rain streaks, storm lightning + dark beats, drifting fog banks; per-
-  weather ground tints (interior milder, the menu vista exempt).
+  weather ground tints (interior milder, the menu vista exempt). **Water
+  shimmer restyled to chunky pixel glints** (session 4, R8/B5) in place of
+  smooth ellipses, closing the last obvious "smooth vs. pixel" mismatch.
 - **Parallax + particles + cast shadows** — a pre-baked northern mountain
   skyline band at 0.3x scroll (hinting at the future mine); pooled ambient
   particles (petals/motes/fireflies/leaves/snow) plus catch/harvest/
@@ -355,25 +403,23 @@ present and loaded, the code painter/rig draws otherwise, and the game must
   every entity.
 - **The PixelLab sprite pipeline** (`docs/PIXELLAB_ASSETS.md`,
   `docs/SCALING_DECISION.md`) — proven to scale to the "no two neighbours
-  alike" variety bar in budget (a Tier-2 subscription, ~5,000 gens/month;
-  the full v1 sprite bar measured at 575-1,547 gens). Sprite-sourced today,
-  all dual-path: the **heroine** (5 hairstyle sheets + a runtime hair/dress
-  recolour matching her Character-Creation choices); all **10 NPCs** (8
-  rotations + an 8-dir walk each, no idle — a static rotation stands in);
-  **building variety** (farmhouse, barn, 4 distinctly-themed market stalls,
-  a well, 6 differently-varianted cottages, an established neighbour
-  farmhouse — flat-front guardrailed for this game's non-isometric
-  camera); the **interior** (room backdrop, hearth, basin, bed,
-  chair+crate); **5 farm-animal species** (cow/pig/sheep with a real walk
-  cycle, hen/duck as static rotations with a small code-driven waddle when
-  moving). A cat and dog were generated in the same batch but are
-  deliberately **banked, not spawned** (reserved for a future Pets block).
+  alike" variety bar in budget. Sprite-sourced today, all dual-path: the
+  **character matrix** (above); **building variety** (farmhouse, barn, 4
+  distinctly-themed market stalls, a well, 6+ cottage variants with
+  anti-repetition jitter, an established neighbour farmhouse); the
+  **interior** (room backdrop, hearth, basin, bed, chair+crate); **5
+  farm-animal species** (cow/pig/sheep with a real walk cycle, hen/duck as
+  static rotations with a small code-driven waddle when moving) — a cat
+  and dog are banked for a future Pets block; **20 crop species** (ripe +
+  growth-stage sprites for the original set, new variety-push crops
+  dual-path to the code painter until sprited) and **2 tree species × 4
+  seasons** + assorted foliage/props; **ground tiles** (grass/soil/water/
+  plaza); and the **UI kit** (wood/gold window frame, tooltip, 2 NPC
+  portraits, the WildhearthStorybook font).
 
-🔵 **Still code-only / not built:** large open ground (deliberately —
-correct projection, infinite non-repeating variation, no PixelLab tileset
-replaces it yet), crops/trees/ambient decorations/tools/seasonal wildlife
-(an approved MIX path — object-state crop stages, inpainted tree seasons —
-is gated behind its own batch, not yet run), two-face buildings, and
+🔵 **Still code-only / not built:** ambient wildlife (deliberately —
+too many species/poses to justify the spend), tools/accessory icons, most
+particle/weather fx beyond the water-glint pass, two-face buildings, and
 underwater transitions (tied to the still-unbuilt Fisherwoman's boat/
 diving). The fullest juice pass (secondary motion, jointed-limb animation
 arcs) remains the long-term "Juice & feel" version.

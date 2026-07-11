@@ -150,6 +150,14 @@ Three options: "Exit to main menu" + "Exit fully" + "Switch to another game" (im
 - **Language:** English
 
 ## Art medium division — characters vs. world (decided 2026-07-10, session 3)
+**SUPERSEDED for characters — see "Art medium division — FINAL FLIP (session
+4, 2026-07-11)" below.** The ground/ambient half of this entry (sprites for
+environment, code for open ground) also moved on in session 4 (ground is now
+PixelLab tiles, not code-painted — see the FINAL FLIP entry). Kept in full,
+not deleted, because the reasoning below (why PixelLab alone couldn't power
+character creation) is exactly what session 4's curated MATRIX approach
+solves differently — worth reading both entries together.
+
 The single most important art-direction call: the visual world is ONE
 coherent pixel-art language, but it is produced by TWO pipelines, split by
 subject, not mixed arbitrarily. "No middle" — never a jarring patchwork of
@@ -183,6 +191,79 @@ sprite objects sitting next to code-drawn objects.
   rule 1): PixelLab generates multiple cheap variants per species (proven:
   8 farmhouses / 9 gens) + runtime jitter (hue/scale/flip per position
   seed). Tree/crop sprite batches are the next environment work.
+
+## Art medium division — FINAL FLIP: characters = curated PixelLab sprite matrix (decided 2026-07-11, session 4 / overnight run)
+Owner reversed the session-3 code-rig decision after reviewing it in play:
+three concrete complaints (the rig's side-profile nose read way too long,
+male and female looked like the same character, long hair drew in front of
+the body) all trace back to the rig, not to anything sprite-related.
+Tier-3 PixelLab funded the generation cost. **This is the decision CLAUDE.md
+hard rule #1 and docs/VISION.md now describe as current.**
+
+- **D-1 Characters = a curated PixelLab sprite matrix**: 2 genders × 3 body
+  sizes (S/M/L) × 5 hairstyles × 5 outfits. Session 4 shipped the MEDIUM
+  size row only (2×5×5 = 50 combos); S/L are queued next generation day.
+  3 hair shades + skin tones apply via RUNTIME recolor (`recolorSheet`),
+  never regenerated per shade. Hair is generated in a KEYED unnatural vivid
+  purple specifically so the recolor pass has a clean band to retarget —
+  natural browns were measured to bleed into outfit colors.
+- **Pipeline method (probed, not guessed):** method A — one fresh
+  `create_character` per combo (standard mode, 4-dir), ~1 gen/combo; walk
+  via template `animate_character`, ~4 gens/combo. Faces drift subtly
+  combo-to-combo (they read as siblings, not clones) — accepted as fine for
+  a "pick a look" creator; mitigated with a FIXED face descriptor per
+  gender + one shared eye color. A face-locked heroine (via
+  `create_character_state`, ~481 gens) is a possible future upgrade, not
+  done — "expand when we want" (owner).
+- **The code rig is now the fallback, not the shipped look** — the reverse
+  of session 3's framing. It stays wired as the zero-PNG dual-path fallback
+  (CLAUDE.md rule 1): the game must still boot and play with the sprite
+  folder emptied.
+- **Shipped:** commit `0c7aea2` ("character — curated sprite matrix becomes
+  the shipped player look", R1). `CHARACTER_SPRITES_PRIMARY` flips meaning —
+  it now gates the matrix + NPC-sprite path being primary. Character
+  Creation exposes 5 hair / 5 outfit / 3 shade; skin-tone recolor shipped
+  OFF (the recolor mechanism preserves lightness and can't darken skin —
+  an honest limitation, not a bug) and body-size S/L show "coming soon"
+  until the next generation wave.
+
+## Ground medium — PixelLab `tiles_pro` segmentation (decided 2026-07-11, session 4 / overnight run)
+The ground (grass, tilled field, paths, water, plaza) was the last
+smooth/painterly holdout once characters were sprite-matrix and the
+environment was sprite-sourced — it no longer read as the same pixel
+medium as everything sitting on top of it. Two probes settled the approach:
+- **Probe 1 (Wang `topdown_tileset`): REJECTED.** Auto-tiling grass always
+  rendered lime-green and couldn't chain cleanly from the `tiles_pro`
+  output — unusable for the base grass field.
+- **Probe 2 (`tiles_pro` segmentation): GO.** 32px square_topdown tiles,
+  `outline_mode: "segmentation"` (NOT `"grid"` — grid outline mode reads as
+  a literal lattice over the world and was rejected on sight). Verified via
+  a full weighted-field composite mock before committing to production
+  tiles.
+- **Terrain-to-terrain edges are CODE, not generated** (a Bayer-dither alpha
+  mask blends grass↔path↔tilled↔water↔plaza at zero additional
+  generations) — the same "code handles transitions/motion, sprites handle
+  the object" split as the rest of the medium division.
+- **Production tuning** (measured against the first mock, not guessed):
+  ~75% plain tiles with sparse feature tiles scattered in, a tighter tonal
+  range on the base grass, and dimmer daisies than the first pass.
+- **Shipped:** commit `6adeacc` ("world — the ground becomes pixel tiles",
+  R2). The painterly ground painter is kept as the zero-PNG dual-path
+  fallback (CLAUDE.md rule 1), not deleted.
+
+## Everything-one-pixel-medium rule (reaffirmed 2026-07-11, session 4)
+With characters on the sprite matrix and the ground on PixelLab tiles, the
+"no middle" principle collapses to one simple rule going forward:
+**environment, characters, and ground are all PixelLab pixel-art sprites,
+dual-path over their code painter/rig, always.** Code is still the right
+tool for anything that isn't a discrete drawable object — terrain-edge
+dithering, motion (water glints, waddle, weather), and mass-scattered
+ambient variation — but never for a "thing" that could instead be a sprite.
+Any remaining smooth/painterly visual (water shimmer, weather fx,
+particles, vista/parallax) is a to-audit item, not an accepted exception —
+restyle to the chunky pixel language in code (zero gens) wherever found;
+session 4 already did this for water glints (R8/B5, chunky pixel-block
+glints replacing smooth ellipses).
 
 ---
 

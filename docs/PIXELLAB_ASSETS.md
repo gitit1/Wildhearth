@@ -17,8 +17,10 @@ the asset/manifest layout, and generation costs.
 
 | Visual | Source | Where |
 |---|---|---|
-| **Heroine player** (female) — 5 hairstyle sheets, each 8-dir walk + idle, with runtime hair/dress recolour | **Sprite** | `characters/heroine{,-bun,-short,-cropped,-ponytail}.sheet.png` → `art/spriteChar.ts` |
+| **Player** — curated sprite MATRIX (2 genders × 5 hairstyles × 5 outfits, 4-dir rotations + walk), keyed vivid-purple hair runtime-recoloured to 3 natural shades | **Sprite** | `characters/matrix/matrix-<gender>-<hair>-<outfit>.sheet.png` → `art/spriteChar.ts` (rewritten as the matrix bridge, session 4) |
 | **Townsfolk** — the 10 NPCs, each 8-dir walk + static rotations | **Sprite** | `characters/<id>.sheet.png` → `art/spriteNpc.ts` |
+| **Ground** — grass/soil/water/plaza, 16 32px tiles per set, weighted scatter + code Bayer-dither edges | **Sprite (tiles)** | `ground/{grass,soil,water,plaza}/tile_0..15.png` → `world/ground.ts` `paintTerrainTiles` |
+| **UI kit** — wood/gold window frame, parchment tooltip, 2 NPC bust portraits (Maren, Tobin), the WildhearthStorybook pixel font | **Sprite/font** | `ui/{window,tooltip}.png`, `ui/portraits/{maren,tobin}.png`, `assets/fonts/WildhearthStorybook.ttf` → `ui/skin.ts` |
 | **Farmhouse** (player's, repaired base — flat-front) | **Sprite** | `buildings/farmhouse.png` → `art/buildings.ts` `drawHouse` |
 | **Farmhouse** (neighbour's — established/prosperous, flat-front) | **Sprite** | `buildings/farmhouse-neighbor.png` → `art/buildings.ts` `drawHouse(..., spriteId)` |
 | **Barn** (repaired base — flat-front; shared by the player's farm AND the neighbour farm) | **Sprite** | `buildings/barn.png` → `art/buildings.ts` `drawBarn` |
@@ -35,16 +37,23 @@ the asset/manifest layout, and generation costs.
 | Everything else — crops/trees/bushes, outhouse, dock, market ground, weather/particles, UI, tools, stall goods/signs (a code overlay on the stall sprite — see notes), the player's non-walk/idle poses (fishing/hoeing/foraging/busking/sleeping), and **seasonal wildlife** (deer/rabbit/hare/songbird/butterfly — `entities/wildlife.ts` + `art/wildlife.ts` — deliberately code-rig only, never sprite-sourced: too many ambient species/poses to justify the generation spend) | **Code-drawn** | `src/art/*` |
 
 Notes:
-- The heroine sprite only covers the **walk** and **idle** poses. Action poses
-  (fishing/hoeing/foraging/busking/sleeping) have no generated animation and
-  fall back to the code rig (`art/rig.ts`) per-frame, seamlessly.
-- The heroine sprite covers **her created look** — 5 hairstyle sheets picked
-  from `appearance.hair`, with her hair + dress colours recoloured onto the base
-  at runtime (`spriteCoversLook`/`buildOps` in `art/spriteChar.ts`). What's
-  sprite-covered vs. rig-drawn is the honest matrix in "Recolouring the heroine"
-  (§below). Male, an excluded outfit/skin, or any pose without a generated
-  animation draws the rig — which wears her exact chosen colours, so an excluded
-  look still matches her design.
+- **Session 4 superseded the heroine multi-sheet system entirely** (the 5
+  `characters/heroine*.sheet.*` files were deleted, ~968KB, commit `d3fb35f`
+  — nothing imports them). The **player** now picks a look from the curated
+  **sprite matrix** (§2 Wave 7 below) instead of one fixed heroine identity
+  with hairstyle variants; the matrix covers BOTH genders, not just a
+  default female look. The matrix sprite only covers **rotations + walk**
+  (4-dir, no diagonals, no baked idle — the static rotation stands in);
+  action poses (fishing/hoeing/foraging/busking/sleeping) have no generated
+  animation and fall back to the code rig (`art/rig.ts`) per-frame,
+  seamlessly, same contract as before.
+- The matrix sprite covers **every combo the creator can pick** (5 hair × 5
+  outfit × gender, all shipped, no combos excluded — the exclusion
+  mechanism exists but its set is empty) — see "Recolouring the matrix hair"
+  (§below) for the keyed-purple → natural-shade mechanism. Skin-tone
+  recolour and body sizes S/L are NOT yet covered (see Wave 7's honest
+  coverage note) — those looks draw the rig fallback, wearing the same
+  colours, until the next generation wave ships them.
 - The building/hearth sprites are the **repaired** buildings. The renovation
   DAMAGE (roof hole/patch, boarded window, barn boards) is code-drawn **on top
   of the sprite** when a part is broken (`buildings.ts` `drawHouse…Sprite`
@@ -367,6 +376,67 @@ Integration + the recolour bands + the honest coverage matrix are in §3
 Integration (the dual-path bridge, scale/anchor table, and the bird-waddle
 decision) is in `docs/WORKLOG.md`'s "Farmyard sprites" entry.
 
+**Wave 7** (session 4, 2026-07-11 overnight run — the medium-final wave):
+three new categories, each probed before its production batch. Costed
+~520 gens total across the whole run (char matrix + ground + UI kit);
+balance ~8,063 at the last meter (Tier 3, plan-time balance 8,583).
+
+- **Character sprite matrix** (`create_character`, method A — probed and
+  chosen over identity-preserving `create_character_state` edits, which
+  cost ~20 gens each and can't be freely recombined): one fresh
+  `create_character` per `(gender, hair, outfit)` combo at the MEDIUM
+  body size, standard mode, **4-dir** rotations (not 8 — a deliberate cost
+  cut, since the player only needs cardinal facing), ~1 gen/combo, plus
+  `animate_character` `walking` (template) per combo, ~4 gens/combo. 2
+  genders × 5 hairstyles × 5 outfits = 50 combos shipped this run (S/L
+  body sizes queued next). Every combo's prompt holds ONE fixed
+  per-gender face descriptor + one shared eye colour, specifically so
+  combos read as siblings rather than drifting identities (faces DO drift
+  subtly combo-to-combo regardless — accepted as fine for a "pick a look"
+  creator, not a face-locked single heroine). **Hair is generated in a
+  KEYED vivid purple** (not a natural colour) in every prompt — this is
+  the single most load-bearing wording choice in the whole batch, since it
+  gives `recolorSheet` an unambiguous hue band to retarget (see
+  "Recolouring the matrix hair" above); natural browns were measured to
+  bleed into skin/outfit hues the way the old heroine bands needed
+  lightness+y-window gymnastics to work around. Packed with
+  `scripts/packsheets.mjs --matrix <root>` (new mode, `packMatrix`/
+  `packMatrixOne`) into `characters/matrix/matrix-<gender>-<hair>-<outfit>.sheet.{png,json}`
+  on a 4-column cardinal grid (row 0 rotations, rows 1-6 walk), cell 68px,
+  measured anchor. Supervisor spot-checked `male/ponytail-tunic` for
+  coherence (reads as a clothed man in a sleeveless jerkin, not
+  bare-chested) before shipping the full 50.
+- **Ground production tile sets** (`create_tiles_pro`, `outline_mode:
+  "segmentation"`, 32px square_topdown): 4 sets — grass, soil (tilled
+  field), water, plaza (cobble) — 16 tiles each (64 total), re-rolled
+  tighter/dimmer than the probe-2 mock per the production tuning notes in
+  `docs/DECISIONS.md` "Ground medium" (base grass tonal range narrowed,
+  daisies dimmed, ~75% plain tiles with sparse feature tiles). Verified
+  against a full weighted-field composite mock (`scratchpad/ground-prod/
+  final_mock.js`) before committing to production — the same mock's
+  weighted-scatter bags and Bayer-dither edge technique were PORTED
+  verbatim into `world/ground.ts`'s `paintTerrainTiles`. **Wang
+  `topdown_tileset` was tried first and REJECTED** (auto-tiled grass
+  always rendered lime-green, couldn't chain from `tiles_pro` output) —
+  don't re-attempt that tool for ground without a new reason to believe
+  it'll behave differently.
+- **UI kit** (`create_ui_asset` for panels, `create_font` for the pixel
+  font, `create_portrait_character` for busts): 2 panels shipped
+  (`window` — the ornate wood+gold nine-slice frame; `tooltip` — a compact
+  parchment panel) of 6 generated (`button`/`tabs`/`dialogue-panel` were
+  generated but NOT shipped — see `docs/WORKLOG.md`'s "screens re-skin"
+  entry Follow-ups for why: the gold CSS buttons/tabs already read as one
+  family with the new font, and the dialogue window's CSS notch was judged
+  simpler/more robust than nine-slicing around a baked notch); 1 font
+  (`WildhearthStorybook`, warm pixel display face, TTF); 2 of 10 planned
+  NPC portraits (`create_portrait_character` from each NPC's existing
+  `characters/<npc>.sheet.png` south rotation crop) — Maren + Tobin
+  shipped, the other 8 queued for the next generation day (recipe: crop
+  the south-facing rotation frame out of the NPC's sheet, feed it as the
+  portrait reference, `create_portrait_character`, drop the result at
+  `ui/portraits/<npc-id>.png` — no code change, `npcPortraitUrl()` already
+  resolves any id present).
+
 ---
 
 ## 3. Asset folder + manifest recipe
@@ -374,12 +444,11 @@ decision) is in `docs/WORKLOG.md`'s "Farmyard sprites" entry.
 ```
 src/assets/pixellab/
   manifest.ts                     ← two eager globs; adding assets needs no edit
-  characters/heroine.sheet.png    ← the HAT hairstyle (ONE packed atlas, was 88 loose PNGs)
-  characters/heroine.sheet.json   ← its frame map + anchor (scripts/packsheets.mjs)
-  characters/heroine-bun.sheet.*      ← 4 more hairstyle bases (bun/short/cropped/
-  characters/heroine-short.sheet.*      ponytail), same face/dress identity, 92px
-  characters/heroine-cropped.sheet.*    cells; hair id → sheet in art/spriteChar.ts
-  characters/heroine-ponytail.sheet.*   (bald → cropped). Hair/dress recoloured at runtime.
+  characters/matrix/matrix-<gender>-<hair>-<outfit>.sheet.png  ← THE LIVE player
+  characters/matrix/matrix-<gender>-<hair>-<outfit>.sheet.json   pipeline (session 4,
+    50 atlases: 2 genders × 5 hair × 5 outfit, keyed-purple hair, 4-dir + walk.
+    (The old `characters/heroine*.sheet.*` — 5 files, one identity + 4
+    hairstyle bases — was DELETED, commit `d3fb35f`; superseded by the matrix.)
   characters/<npc-id>.sheet.png   ← one per townsfolk (10)
   characters/<npc-id>.sheet.json
   buildings/farmhouse.png              ← player farm (flat-front)
@@ -410,6 +479,15 @@ src/assets/pixellab/
   animals/duck.sheet.*
   animals/cat.sheet.*             ← banked for the Pets block — not spawned
   animals/dog.sheet.*
+  ground/grass/tile_0.png .. tile_15.png    ← session 4: 4 sets × 16 tiles (64
+  ground/soil/tile_0.png .. tile_15.png       total), world/ground.ts paintTerrainTiles,
+  ground/water/tile_0.png .. tile_15.png      weighted scatter + code Bayer-dither edges
+  ground/plaza/tile_0.png .. tile_15.png
+  ui/window.png                   ← session 4: wood+gold nine-slice frame, ui/skin.ts
+  ui/tooltip.png                  ← parchment tooltip panel
+  ui/portraits/maren.png          ← 2 of 10 NPC busts (8 more queued)
+  ui/portraits/tobin.png
+(fonts live alongside, not under pixellab/: src/assets/fonts/WildhearthStorybook.ttf)
 ```
 `<dir>` ∈ `south south-east east north-east north north-west west south-west`.
 
@@ -506,7 +584,24 @@ region to recolor vs. the rest of the sprite (a tiny node script — decode the
 PNG, bucket pixel RGB→HSL, count) and look for a hue range that's distinct
 from everything else at typical saturations.
 
-### Recolouring the heroine (hair + dress, per look)
+### Recolouring the matrix hair (session 4 — see "Recolouring the heroine" below for the superseded system's per-region reasoning)
+The player's look now comes from the curated sprite MATRIX (§2 Wave 7), not
+the single-heroine multi-sheet system this whole subsection originally
+described (kept below for the record — its measured hue/lightness/y-window
+technique is the same one the matrix hair uses, just against a much
+simpler target). Every matrix sheet's hair is generated in a **KEYED vivid
+purple** (hue window 240–300°, sat > 0.35) specifically so the recolour
+band is unambiguous — no natural hair colour shares that hue range with
+skin/outfit, unlike the old heroine's all-warm-brown palette that needed
+lightness + y-window separation. `recolorSheet` remaps the purple band to
+one of 3 `HAIR_SHADES` (warm brown `#6e4a2b`, golden blonde `#c99a45`,
+espresso `#241c16`), audited for **zero purple bleed** in the shipped
+build. Skin recolour is shipped OFF for the same reason as the old heroine
+system: the H&S remap preserves per-pixel lightness, so it can shift hue
+but can't darken skin — a lightness-aware recolour approach is the
+follow-up, not a flag flip.
+
+### Recolouring the heroine (SUPERSEDED, hair + dress, per look — kept for its technique)
 The player is one character across 5 hairstyle sheets, each painted the SAME
 chestnut-hair / rust-dress / cream-apron identity; her Character-Creation hair +
 dress colours are applied at runtime by `recolorSheet` (the multi-band cousin of
@@ -550,10 +645,19 @@ when it can do so faithfully; otherwise the rig (which wears her exact colours).
 | skin | default tone only | the other 4 tones (skin recolour excluded) |
 | build | ignored by the sprite (all builds draw the same frames) | — (rig honours build on fallback) |
 
-To add a new hairstyle: generate + `packsheets.mjs` (idle rows included) →
-`characters/heroine-<name>.sheet.*`, add the `HairStyle` id + a `HERO_SHEETS`
-entry (its head-zone `hairYMax`). To add a dress colour: it just works — a new
-outfit preset's `torso`/`accent` recolour with no code change.
+To add a new hairstyle to the SUPERSEDED heroine system (kept for the
+record only, not the live pipeline): generate + `packsheets.mjs` (idle rows
+included) → `characters/heroine-<name>.sheet.*`, add the `HairStyle` id +
+a `HERO_SHEETS` entry (its head-zone `hairYMax`). To add a dress colour: it
+just works — a new outfit preset's `torso`/`accent` recolour with no code
+change.
+
+**To add a new hair style/outfit to the LIVE matrix** (session 4): generate
+the combo per Wave 7's recipe below (keyed purple hair, fixed per-gender
+face descriptor), `packsheets.mjs --matrix` to pack it in, add the id to
+`MatrixHair`/`MatrixOutfit` in `art/spriteChar.ts` — no `HERO_SHEETS`-style
+per-hairstyle band tuning needed, since every matrix sheet shares the same
+keyed-purple hair band and the same outfit-region convention.
 
 ### Tuning knobs (`src/config.ts`)
 `SPRITE_PLAYER_SCALE`, `SPRITE_HAIRSTYLE_SCALE` (the 4 alternate 92px hairstyle
@@ -694,3 +798,16 @@ direction of one frame/rotation, so animated characters dominate):
 Even the full NPC roster + a generous prop set (~600–800 gens) sits well inside
 the monthly 5,000 — **not a constraint**. Batch within a month; map objects must
 be downloaded within 8 hours of generation.
+
+**Wave 7 — the medium-final overnight run** (2026-07-11, session 4): account
+upgraded to **Tier 3** by this point (plan-time balance 8,583). ~520 gens spent
+across the whole run: the character sprite matrix (50 combos × ~5 gens each —
+1 rotation gen + ~4 walk-template gens — ≈ 250), the 4 ground tile sets (64
+tiles total, `create_tiles_pro`, plus the earlier probe-1 Wang-tileset attempt
+that was rejected and re-spent on probe-2 `tiles_pro`), and the UI kit (6
+`create_ui_asset` panels generated for 2 shipped, 1 `create_font`, 2
+`create_portrait_character` busts). Balance ~8,063 at the last meter —
+comfortably inside the run's own ≤1,500/day pacing rule. Next generation day's
+planned spend: 8 more NPC portraits (~8-16 gens), S/L body sizes for the
+character matrix (+100 combos ≈ +500 gens incl. walks), and a lightness-aware
+skin recolour mechanism (0 gens — a code change, not a new generation).

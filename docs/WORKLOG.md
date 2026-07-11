@@ -29,6 +29,90 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## docs — overnight run sync: mediums final, quest system, variety counts (R9)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R9, the last item in the overnight-run repo queue (see
+  `runs/handoff-2026-07-11.md`) — bring every design doc in line with what
+  R1-R8 shipped: the character-medium re-reversal (rig → curated PixelLab
+  sprite matrix), the ground-medium flip (painterly → `tiles_pro`
+  segmentation tiles), the quest system going from speced to built, the
+  variety-count push (fish 50/forage 26/recipes 21/crops 20/flowers 20),
+  skill neglect-decay, barn storage, and the UI re-skin. Docs only, no
+  source changes.
+- **`docs/DECISIONS.md`:** annotated the session-3 "Art medium division"
+  entry as superseded (kept in full for its reasoning, not deleted); added
+  three new sections — "Art medium division — FINAL FLIP" (D-1: characters
+  = curated PixelLab sprite matrix, 2 genders × 5 hair × 5 outfits at MEDIUM
+  size, keyed-purple hair runtime-recoloured to 3 shades, rig = fallback),
+  "Ground medium" (D-2: `tiles_pro` segmentation tiles, Wang `topdown_tileset`
+  rejected, terrain edges dithered in code), and "Everything-one-pixel-medium
+  rule" (D-3: audit remaining smooth visuals, restyle to chunky pixel code).
+- **`CLAUDE.md`:** hard rule #1's MEDIUM DIVISION clause rewritten to the
+  FINAL state — characters = sprite matrix (rig = zero-PNG fallback only),
+  environment = sprites (unchanged), ground = PixelLab tiles (painterly
+  painter = fallback).
+- **`docs/HANDOFF.md`:** new top "SESSION 4 (2026-07-11)" section — the
+  re-flip + probe-chain one-liners, the full commit list (R1-R8, ~30
+  commits), PixelLab spend (~520 gens, balance ~8,063), and the next-day
+  queue (8 NPC portraits, S/L body sizes, lightness-aware skin recolour,
+  a font-legibility check, the still-unreported puppeteer QA recon).
+- **`docs/GAME_OVERVIEW.md`:** Quests section rewritten 🟡→🟢 (the quest
+  engine/log/dialogue-offers/AI-offers now built, v1's one large gap
+  closed); Skills section notes neglect decay as built; Collections section
+  rewritten with the pushed variety counts (fish 12→50, forage 11→26,
+  flowers 0→20 new gardening system, recipes/crops mentioned in-line);
+  Housing & Building notes the barn storage chest + night shelter; Menus
+  section notes the UI re-skin (wood/gold kit, storybook font, portraits,
+  quest badge); the Art-direction section and the Character-creation
+  section both rewritten for the FINAL medium (characters = sprite matrix,
+  ground = tiles) — also corrected a pre-existing drift found while editing
+  this section: crops/trees are already sprite-sourced in the actual repo
+  (`src/assets/pixellab/{crops,trees}/`) even though this doc still called
+  them "not yet run" from an older session.
+- **`docs/ROADMAP_TO_V5.md`:** flagged the "Current build state (mid-v1)"
+  section as a stale session-1 snapshot (many claimed-unbuilt systems have
+  long since shipped) with a pointer to `GAME_OVERVIEW.md` for current
+  truth, while still refreshing its variety numbers in place; the v1
+  section's Quests and skill-decay bullets marked BUILT; the "Art / visual
+  layer" bullet and the "Segmented rig scope creep" risk both rewritten for
+  the session-4 FINAL flip; the v4/v5 Art bullets' "characters = rig"
+  wording updated to "characters = sprite matrix"; the arc-at-a-glance
+  table's Art row updated to name all three mediums.
+- **`docs/VISION.md`:** the "Medium division" paragraph under Art direction
+  rewritten (light touch, one paragraph) for the FINAL flip.
+- **`docs/PIXELLAB_ASSETS.md`:** §1's table — the heroine/NPC rows replaced
+  with the matrix + new ground-tiles and UI-kit rows (the deleted
+  `heroine*.sheet.*` row removed since those files no longer exist); a new
+  "Wave 7" entry in §2 with the char-matrix/ground-tile/UI-kit generation
+  recipes (the keyed-purple-hair convention, 4-dir-only cardinal matrix
+  rotations, the Wang-tileset rejection, which UI panels shipped vs. not);
+  §3's folder tree updated with `matrix/`, `ground/`, `ui/`, and the fonts
+  note; a new "Recolouring the matrix hair" section (the old "Recolouring
+  the heroine" section kept, marked SUPERSEDED, since its hue/lightness/
+  y-window technique is the direct ancestor of the matrix's simpler keyed
+  approach); §4's "add a hairstyle" recipe split into the superseded
+  heroine path and the live matrix path; §5's cost ledger gained a "Wave 7"
+  paragraph (~520 gens, Tier 3, balance ~8,063).
+- **`runs/handoff-2026-07-11.md`:** appended a "RUN COMPLETE" section — R9
+  marked done, what this entry touched, the contradictions found (crops/
+  trees drift above; the stale session-1 build-state snapshot; the named
+  `char-medium-code-rig.md` file doesn't exist — it meant the DECISIONS.md
+  section) and how each was reconciled, plus a reminder that the puppeteer
+  agent's temp files are still untouched in the working tree.
+- **Verified:** `npm run build` green after the full edit batch (docs-only
+  changes; confirms nothing else broke). `git status` reviewed before
+  staging — only the 7 doc files + this WORKLOG + the runs/ file are
+  staged; `package.json`/`package-lock.json` (modified) and
+  `recon-driver.mjs`/`recon-faces.mjs` (untracked) are the puppeteer QA
+  agent's leftovers and were deliberately left untouched, per standing
+  orders.
+- **Follow-ups:** none new — all open items are already tracked in
+  `docs/HANDOFF.md`'s SESSION 4 next-day queue and `runs/handoff-2026-07-11.md`.
+  The pre-existing ROADMAP_TO_V5.md "Current build state" staleness beyond
+  the numbers refresh is flagged in place rather than fully rewritten
+  (out of scope for a targeted docs-sync run — a full rewrite would be a
+  large, unrelated change).
+
 ## quests — active-quest count badge on the dock icon (R8/B6)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R8/B6 — a small active-quest count on the quest-log dock icon.

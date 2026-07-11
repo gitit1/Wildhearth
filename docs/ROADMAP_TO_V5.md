@@ -61,19 +61,30 @@ how this roadmap resolved them. Each is flagged again in the relevant version.
 
 ## Current build state (mid-v1)
 
+**Note: this section is a historical snapshot from session 1** (kept for
+the record) and undersells everything built since — the NPC engine, Needs,
+Relationships, Dialogue+AI, Character Creation, Guidance Mode, the Festival,
+the quest system, and the full visual foundation are all now built (see
+`GAME_OVERVIEW.md` for the honest, currently-maintained status of every
+system, and the "arc at a glance" table + v1 section below, which ARE kept
+current). The variety counts below are refreshed to the latest push
+(session 4, 2026-07-11); the rest of this block is left as period detail.
+
 v1 is partly built. What is already shipped and verified (per `WORKLOG.md`,
 branches `autorun/wildhearth-batch-1` → `v1-foundation`):
 
 - **World:** the farm, an enterable bare/broken tier-1 house interior, and
   money-gated farm-plot expansion. No town, no walked stall-road, no river
   region yet — the world is still one fenced farm.
-- **Livelihoods:** Fishing (12 species + junk + hard rod gate), Farming
-  (9 crops, active watering/wilt, season-gated, rain auto-waters), Foraging
-  (11 finds), Cooking (6 recipes), Busking. "No free animals" enforced —
-  hen/cow are barn-gated stall purchases.
+- **Livelihoods:** Fishing (**50** species + junk + hard rod gate), Farming
+  (**20** crops, active watering/wilt, season-gated, rain auto-waters),
+  Foraging (**26** finds), Cooking (**21** recipes), Ornamental Gardening
+  (**20** flower species, new this run), Busking. "No free animals"
+  enforced — hen/cow are barn-gated stall purchases.
 - **Skills:** the base 9 (`systems/skills.ts`) — Fishing, Foraging, Farming,
   Busking, Haggling, Animal Husbandry, Cooking, Building, Ornamental
-  Gardening — chance-based gains with a UO-style Gain Guard pity mechanism.
+  Gardening — chance-based gains with a UO-style Gain Guard pity mechanism,
+  plus **neglect decay** (floored at tier boundaries, session 4).
 - **Simulation spine:** `systems/calendar.ts` (4 seasons, day/hour/minute,
   day-length player setting), `systems/weather.ts` (5 states, season-weighted
   daily roll), `systems/worldFlags.ts`, and `systems/worldContext.ts` — the
@@ -85,12 +96,15 @@ branches `autorun/wildhearth-batch-1` → `v1-foundation`):
   controls.
 - **Menus:** `ui/titlescreen.ts`, `ui/intro.ts`, `ui/newgame.ts` stubs exist.
 
-**Not yet built for v1 (the remaining Parts A–E):** the NPC engine, Needs,
+**Not yet built for v1 (the remaining Parts A–E):** ~~the NPC engine, Needs,
 Relationships, the Dialogue+AI engine, real Character Creation + Guidance-Mode
 delivery, the Festival, end-of-day summary, the full visual foundation
 (segmented rig, day/night tint, weather visuals, parallax, particles), the
 content-library expansion, the AI enrichment layer, and the top-level screens
-(main menu, settings, pause, exit dialog).
+(main menu, settings, pause, exit dialog)~~ — **all now built**, see the note
+above. What genuinely remains for v1: town (v2, out of scope by design), the
+Riverside Fisherwoman's deep kit, and the next generation wave (NPC portraits,
+S/L character-matrix body sizes, lightness-aware skin recolor).
 
 ---
 
@@ -116,7 +130,7 @@ Terse cell = the state of that system at that version. "→" means "grows into."
 | **Character creation** | Gender, presets, name, 4 paths, short life-goal, guidance mode | + wardrobe/outfit swap (town) | + appearance via professions | Personality begins to matter | Full spectrum, personality axes, backstories, multi-character |
 | **Save system** | 1 slot, autosave, versioned per-store | 1 slot | 1 slot | 1 slot | **2nd slot** + multi-character |
 | **Menus / settings** | Title, new-game, char-create, guidance, settings (AI/day-length/HUD/EOD/**Windows** presets), pause, exit — every panel is now a draggable/resizable/minimizable **UO-classic window** on a persisted desktop (`WINDOW_SYSTEM.md`); title/pause/exit/What's-New/Help/Credits deliberately stay full-screen overlays, not windows | Same + map markers begin | + storage/employee UI | + family/home UI | Full, rotatable camera option |
-| **Art / visual layer** | Full "depth illusion" foundation (outlines, shadows, segmented rig, day/night tint, weather visuals, parallax, particles) + **PixelLab sprite layer** (buildings, heroine, 10 NPCs, farm animals — dual-path, code fallback always kept) | Town/coast sprite buildings (~1 gen/variant, proven) + new-NPC sprites (~2+16 gens each + poses) + code painters for water/motion | Mine/profession-station art on the same sprite pipeline | Family/furniture art on the same sprite pipeline | Fullest juice pass (rig upgrade, secondary motion) — the code rig stays every sprite's fallback |
+| **Art / visual layer** | Full "depth illusion" foundation (outlines, shadows, segmented rig, day/night tint, weather visuals, parallax, particles) + **PixelLab sprite layer, ALL THREE mediums** (character matrix, environment/buildings/animals, ground tiles, UI kit — dual-path, code rig/painter fallback always kept) | Town/coast sprite buildings (~1 gen/variant, proven) + new-NPC sprites (~2+16 gens each + poses) + code painters for water/motion | Mine/profession-station art on the same sprite pipeline | Family/furniture art on the same sprite pipeline | Fullest juice pass (rig upgrade, secondary motion) — the code rig stays every sprite's fallback |
 
 ---
 
@@ -145,7 +159,8 @@ engines carry the weight).
 *Carried from the current build:* **World** opens the farm's fence to add the
 stall-road area, a small forest passage, and the lake/river — no town
 (`world/zones.ts`). **Skills** stay at the base 9, now gaining *deliberate
-learning* (a Teacher NPC) and neglect decay. **Economy** is fixed-price with
+learning* (a Teacher NPC — still 🔵) and neglect decay (**built**, session 4:
+`systems/skills.ts`, floored at tier boundaries). **Economy** is fixed-price with
 own-stall / specialty-stall selling and the passive Haggling discount — no
 customers-to-you, no Reputation yet. **Crafting** is Cooking recipes only.
 **Housing** is tier-1 repair + plot expansion. **Transportation** is walking
@@ -153,9 +168,14 @@ only. **Collections/Memories**, **save**, and the **calendar/weather** spine
 are built.
 
 *New this version:*
-- **Quests:** the Guidance-Mode engine goes live — Tutorial (step-by-step,
-  pauses game-time), Aspiration (path-biased background quests), None. Fixed
-  authored quests + AI-generated offers feed one quest log.
+- **Quests: BUILT (session 4)** — the Guidance-Mode engine (Tutorial
+  step-by-step / Aspiration background quests / None) plus a real quest
+  system on top: `data/quests.ts` + `systems/quests.ts` (6 authored quests,
+  sequential activity/possession steps), a quest-log window
+  (`ui/questlog.ts`) with Active/Completed tabs mirroring Guidance, offers/
+  turn-ins as giver-NPC dialogue choices, and D3 AI dynamic offers
+  (`ai/features/questOffers.ts`) behind the AI toggle with a scripted
+  fallback. v1's one large quest gap is now closed.
 - **Relationships (core):** `systems/relationships.ts` — two independent
   axes (Friendship, Romance 0–100), categorized interactions
   (Friendly/Funny/Romantic/Blunt), 5-tier gift preferences **derived from
@@ -203,24 +223,29 @@ are built.
   for player/NPCs/animals with per-action poses, multi-tone canopies, rich
   ground texture, parallax band, weather visuals (rain/storm/fog), day/night
   tint driven by `calendar.ts`, ambient particles. Plus the content library
-  (~20 crops, ~10 fish, 6–8 animals, outfits, tools). **Updated (session 3
-  — the art-medium division):** the ENVIRONMENT is PixelLab-sprite-sourced
-  (buildings — farmhouse/barn/4 themed stalls/well/6 cottages — and 5
-  farm-animal species), dual-path with the code painter always kept as
-  fallback (`PIXELLAB_ASSETS.md`). **CHARACTERS reversed:** the heroine and
-  all 10 NPCs now render via the **upgraded decomposed code rig**
-  (`src/art/rig.ts` — sprite-competitive shading, expressive faces,
-  parametric build/skin/hair/outfit/age/eyeColor/hairstyle), because
-  PixelLab cannot decompose a character and so cannot power character
-  creation; the session-2 PixelLab character sprites are kept as an
-  off-by-default fallback (`CHARACTER_SPRITES_PRIMARY` in config, commit
-  `2ed29dc`). Crops, trees, ambient decorations, tools, and seasonal
-  wildlife stay code-drawn, with an approved MIX path (object-states for
-  crop growth stages, inpainting for tree seasons) gated behind its own
-  batch, not yet run. Standing cost: a
-  Tier-2 PixelLab subscription, ~5,000 generations/month — the full v1
-  sprite bar measured at 575–1,547 gens (`SCALING_DECISION.md`), 3–8x under
-  budget; review time, not generation budget, is the real bottleneck.
+  (fish 50, forage 26, recipes 21, crops 20, flowers 20, 5 farm-animal
+  species, outfits, tools — session 4 variety push). **FINAL medium
+  division (session 4, 2026-07-11 — supersedes session 3's rig-primary
+  reversal below):** characters (player + all NPCs) render via a **curated
+  PixelLab sprite matrix** (2 genders × 5 hairstyles × 5 outfits at the
+  MEDIUM body size, keyed-purple hair runtime-recoloured to 3 shades),
+  with the decomposed code rig (`src/art/rig.ts`) as the zero-PNG dual-path
+  fallback (`CHARACTER_SPRITES_PRIMARY` in config now gates the matrix
+  path). **Ground** (grass/tilled field/paths/water/plaza) also moved to
+  PixelLab `tiles_pro` segmentation tiles this session, terrain edges
+  dithered in code, painterly ground kept as fallback. The ENVIRONMENT
+  (buildings — farmhouse/barn/4 themed stalls/well/6+ cottages — animals,
+  crops, trees, UI kit) stays PixelLab-sprite-sourced as it always was,
+  dual-path with the code painter kept as fallback (`PIXELLAB_ASSETS.md`).
+  *Session-3 history, kept for the record:* the heroine and NPCs briefly
+  reversed to the upgraded decomposed code rig as the PRIMARY renderer
+  (commit `2ed29dc`) because PixelLab can't decompose a character for
+  character-creation layering — session 4's curated MATRIX approach (fixed
+  face descriptor + keyed-hair recolor) solves the same constraint
+  differently and is what's shipped now. Standing cost: a Tier-3 PixelLab
+  subscription; the overnight run spent ~520 gens (char matrix, ground
+  tiles, UI kit) — review time, not generation budget, is the real
+  bottleneck.
 
 **Gap from current build → v1 complete:** everything under "Not yet built"
 above — the four new core engines (NPC, Needs, Relationships, Dialogue+AI),
@@ -252,13 +277,14 @@ library are parallelizable to subagents; the menus are broad but shallow.
   cost must be tuned against the price anchor table.
 - **Segmented rig scope creep** — one rig serving player + NPCs + animals with
   many action poses is a large art-engine task; risk of it swallowing time.
-  **Resolved (session 3):** the rig is now the PRIMARY, shipped renderer for
-  all characters (player + 10 NPCs), upgraded to sprite-competitive quality
-  — a deliberate investment, not scope creep, because it is the only way to
-  keep characters decomposable for character creation (PixelLab can't). For
-  the ENVIRONMENT the PixelLab sprite layer carries the "does it look good"
-  burden with the code painters as fallback (see the Art / visual layer
-  note above).
+  **Resolved (session 3), then superseded (session 4):** session 3 made the
+  rig the PRIMARY renderer for all characters; session 4 moved the shipped
+  look to the curated PixelLab sprite MATRIX instead (owner reversal after
+  seeing the rig's nose/gender/hair issues in play), demoting the rig back
+  to a dual-path fallback. Net effect: the rig scope question is closed —
+  it only ever needs to cover idle/walk/action poses well enough as a
+  fallback, not carry the shipped look. See the Art / visual layer note
+  above for the full history.
 - **Festival theme** and **life-goal list** are still open decisions.
 
 ---
@@ -459,9 +485,11 @@ season and supply. A third festival joins the calendar.
 - **Character creation:** personality begins to matter (traits influence
   family/dialogue), foreshadowing v5's full personality axes.
 - **Save:** still one slot (2nd slot is v5, but the architecture is ready).
-- **Art:** children/partners render via the decomposed code rig (characters
-  = rig, per the session-3 medium division); furniture and home-interior
-  art on the PixelLab sprite pipeline (dual-path); fuller home interiors.
+- **Art:** children/partners render via the curated PixelLab sprite matrix
+  (characters = sprite matrix, per the session-4 FINAL medium division —
+  new family-member combos extend the same matrix rather than inventing a
+  new pipeline); furniture and home-interior art on the PixelLab sprite
+  pipeline (dual-path); fuller home interiors.
 
 **Gap from v3:** the marriage→cohabitation→children flow; NPC↔NPC
 relationships + rumors; full pet depth; tier-3 freeform housing; dynamic
@@ -533,14 +561,15 @@ game.
   full multi-goal aspiration system, **multi-character** (multiple playable).
 - **Save:** **second slot** + multi-character support.
 - **Menus:** everything, including the rotatable-camera option.
-- **Art:** the fullest juice pass — player rig upgrade (jointed limbs, per-
-  action animation arcs; note the sprite-competitive rig upgrade already
-  began in v1/session 3), secondary motion (hair/cloth sway, facial states),
-  faked-height depth (two-face buildings, diagonal cast shadows), full ambient
-  life, feedback juice (particles, floating numbers, gentle screen shake). Per
-  the session-3 medium division: the decomposed code rig is the PRIMARY
-  renderer for all characters (its own quality bar, not a fallback), while it
-  remains the dual-path fallback beneath every ENVIRONMENT sprite category,
+- **Art:** the fullest juice pass — the character sprite matrix's full body
+  size range (S/M/L) and expanded hair/outfit rows, secondary motion (hair/
+  cloth sway, facial states) as far as a baked-sprite pipeline allows,
+  faked-height depth (two-face buildings, diagonal cast shadows), full
+  ambient life, feedback juice (particles, floating numbers, gentle screen
+  shake). Per the session-4 FINAL medium division: the curated PixelLab
+  sprite matrix is the PRIMARY renderer for all characters (its own quality
+  bar, not a fallback), while the decomposed code rig remains the dual-path
+  fallback beneath both characters and every ENVIRONMENT sprite category,
   per the v1 dual-path rule.
 
 **Gap from v4:** scale the NPC roster to 50+ with families/backstories; full
