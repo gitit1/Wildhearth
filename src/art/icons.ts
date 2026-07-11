@@ -7,6 +7,7 @@ import { FORAGE } from "../data/forage";
 import { RECIPES } from "../data/recipes";
 import { FLOWERS } from "../data/flowers";
 import { roundR } from "./shapes";
+import { sprite } from "./sprites";
 
 /** A cooked dish: steaming bowl, contents tinted per recipe. */
 function paintDish(g: CanvasRenderingContext2D, s: number, color: string) {
@@ -758,6 +759,18 @@ const PAINTERS: Record<string, IconPainter> = {
 
 /** Draws the icon for an item id into a square of side `size` at the ctx origin. */
 export function drawItemIcon(g: CanvasRenderingContext2D, id: string, size: number) {
+  // ---- sprite path: a generated pixel-art icon at icons/<id>, drawn to fill
+  // the size×size box (nearest-neighbour); the code painters below are the
+  // zero-PNG fallback (CLAUDE.md rule #1). One seam covers every icon surface
+  // (backpack, shop, HUD, toasts) since they all route through here. ----
+  const img = sprite(`icons/${id}`);
+  if (img) {
+    const prev = g.imageSmoothingEnabled;
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0, size, size);
+    g.imageSmoothingEnabled = prev;
+    return;
+  }
   const paint = PAINTERS[id];
   if (paint) { paint(g, size); return; }
   // unknown item: neutral placeholder crate so new items never render blank

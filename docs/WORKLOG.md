@@ -29,6 +29,42 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## everything-pixels — item icons (50 fish + 25 tools + 9 dishes) become PixelLab sprites
+- **Date:** 2026-07-11 (v1-foundation)
+- **Owner complaint (verbatim intent):** "גם הדגים הם לא פיקסלים הם ציור שלך —
+  אותו דבר החכה או האיש שמחזיק חכה. כל דבר כזה זה בניה." The backpack/shop/HUD
+  item icons were all code-painted (`src/art/icons.ts` — one painter per item;
+  fish shared a single tinted-silhouette painter, so all 50 species read nearly
+  identical). Off-medium against the sprite world, and low variety.
+- **What shipped:** a single dual-path seam at the icon dispatcher covers EVERY
+  icon surface at once (backpack, shop, HUD, toasts all route through
+  `drawItemIcon`). `drawItemIcon` now resolves `sprite("icons/<id>")` first and
+  `drawImage`s it into the size×size box (nearest-neighbour); the existing code
+  painters are the unchanged zero-PNG fallback (CLAUDE.md rule #1).
+  - **84 generated pixel icons** dropped flat under
+    `src/assets/pixellab/icons/<id>.png` (auto-globbed by the manifest, no
+    manifest edit): **50 fish** (each a species-distinct silhouette + palette —
+    carp, koi, pike, sunfish, luminous moonfish, rainbow trout, sturgeon,
+    grayling's sail fin, leviathan eel, …), **25 tools/gear** (rod + the
+    river_rod/master_rod tiers, hoe, lute, axe, pickaxe, sickle, basket,
+    watering-can, pail, lantern, fishing-net, bait-tin, worms, spinner, …), and
+    **9 cooked dishes** (berry pie, herb salad, root stew, corn chowder, …).
+  - Filename = item id exactly, so an id with no PNG (flowers, forage, produce,
+    junk, seeds — not yet generated) simply falls through to its code painter.
+  - New import: `sprite` from `./sprites` into `icons.ts`. No config knob (icons
+    fill their given box).
+- **Verified** (headless Edge + puppeteer-core, `scratchpad/icons/`): 429/429
+  sprites loaded; filled the backpack with a fish+tool+dish spread and
+  screenshotted the live Backpack window — the pixel fish render at 40px with
+  transparent backgrounds, distinct silhouettes, and correct quantity badges
+  (`ingame-backpack.png`). The 50-fish + tools montages confirm per-species
+  variety. `npm run build` green (`2.27s`).
+- **Follow-ups:** the icon generation run stopped early (Claude spend limit) at
+  fish+tools+dishes — **flowers (20), forage (26), produce (20), junk (3), and
+  seed packets (41, deliberately deferred as low-value)** still use their code
+  painters (dual-path handles this cleanly). Resume the icon gen when budget
+  returns; recipe in `scratchpad/icons/LEDGER.md`.
+
 ## everything-pixels — dock + busk signpost become PixelLab sprites
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** two more code-drawn holdouts from the "everything-pixels" audit
