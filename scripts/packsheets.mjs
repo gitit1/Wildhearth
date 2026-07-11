@@ -147,20 +147,26 @@ function packMatrixOne(name, comboDir, outDir) {
   console.log(`[matrix] ${name}: ${cols}x${rows} grid, cell ${cw}px, anchor cx=${anchor.cx} footY=${anchor.footY}, silhouette=${silhouette}px, ${(bytes / 1024).toFixed(1)}KB`);
 }
 
-/** Pack the whole matrix root (<gender>/<hair>-<outfit>/...) into
- *  matrix-<gender>-<hair>-<outfit>.sheet.* under outDir. */
+/** Pack the whole matrix root into matrix-<gender>[-<size>]-<hair>-<outfit>.sheet.*
+ *  under outDir. Each top-level folder is a body-size batch named "<gender>" for
+ *  the MEDIUM baseline (phase 1 — kept UNSUFFIXED so committed medium sheets and
+ *  existing saves' looks resolve unchanged) or "<gender>-<small|large>" for the
+ *  phase-2 S/L builds → "matrix-female-small-...", "matrix-male-large-...". */
 function packMatrix(root, outDir) {
   let n = 0;
-  for (const gender of readdirSync(root)) {
-    const gDir = join(root, gender);
+  for (const folder of readdirSync(root)) {
+    const gDir = join(root, folder);
     if (!statSync(gDir).isDirectory()) continue;
-    if (gender !== "female" && gender !== "male") continue;
+    const m = /^(female|male)(?:-(small|large))?$/.exec(folder);
+    if (!m) continue;
+    const gender = m[1], size = m[2];   // size undefined = medium (unsuffixed)
+    const prefix = size ? `matrix-${gender}-${size}` : `matrix-${gender}`;
     for (const combo of readdirSync(gDir)) {
       const cDir = join(gDir, combo);
       if (!statSync(cDir).isDirectory()) continue;
       if (!existsSync(join(cDir, "rotations"))) continue;
-      try { packMatrixOne(`matrix-${gender}-${combo}`, cDir, outDir); n++; }
-      catch (err) { console.error(`[skip] matrix-${gender}-${combo}: ${err.message}`); }
+      try { packMatrixOne(`${prefix}-${combo}`, cDir, outDir); n++; }
+      catch (err) { console.error(`[skip] ${prefix}-${combo}: ${err.message}`); }
     }
   }
   console.log(`[matrix] packed ${n} combo sheets into ${outDir}`);

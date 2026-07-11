@@ -5,7 +5,7 @@ import {
   MATRIX_HAIRS, MATRIX_OUTFITS, HAIR_SHADES,
 } from "../art/spriteChar";
 import { CHARACTER_SPRITES_PRIMARY } from "../config";
-import { DEFAULT_APPEARANCE, type Appearance, type CharacterIdentity, type Gender } from "../systems/meta";
+import { DEFAULT_APPEARANCE, type Appearance, type BodySize, type CharacterIdentity, type Gender } from "../systems/meta";
 
 /**
  * Character Creation screen (Part A #10 / Part E #4) — the first new-game
@@ -33,6 +33,13 @@ const BUILDS: Array<{ id: BodyBuild; label: string }> = [
   { id: "slim", label: "Slim" },
   { id: "average", label: "Average" },
   { id: "round", label: "Round" },
+];
+/** Matrix body sizes (sprite creator) — each a distinct generated silhouette
+ *  (phase-2). "M" is the phase-1 baseline; S/L bracket it slighter / broader. */
+const BODY_SIZES: Array<{ id: BodySize; label: string }> = [
+  { id: "S", label: "Small" },
+  { id: "M", label: "Medium" },
+  { id: "L", label: "Large" },
 ];
 /**
  * 10 curated outfit presets (Part C content-library commit 2), 5 per gender,
@@ -197,7 +204,11 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     const shadeRow = indexSwatchGroup("Hair shade", HAIR_SHADES.map((s) => s.hex),
       () => state.appearance.hairShade, (i) => (state.appearance.hairShade = i), syncers);
     const skinRow = comingSoonGroup("Skin tone", "Coming soon");
-    const sizeRow = comingSoonGroup("Body size", "M", ["S", "L"]);
+    // Body size is now LIVE (phase-2 matrix: S/M/L each a distinct generated
+    // silhouette). The live preview re-resolves the sheet each frame from
+    // state.appearance.bodySize, so switching updates the character instantly.
+    const sizeRow = labelGroup("Body size", BODY_SIZES.map((s) => ({ v: s.id, label: s.label })),
+      () => state.appearance.bodySize, (v) => (state.appearance.bodySize = v as BodySize), syncers);
     right.append(nameField, ageField, genderField, hairRow, outfitRow, shadeRow, skinRow, sizeRow);
   } else {
     const skinRow = swatchGroup("Skin", SKINS, () => state.appearance.skin, (c) => (state.appearance.skin = c), syncers);
@@ -234,6 +245,7 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     state.appearance.matrixHair = pick(MATRIX_HAIRS).id;
     state.appearance.matrixOutfit = pick(MATRIX_OUTFITS[state.gender]).id;
     state.appearance.hairShade = Math.floor(Math.random() * HAIR_SHADES.length);
+    state.appearance.bodySize = pick(BODY_SIZES).id;
     state.firstName = pick(state.gender === "female" ? FIRST_F : FIRST_M);
     state.lastName = pick(LAST);
     state.nickname = pick(NICKS);

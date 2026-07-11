@@ -480,6 +480,15 @@ if (import.meta.env.DEV)
     animalSprited: () => (["cow", "pig", "sheep", "hen", "duck"] as const satisfies readonly AnimalKind[])
       .filter(animalHasSprite),
     usesSprite: () => playerUsesSprite,
+    // body-size bridge: flip the LIVE player's matrix body size (S/M/L) in place,
+    // re-resolving her sheet — lets an A/B verify feet-anchoring at one fixed spot.
+    setPlayerSize: (size: "S" | "M" | "L") => {
+      if (!meta.character) return null;
+      meta.character.appearance.bodySize = size;
+      setPlayerLook(meta.character.gender, meta.character.appearance);
+      playerUsesSprite = spriteCoversCharacter(meta.character);
+      return meta.character.appearance.bodySize;
+    },
     coversChar: (c: Character | null) => spriteCoversCharacter(c),
     spritesReady: () => spritesReady(),
     spriteProgress: () => spriteLoadProgress(),

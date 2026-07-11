@@ -29,6 +29,69 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## character — Small/Large body sizes go live in the creator (matrix phase 2)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Scope:** Light up the reserved Body Size axis (S/M/L). Phase-2 of the sprite
+  matrix was generated off-repo (2 sizes × 2 genders × 5 hair × 5 outfits = 100
+  combos, custom `proportions` giving a real slighter/broader silhouette spread;
+  same conventions as phase 1 — 68px canvas, 4-dir rotations + 6-frame walks,
+  keyed vivid-purple hair). This block PACKS them into the repo and wires the axis
+  end-to-end. Mirrors R1's proven path; **0 PixelLab generations** (assets already
+  generated). Old saves are unaffected (revive → "M").
+- **`scripts/packsheets.mjs` `packMatrix()`** — each top-level batch folder now
+  parses as `<gender>` (MEDIUM, unsuffixed — phase-1 back-compat) or
+  `<gender>-<small|large>`, emitting `matrix-<gender>[-<size>]-<hair>-<outfit>.sheet.*`.
+  Re-running over the full matrix root repacks the 50 medium sheets byte-identically
+  (git shows 0 medium modified) and adds 100 size-suffixed sheets.
+- **100 new atlases** under `src/assets/pixellab/characters/matrix/`
+  (`matrix-female-small-*`, `matrix-female-large-*`, `matrix-male-small-*`,
+  `matrix-male-large-*`; 100 PNG + 100 `.sheet.json`). The manifest auto-globs
+  them — no manifest edit. Anchors measured per-sheet (footY 59–61, canvas 68),
+  so feet plant on the same ground line as medium with no config change.
+- **`src/art/spriteChar.ts` — the size bridge.** `matrixSheetId` gains a
+  `BodySize` arg via `SIZE_SUFFIX {S:"-small", M:"", L:"-large"}` + `sizeFor(a)`
+  (junk→M); every resolver (`spriteCoversLook`, `spriteCoversCharacter`,
+  `drawPlayerSprite`, `drawHeroinePreview`) now keys on `a.bodySize`. Public
+  signatures are unchanged — size rides inside `Appearance`.
+- **Recolor fix (real bug found in verification).** The narrow SMALL builds
+  antialias into DESATURATED violet-magenta hair edges (hue ~255–305, **sat
+  0.20–0.35**) that the primary purple band (sat ≥0.35) missed — leaking raw
+  purple hair on-screen for female-small/male-small (medium/large were clean).
+  Added a second recolor band `PURPLE_BAND_SOFT {hue 255–305, sat 0.20}` in
+  `buildOps` (same target shade). Hue floor 255 keeps blue denim overalls (hue
+  ~222) untouched; audited across all 150 sheets — no matrix outfit is violet, so
+  only hair reaches that range. Both bands run in one `recolorSheet` pass.
+- **`src/ui/charcreation.ts` — the Body Size row goes live.** The old
+  `comingSoonGroup("Body size", "M", ["S","L"])` becomes a real `labelGroup`
+  (`BODY_SIZES` Small/Medium/Large → `state.appearance.bodySize`); the live
+  preview re-resolves the sheet each frame, so switching updates instantly.
+  Randomize now includes size. (Skin tone stays "coming soon".)
+- **`src/main.ts` — dev verification bridge** `__wh.setPlayerSize("S"|"M"|"L")`
+  (beside the existing `spriteMode`/`npcSpriteMode` A/B bridges): flips the LIVE
+  player's body size in place, re-resolving her sheet — used to A/B feet-anchoring
+  at one fixed spot.
+- **`src/systems/meta.ts`** — no change needed; R1 already had `bodySize` in the
+  `Appearance` schema + tolerant revive (S/L/M, junk→M).
+- **Verified (headless Edge + puppeteer over `__wh`; screenshots in scratchpad
+  `char-matrix/ingame-sizes-*`):** creator S/M/L side-by-side per gender —
+  silhouette clearly differs (S slim / M medium / L broad), nothing clipped, hair
+  correctly recoloured (no purple after the fix); in-world S/M/L at ONE fixed spot
+  — feet plant on the identical shadow/ground line (no float/sink), walk frames
+  grounded; create-at-Large → save → reload → Continue keeps `bodySize=L`
+  (localStorage + visual); zero-PNG boot (679 image loads blocked, 0 page errors)
+  renders the code rig for the player. `npm run build` green.
+- **Bundle impact:** the 100 PNG atlases are ~4.0 MB of SEPARATE hashed assets
+  (fetched at boot by `loadSprites`, not in the entry). The 100 `.sheet.json`
+  frame-maps are glob-inlined into the entry JS (this is how phase-1's 50 already
+  worked): entry 604 KB → **747.8 KB raw / 184.4 KB gzip** (+~143 KB raw for the
+  100 maps; gzip compresses the repetitive numeric maps well).
+- **Follow-ups:** (1) the `.sheet.json` frame-maps inline into the entry JS
+  (~140 KB for these 100); a future nicety is lazy-loading them or de-duping the
+  near-identical grid geometry — an R1-era architecture choice, left as-is here.
+  (2) NPCs remain single-size (the roster uses their own sheets); NPC body-size
+  variety would be a separate generation batch. (3) Skin tone is still "coming
+  soon" (the H&S recolour can't darken skin — unchanged from R1).
+
 ## Fisherwoman — paid fishing lessons + her introduce-her quest (v2 BLOCK #6, slice 3 of 4)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Doc-verified scope:** VISION §skills — the pillar "**Skills also rise from

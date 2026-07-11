@@ -1,8 +1,9 @@
 /**
  * Player sprite bridge — the CURATED MATRIX look (R1, the product owner's top
- * ask). The player picks gender × hairstyle(5) × outfit(5) + a hair shade(3);
- * that selection resolves one of the 50 generated combo sheets
- * (src/assets/pixellab/characters/matrix/matrix-<gender>-<hair>-<outfit>). The
+ * ask). The player picks gender × body size(S/M/L) × hairstyle(5) × outfit(5) +
+ * a hair shade(3); that selection resolves one of the 150 generated combo sheets
+ * (src/assets/pixellab/characters/matrix/matrix-<gender>[-<size>]-<hair>-<outfit>,
+ * medium unsuffixed for back-compat). The
  * baked hair is a KEYED VIVID PURPLE, recoloured at runtime to a natural shade
  * (warm brown / golden blonde / espresso) via recolorSheet — audited zero bleed
  * into the outfit/skin, so raw purple never reaches the screen.
@@ -31,7 +32,7 @@ import {
   SPRITE_MATRIX_SCALE, SPRITE_PLAYER_FOOT_DY, SPRITE_WALK_STRIDE,
   CHARACTER_SPRITES_PRIMARY, SPRITE_MATRIX_SKIN,
 } from "../config";
-import { type Appearance, type Character, type Gender, type MatrixHair } from "../systems/meta";
+import { type Appearance, type BodySize, type Character, type Gender, type MatrixHair } from "../systems/meta";
 import type { Facing } from "./rig";
 import type { Player } from "../entities/player";
 
@@ -83,6 +84,12 @@ const WALK_FRAMES = 6;
 // floor 0.35; audited to catch ONLY hair — zero outfit/skin bleed). Lightness
 // preserved, so shading survives.
 const PURPLE_BAND: RecolorBand = { hueMin: 240, hueMax: 300, satMin: 0.35 };
+// The narrow phase-2 SMALL builds antialias into DESATURATED violet-magenta hair
+// edges (hue ~255–305, sat ~0.20–0.35) the primary band misses — leaking raw
+// purple on-screen. This second band mops them up. The hue floor is raised to
+// 255 so blue denim overalls (hue ~222) stay untouched; only hair reaches this
+// hue range (no matrix outfit is violet — measured across all 150 sheets).
+const PURPLE_BAND_SOFT: RecolorBand = { hueMin: 255, hueMax: 305, satMin: 0.20 };
 
 // ---- current player look (set by main.ts on boot + New Game) --------------
 // RigParams (passed to drawFarmer) can't carry the matrix selection, so the
@@ -110,8 +117,15 @@ function outfitFor(gender: Gender, a: Appearance): string {
   return list.some((o) => o.id === a.matrixOutfit) ? a.matrixOutfit : list[0]!.id;
 }
 const comboKey = (gender: Gender, hair: string, outfit: string) => `${gender}/${hair}-${outfit}`;
-const matrixSheetId = (gender: Gender, hair: string, outfit: string) =>
-  `characters/matrix/matrix-${gender}-${hair}-${outfit}`;
+// Body-size axis → sheet-name suffix. MEDIUM stays UNSUFFIXED so phase-1 sheet
+// names + old saves' looks resolve unchanged; S/L map to the phase-2 batches
+// (matrix-<gender>-small-… / matrix-<gender>-large-…). Any junk size → "M".
+const SIZE_SUFFIX: Record<BodySize, string> = { S: "-small", M: "", L: "-large" };
+function sizeFor(a: Appearance): BodySize {
+  return a.bodySize === "S" || a.bodySize === "L" ? a.bodySize : "M";
+}
+const matrixSheetId = (gender: Gender, size: BodySize, hair: string, outfit: string) =>
+  `characters/matrix/matrix-${gender}${SIZE_SUFFIX[size]}-${hair}-${outfit}`;
 
 // ---- coverage: does the matrix render this look? --------------------------
 /**
@@ -125,19 +139,23 @@ export function spriteCoversLook(gender: Gender, a: Appearance): boolean {
   if (!spriteEnabled) return false;
   const hair = hairFor(a), outfit = outfitFor(gender, a);
   if (EXCLUDED.has(comboKey(gender, hair, outfit))) return false;
-  return sheetInfo(matrixSheetId(gender, hair, outfit)) !== null;
+  return sheetInfo(matrixSheetId(gender, sizeFor(a), hair, outfit)) !== null;
 }
 
 /** A null character (pre-creation boot / old save) → the default matrix look. */
 export function spriteCoversCharacter(c: Character | null): boolean {
-  if (!c) return spriteEnabled && sheetInfo(matrixSheetId("female", "long", "rustdress")) !== null;
+  if (!c) return spriteEnabled && sheetInfo(matrixSheetId("female", "M", "long", "rustdress")) !== null;
   return spriteCoversLook(c.gender, c.appearance);
 }
 
 // ---- recolour op assembly -------------------------------------------------
 function buildOps(a: Appearance): RecolorOp[] {
   const shade = HAIR_SHADES[Math.max(0, Math.min(HAIR_SHADES.length - 1, a.hairShade))] ?? HAIR_SHADES[0]!;
-  const ops: RecolorOp[] = [{ band: PURPLE_BAND, targetHex: shade.hex }];   // always — purple must never show
+  // always — purple must never show (two bands: saturated core + desaturated edges)
+  const ops: RecolorOp[] = [
+    { band: PURPLE_BAND, targetHex: shade.hex },
+    { band: PURPLE_BAND_SOFT, targetHex: shade.hex },
+  ];
   if (SPRITE_MATRIX_SKIN && a.skinTone > 0) {
     // (disabled today — the mechanism can't darken skin; kept for a future
     // lightness-aware remap. Band left intentionally unused.)
@@ -202,7 +220,7 @@ export function drawPlayerSprite(g: CanvasRenderingContext2D, p: Player, _t: num
   const kind = p.pose === "walking" ? "walk" : p.pose === "idle" ? "idle" : null;
   if (!kind) return false;   // fishing / hoeing / foraging / busking / sleeping → rig
 
-  const sheetId = matrixSheetId(gender, hairFor(a), outfitFor(gender, a));
+  const sheetId = matrixSheetId(gender, sizeFor(a), hairFor(a), outfitFor(gender, a));
   const dir = DIR4[p.dir];
   const frameName = kind === "walk"
     ? `walk_${dir}_${walkFrame(p.dist, SPRITE_WALK_STRIDE, WALK_FRAMES)}`
@@ -232,7 +250,7 @@ export function drawHeroinePreview(
   facing: Facing, viewScale: number, _t: number,
 ): boolean {
   if (!spriteCoversLook(gender, a)) return false;
-  const sheetId = matrixSheetId(gender, hairFor(a), outfitFor(gender, a));
+  const sheetId = matrixSheetId(gender, sizeFor(a), hairFor(a), outfitFor(gender, a));
   const fr = matrixFrame(sheetId, `rot_${DIR4[facing]}`, a);
   if (!fr) return false;
   shadow(g, cx, groundY, 12 * (viewScale / 2.5), 4.6 * (viewScale / 2.5));   // soft ground shadow so she doesn't float
