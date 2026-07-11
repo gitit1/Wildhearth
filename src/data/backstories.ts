@@ -48,6 +48,10 @@ export const BACKSTORY_SEEDS: Record<string, string> = {
     "I'm a peddler by trade and a talker by nature — I walk every road between here and the coast, and I carry every rumour with me. " +
     "I don't rightly have a home; Wildhearth's square is as close as it gets, and I circle back to it like a swallow to the eaves. " +
     "What I hope for? To keep moving, keep listening, and always have a fresh bit of news to trade. The roads know everything, if you'll only walk them.",
+  nerys:
+    "I've lived by moving water my whole life — I can read a river the way you read a face. " +
+    "I came to this bend when the sea grew too loud and too crowded, and never once wanted for company the current couldn't give. " +
+    "Teach a soul to fish and you've fed her for life. That's the only wisdom I care to pass on.",
 };
 
 /** The authored seed for an NPC, or a safe generic if one is somehow missing. */

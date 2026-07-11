@@ -123,6 +123,11 @@ const SMALL_TALK: Record<Personality, SmallTalk> = {
     warmClose: "\"You and me, we should talk more. You HEAR things, I can tell.\"",
     favor: "\"Pass a bit of news along now and then. Keeps the roads lively.\"",
   },
+  "weathered-sage": {
+    howBeen: "\"The river and I go on much the same. Slow, steady, and in no hurry to change.\"",
+    warmClose: "\"You've got a still way about you. The fish trust that. So do I.\"",
+    favor: "\"Bring me a rare catch or some odd thing the water gave up, and I'll count us square.\"",
+  },
 };
 
 /** The 2-turn tree shared by all NPCs (merchants add a shop branch on top). */

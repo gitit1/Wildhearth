@@ -29,6 +29,72 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## Nerys — the Riverside Fisherwoman joins the roster (v2 BLOCK #6, slice 1 of 4)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Doc-verified scope:** ROADMAP_TO_V5 §v2 (line 47-50 "her *basic* presence —
+  dialogue + fishing shop + teaching — fits… as one of the NPCs at the lake";
+  line 302-303, 348 the Fisherwoman's full kit); VISION §NPCs + §6 (line 362-364
+  "the Riverside Fisherwoman's traits should derive a preference for rare aquatic/
+  river items"); WORLD_MAP line 18 (the river region is built + walkable but she
+  was NOT among the built 10-NPC roster). This commit is **slice 1's NPC only** —
+  the 11th roster member herself. Rod tiers/bait (slice 2) and teaching + the
+  intro quest (slice 3) are the following commits; boat-fishing/diving/net/
+  sailing/aquarium/sightings stay OUT (later slices).
+- **New roster member `nerys`** in `src/data/npcs.ts` (the 11th `NpcDef`): a
+  weathered river sage — female adult, `romantic:false` (a mentor, not a romance
+  candidate — a scope call), new `role:"fisherwoman"`, new
+  `personality:"weathered-sage"`. Home `P(93,13)` + work `P(94.5,8.5)` on the
+  river shore between the two river fishing spots (regionAt → `"river"`), a long
+  dawn-to-dusk day (wake 5 / sleep 21 / work 6-19, no closed day). Distinct look
+  so she is not a Maren/Jonas echo: oilskin **hat** (`hatColor #37514d`) over
+  weather-greyed hair, deep-teal **coat** outfit, weathered tan skin. She carries
+  an authored `backstory` seed. **She has no PixelLab sheet → renders through the
+  code rig fallback** (verified: `drawNpcSprite` returns false for a sheet-less
+  NPC; CLAUDE.md rule #1 dual-path). A portrait + walk sheet are on the wanted-gen
+  list (handoff).
+- **New `Role "fisherwoman"`** (`src/data/npcs.ts` `Role` union) → the two
+  exhaustive `Record<Role>` tables filled: `CUSTOMER_WANTS`
+  (`src/systems/customers.ts`, `["dish","forage"]` — she keeps to the river, so
+  rarely a market customer) and `ROLE_PREFS` (`src/data/traitPreferences.ts`).
+  Her trait prefs are **VISION §6's first live instance of the trait→preference
+  map**: rare fish `loved`, any fish `liked`, and — alone on the roster — river-
+  found **junk `liked`** (she treasures the odd craft the water gives up that
+  everyone else calls rubbish).
+- **New `Personality "weathered-sage"`** (`Personality` union) → the three
+  exhaustive `Record<Personality>` tables filled: `PERSONALITY_LINES`
+  (`src/data/npcs.ts`), `THOUGHT_TEMPLATES` (`src/data/thoughts.ts`), and
+  `SMALL_TALK` (`src/data/dialogue/shared.ts`) — a slow, river-quiet voice.
+- **Schedule/pose placement** so she inhabits the river bank, not the market:
+  `src/systems/schedule.ts` `placeFor` routes her `socializing` state to a new
+  `RIVERSIDE_REST` shore spot (`src/data/npcs.ts`, `P(92.6,11.2)`) instead of the
+  town well; `src/entities/npc.ts` `idleFacing` + `workPose` add `fisherwoman`
+  alongside `fisher-kid` so she faces east over the water and holds the fishing
+  pose at work.
+- **Authored dialogue** `src/data/dialogue/nerys.ts` (registered in
+  `src/data/dialogue/index.ts`) — season/weather/warmth/`here("river")`/farm-
+  repaired opening lines in her sage voice; her rod-and-bait shop and paid lessons
+  are deliberately NOT authored here (they inject onto her opening turn via the
+  service-options seam in slices 2-3). Backstory seed added to
+  `src/data/backstories.ts` (`BACKSTORY_SEEDS.nerys`).
+- **Verified (headless Edge + puppeteer-core driving the `__wh` bridge, fresh
+  Fisher New Game):** roster is now 11 with `nerys` present; she stands in the
+  river region (x=2976 px > the 2944 river threshold), her socializing spot is the
+  riverside rest (2963,358), not the well; Talk opens her dialogue speaking her
+  authored weathered-sage line + the standard choice row; her backstory seed
+  resolves (303 chars); save/reload keeps the 11-NPC roster; she renders as a
+  distinct hat+teal-coat figure via the rig (screenshots
+  `scratchpad/v2-block6a/01-nerys-riverside.png`, `02-nerys-dialogue.png`). The
+  one console 404 is the expected missing-sprite dual-path fallback (no sheet →
+  rig), not an error.
+- **Follow-ups:** (1) `npm run build`'s **vite production step is broken at HEAD**
+  in this environment — Node v24.14.1 + vite 6.x trips a `vite:html-inline-proxy`
+  "No matching HTML proxy module" error on index.html's inline `<style>`,
+  reproducible on a clean HEAD checkout with clean source and independent of vite
+  patch (6.3.5 and 6.4.3 both fail). It is **pre-existing and unrelated to this
+  work**; `tsc --noEmit` is green and the dev server + game run fine. Flagged for
+  the owner — needs a Node downgrade or an index.html/vite.config fix as its own
+  task. (2) Nerys's PixelLab walk sheet + dialogue portrait are wanted-gen items.
+
 ## transport — the town stable sells rowboat/horse/carriage, with real effects (v2 BLOCK #5)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Doc-verified scope:** ROADMAP_TO_V5 §v2 Transportation ("boats (Fisherwoman),

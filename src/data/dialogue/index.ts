@@ -18,9 +18,10 @@ import bram from "./bram";
 import ada from "./ada";
 import finn from "./finn";
 import jonas from "./jonas";
+import nerys from "./nerys";
 
 const REGISTRY: Record<string, NpcDialogue> = {
-  maren, tobin, sera, henrik, petra, liora, bram, ada, finn, jonas,
+  maren, tobin, sera, henrik, petra, liora, bram, ada, finn, jonas, nerys,
 };
 
 /** Fallback for an NPC with no authored file — openings + a small-talk tree

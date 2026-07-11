@@ -23,7 +23,7 @@ import type { WeatherState } from "./weather";
 import { T } from "../config";
 import { WELL, BUSK_SPOT, TOWN_SQUARE } from "../world/zones";
 import {
-  FOREST_CORNERS, ADA_FOREST_REST, BRAM_FARM_SPOT, BRAM_MARKET_SPOT, type NpcDef,
+  FOREST_CORNERS, ADA_FOREST_REST, BRAM_FARM_SPOT, BRAM_MARKET_SPOT, RIVERSIDE_REST, type NpcDef,
 } from "../data/npcs";
 
 export type NpcState = "atHome" | "atWork" | "atMarket" | "socializing" | "asleep" | "festival" | "town";
@@ -195,8 +195,11 @@ export function placeFor(def: NpcDef, state: NpcState, dow: number, idx: number)
     case "atMarket":
       return marketWander(idx);
     case "socializing":
-      // Ada keeps to the trees even when "gathering" — she's shy of the square
-      return def.role === "forager" ? [ADA_FOREST_REST[0], ADA_FOREST_REST[1]] : socialSpot(idx);
+      // Ada keeps to the trees even when "gathering" — she's shy of the square;
+      // Nerys keeps to her river bend, a recluse of the water (never the well).
+      if (def.role === "forager") return [ADA_FOREST_REST[0], ADA_FOREST_REST[1]];
+      if (def.role === "fisherwoman") return [RIVERSIDE_REST[0], RIVERSIDE_REST[1]];
+      return socialSpot(idx);
     case "festival":
       // festival day pulls EVERYONE to the square, Ada included — Liora takes
       // the busking spot to perform, everyone else spreads around the well

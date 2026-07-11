@@ -51,6 +51,7 @@ const CUSTOMER_WANTS: Record<Role, GoodCategory[]> = {
   forager: ["flower", "dish"],                         // Ada rarely leaves the trees, but when she does
   "fisher-kid": ["dish", "flower"],
   peddler: ["fish", "crop", "forage", "dish", "flower"], // Jonas trades in everything
+  fisherwoman: ["dish", "forage"],                       // Nerys keeps to the river — rarely a market customer
 };
 
 /** A concrete thing a customer wants to buy right now. */

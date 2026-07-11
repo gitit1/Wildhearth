@@ -24,13 +24,13 @@ export type AgeBand = "kid" | "adult" | "elder";
 export type Personality =
   | "brisk-warm" | "cheerful-chatty" | "precise-practical" | "gruff-kind"
   | "warm-motherly" | "dreamy-performer" | "quiet-craftsman" | "shy-naturalist"
-  | "eager-apprentice" | "gossipy-connector";
+  | "eager-apprentice" | "gossipy-connector" | "weathered-sage";
 
 /** Drives place resolution + work pose in schedule.ts / npc.ts. */
 export type Role =
   | "stall-fish" | "stall-produce" | "stall-goods"
   | "farmer" | "baker" | "musician" | "handyman"
-  | "forager" | "fisher-kid" | "peddler";
+  | "forager" | "fisher-kid" | "peddler" | "fisherwoman";
 
 interface NpcCommon {
   id: string;
@@ -132,6 +132,11 @@ export const PERSONALITY_LINES: Record<Personality, string[]> = {
     "Everyone's talking about the old farm getting fixed up. That you?",
     "I go where the roads go, and the roads know everything.",
   ],
+  "weathered-sage": [
+    "The river tells you everything, if you learn to sit quiet and listen.",
+    "No hurry on the water. Come, watch the line a while with me.",
+    "Every current carries a lesson. Most folk rush past before they hear it.",
+  ],
 };
 
 // ---- NPC route / waypoint tables (co-located with the roster since they're
@@ -158,6 +163,11 @@ export const JONAS_ROUTE: ReadonlyArray<readonly [number, number]> = [
  *  stall the rest of the week. */
 export const BRAM_FARM_SPOT: readonly [number, number] = P(47.5, 20.8);
 export const BRAM_MARKET_SPOT: readonly [number, number] = P(75.7, 18.35);
+
+/** Where Nerys, the Riverside Fisherwoman, keeps to when she "socializes" — she
+ *  is a recluse of the river bend, so her version of gathering is a quiet spot
+ *  on the shore just upstream of her fishing perch, never the market well. */
+export const RIVERSIDE_REST: readonly [number, number] = P(92.6, 11.2);
 
 // ---- the 10 ----------------------------------------------------------------
 // Homes: the six square cottages + Henrik's neighbour farmhouse, Ada's forest
@@ -300,6 +310,29 @@ export const NPCS: NpcDef[] = [
       // Part C content-library commit 2: a traveler's coat for the peddler
       // who "walks every road and carries every rumour" — an obvious fit.
       outfit: { torso: "#9a5a3a", style: "coat", legs: "#4a4038", accent: "#e2c24a" },
+    },
+  },
+  // The 11th — the Riverside Fisherwoman (v2 BLOCK #6 slice 1). She lives at the
+  // river bend to the far east, keeps a dawn-to-dusk day on the shore between the
+  // two river fishing spots, and rarely leaves the water. Distinct look (oilskin
+  // hat + deep-teal coat, weather-greyed hair) so she reads as her own person, not
+  // a Maren/Jonas echo. No sprite sheet yet → she renders through the code rig
+  // fallback (a portrait + walk sheet are on the wanted-gen list).
+  {
+    id: "nerys", name: "Nerys", gender: "female", ageBand: "adult", romantic: false,
+    profession: "riverside fisherwoman", personality: "weathered-sage", role: "fisherwoman",
+    blurb: "Nerys, the riverside fisherwoman — weathered as driftwood, patient as the current, and she'll teach you to read the water.",
+    home: P(93, 13), work: P(94.5, 8.5),
+    wake: 5, sleep: 21, workStart: 6, workEnd: 19,
+    birthday: { seasonIndex: 1, day: 4 },   // summer d4
+    backstory:
+      "I've lived by moving water my whole life — I can read a river the way you read a face. " +
+      "I came to this bend when the sea grew too loud and too crowded, and never wanted for company the current couldn't give. " +
+      "Teach a soul to fish and you've fed her for life. That's the only wisdom I care to pass on.",
+    rig: {
+      scale: 1, build: "average", legLength: 1, armLength: 1, skin: "#c99a6a",
+      hair: "hat", hairColor: "#b7b3a4", hatColor: "#37514d", age: "adult",
+      outfit: { torso: "#2f5d5a", style: "coat", legs: "#39484b", accent: "#9c7b3f" },
     },
   },
 ];

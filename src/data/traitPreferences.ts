@@ -72,6 +72,16 @@ const ROLE_PREFS: Record<Role, PrefRule[]> = {
   // general merchants value anything worth good coin
   "stall-goods": [{ category: "any", minPrice: 12, rating: "liked" }],
   "peddler": [{ category: "any", minPrice: 12, rating: "liked" }],
+  // the Riverside Fisherwoman (VISION §6, first live instance of the trait→
+  // preference map): rare aquatic catches thrill her, any fish is welcome, and —
+  // alone among the roster — she treasures the odd river-found craft (junk) that
+  // everyone else calls rubbish. "An unusual catch or a fine bit of river-found
+  // craft means more to her than a generic gift."
+  "fisherwoman": [
+    { category: "fish", minPrice: RARE_FISH_PRICE, rating: "loved" },
+    { category: "fish", rating: "liked" },
+    { category: "junk", rating: "liked" },
+  ],
 };
 
 // Personality traits — a lighter overlay that stacks on top of the role.

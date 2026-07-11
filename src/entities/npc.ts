@@ -210,7 +210,8 @@ function idleFacing(n: Npc, state: NpcState): Facing {
     return n.def.role === "musician" ? 2 : facingTo(n.x, n.y, WELL.cx, WELL.cy);
   if (state === "socializing")
     return n.def.role === "forager" ? 2 : facingTo(n.x, n.y, WELL.cx, WELL.cy);
-  if (state === "atWork" && n.def.role === "fisher-kid") return 1; // east, over the water
+  // fisherfolk at work face east, out over the water
+  if (state === "atWork" && (n.def.role === "fisher-kid" || n.def.role === "fisherwoman")) return 1;
   return 2;
 }
 
@@ -237,7 +238,8 @@ function workPose(role: NpcDef["role"]): PoseName {
     case "farmer":
     case "handyman": return "hoeing";
     case "forager": return "foraging";
-    case "fisher-kid": return "fishing";
+    case "fisher-kid":
+    case "fisherwoman": return "fishing";
     case "peddler": return "walking";
     default: return "idle";           // stallkeepers & baker stand at their post
   }

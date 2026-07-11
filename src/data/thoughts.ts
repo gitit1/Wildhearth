@@ -90,6 +90,13 @@ export const THOUGHT_TEMPLATES: Record<Personality, string[]> = {
     "A {season} for travelling. The roads know everything, if you walk them.",
     "News is like fish: best passed along fresh.",
   ],
+  "weathered-sage": [
+    "The {season} current runs its own way. You learn more watching than casting.",
+    "{weather} on the water changes how the fish lie. Read it, and you'll never go hungry.",
+    "That young one from the old farm has the patience to learn. Rare, that.",
+    "Forty {season}s reading this river and it still keeps a secret or two from me.",
+    "A rod, a quiet bank, and someone willing to be taught — that's a good day.",
+  ],
 };
 
 /** Fill a template's `{season}` / `{weather}` slots from the live snapshot. */
