@@ -234,6 +234,12 @@ export const TOWN_SQUARE: [number, number] = [58 * T, 35.4 * T];
  *  drawn (drawInn) for now; a dedicated PixelLab sprite is a logged follow-up. */
 export const INN = rect(43.5, 31.7, 6, 3.4);
 
+/** The stable — the transport vendor (v2 BLOCK #5). Sits at the quiet east end
+ *  of the town street, clear of the merchant fronts and homes, with a little
+ *  paddock rail. Code-drawn (drawStable) for now; a PixelLab stable sprite is a
+ *  logged wanted follow-up. Sells the rowboat / horse / carriage (VISION §9). */
+export const STABLE = rect(86.5, 32, 3.8, 2.9);
+
 export interface TownHomeDef extends Rect { variant?: number; seed: number }
 /** NPC homes ringing the street. `variant` (1-8) picks a cottage sprite when
  *  set — only the two market-UNUSED variants (1, 5) are used here so no town
@@ -277,7 +283,7 @@ export function onTownDock(x: number, y: number): boolean {
 export const STRUCTURES: Rect[] = [
   NEIGHBOR.house, NEIGHBOR.barn, ...COTTAGES,
   ...MARKET_STALLS.map((s) => ({ x: s.x, y: s.y, w: s.w, h: s.h })),
-  INN, ...TOWN_HOMES.map((h) => ({ x: h.x, y: h.y, w: h.w, h: h.h })),
+  INN, STABLE, ...TOWN_HOMES.map((h) => ({ x: h.x, y: h.y, w: h.w, h: h.h })),
   ...TOWN_MERCHANTS.map((m) => ({ x: m.x, y: m.y, w: m.w, h: m.h })),
 ];
 

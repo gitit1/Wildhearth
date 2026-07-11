@@ -18,7 +18,7 @@ import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
   FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, WORLD_PROPS, type Rect,
-  INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK, type MerchantKind,
+  INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK, STABLE, type MerchantKind,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
@@ -30,8 +30,8 @@ import { buildFoliageScatter, drawScatterItem } from "./art/scatter";
 import { drawBunting, drawLanternPole, drawHarvestCluster } from "./art/festival";
 import { activeFestival, isFestivalDay } from "./systems/festival";
 import { FESTIVALS } from "./data/festivals";
-import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse, drawInn } from "./art/buildings";
-import { drawFarmer, drawCow, drawHen, drawDuck, drawPig, drawSheep, drawNpc } from "./art/characters";
+import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse, drawInn, drawStable } from "./art/buildings";
+import { drawFarmer, drawCow, drawHen, drawDuck, drawPig, drawSheep, drawNpc, drawMount, MOUNT_LIFT } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen, spawnDuck, spawnPig, spawnSheep } from "./entities/animals";
 import { createWildlife, updateWildlife, type WildlifeInst } from "./entities/wildlife";
@@ -50,6 +50,9 @@ import {
   loadDiscovery, resetDiscovery, discoverRegion, travelFare, travelMinutes,
   nodeForRegion, TRAVEL_NODES, type TravelNode,
 } from "./systems/discovery";
+import {
+  loadTransport, resetTransport, ownsTransport, fareDiscount, mountSpeedMult, buyTransport,
+} from "./systems/transport";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
 import {
@@ -136,6 +139,9 @@ import { initFade, fadeThrough } from "./ui/fade";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initQuestLog, updateQuestLog } from "./ui/questlog";
 import { initMinimap, updateMinimap, setMinimapField, setTravelHooks } from "./ui/minimap";
+import {
+  initStableWindow, openStableWindow, closeStableWindow, isStableOpen, updateStableWindow,
+} from "./ui/stablewindow";
 import { initSkillsUI, updateSkillsUI, skillGainPopup, updateReputationUI } from "./ui/skills";
 import {
   initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow, openMerchantBuyWindow,
@@ -322,6 +328,11 @@ const reputation = loadReputation();
 // other node is earned by walking there once. Old saves start with just the farm
 // and re-discover as she moves (the region-change seam below fires discovery).
 const discovery = loadDiscovery();
+// Owned transportation (v2 block #5): rowboat / horse / carriage bought at the
+// town stable. Ownership persists; `mounted` is a live session flag (she starts
+// each session on her own two feet — you never wake up already on a horse).
+const transport = loadTransport();
+let mounted = false;
 
 /** Talk seam: opens the dialogue bottom-box (condition-keyed opening line +
  *  shallow choice turns). The window drives the conversation; the Social-need
@@ -562,8 +573,19 @@ if (import.meta.env.DEV)
     travelTo: (id: string) => { const n = TRAVEL_NODES.find((x) => x.id === id); if (n) fastTravel(n); },
     travelQuote: (id: string) => {
       const n = TRAVEL_NODES.find((x) => x.id === id); if (!n) return null;
-      return { fare: travelFare(player.x, player.y, n), mins: travelMinutes(player.x, player.y, n), reason: travelGuardReason(n, travelFare(player.x, player.y, n)) };
+      return { fare: effectiveFare(n), baseFare: travelFare(player.x, player.y, n), mins: travelMinutes(player.x, player.y, n), reason: travelGuardReason(n, effectiveFare(n)) };
     },
+    // transportation verification bridge (v2 BLOCK #5): the stable shop, owning
+    // vehicles, the mount toggle, and the resulting fare discount.
+    transport: () => ({ ...transport, mounted, fareDiscount: fareDiscount(transport) }),
+    buyTransportDev: (id: "rowboat" | "horse" | "carriage") => buyTransport(economy, transport, id),
+    openStableDev: () => { player.x = STABLE.x + STABLE.w / 2; player.y = STABLE.y + STABLE.h + 10; player.moving = false; clearMoveTarget(); openStable(); },
+    toggleMountDev: () => { toggleMount(); return mounted; },
+    isMountedDev: () => mounted,
+    // general interactable inspector/runner (used to verify the dock rowboat +
+    // stable via their REAL interactable path, not a shortcut).
+    interactLabel: (id: string) => { const o = byId(id); return o ? defaultActionLabel(o, makeCtx()) : null; },
+    runInteract: (id: string, actionId: string) => { const o = byId(id); if (o) runAction(o, actionId, makeCtx()); },
     // save-system verification bridge — force the two save paths and shrink
     // the autosave interval instead of waiting 10 real minutes
     saveNow: manualSave,
@@ -744,6 +766,7 @@ initMinimap();
 setTravelHooks({
   discovery,
   playerPos: () => ({ x: player.x, y: player.y }),
+  fareOf: (node) => effectiveFare(node),   // v2 block #5: owned transport shaves/waives the fare
   guard: (node, fare) => travelGuardReason(node, fare),
   travel: (node) => fastTravel(node),
 });
@@ -820,6 +843,15 @@ initShopWindow(economy, skills, farm, livestock,
   (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); },
   customerRows, serveCustomer);
 initStorageWindow(storage, economy, toast);   // R5: the barn's storage chest
+// v2 block #5: the town stable's transport shop (rowboat / horse / carriage).
+initStableWindow({
+  economy, transport,
+  toast, memory: remember,
+  logPurchase: (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); },
+  isMounted: () => mounted,
+  canMount: () => canMountNow(),
+  toggleMount,
+});
 // R6: the quest-log window (a window-system citizen like the backpack). Its
 // "Getting Started" panel mirrors the live Guidance layer so tutorial/aspiration
 // and quests read coherently in one place. Wire the change hook so a step tick
@@ -846,6 +878,7 @@ let scene: Scene = "world";
 function enterHouse() {
   scene = "interior";
   setCollisionScene(scene);
+  setMounted(false);                         // you leave the horse outside (v2 block #5)
   player.x = ROOM_ENTRY[0]; player.y = ROOM_ENTRY[1];
   player.moving = false; player.dir = 0;     // stepping in, facing the room
   clearMoveTarget(); closeContextMenu(); closeGiftChooser();
@@ -944,6 +977,50 @@ function onMerchantSale(kind: "fishmonger" | "greengrocer") {
     ? "Your first sale to the town fishmonger."
     : "Your first sale to the town greengrocer.";
   if (addMemory(memories, `first_town_${kind}`, text, calendar)) logMemory(dayLog, text);
+}
+
+// ---- transportation vendors (v2 BLOCK #5) ----------------------------------
+// The town STABLE sells old-world transport (rowboat / horse / carriage), money-
+// gated like everything else (VISION §9). Owning them has REAL effects: the horse
+// mounts for faster/stamina-free overland travel + a cheaper fare; the carriage
+// waives the fast-travel fare; the rowboat unlocks the dock "row out" interaction
+// (the Fisherwoman epic's entry point). Shop keeps the town's daytime hours.
+function openStable() {
+  if (calendar.hour < TOWN_SHOP_OPEN_HOUR || calendar.hour >= TOWN_SHOP_CLOSE_HOUR) {
+    toast("The stable's shut for the night — come back in daylight hours.");
+    return;
+  }
+  openStableWindow();
+}
+
+/** True when she could swing up right now: owns a horse, is outdoors, and isn't
+ *  mid-activity/fade. Used by both the R-key toggle and the stable window button. */
+function canMountNow(): boolean {
+  return ownsTransport(transport, "horse") && scene === "world" && !timeSkipping
+    && !fishing.casting && !foraging.picking && !farmwork.working && !busking.playing && !cooking.cooking;
+}
+
+/** Force-set the mount flag (dismount on going indoors / collapse / new game). */
+function setMounted(on: boolean) { mounted = on; }
+
+/** Mount ⇄ dismount the horse (R key / stable button). Guarded: no horse, or
+ *  indoors, or busy, each explains itself. Mounting cancels a held fishing pose. */
+function toggleMount() {
+  if (mounted) { setMounted(false); toast("You swing down off your horse."); return; }
+  if (!ownsTransport(transport, "horse")) { toast("You don't own a horse — the town stable sells one."); return; }
+  if (scene !== "world") { toast("You can't ride indoors."); return; }
+  if (!canMountNow()) { toast("Finish what you're doing first."); return; }
+  player.fishing = false;
+  setMounted(true);
+  toast("You swing up onto your horse. 🐴 Press R to dismount.");
+}
+
+/** The fast-travel fare she ACTUALLY pays after any owned-transport discount: a
+ *  horse shaves it, her own carriage waives it entirely (still costs clock time
+ *  — no teleport). One source of truth so the confirm card shows what's charged. */
+function effectiveFare(node: TravelNode): number {
+  const base = travelFare(player.x, player.y, node);
+  return Math.max(0, Math.round(base * (1 - fareDiscount(transport))));
 }
 
 // ---- town reputation / fame (v2 economy block #2) --------------------------
@@ -1276,7 +1353,7 @@ function travelGuardReason(node: TravelNode, fare: number): string | null {
  *  as if she'd walked — no clock teleport), reposition at full black, fade in at
  *  the destination. Mirrors sleepUntilMorning's skip pattern. */
 function fastTravel(node: TravelNode) {
-  const fare = travelFare(player.x, player.y, node);
+  const fare = effectiveFare(node);   // v2 block #5: owned transport shaves/waives the fare
   const reason = travelGuardReason(node, fare);
   if (reason) { toast(reason); return; }
   const mins = travelMinutes(player.x, player.y, node);
@@ -1648,6 +1725,8 @@ function makeCtx(): InteractCtx {
     expandFarm, openGiftFor, doInteraction,
     openNpcTrade: openNpcStallTrade,
     openTownMerchant,
+    openStable,
+    ownsRowboat: () => ownsTransport(transport, "rowboat"),
     openStorage: openBarnStorage,
     guidanceEvent: fireGuidance,
   };
@@ -1728,6 +1807,8 @@ function newGameReset(character: Character, mode: Guidance) {
   resetCustomers(customerLedger);     // v2: a new life has served no customers
   resetReputation(reputation);        // v2 block #2: an unknown newcomer again
   resetDiscovery(discovery);          // v2 block #4: the world is unknown again — only the farm
+  resetTransport(transport);          // v2 block #5: back on her own two feet — no boat/horse/carriage
+  setMounted(false);
   for (const n of npcs) n.visit = null;   // no one is queued at the stall in a fresh world
   resetCollections(collections);
   resetMemories(memories);
@@ -1930,6 +2011,16 @@ addEventListener("keydown", (e) => {
   openPause();
 });
 
+// v2 block #5: R mounts / dismounts the horse (guards live in toggleMount). Not
+// while a menu / opening is up, and never when typing into a field.
+addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() !== "r") return;
+  if (menuOpen || openingActive) return;
+  const tgt = e.target as HTMLElement | null;
+  if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA")) return;
+  toggleMount();
+});
+
 /** The boot title screen (and the screen returned to from its sub-screens). */
 function openMainMenu() {
   showMainMenu({
@@ -1989,7 +2080,7 @@ function tick(now: number) {
   if (autosaveAccum >= autosaveSeconds) { autosaveAccum = 0; autosaveTick(); }
 
   const wasMoving = player.moving;
-  updatePlayer(player, dt);
+  updatePlayer(player, dt, mountSpeedMult(mounted));   // v2 block #5: faster while mounted
   // Guidance (Tutorial step 0 only): clears on ~3s of real walking
   if (player.moving && guidanceMode() === "tutorial" && !guidance.tutorialDone && guidance.tutorialStep === 0)
     fireGuidance({ kind: "move", seconds: dt });
@@ -2013,7 +2104,8 @@ function tick(now: number) {
       minuteAccum -= minuteSeconds;
       if (liveMinute()) break;   // a collapse pauses time while the fade takes over
     }
-    applyWalk(needs, Math.max(0, player.dist - lastDist));   // a little energy for the ground covered
+    // a little energy for the ground covered — but riding is stamina-free (v2 block #5)
+    if (!mounted) applyWalk(needs, Math.max(0, player.dist - lastDist));
   }
   lastDist = player.dist;
 
@@ -2024,6 +2116,8 @@ function tick(now: number) {
   if (isShopOpen() && openStallRect && !nearRect(player.x, player.y, openStallRect)) closeShopWindow();
   // walking away from the barn closes the storage chest (R5)
   if (isStorageOpen() && !nearRect(player.x, player.y, BARN)) closeStorageWindow();
+  // walking away from the stable closes its transport shop (v2 block #5)
+  if (isStableOpen() && !nearRect(player.x, player.y, STABLE)) closeStableWindow();
 
   // A queued "walk there, then act" click fires once the player arrives in
   // reach. MUST run before this frame's left/right-click handling below: a
@@ -2291,6 +2385,7 @@ function tick(now: number) {
   updateReputationUI(reputation.fame, reputationTier(reputation.fame).name);   // v2 block #2: town Fame line
   updateShopWindow();
   updateStorageWindow();
+  updateStableWindow();
   updateMemoryBook();
   updateQuestLog();
   if (!openingActive) { tickGuidance(); tickQuests(); }   // guidance bubble/pill + live quest possession checks
@@ -2355,7 +2450,18 @@ function draw(dt: number) {
     { y: OUTHOUSE.y + OUTHOUSE.h, f: () => drawOuthouse(ctx, OUTHOUSE) },
     { y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
-    { y: player.y + 13, f: () => drawFarmer(ctx, player, time, playerRigParams, playerUsesSprite) },
+    { y: player.y + 13, f: () => {
+      // v2 block #5: a code-drawn horse under her when mounted; she rides lifted
+      // onto its back (drawn after, so she sits on top).
+      if (mounted) {
+        drawMount(ctx, player, time);
+        ctx.save(); ctx.translate(0, -MOUNT_LIFT);
+        drawFarmer(ctx, player, time, playerRigParams, playerUsesSprite);
+        ctx.restore();
+      } else {
+        drawFarmer(ctx, player, time, playerRigParams, playerUsesSprite);
+      }
+    } },
     // the neighbour farm (cared-for: repaired roof/window/barn) — decorative;
     // its own established/prosperous farmhouse sprite (building-variety batch),
     // barn reuses the player's barn sprite as-is.
@@ -2374,6 +2480,7 @@ function draw(dt: number) {
   // cottage variants 1/5 + seed-distinct code cottages — no two alike), and the
   // specialised merchant stalls (each a DISTINCT banked spare-stall sprite).
   ents.push({ y: INN.y + INN.h, f: () => drawInn(ctx, INN) });
+  ents.push({ y: STABLE.y + STABLE.h, f: () => drawStable(ctx, STABLE) });   // v2 block #5 transport vendor
   TOWN_HOMES.forEach((home) => ents.push({ y: home.y + home.h, f: () => drawCottage(ctx, home, home.seed, home.variant) }));
   TOWN_MERCHANTS.forEach((m) => ents.push({ y: m.y + m.h, f: () => drawStall(ctx, time, m, m.awning, m.accent, m.sign, true, m.spriteId) }));
   if (festival) {

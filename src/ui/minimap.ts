@@ -26,6 +26,10 @@ import {
 export interface TravelHooks {
   discovery: Discovery;
   playerPos: () => { x: number; y: number };
+  /** The fare actually charged for a hop (after any owned-transport discount —
+   *  v2 block #5). The card shows this and the guard receives it, so display and
+   *  charge stay one number. Falls back to the raw distance fare if unset. */
+  fareOf?: (node: TravelNode) => number;
   guard: (node: TravelNode, fare: number) => string | null;
   travel: (node: TravelNode) => void;
 }
@@ -187,13 +191,15 @@ function onMapClick(e: MouseEvent) {
     return;
   }
   const pos = hooks.playerPos();
-  const fare = travelFare(pos.x, pos.y, node);
+  const fare = hooks.fareOf ? hooks.fareOf(node) : travelFare(pos.x, pos.y, node);
   const mins = travelMinutes(pos.x, pos.y, node);
   const reason = hooks.guard(node, fare);
   if (reason) { showConfirm(node, reason, true); return; }
   const hrs = Math.floor(mins / 60), rem = mins % 60;
   const timeStr = hrs > 0 ? `${hrs}h${rem ? ` ${rem}m` : ""}` : `${mins} min`;
-  showConfirm(node, `Fare <b>${fare}</b> coins · about ${timeStr} by carriage`, false);
+  // "free" when her own carriage waives the coachman fare (v2 block #5)
+  const fareStr = fare > 0 ? `Fare <b>${fare}</b> coins` : `<b>Free</b> — your own carriage`;
+  showConfirm(node, `${fareStr} · about ${timeStr} by carriage`, false);
 }
 
 function showConfirm(node: TravelNode, fareLine: string, blockedState: boolean) {

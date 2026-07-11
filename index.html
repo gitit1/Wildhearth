@@ -159,6 +159,12 @@
     .q-abandon:hover{border-color:#c94f3a;color:#f0906f}
     .q-empty{color:#9a8f74;font-style:italic;font-size:calc(12px*var(--s));padding:calc(6px*var(--s))}
     #shopWindow{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(14px*var(--s));min-width:calc(320px*var(--s))}
+    /* stable (v2 transport vendor): buy-only gump reusing the shop chrome */
+    #stableWindow{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(14px*var(--s));min-width:calc(330px*var(--s));max-width:calc(380px*var(--s))}
+    #stableList{display:flex;flex-direction:column;gap:calc(5px*var(--s))}
+    #stableWindow .shop-row{align-items:flex-start}
+    .stable-emoji{flex:none;font-size:calc(22px*var(--s));line-height:calc(30px*var(--s))}
+    .stable-blurb{display:block;font-size:calc(11px*var(--s));font-weight:600;opacity:.72;margin-top:1px}
     /* gift chooser: a small item picker reusing the shop's row/button chrome */
     #giftChooser{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(14px*var(--s));min-width:calc(280px*var(--s))}
     #giftList{display:flex;flex-direction:column;gap:calc(4px*var(--s));

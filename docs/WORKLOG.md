@@ -29,6 +29,92 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## transport — the town stable sells rowboat/horse/carriage, with real effects (v2 BLOCK #5)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Doc-verified scope:** ROADMAP_TO_V5 §v2 Transportation ("boats (Fisherwoman),
+  then horses/carriages tied to a town stable") + the §v2 arc table ("Boats,
+  horses, carriages; fast travel") + VISION §9 ("Old-world only: horses,
+  carriages, boats… available to buy from early game, gated by money"). Block #4
+  built the fare maths as the ready plug-in point; this block adds the vendor +
+  wires OWNERSHIP EFFECTS (not just a ledger). **Judgment call (owner may
+  revisit):** the roadmap files the boat under the Fisherwoman epic — I sell the
+  rowboat here and wire the dock "row out" as that epic's ENTRY POINT (a toast +
+  Memory naming deep-water fishing/diving/nets as coming), deliberately NOT
+  building any of the epic itself.
+- **New `src/systems/transport.ts`** — the RULES half. `Transport` store
+  (`rowboat`/`horse`/`carriage` booleans, versioned, corrupt-tolerant, private-
+  mode safe, nothing at import time) with load/save/`resetTransport`; the
+  `TRANSPORT_ITEMS` catalogue (id/name/icon/price/blurb) the stable window reads;
+  `buyTransport()` (money-gated, one of each, deducts + saves both stores);
+  read helpers `mountSpeedMult(mounted)`, `fareDiscount(t)` (best of horse 0.4 /
+  carriage 1.0 — carriage waives the fare entirely), `ownsTransport()`.
+- **New `src/ui/stablewindow.ts`** — the stable's buy-only trade window (a real
+  wm scale-window, code-built DOM reusing the shared `shop-*` chrome + new
+  `#stableWindow`/`.stable-emoji`/`.stable-blurb` CSS in `index.html`). One row
+  per vehicle: emoji + name + effect blurb + price/Buy; an owned vehicle shows
+  "Owned"; the owned HORSE row shows a live **Mount / Dismount** toggle. Opened
+  by walking to the stable; walking away closes it (main.ts proximity check, same
+  as the market stall).
+- **Owned-transport EFFECTS wired (not just tracked):**
+  - **Horse** — `updatePlayer(p, dt, speedMult)` now takes a speed multiplier;
+    main passes `mountSpeedMult(mounted)` so riding is **1.7× overland** (measured
+    ratio 1.70). Riding is also **stamina-free** (the `applyWalk` energy cost is
+    skipped while mounted). A code-drawn horse (`drawMount` + `MOUNT_LIFT` in
+    `art/characters.ts`) is painted UNDER the lifted rider, facing her heading,
+    legs swinging as she rides. Mount ⇄ dismount via the **R key** (guarded: owns
+    a horse, outdoors, not busy) and the stable button; she dismounts on entering
+    the house / a New Game.
+  - **Carriage / horse fare discount** — new `effectiveFare(node)` in main.ts
+    applies `fareDiscount(transport)` to block #4's `travelFare`; a horse shaves
+    the fare (5→3 farm→town), her own carriage waives it (→0, the minimap card
+    reads "**Free** — your own carriage"). One source of truth: the minimap's
+    `TravelHooks` gained a `fareOf` hook so the confirm card SHOWS exactly what
+    `fastTravel` CHARGES.
+  - **Rowboat** — a new dock interactable at BOTH the lake `DOCK` and the coastal
+    `TOWN_DOCK` (`makeDockRowboat` in `systems/interact.ts`, registered AFTER the
+    fish spots so casting keeps priority): owning the boat turns the deck's
+    default action from "Look" into "**Take the rowboat out**", which logs the
+    Fisherwoman epic's entry (toast + one-time Memory). No boat → a Look pointing
+    to the town stable.
+- **World + wiring:** new `STABLE` rect at the quiet east end of the town street
+  (`world/zones.ts`, added to `STRUCTURES`); `drawStable` painter in
+  `art/buildings.ts` (timber stall bays with a horse's head peering out, a
+  horseshoe sign, a rail-fenced paddock — distinct from the inn/homes/merchants);
+  a `stable` interactable ("Browse the stable") → `openStable()` (daytime hours,
+  same gate as the town merchants). `InteractCtx` gained `openStable` +
+  `ownsRowboat`. Depth-sorted into the town render.
+- **Config:** `ROWBOAT_PRICE 160` / `HORSE_PRICE 240` / `CARRIAGE_PRICE 360`
+  (mid-game sinks on the VISION anchor scale — the boat is the entry buy, the
+  horse a solid saving past the cow, the carriage the luxury top),
+  `MOUNT_SPEED_MULT 1.7`, `HORSE_FARE_DISCOUNT 0.4`, `CARRIAGE_FARE_DISCOUNT 1.0`,
+  `TRANSPORT_KEY` (folded into `saves.ts` GAME_KEYS → New Game wipes it, save-
+  tolerant).
+- **Verified live (headless Edge/puppeteer, `scratchpad/v2-block5/`):** fresh
+  state all-false; base fare farm→town 5; the stable opens (real "Browse the
+  stable" interactable) with 3 rows; **buying the horse via the real UI Buy
+  button sinks coins 1000→760** (−240); fare drops 5→3 with a horse; the
+  mount toggle rides her at a **measured 1.70× speed** and dismounts; the
+  carriage makes the fare 0 with the card reading "Free — your own carriage";
+  the rowboat flips **both** dock labels "Look"→"Take the rowboat out";
+  **save/reload keeps ownership** (localStorage all-true → `transport()` after
+  reload all-true, mounted false); **New Game wipes** to all-false; and a
+  **zero-PNG boot** (477 image fetches blocked) renders the stable + the mounted
+  horse via code painters with zero page errors. `npm run build` green; local
+  commit only, never pushed.
+- **Follow-ups / honest verdicts:** the mount is a code-drawn horse (acceptable
+  v1 per the brief) — a proper PixelLab **horse-with-rider sprite** (4-dir walk)
+  is the top wanted follow-up, plus a **stable building** sprite and a **rowboat**
+  sprite (all logged in the handoff's WANTED SPRITES list). `mounted` is a
+  session flag (not persisted — she dismounts on reload by design; ownership
+  persists). The carriage makes fast travel free once owned (a 360-coin
+  investment that removes the coachman fee — faithful to "your own coach"; owner
+  may prefer a residual token fare instead). The dock "row out" is only the epic
+  ENTRY POINT — no boat-fishing/diving/net built (that's the Fisherwoman arc,
+  next). A dev-server-only note: repeated vite HMR reloads in a long puppeteer
+  session can surface a spurious TDZ on `begin()`; a single clean reload boots
+  fine and the production build (no HMR) is unaffected — confirmed by an isolated
+  reload probe with the saved stable layout (zero page errors).
+
 ## world — paid minimap fast travel between discovered locations (v2 BLOCK #4)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Doc-verified scope:** ROADMAP_TO_V5 §v2 ("minimap fast travel") + VISION §9

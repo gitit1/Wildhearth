@@ -46,9 +46,9 @@ export function rigFromCharacter(c: Character | null): RigParams {
  *  character (old saves, the rig preview's default). */
 export const DEFAULT_PLAYER_RIG: RigParams = rigFromCharacter(null);
 
-export function updatePlayer(p: Player, dt: number) {
+export function updatePlayer(p: Player, dt: number, speedMult = 1) {
   const [ix, iy] = inputVec();
-  let vx = ix, vy = iy, step = PLAYER_SPEED * dt;
+  let vx = ix, vy = iy, step = PLAYER_SPEED * speedMult * dt;
 
   if (ix || iy) {
     clearMoveTarget();                       // manual steering overrides click-to-move

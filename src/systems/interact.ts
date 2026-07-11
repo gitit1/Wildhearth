@@ -1,7 +1,7 @@
 import {
   POND, STALL, BARN, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
   FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot, type StallDef,
-  TOWN_MERCHANTS, INN, TOWN_HOMES, type MerchantKind,
+  TOWN_MERCHANTS, INN, TOWN_HOMES, STABLE, DOCK, TOWN_DOCK, type MerchantKind,
 } from "../world/zones";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
 import { nearPond, nearRect } from "../world/collision";
@@ -69,6 +69,8 @@ export interface InteractCtx {
   doInteraction: (n: Npc, it: InteractionDef) => void;  // run a categorized social interaction
   openNpcTrade: (trade: NpcStallTrade) => void;   // opens the sell-only window for an NPC-specialty stall
   openTownMerchant: (kind: MerchantKind) => void; // opens a coastal-town merchant (v2 BLOCK #3)
+  openStable: () => void;                         // opens the town stable's transport shop (v2 BLOCK #5)
+  ownsRowboat: () => boolean;                     // whether she owns the rowboat (dock interaction, v2 BLOCK #5)
   guidanceEvent: (ev: GuidanceEvent) => void;    // advance Guidance Mode (repair/expand) — main owns the engine
 }
 
@@ -231,6 +233,61 @@ const townHomes: Interactable[] = TOWN_HOMES.map((h, i) =>
     [h.x + h.w / 2, h.y + h.h + 18], h,
     "A townsperson's home, its door shut against the sea breeze.",
   ));
+// The stable — the transport vendor (v2 BLOCK #5). Walking up + interacting opens
+// the transport shop (rowboat / horse / carriage). Shares daytime hours with the
+// town merchants (main.ts's openStable gates the hour).
+const stableBox = { x: STABLE.x - 6, y: STABLE.y - STABLE.h * 0.35, w: STABLE.w + 12, h: STABLE.h * 1.4 };
+const stable: Interactable = {
+  id: "stable", name: "Stable",
+  anchor: [STABLE.x + STABLE.w / 2, STABLE.y + STABLE.h + 22],
+  defaultActionId: "trade",
+  hit: (wx, wy) => wx >= stableBox.x && wx <= stableBox.x + stableBox.w && wy >= stableBox.y && wy <= stableBox.y + stableBox.h,
+  inReach: (px, py) => nearRect(px, py, STABLE),
+  actions: () => [
+    { id: "trade", label: "Browse the stable", run: (c) => c.openStable() },
+    { id: "look", label: "Look", run: (c) => c.toast("The town stable — horses in the bays, a boat and a carriage for sale. Transport, if you can afford it.") },
+  ],
+  drawHover: (g, t) => glowRect(g, stableBox.x - 2, stableBox.y - 2, stableBox.w + 4, stableBox.h + 4, t),
+};
+
+// A dock you can take your rowboat out from (v2 BLOCK #5). Owning the boat turns
+// the deck into a launch point; the row-out itself just LOGS the entry to the
+// Riverside Fisherwoman's boat/diving/net epic (§v2) — it doesn't build half of
+// it here. Without a boat it's a Look that points to the town stable. Registered
+// AFTER the fishing spots so casting keeps priority where the two overlap.
+function makeDockRowboat(id: string, box: Rect, anchor: [number, number], water: string): Interactable {
+  return {
+    id, name: "Dock",
+    anchor,
+    defaultActionId: "rowboat",
+    hit: (wx, wy) => wx >= box.x && wx <= box.x + box.w && wy >= box.y && wy <= box.y + box.h,
+    inReach: (px, py) => nearRect(px, py, box, 20),
+    actions: (c) => c.ownsRowboat()
+      ? [
+          {
+            id: "rowboat", label: "Take the rowboat out",
+            run: (c) => {
+              if (busy(c)) return;
+              c.toast(`You push off and row out onto ${water}. 🛶 Deep-water fishing, diving and nets come with the Riverside Fisherwoman.`);
+              c.memory("first_row_out", "You took your rowboat out onto the open water for the first time.");
+            },
+          },
+          { id: "look", label: "Look", run: (c) => c.toast(`Your rowboat bobs at the dock, ready to take out onto ${water}.`) },
+        ]
+      : [
+          { id: "rowboat", label: "Look", run: (c) => c.toast(`The water stretches out past the dock. With a boat you could row out — the town stable sells one.`) },
+        ],
+    drawHover: (g, t) => glowRect(g, box.x - 2, box.y - 2, box.w + 4, box.h + 4, t),
+  };
+}
+const dockRowboats: Interactable[] = [
+  makeDockRowboat("dock-rowboat-lake",
+    { x: DOCK.x, y: DOCK.y, w: DOCK.w, h: DOCK.h },
+    [DOCK.x + DOCK.w / 2, DOCK.y + DOCK.h - 6], "the lake"),
+  makeDockRowboat("dock-rowboat-town",
+    { x: TOWN_DOCK.x, y: TOWN_DOCK.y, w: TOWN_DOCK.w, h: TOWN_DOCK.h },
+    [TOWN_DOCK.x + TOWN_DOCK.w / 2, TOWN_DOCK.y - 8], "the sea"),
+];
 const wellProp: Interactable = {
   id: "well", name: "Well",
   anchor: [WELL.cx, WELL.cy + WELL.r + 26],
@@ -530,8 +587,8 @@ const doorMat: Interactable = {
 
 export const INTERACTABLES: Interactable[] = [
   pond, stall, barn, buskSpot, houseDoor, house, outhouseSpot,
-  ...fishSpots, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
-  ...townMerchants, townInn, ...townHomes,   // coastal town (v2 BLOCK #3)
+  ...fishSpots, ...dockRowboats, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
+  ...townMerchants, townInn, ...townHomes, stable,   // coastal town (v2 BLOCK #3 + stable, BLOCK #5)
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];
 

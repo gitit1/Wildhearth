@@ -501,6 +501,58 @@ export function drawInn(g: CanvasRenderingContext2D, r: Rect) {
   g.textAlign = "start"; g.textBaseline = "alphabetic";
 }
 
+/** The town STABLE (v2 BLOCK #5 — the transport vendor). A low, broad timber
+ *  stable: two dark open stall bays with a horse's head peering from one, a
+ *  hanging horseshoe sign, and a rail-fenced paddock strip to the right. Code-
+ *  drawn (a dedicated PixelLab sprite is a logged wanted follow-up); reads
+ *  distinct from the inn/homes so no town building repeats. */
+export function drawStable(g: CanvasRenderingContext2D, r: Rect) {
+  const { x, y, w, h } = r;
+  const cx = x + w / 2;
+  castShadow(g, cx, y + h, w * 0.5, h * 1.05);
+  shadow(g, cx + 7, y + h + 7, w * 0.58, 11);
+  // weathered plank body
+  const wallTop = y - h * 0.06, wallH = h * 1.06;
+  drawPlankWall(g, x, wallTop, w, wallH, "#a9713c", 6217);
+  // corner posts
+  g.fillStyle = "#5d3c1f";
+  for (const px of [x + 1, x + w - 5]) g.fillRect(px, wallTop, 4, wallH);
+  // two dark stall bays (open doorways), a low rail across their fronts
+  const bayY = y + h * 0.28, bayH = h * 0.62;
+  for (let i = 0; i < 2; i++) {
+    const bx = x + w * (0.1 + i * 0.46), bw = w * 0.34;
+    oRect(g, bx, bayY, bw, bayH, "#2b1c11");
+    // half-door rail
+    g.strokeStyle = "#6b4a28"; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(bx, bayY + bayH * 0.52); g.lineTo(bx + bw, bayY + bayH * 0.52); g.stroke();
+  }
+  // a horse's head peering from the left bay (warm brown muzzle + dark eye + mane)
+  const hx = x + w * 0.19, hy = bayY + bayH * 0.34;
+  g.fillStyle = "#7a4f2c";
+  g.beginPath(); g.ellipse(hx, hy, w * 0.07, h * 0.16, -0.18, 0, 7); g.fill(); outline(g);
+  g.fillStyle = "#3a2412";                              // mane
+  g.beginPath(); g.ellipse(hx - w * 0.05, hy - h * 0.08, w * 0.035, h * 0.11, -0.2, 0, 7); g.fill();
+  g.fillStyle = "#1a0f07";                              // eye
+  g.beginPath(); g.arc(hx + w * 0.01, hy - h * 0.03, 1.6, 0, 7); g.fill();
+  g.fillStyle = "#5d3c1f";                              // ear
+  g.beginPath(); g.moveTo(hx - w * 0.02, hy - h * 0.14); g.lineTo(hx + w * 0.02, hy - h * 0.2); g.lineTo(hx + w * 0.04, hy - h * 0.11); g.closePath(); g.fill();
+  // broad low gable shingle roof
+  drawShingleRoof(g, cx, wallTop - h * 0.42, x - 9, x + w + 9, wallTop + h * 0.14, "#6b4326", false, 6218);
+  // hanging horseshoe sign off the left face
+  g.strokeStyle = "#4a3320"; g.lineWidth = 2.5;
+  g.beginPath(); g.moveTo(x - 2, y + h * 0.1); g.lineTo(x - 15, y + h * 0.1); g.stroke();
+  g.fillStyle = "#caa35a"; g.fillRect(x - 21, y + h * 0.12, 18, 16);
+  g.strokeStyle = "#4a3320"; g.lineWidth = 1.5; g.strokeRect(x - 21, y + h * 0.12, 18, 16);
+  g.strokeStyle = "#3a2614"; g.lineWidth = 2;           // a horseshoe glyph
+  g.beginPath(); g.arc(x - 12, y + h * 0.12 + 9, 5, Math.PI * 0.15, Math.PI * 0.85, false); g.stroke();
+  // paddock rail strip along the right side (a couple of posts + two rails)
+  const px0 = x + w + 4, px1 = x + w + 22, ry0 = y + h * 0.5;
+  g.strokeStyle = "#6b4a28"; g.lineWidth = 3;
+  for (const py of [ry0, ry0 + 9]) { g.beginPath(); g.moveTo(px0, py); g.lineTo(px1, py); g.stroke(); }
+  g.fillStyle = "#5d3c1f";
+  for (const pp of [px0, px1]) g.fillRect(pp - 1.5, ry0 - 4, 3, 18);
+}
+
 /** A rickety wooden outhouse (Needs engine): weathered planks, a mono-pitch
  *  shingle roof, and a door with the classic crescent-moon cutout. Tasteful
  *  and small — the farm's bathroom spot before any plumbing exists. */

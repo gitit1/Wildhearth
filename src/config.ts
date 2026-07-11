@@ -236,6 +236,29 @@ export const TRAVEL_MINUTES_PER_TILE = 1.0;// in-game minutes per tile travelled
 export const TRAVEL_MAX_MINUTES = 90;      // cap: a cross-map hop never blows a whole day
 
 // ===========================================================================
+//  Transportation vendors (v2 BLOCK #5) — the town STABLE sells old-world
+//  transport (VISION §9: horses, carriages, boats — "available to buy from
+//  early game, gated by money"). ROADMAP_TO_V5 §v2: "boats (Fisherwoman), then
+//  horses/carriages tied to a town stable." Owned transport has REAL effects,
+//  not just a ledger entry:
+//   - a HORSE she can mount/dismount for faster overland travel + stamina-free
+//     walking + a cheaper fast-travel fare (she rides part of the way herself);
+//   - a CARRIAGE (her own coach) — fast travel costs no coachman fare at all;
+//   - a ROWBOAT — unlocks the dock "take the boat out" interaction (the entry
+//     point to the Riverside Fisherwoman's boat/diving/net epic — see §v2).
+//  Prices sit on the anchor scale as mid-game sinks (VISION table: the cow at
+//  150-200 is a "real, multi-session savings target"; transport is a peer
+//  aspiration): the rowboat is the entry buy, the horse a solid saving, the
+//  carriage the luxury top. Every magnitude below is a tuning knob.
+// ===========================================================================
+export const ROWBOAT_PRICE = 160;         // entry transport — a modest boat (below the cow tier)
+export const HORSE_PRICE = 240;           // a solid mid-game saving (just past the cow)
+export const CARRIAGE_PRICE = 360;        // the luxury: your own coach — the top transport sink
+export const MOUNT_SPEED_MULT = 1.7;      // overland walk speed while mounted on the horse
+export const HORSE_FARE_DISCOUNT = 0.4;   // fraction shaved off a fast-travel fare when you own a horse
+export const CARRIAGE_FARE_DISCOUNT = 1.0;// your own coach: fares are free (still costs clock time, no teleport)
+
+// ===========================================================================
 //  Dialogue engine (Part A #4, mechanical layer) — condition-keyed opening
 //  lines + shallow choice trees, shown in the bottom-box. Every magnitude a knob.
 // ===========================================================================
@@ -605,6 +628,7 @@ export const QUESTS_KEY = "wildhearth-quests-v1";    // quest log: accepted/acti
 export const CUSTOMERS_KEY = "wildhearth-customers-v1"; // daily customer ledger (v2: customers come to your stall)
 export const REPUTATION_KEY = "wildhearth-reputation-v1"; // town-wide Fame 0-100 (v2 block #2)
 export const DISCOVERY_KEY = "wildhearth-discovery-v1"; // fast-travel nodes reached on foot (v2 block #4)
+export const TRANSPORT_KEY = "wildhearth-transport-v1"; // owned transport: rowboat/horse/carriage (v2 block #5)
 
 // ===========================================================================
 //  Quest system (R6) — authored quests + AI dynamic offers → one quest log.

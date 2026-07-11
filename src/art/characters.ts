@@ -13,7 +13,7 @@ import {
   drawQuadruped, drawBird, COW_RIG, HEN_RIG, QUAD_STRIDE, BIRD_STRIDE,
   PIG_RIG, SHEEP_RIG, DUCK_RIG, RABBIT_RIG, CAT_RIG, DOG_RIG,
 } from "./animalRig";
-import { roundR, outline } from "./shapes";
+import { roundR, outline, shadow } from "./shapes";
 import { DEFAULT_PLAYER_RIG, type Player } from "../entities/player";
 import type { Cow, Hen, Duck, Pig, Sheep } from "../entities/animals";
 import type { Npc } from "../entities/npc";
@@ -34,6 +34,68 @@ export function drawFarmer(
   // plumbing through main.ts
   if (useSprite && drawPlayerSprite(g, p, t)) return;
   drawRig(g, p.x, p.y, p.dir, rig, p.pose, p.dist / RIG_STRIDE, t);
+}
+
+/** How far to LIFT the mounted rider so she sits on the horse's back rather than
+ *  standing through it (main.ts translates her draw up by this when mounted). */
+export const MOUNT_LIFT = 13;
+
+/**
+ * A code-drawn horse UNDER the player while she's mounted (v2 BLOCK #5). A
+ * simple side-view horse whose hooves plant ~18px below player.y (so its back
+ * meets her lifted feet); it faces the way she last moved and its legs swing a
+ * little while she rides. This is the acceptable v1 of the mount visual — a
+ * dedicated PixelLab horse-with-rider sprite is a logged wanted follow-up.
+ */
+export function drawMount(g: CanvasRenderingContext2D, p: Player, t: number) {
+  const faceLeft = p.dir === 3 || (p.dir !== 1 && p.mvx < -0.01);
+  const groundY = p.y + 18;
+  const backY = groundY - 15;
+  const bob = p.moving ? Math.sin(p.dist / 7) * 1.2 : Math.sin(t * 2) * 0.4;
+
+  g.save();
+  g.translate(p.x, 0);
+  if (faceLeft) g.scale(-1, 1);   // model drawn facing RIGHT; flip for left
+
+  shadow(g, 0, groundY + 1, 19, 4.5);
+
+  const brown = "#7a4f2c", dark = "#3a2412", hoof = "#241708";
+  const swing = p.moving ? Math.sin(p.dist / 6) * 3 : 0;
+  // legs (far pair first, dimmer for depth), swinging in opposite phase
+  const legAt = (lx: number, dx: number, col: string) => {
+    g.strokeStyle = col; g.lineWidth = 3.4;
+    g.beginPath(); g.moveTo(lx, backY + 6); g.lineTo(lx + dx, groundY); g.stroke();
+    g.fillStyle = hoof; g.fillRect(lx + dx - 2, groundY - 1.5, 4, 3);
+  };
+  legAt(-9, swing, "#5d3c22"); legAt(11, -swing, "#5d3c22");        // far legs
+  legAt(-11, -swing, brown); legAt(13, swing, brown);              // near legs
+  // tail (behind — the left/back end)
+  g.strokeStyle = dark; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(-16, backY + 1);
+  g.quadraticCurveTo(-21, backY + 6, -19, groundY - 3);
+  g.stroke();
+  // body
+  g.fillStyle = brown;
+  g.beginPath(); g.ellipse(0, backY + bob, 17, 9, 0, 0, 7); g.fill(); outline(g);
+  // saddle blanket + saddle
+  g.fillStyle = "#a24a3a"; roundR(g, -7, backY - 7 + bob, 15, 7, 2); g.fill();
+  g.fillStyle = "#6b4a28"; roundR(g, -4, backY - 8 + bob, 9, 5, 2); g.fill(); outline(g);
+  // neck + head toward the front (right)
+  g.fillStyle = brown;
+  g.beginPath();
+  g.moveTo(11, backY - 3 + bob);
+  g.lineTo(20, backY - 12 + bob);
+  g.lineTo(25, backY - 10 + bob);
+  g.lineTo(24, backY - 4 + bob);
+  g.lineTo(15, backY + 3 + bob);
+  g.closePath(); g.fill(); outline(g);
+  // muzzle + ear + eye + mane
+  g.fillStyle = brown; g.beginPath(); g.ellipse(24, backY - 8 + bob, 3.6, 2.8, 0.5, 0, 7); g.fill(); outline(g);
+  g.fillStyle = dark;
+  g.beginPath(); g.moveTo(19, backY - 12 + bob); g.lineTo(21, backY - 17 + bob); g.lineTo(23, backY - 11 + bob); g.closePath(); g.fill();  // ear
+  g.beginPath(); g.moveTo(11, backY - 4 + bob); g.lineTo(19, backY - 13 + bob); g.lineTo(15, backY - 2 + bob); g.closePath(); g.fill();   // mane
+  g.fillStyle = "#0f0803"; g.beginPath(); g.arc(21, backY - 9 + bob, 1.3, 0, 7); g.fill();  // eye
+  g.restore();
 }
 
 /** Live relationship readout for the name pill (Relationship engine). Romance
