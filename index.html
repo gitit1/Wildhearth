@@ -35,6 +35,11 @@
       background:rgba(25,32,18,.85);color:#f0ead6;font-size:24px;line-height:1;
       display:flex;align-items:center;justify-content:center;padding:0}
     .tool-btn.active{background:rgba(230,190,80,.9);border-color:#b8912f}
+    /* R8/B6: active-quest count badge on the quest dock icon */
+    #questBtn{position:relative;overflow:visible}
+    .tool-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:10px;
+      background:#c94f3a;color:#fff;font-size:11px;font-weight:800;line-height:18px;text-align:center;
+      padding:0 4px;border:2px solid #2b2313;box-shadow:0 2px 5px rgba(0,0,0,.5);pointer-events:none}
     /* Windows migration I: backpack/skills/minimap/memory book/shop/gift are
        real wm windows now (src/ui/backpack.ts etc. + src/ui/windows/
        scalewindow.ts) — chrome (background/border/shadow/position/z-index/

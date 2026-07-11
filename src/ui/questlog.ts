@@ -39,6 +39,7 @@ export interface QuestLogHooks {
 
 let win: WindowHandle;
 let questBtn: HTMLElement | null;
+let questBadge: HTMLElement | null = null;
 let log: QuestLog;
 let hooks: QuestLogHooks;
 let tab: "active" | "done" = "active";
@@ -51,11 +52,18 @@ export function initQuestLog(questLog: QuestLog, h: QuestLogHooks) {
   hooks = h;
   const panel = document.getElementById("questPanel")!;
   questBtn = document.getElementById("questBtn");
+  // B6: a small active-quest count badge on the dock icon (like What's New's).
+  if (questBtn) {
+    questBadge = document.createElement("span");
+    questBadge.className = "tool-badge";
+    questBtn.appendChild(questBadge);
+  }
 
   document.getElementById("qTabActive")!.addEventListener("click", () => { tab = "active"; syncTabs(); render(); });
   document.getElementById("qTabDone")!.addEventListener("click", () => { tab = "done"; syncTabs(); render(); });
 
   render();   // populate before createScaleWindow measures the natural size
+  syncBadge();
 
   win = createScaleWindow({
     id: "quests", title: "Quest Log", icon: "📋",
@@ -73,7 +81,16 @@ export function initQuestLog(questLog: QuestLog, h: QuestLogHooks) {
 /** Call every frame; repaints only while open. `force` is accepted for parity
  *  with the other panels (render is cheap, so it always repaints when open). */
 export function updateQuestLog() {
+  syncBadge();   // keep the dock badge live even while the window is closed
   if (win.isOpen()) render();
+}
+
+/** Paint the dock-icon badge with the active-quest count (hidden at zero). */
+function syncBadge() {
+  if (!questBadge) return;
+  const n = activeQuests(log).length;
+  questBadge.textContent = String(n);
+  questBadge.style.display = n > 0 ? "" : "none";
 }
 
 function syncTabs() {

@@ -29,6 +29,19 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## quests — active-quest count badge on the dock icon (R8/B6)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R8/B6 — a small active-quest count on the quest-log dock icon.
+- **`src/ui/questlog.ts`:** `initQuestLog` appends a `.tool-badge` span to
+  `#questBtn`; new `syncBadge()` sets it to `activeQuests(log).length` and hides
+  it at zero. Called on init and from `updateQuestLog()` (which is wired to
+  `onQuestsChanged`), so it stays live even while the quest window is closed.
+- **`index.html`:** `.tool-badge` chrome (red pill, top-right of the icon,
+  matching the What's-New menu badge) + `#questBtn{position:relative}`.
+- **Verified:** headless Edge — accepted Maren's "Tavern Night" via dialogue; the
+  quest icon then shows a red "1" badge. It sits in the icon corner without
+  fighting the dock layout. `npm run build` green.
+
 ## world — pixel water glints + field-furrow / plaza-cobble ground niggles (R8/B5, B4)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R8/B5 — restyle the water shimmer from smooth white ellipses
