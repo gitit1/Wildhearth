@@ -29,6 +29,19 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## ui — the remaining 8 NPC dialogue portraits wired in
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** the generation agent delivered the 8 missing NPC bust
+  portraits (liora, sera, henrik, petra, ada, jonas, finn, bram — 160 gens,
+  verified against their sprites); drop them into the data-driven portrait
+  slot R8 built.
+- **Done:** copied the 8 PNGs into `src/assets/pixellab/ui/portraits/`
+  (joining maren + tobin — all 10 NPCs now show a bust in the dialogue
+  window's notch; R8's map auto-wires by filename, zero code change).
+- **Build:** `npm run build` green. Dual-path intact (a missing portrait
+  simply reflows the dialogue full-width).
+- **Follow-ups:** none.
+
 ## systems — town-wide Reputation / Fame (v2 economy block #2)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** v2 BLOCK #2 per `ROADMAP_TO_V5.md` §v2 ("`systems/reputation.ts`
