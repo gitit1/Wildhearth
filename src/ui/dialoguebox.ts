@@ -50,6 +50,21 @@ export interface DialogueHooks {
   recentScripted?: (npcId: string) => ReadonlySet<string>;
   /** Record an authored line actually shown (#7 — persisted scripted variety). */
   recordScripted?: (npcId: string, text: string) => void;
+  /** Quest offers / turn-ins to surface as extra opening choices for this NPC
+   *  (R6). Empty/absent → no quest choices (the dialogue tree is unchanged). */
+  questOptions?: (npcId: string) => QuestDialogueOption[];
+}
+
+/** A dynamic quest-related choice injected into the giver's opening turn (R6).
+ *  `pick()` runs the effect (accept / turn in / decline) and returns the NPC's
+ *  spoken reply plus any follow-up options (e.g. Accept / Not now). */
+export interface QuestDialogueOption {
+  label: string;
+  pick: () => QuestPickResult;
+}
+export interface QuestPickResult {
+  line: string;
+  options?: QuestDialogueOption[];
 }
 
 let win: WindowHandle;
@@ -137,6 +152,29 @@ function openingChoices(root: DialogueChoice[]): DialogueChoice[] {
   return [...authored, BACKSTORY_CHOICE, THOUGHT_CHOICE, { label: "Farewell", end: true }];
 }
 
+/** Quest offer/turn-in buttons for the current NPC, shown FIRST on the opening
+ *  turn (R6). Picking one runs its effect and shows the reply + any follow-up. */
+function questButtons(): Button[] {
+  if (!def || !hooks.questOptions) return [];
+  return hooks.questOptions(def.id).map((opt) => ({ label: opt.label, onClick: () => runQuestOption(opt) }));
+}
+
+/** Run a picked quest option: show the NPC's reply, then its follow-up options
+ *  (Accept / Not now) plus a way back to the conversation and out. */
+function runQuestOption(opt: QuestDialogueOption) {
+  const res = opt.pick();
+  const buttons: Button[] = (res.options ?? []).map((o) => ({ label: o.label, onClick: () => runQuestOption(o) }));
+  buttons.push({ label: "Let's talk of something else", onClick: () => backToRoot() });
+  buttons.push({ label: "Farewell", onClick: () => closeDialogue() });
+  paint(res.line, buttons);
+}
+
+/** The full opening button row: quest options first, then the authored/meta
+ *  choices mapped to buttons. */
+function openingButtons(root: DialogueChoice[]): Button[] {
+  return [...questButtons(), ...openingChoices(root).map((c) => ({ label: c.label, onClick: () => choose(c) }))];
+}
+
 /** Open a conversation with `def`: resolve the condition-keyed opening line and
  *  present the root + meta choices. */
 export function openDialogue(target: NpcDef) {
@@ -148,7 +186,7 @@ export function openDialogue(target: NpcDef) {
   win.setTitle(target.name);   // set once — can't change mid-conversation
   const wc = hooks.worldFor(target.id);
   const text = lineFor(target, wc, dlg.openings, "opening");
-  renderChoices(text, openingChoices(dlg.root));
+  paint(text, openingButtons(dlg.root));
   win.open();
 }
 
@@ -217,11 +255,12 @@ function showPage(pages: string[], idx: number, kind: "backstory" | "thought") {
   paint(pages[idx] ?? "…", buttons);
 }
 
-/** Re-open the opening turn (a fresh opening line + the root + meta choices). */
+/** Re-open the opening turn (a fresh opening line + quest options + the root +
+ *  meta choices). */
 function backToRoot() {
   if (!def || !dlg) return;
   const wc = hooks.worldFor(def.id);
-  renderChoices(lineFor(def, wc, dlg.openings, "opening"), openingChoices(dlg.root));
+  paint(lineFor(def, wc, dlg.openings, "opening"), openingButtons(dlg.root));
 }
 
 function renderChoices(text: string, choices: DialogueChoice[]) {

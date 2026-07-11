@@ -29,6 +29,38 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## quests — dialogue offers + turn-ins at the giver NPCs (R6, commit 4)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R6 commit 4 — quest offers and turn-ins surface as dialogue
+  choices with the giver NPC (most-specific-wins convention preserved);
+  accepting/completing updates relationships per the rewards.
+- **`src/ui/dialoguebox.ts`:** new `questOptions?(npcId)` hook + exported
+  `QuestDialogueOption` / `QuestPickResult` types. Quest choices are injected
+  FIRST on the opening turn (`questButtons()` → `openingButtons()`), ahead of
+  the authored root + meta choices; `runQuestOption` shows the giver's reply
+  and any follow-up (Accept / Not now) then a way back / out. `openDialogue`
+  and `backToRoot` now paint via `openingButtons`. `systems/dialogue.ts` stays
+  pure (untouched) — all quest wiring lives in the UI/main layers via the hook.
+- **`src/main.ts`:** `questOptionsFor(npcId)` builds the giver's options — every
+  READY quest to hand in (`turnInReadyFor`) plus ONE new offer (`aiOfferFor`
+  first, else the first `offerableFor` under `questAvailCtx()` =
+  day/season/skill/relationship). `offerOption` states the ask in the giver's
+  voice then Accept (`acceptQuestFlow`) / Not now. The AI offer only flavours
+  the WORDS; the accepted quest's steps + reward are always the authored
+  template's (balance-safe). Turn-in flows through `turnInQuestFlow`, whose
+  reward path already bumps Friendship with the giver (`grantQuestReward` →
+  `dialogueBump` + heart thresholds). Added `readRelationship` import + the
+  `questOptions` hook to `initDialogue`.
+- **Verified (headless Edge + puppeteer):** talk to Maren → opening turn carries
+  "You look like you could use a hand — 'Tavern Night'" (screenshot
+  `scratchpad/quests/dialogue-offer.png`); pick it → she states the ask →
+  "I'll do it." accepts (quest active, "Bless you…"); gather 5 fish, talk again
+  → "Here's what you asked for — 'Tavern Night'" → turn in → coins 50→90,
+  Maren Friendship 8, quest Completed. Petra's offer + "Not just now." declines
+  cleanly (quest not accepted). No console errors. `npm run build` green.
+- **Follow-ups:** commit 5 = D3 AI dynamic offer promotion (behind the AI master
+  toggle; scripted fallback; byte-identical with AI off).
+
 ## quests — the quest-log window + step-complete nudge (R6, commit 3)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R6 commit 3 — a proper quest-log window (window-system

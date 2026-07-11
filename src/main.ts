@@ -79,7 +79,7 @@ import {
 import { getWorldContext } from "./systems/worldContext";
 import {
   loadRelationships, resetRelationships, decayRelationships, giveGift, applyInteraction,
-  markContact, relationshipSummary, dialogueBump, saveRelationships,
+  markContact, relationshipSummary, dialogueBump, saveRelationships, readRelationship,
 } from "./systems/relationships";
 import { initDialogue, openDialogue, isDialogueOpen, closeDialogue, peekOpeningText } from "./ui/dialoguebox";
 import type { ChoiceEffect } from "./systems/dialogue";
@@ -150,8 +150,11 @@ import {
 import {
   loadQuests, resetQuests, saveQuests, notifyQuests, refreshQuests, turnInQuest,
   acceptQuest, abandonQuest, activeQuests, completedQuests,
-  type QuestLog, type QuestEvent, type QuestResult,
+  turnInReadyFor, offerableFor, aiOfferFor,
+  type QuestLog, type QuestEvent, type QuestResult, type AvailCtx,
 } from "./systems/quests";
+import { questById as questDefById } from "./data/quests";
+import type { QuestDialogueOption } from "./ui/dialoguebox";
 import { rigFromCharacter } from "./entities/player";
 import type { RigParams } from "./art/rig";
 import { nearRect, setCollisionScene, type Scene } from "./world/collision";
@@ -609,6 +612,7 @@ initDialogue({
   // session-only rotation (empty set / no-op record).
   recentScripted: (id) => aiCtx.enabled("memory") ? antiRep.recentScripted(id) : new Set<string>(),
   recordScripted: (id, text) => { if (aiCtx.enabled("memory")) antiRep.recordScripted(id, text); },
+  questOptions: questOptionsFor,   // R6: quest offers / turn-ins as dialogue choices
   onOpen: (def) => {
     const n = npcById(npcs, def.id);
     if (n) startTalking(n, player.x, player.y);
@@ -1211,6 +1215,59 @@ function abandonQuestFlow(id: string): boolean {
   const done = abandonQuest(quests, id);
   if (done) { toast("Quest abandoned."); onQuestsChanged(); }
   return done;
+}
+
+/** The availability context for offering (day/season/skill/relationship). */
+function questAvailCtx(): AvailCtx {
+  return {
+    absoluteDay: absoluteDay(calendar),
+    season: currentSeason(calendar),
+    skillValue: (id) => skillValue(skills, id),
+    friendship: (id) => readRelationship(relationships, id).friendship,
+  };
+}
+
+/** Quest offer / turn-in choices for a giver, shown on their opening dialogue
+ *  turn (R6 dialogue integration). Any READY quest to hand in, plus ONE new
+ *  offer (a validated AI offer if the giver has one, else the first authored
+ *  offerable). The AI offer only flavours the giver's WORDS — the accepted
+ *  quest's steps + reward are always the authored template's (balance-safe). */
+function questOptionsFor(npcId: string): QuestDialogueOption[] {
+  const opts: QuestDialogueOption[] = [];
+
+  for (const st of turnInReadyFor(quests, npcId, heldCount)) {
+    const def = questDefById(st.id);
+    if (!def) continue;
+    opts.push({
+      label: `Here's what you asked for — “${def.title}”`,
+      pick: () => { turnInQuestFlow(st.id); return { line: "“That's the lot — much obliged! Here's your due.”" }; },
+    });
+  }
+
+  const ai = aiOfferFor(quests, npcId);
+  if (ai) {
+    const def = questDefById(ai.questId);
+    if (def) opts.push(offerOption(def.id, ai.title, ai.description));
+  } else {
+    const authored = offerableFor(quests, npcId, questAvailCtx());
+    if (authored.length) opts.push(offerOption(authored[0]!.id, authored[0]!.title, authored[0]!.description));
+  }
+  return opts;
+}
+
+/** One "will you take this?" option: the giver states the ask, then Accept /
+ *  Not now. Accepting takes the AUTHORED quest (its steps + reward). */
+function offerOption(questId: string, title: string, ask: string): QuestDialogueOption {
+  return {
+    label: `You look like you could use a hand — “${title}”`,
+    pick: () => ({
+      line: ask,
+      options: [
+        { label: "I'll do it.", pick: () => { acceptQuestFlow(questId); return { line: "“Bless you. I'll be right here when it's done.”" }; } },
+        { label: "Not just now.", pick: () => ({ line: "“No matter — another time, perhaps.”" }) },
+      ],
+    }),
+  };
 }
 
 /** Builds the interaction context (used by the tick and the dev bridge). The
