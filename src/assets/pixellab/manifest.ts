@@ -11,12 +11,14 @@
  *  - LOOSE single PNGs (buildings, interior, one-off props): drawn whole by
  *    sprite(id) / drawGroundSprite(). id = path minus "./" and ".png", e.g.
  *    buildings/farmhouse, interior/hearth.
- *  - SHEET ATLASES (characters — heroine + NPCs): ONE <name>.sheet.png packed
- *    by scripts/packsheets.mjs, its frame map in a sibling <name>.sheet.json.
+ *  - SHEET ATLASES (characters — the 10 NPCs + the player matrix): ONE
+ *    <name>.sheet.png packed by scripts/packsheets.mjs, its frame map in a
+ *    sibling <name>.sheet.json.
  *    Vite emits the big atlas as a single hashed file (instead of inlining
  *    dozens of sub-4KB frame PNGs as base64, which bloated the JS bundle). The
  *    atlas PNG lands in SPRITE_MANIFEST under id "<name>.sheet"; the JSON lands
- *    in SHEET_MANIFEST under the sheet id "<name>" (e.g. characters/heroine).
+ *    in SHEET_MANIFEST under the sheet id "<name>" (e.g. characters/maren, or
+ *    the player look characters/matrix/matrix-female-long-rustdress).
  *    art/sprites.ts's spriteFrame(sheetId, frameName) returns a source sub-rect.
  *
  * If the folder is EMPTY (no sprite files committed), both manifests are []
@@ -55,7 +57,7 @@ export interface SheetData {
 }
 
 export interface SheetEntry {
-  id: string;         // sheet id, e.g. "characters/heroine" (drives spriteFrame)
+  id: string;         // sheet id, e.g. "characters/maren" (drives spriteFrame)
   data: SheetData;
 }
 

@@ -29,6 +29,26 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## assets — delete the legacy heroine sprite sheets, replaced by the matrix (R8/B2)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R1's curated matrix (`characters/matrix/*`) became the shipped
+  player look; the five old `characters/heroine*.sheet.{png,json}` pairs (~968KB)
+  were left behind unused. Delete them.
+- **Verified nothing imports them FIRST:** `spriteChar.ts` resolves only
+  `characters/matrix/matrix-<gender>-<hair>-<outfit>` sheet ids; a repo-wide grep
+  for the string `"…heroine…"` in `.ts` found ZERO code references (only doc
+  comments / examples). The code-drawn rig fallback (`drawFarmer`) is independent
+  of any PNG sheet, so it is unaffected.
+- **Deleted:** `heroine.sheet.*`, `heroine-bun.sheet.*`, `heroine-cropped.sheet.*`,
+  `heroine-ponytail.sheet.*`, `heroine-short.sheet.*` (10 files, 968KB). The glob
+  manifest picks up the remaining sheets automatically (no code change needed);
+  freshened the two stale `manifest.ts` example comments from `characters/heroine`
+  to `characters/maren` / the matrix id.
+- **Verified:** `npm run build` green (no heroine refs, smaller bundle — the four
+  big heroine atlases no longer emitted); headless Edge — the matrix player
+  preview in Character Creation still renders (rust dress + long hair), so both
+  the sprite path and the rig fallback are intact.
+
 ## saves — fold STORAGE_KEY into GAME_KEYS so New Game wipes the barn (R8/B3)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R5's barn-storage `STORAGE_KEY` was missing from
