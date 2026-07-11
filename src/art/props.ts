@@ -1,6 +1,7 @@
 import {
   T, SPRITE_TREE_SCALE, SPRITE_TREE_JITTER, SPRITE_CROP_SCALE, SPRITE_CROP_BASE_DY,
   SPRITE_BUSH_SCALE, SPRITE_BUSH_JITTER, SPRITE_PROP_SCALE, SPRITE_FENCE_SCALE,
+  SPRITE_HEDGE_SCALE,
 } from "../config";
 import { FIELD, POND, RIVER, LAKE, DOCK, FISH_SPOTS, type Rect } from "../world/zones";
 import { mulberry32 } from "../engine/rng";
@@ -242,6 +243,36 @@ function drawBlossoms(g: CanvasRenderingContext2D, sx: number, y: number, rnd: (
 /** A leafy hedge wall — the "natural bound" sealing the farm's east side. Drawn
  *  as a run of overlapping green mounds with a shadowed base. */
 export function drawHedge(g: CanvasRenderingContext2D, r: { x: number; y: number; w: number; h: number }, t: number) {
+  // ---- sprite path: tile a leafy segment DOWN the N–S strip, alternating the
+  // two hedge variants (+ a per-position horizontal flip) so a run never reads
+  // as stamped clones; the code painter below is the zero-PNG fallback. The
+  // segment is drawn base-on-ground at each step, overlapping slightly into a
+  // continuous band. Overhead layer (not depth-sorted), same as the call site. ----
+  const ha = sprite("foliage/hedge-a");
+  if (ha) {
+    const hb = sprite("foliage/hedge-b");
+    const s = SPRITE_HEDGE_SCALE;
+    const cx = r.x + r.w / 2;
+    const segH = ha.naturalHeight * s * 0.82;     // overlap so segments meet
+    let i = 0;
+    for (let yy = r.y; yy < r.y + r.h; yy += segH, i++) {
+      const useB = hb && (i & 1) === 1;
+      const img = useB ? hb! : ha;
+      const id = useB ? "foliage/hedge-b" : "foliage/hedge-a";
+      const a = spriteBaseAnchor(id, img);
+      const footY = Math.min(yy + segH, r.y + r.h);
+      const flip = mulberry32((r.x * 13 + yy * 7) | 0)() < 0.5;
+      if (flip) {
+        g.save(); g.translate(cx * 2, 0); g.scale(-1, 1);
+        drawGroundSprite(g, img, cx, footY, a.cx, a.foot, s);
+        g.restore();
+      } else {
+        drawGroundSprite(g, img, cx, footY, a.cx, a.foot, s);
+      }
+    }
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   const rnd = mulberry32((r.x * 7 + r.y) | 0);
   g.fillStyle = "rgba(20,30,12,.25)";
   g.fillRect(r.x - 2, r.y + r.h - 4, r.w + 8, 6);

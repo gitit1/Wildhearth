@@ -537,6 +537,13 @@ export const SPRITE_CHAIR_CRATE_SCALE = 1.12;
 export const SPRITE_BED_SCALE = 1.21;
 export const SPRITE_STALL_SCALE = 0.77;
 export const SPRITE_WELL_SCALE = 1.05;
+// --- "Everything-pixels" audit batch: code-drawn holdouts the owner caught on
+//     sight get PixelLab sprites (dual-path over the existing painters). Each
+//     scale maps the downloaded PNG onto its zone rect: outhouse 64x96 -> the
+//     ~35x54 OUTHOUSE rect; hedge segment 64x48 -> the ~1.4-tile-wide HEDGES
+//     band, tiled down each strip. ---
+export const SPRITE_OUTHOUSE_SCALE = 0.56;
+export const SPRITE_HEDGE_SCALE = 0.7;
 // --- Building variety batch: 6 distinct market cottages (art/buildings.ts
 //     COTTAGE_SPRITES), one scale for every variant (all cottage canvases are
 //     the same 112x128 size, same "footprint <= zone rect" recipe as above;

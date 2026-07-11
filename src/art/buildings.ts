@@ -4,6 +4,7 @@ import { mulberry32 } from "../engine/rng";
 import { sprite, drawGroundSprite, spriteBaseAnchor, recolorSprite, type SpritePlacement, type HueBand } from "./sprites";
 import {
   SPRITE_HOUSE_SCALE, SPRITE_BARN_SCALE, SPRITE_STALL_SCALE, SPRITE_WELL_SCALE, SPRITE_COTTAGE_SCALE,
+  SPRITE_OUTHOUSE_SCALE,
 } from "../config";
 
 // ---- static-sprite sheet anchors (measured alpha bbox: horizontal centre col
@@ -558,6 +559,19 @@ export function drawStable(g: CanvasRenderingContext2D, r: Rect) {
  *  and small — the farm's bathroom spot before any plumbing exists. */
 export function drawOuthouse(g: CanvasRenderingContext2D, r: Rect) {
   const { x, y, w, h } = r;
+  // ---- sprite path: the built privy, base-on-ground at the rect's bottom
+  // edge (roof overhangs above), measured alpha-bbox anchor; the code painter
+  // below is the fallback. The `outhouseSpot` interaction is keyed to the
+  // OUTHOUSE rect, not this painter — unchanged. ----
+  const img = sprite("buildings/outhouse");
+  if (img) {
+    const a = spriteBaseAnchor("buildings/outhouse", img);
+    castShadow(g, x + w / 2, y + h, w * 0.45, h);
+    shadow(g, x + w / 2 + 4, y + h + 5, w * 0.5, 7);
+    drawGroundSprite(g, img, x + w / 2, y + h, a.cx, a.foot, SPRITE_OUTHOUSE_SCALE);
+    return;
+  }
+  // ---- code-drawn fallback (painter path, unchanged) ----
   castShadow(g, x + w / 2, y + h, w * 0.45, h);
   shadow(g, x + w / 2 + 4, y + h + 5, w * 0.5, 7);
   // slightly leaning body (it IS rickety)

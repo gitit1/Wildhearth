@@ -29,6 +29,42 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## everything-pixels — outhouse + hedge become PixelLab sprites (owner's two caught holdouts)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Owner complaint (verbatim intent):** "יש עדיין חלקים במשחק שהם לא פיקסלים —
+  נגיד השירותים שמשום מה מחוץ לבית או הגדר הפרדה הזאת." The two code-drawn
+  world objects she caught on sight — the farm OUTHOUSE (bathroom fixture W of
+  the farmhouse) and the HEDGE (the N–S vegetation boundary sealing the farm's
+  east side) — were pure canvas painters with **no sprite dual-path at all**,
+  so they read as off-medium against the sprite-backed world.
+- **What shipped:** both now resolve a PixelLab sprite first, falling back to
+  the unchanged code painter with zero PNGs (CLAUDE.md hard rule #1).
+  - **Outhouse** → `src/assets/pixellab/buildings/outhouse.png` (64×96, a
+    shingle-roof plank privy). `drawOuthouse` (`src/art/buildings.ts`) gains the
+    standard building dual-path: `sprite("buildings/outhouse")` → `castShadow`
+    + `shadow` + `drawGroundSprite` base-on-ground at the OUTHOUSE rect's bottom
+    edge, measured alpha-bbox anchor (`spriteBaseAnchor`); else the painter.
+    New `SPRITE_OUTHOUSE_SCALE = 0.56` in `config.ts` (maps the 64px art onto
+    the ~35px-wide rect). The `outhouseSpot` interaction is keyed to the rect,
+    not the painter — unchanged.
+  - **Hedge** → `foliage/hedge-a.png` + `foliage/hedge-b.png` (64×48 leafy
+    segment pair). `drawHedge` (`src/art/props.ts`) gains a tiling sprite path:
+    step a segment DOWN each N–S HEDGES strip, alternating the two variants and
+    applying a per-position mulberry32 horizontal flip so a run never reads as
+    stamped clones; segments overlap (`segH * 0.82`) into a continuous band and
+    the last one clips at `r.y + r.h` (respects the road gap). Overhead layer,
+    same call site. New `SPRITE_HEDGE_SCALE = 0.7` in `config.ts`.
+- **Verified** (headless Edge + puppeteer-core, `scratchpad/pixel-audit/shots/`):
+  341/341 sprites loaded; outhouse renders as a ground-anchored pixel privy at
+  the right footprint; the hedge tiles as a continuous alternating pixel band at
+  ~1.4-tile width and clips cleanly at the road gap (no overflow into the gap);
+  scene=world, no fatal console errors. `npm run build` green (`3.46s`).
+- **Follow-ups:** the rest of the audit queue is still code-drawn pending repo
+  time / budget — dock, busk-sign, flower-bed frame, town inn (regen PASS in
+  scratchpad), town stable (PASS). All generated + verdicted in
+  `scratchpad/pixel-audit/AUDIT.md`; integration briefs there. `drawCorn`
+  (`props.ts`) remains dead code (never called) — flagged for deletion.
+
 ## character — actions keep HER sprite (no more mid-action rig swap)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Owner complaint (verbatim intent):** "הדמויות בפעולות הן לא הדמויות שבחרתי —
