@@ -455,6 +455,104 @@
     .credits-head{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
       color:var(--gold);margin-bottom:2px}
     .credits-line{font-size:15px;line-height:1.5;margin:0;opacity:.94}
+    /* ============ Project Docs — the developer/archive reading room ============
+       A near-fullscreen reading room: grouped sidebar | parchment reader | TOC,
+       with a cross-doc search. Body text uses the readable sans stack (reading
+       comfort wins); only the display headings pick up --font-title. */
+    .docs-panel{width:min(1240px,calc(100vw - 20px));height:min(92vh,900px);
+      display:flex;flex-direction:column;text-align:left;padding:16px 18px;max-width:none}
+    .docs-head{display:flex;align-items:center;gap:14px;margin-bottom:12px;
+      border-bottom:1px solid var(--hairline);padding-bottom:10px}
+    .docs-title{font-size:24px;margin:0;flex:none}
+    .docs-search{margin-left:auto;flex:0 1 320px;background:var(--cell-bg);
+      border:1px solid var(--cell-edge);border-radius:10px;color:var(--ink);
+      font:inherit;font-size:14px;padding:9px 13px;outline:none}
+    .docs-search:focus{border-color:var(--gold-soft);background:rgba(230,190,80,.1)}
+    .docs-search::placeholder{color:var(--muted)}
+    .docs-body{flex:1;min-height:0;display:flex;gap:16px}
+    /* -- sidebar -- */
+    .docs-sidebar{flex:0 0 236px;overflow-y:auto;padding-right:6px;
+      display:flex;flex-direction:column;gap:2px}
+    .docs-group{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
+      color:var(--gold);margin:14px 0 5px;padding-left:2px}
+    .docs-group:first-child{margin-top:0}
+    .docs-navitem{display:flex;flex-direction:column;gap:1px;text-align:left;width:100%;
+      background:var(--cell-bg);border:1px solid var(--cell-edge);border-radius:9px;
+      color:var(--ink);font:inherit;padding:8px 11px;cursor:pointer;transition:border-color .1s,background .1s}
+    .docs-navitem:hover{border-color:var(--gold-soft);background:rgba(230,190,80,.1)}
+    .docs-navitem.active{border-color:#b8912f;background:rgba(230,190,80,.2)}
+    .docs-navtitle{font-size:13.5px;font-weight:700;line-height:1.25}
+    .docs-navfile{font-size:10.5px;color:var(--muted);font-family:ui-monospace,Menlo,Consolas,monospace}
+    /* -- reader + toc -- */
+    .docs-readerwrap{flex:1;min-width:0;display:flex;gap:14px}
+    .docs-reader{flex:1;min-width:0;overflow-y:auto;border-radius:12px;
+      /* the parchment reading pane — warm paper, dark ink, generous measure */
+      background:linear-gradient(180deg,#f3e9d0,#ecdfc0);color:#33291a;
+      box-shadow:inset 0 0 0 1px rgba(90,64,30,.25),0 6px 18px rgba(0,0,0,.4);
+      padding:26px 34px;scroll-behavior:smooth}
+    .docs-toc{flex:0 0 194px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;
+      padding-right:2px}
+    .docs-toc.empty{display:none}
+    .docs-toc-label{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+      color:var(--muted);margin-bottom:4px}
+    .docs-toc-item{text-align:left;background:none;border:0;border-left:2px solid transparent;
+      color:var(--muted);font:inherit;font-size:12.5px;line-height:1.35;padding:3px 8px;cursor:pointer}
+    .docs-toc-item:hover{color:var(--ink);border-left-color:var(--gold-soft)}
+    .docs-toc-l3{padding-left:18px;font-size:12px;opacity:.9}
+    @media (max-width:900px){.docs-toc{display:none}.docs-sidebar{flex-basis:180px}}
+    /* -- welcome / spinner / search states -- */
+    .docs-spinner,.docs-welcome{color:#5a4a30;padding:12px 4px}
+    .docs-welcome-h{font-family:var(--font-title);font-size:22px;color:#4a3418;margin-bottom:8px}
+    .docs-welcome p{font-size:15px;line-height:1.65;max-width:52ch;margin:0}
+    .docs-results-summary{font-size:13px;font-weight:700;color:#5a4a30;
+      border-bottom:1px solid rgba(90,64,30,.25);padding-bottom:8px;margin-bottom:12px}
+    .docs-result-card{margin-bottom:16px}
+    .docs-result-doc{font-family:var(--font-title);font-size:16px;font-weight:800;color:#4a3418;margin-bottom:5px}
+    .docs-result-count{font-family:-apple-system,Segoe UI,Roboto,sans-serif;
+      font-size:12px;font-weight:600;color:#7a6238}
+    .docs-result-hit,.docs-result-more{display:block;text-align:left;width:100%;
+      background:rgba(255,255,255,.4);border:1px solid rgba(90,64,30,.18);border-radius:7px;
+      color:#3a2f1e;font:inherit;font-size:13px;line-height:1.5;padding:6px 10px;margin:4px 0;cursor:pointer;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .docs-result-hit:hover,.docs-result-more:hover{background:rgba(255,240,200,.85);border-color:var(--wood)}
+    .docs-result-more{font-style:italic;color:#6a5638;font-size:12px}
+    .docs-hl{background:#ffd54f;color:#241d0e;border-radius:2px;padding:0 1px}
+    .docs-hl-live{background:#ffcf3f;box-shadow:0 0 0 2px rgba(255,207,63,.5)}
+    /* ============ Markdown body inside the parchment reader ============ */
+    .md-body{font-size:15px;line-height:1.68;color:#33291a;max-width:74ch}
+    .md-h{font-family:var(--font-title);color:#3a2a12;line-height:1.25;margin:1.5em 0 .5em;font-weight:800}
+    .md-h1{font-size:26px;margin-top:0;border-bottom:2px solid rgba(90,64,30,.3);padding-bottom:.3em}
+    .md-h2{font-size:21px;border-bottom:1px solid rgba(90,64,30,.22);padding-bottom:.24em}
+    .md-h3{font-size:17.5px}
+    .md-h4{font-size:15.5px}
+    .md-h5,.md-h6{font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:#5a4a30}
+    .md-p{margin:.55em 0}
+    .md-body strong{font-weight:800;color:#2a2110}
+    .md-body em{font-style:italic}
+    .md-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;
+      background:rgba(90,64,30,.12);border:1px solid rgba(90,64,30,.16);border-radius:4px;padding:.05em .35em}
+    .md-pre{background:#2a2418;color:#ece3cf;border-radius:8px;padding:12px 14px;margin:.8em 0;
+      overflow-x:auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+    .md-pre code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.5;white-space:pre}
+    .md-list{margin:.5em 0;padding-left:1.5em;display:flex;flex-direction:column;gap:.28em}
+    .md-list .md-list{margin:.28em 0 0}
+    .md-li{line-height:1.55}
+    .md-li .md-check{margin-right:.15em}
+    ul.md-list{list-style:disc}
+    ol.md-list{list-style:decimal}
+    li.md-li:has(.md-check){list-style:none;margin-left:-1.2em}
+    .md-quote{border-left:3px solid var(--wood);background:rgba(90,64,30,.08);
+      margin:.7em 0;padding:.5em .9em;color:#4a3d28;font-style:italic;border-radius:0 6px 6px 0}
+    .md-body hr{border:0;border-top:2px solid rgba(90,64,30,.25);margin:1.4em 0}
+    .md-link{color:#8a5a1a;font-weight:600}
+    .md-link-url{color:#7a6238;font-size:.85em}
+    .md-table-wrap{overflow-x:auto;margin:.9em 0}
+    .md-table{border-collapse:collapse;font-size:13.5px;min-width:min(100%,420px)}
+    .md-table th,.md-table td{border:1px solid rgba(90,64,30,.28);padding:6px 11px;text-align:left;vertical-align:top}
+    .md-table th{background:rgba(90,64,30,.14);font-weight:800;color:#3a2a12}
+    .md-table tr:nth-child(even) td{background:rgba(90,64,30,.05)}
+    /* keep the parchment reader legible in a dark-forced context (it's its own
+       light surface by design; nothing to invert) */
     /* ============ Settings screen (Part E #3) ============ */
     .set-section{margin-bottom:18px}
     .set-section-title{font-size:15px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;

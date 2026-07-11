@@ -3,6 +3,7 @@ import { drawVista, drawLogo } from "../art/vista";
 import { showWhatsNew } from "./whatsnew";
 import { showHelp } from "./helpscreen";
 import { showCredits } from "./credits";
+import { showDocs } from "./docsscreen";
 import { unseenChangelogCount } from "../data/changelog";
 import type { SlotManifest } from "../systems/saveSlots";
 
@@ -139,10 +140,15 @@ export function showMainMenu(cfg: MainMenuConfig) {
   const credits = button("Credits", "btnCredits");
   credits.addEventListener("click", () => showCredits(reopen));
 
+  // Project Docs — the developer/archive reading room (owner-requested): every
+  // design doc, roadmap, log and run, in a comfortable reading + search view.
+  const docs = button("Project Docs", "btnDocs");
+  docs.addEventListener("click", () => showDocs(reopen));
+
   const exit = button("Exit", "btnExit");
   exit.addEventListener("click", () => cfg.onExit());
 
-  col.append(cont.btn, ng, wn, settings, help, credits, exit);
+  col.append(cont.btn, ng, wn, settings, help, credits, docs, exit);
   overlay.append(col);
   o.append(overlay);
 

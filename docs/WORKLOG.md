@@ -29,6 +29,75 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## ui — Project Docs, a developer/archive reading room on the main menu
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given (owner request):** a developer screen, opened from the MAIN
+  MENU, that displays EVERY doc/log in the project in a comfortable reading
+  mode — so she can audit her own planning and verify nothing was missed. A
+  first-class reading feature, invest in comfort.
+- **What shipped (player/owner-facing):** a new **"Project Docs"** button on the
+  main menu (`ui/mainmenu.ts`, between Credits and Exit) opens a near-fullscreen
+  reading room. Left: a sidebar of every markdown doc, grouped **Design docs /
+  Roadmaps / Logs / Runs / Rules** with human titles (the doc's first `#`
+  heading, falling back to the humanized filename) + the filename underneath.
+  Centre: a **parchment reading pane** (warm paper, dark ink, ~74ch measure,
+  smooth scroll) rendering the doc. Right: a **per-doc table of contents** built
+  from the doc's `##`/`###` headings, each clickable to scroll to that section.
+  Top: a **cross-doc search box** — case-insensitive, searches ALL docs at once,
+  groups snippet hits by doc with a match count, and each hit opens the doc
+  scrolled to and **highlights the match** (`<mark>`). Remembers the last-opened
+  doc for the session. Esc / Back returns to the main menu.
+- **Content is auto-globbed, zero code change for future docs:**
+  `import.meta.glob(["../../docs/*.md","../../runs/*.md","../../CLAUDE.md"],
+  {query:"?raw", import:"default"})` in `ui/docsscreen.ts` — **lazy** importers,
+  so each doc is emitted as its own hashed chunk fetched only when read/searched
+  (the game entry bundle does NOT carry doc text). Titles/search are populated by
+  a background `loadAll()` that awaits every importer once and caches the strings
+  for the tab's lifetime. Dropping a new `.md` under `docs/`, `runs/`, or a new
+  `CLAUDE.md` makes it appear automatically.
+- **New files:**
+  - `src/ui/mdrender.ts` — a small, dependency-free Markdown → **DOM** renderer
+    (`renderMarkdown(src)` returns `{node, headings}`). No `innerHTML` of doc
+    text: every piece of content is a real text node, so `<tags>` inside a doc
+    render literally and can't inject markup. Supports ATX headings,
+    bold/italic/inline-code, links (rendered as text + the URL in muted parens,
+    deliberately **non-navigating**), nested bullet/numbered lists (incl. "loose"
+    blank-line-separated lists that keep counting 1,2,3), GitHub task checkboxes
+    `[x]`/`[ ]` → ✅/⬜, pipe tables, fenced code blocks, blockquotes, and HRs.
+    Inline formatter is boundary-aware so `snake_case` / `src/**/*.png` in prose
+    don't false-trigger emphasis.
+  - `src/ui/docsscreen.ts` — the screen: glob + classify/group, lazy loading +
+    caches, sidebar, parchment reader, TOC, cross-doc search + live highlight,
+    Esc/back teardown.
+- **Changed:** `src/ui/mainmenu.ts` (import + button + column order);
+  `index.html` (a new CSS block: `.docs-panel`/sidebar/parchment reader/TOC/
+  search/results + the full `.md-*` markdown element styles). Body text uses the
+  readable sans stack; only display headings pick up `--font-title`
+  (WildhearthStorybook) — reading comfort wins.
+- **Robustness:** pure dev/meta content — touches no gameplay, saves, or the
+  zero-PNG boot. It reads files, writes nothing. The reader is its own light
+  parchment surface by design (independent of the dark game chrome).
+- **Verified (headless Edge / puppeteer, screenshots viewed):** main menu shows
+  the button; reader open on DECISIONS (grouped sidebar + TOC); WORKLOG.md
+  (6067 lines) renders in **~294 ms / 7034 nodes** on select and scrolls
+  smoothly mid-doc (one-time cost, no ongoing jank); a "festival" search →
+  **110 matches in 11 docs**, grouped with snippets; clicking a hit opens
+  FABLE_PROMPT scrolled to a highlighted "Festival"; ROADMAP_EXPANSION shows
+  **66 checkboxes + a bordered/zebra table** rendering correctly; loose
+  numbered list now a single `<ol>` (1,2,3). `npm run build` green. The only
+  console 404 is `/favicon.ico` (pre-existing, the game ships no favicon).
+- **Bundle impact:** doc text is entirely **lazy chunks** (e.g. `WORKLOG-*.js`
+  423 KB, `ROADMAP_EXPANSION` 62 KB, `PIXELLAB_ASSETS` 56 KB, … 20 chunks),
+  fetched on demand — NOT in the entry. The entry chunk grew only by the
+  screen+renderer code (`index-*.js` 567.2 KB, ~+8 KB vs. before). Requirement
+  "keep the bundle lean" met.
+- **Follow-ups:** rendering handles this repo's docs well; nested tables and
+  reference-style links `[a][b]` are not supported (no doc uses them). Search
+  snippets show the raw source line (so a hit inside `**bold**` shows the `**`)
+  — intentional, it's honest context; the in-doc highlight after clicking is
+  clean. Very long docs render eagerly on select (measured fine at 6k lines); if
+  a doc ever dwarfs WORKLOG, virtualize the reader.
+
 ## economy — customers come to your stall (v2 economy block #1)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** advance toward v5 one block at a time; take v2's FIRST
