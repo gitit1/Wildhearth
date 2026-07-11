@@ -662,6 +662,19 @@ if (import.meta.env.DEV)
     // through the REAL minute loop (so daily hooks + the panel fire exactly
     // as in play) without waiting on the sleep fade.
     dayLog: () => ({ ...dayLog }),
+    // open the FULL end-of-day panel with a rich synthetic ledger, for verifying
+    // the summary layout without playing out (and logging) a whole day.
+    showDayEnd: () => showFullSummary({
+      season: currentSeason(calendar), day: calendar.day,
+      log: {
+        coinsEarned: 214, coinsSpent: 45, itemsSold: 7, catches: 5, harvests: 4,
+        forages: 3, dishesCooked: 2,
+        skillGains: { fishing: 3, cooking: 2, husbandry: 1 },
+        relationshipChanges: { maren: { friendship: 2, romance: 0 }, jonas: { friendship: 1, romance: 1 } },
+        newDiscoveries: ["Coastal Town"],
+        newMemories: ["Sold Maren her first bouquet of the season."],
+      },
+    }, () => {}),
     setEodMode: (m: "none" | "quick" | "full") => saveSettings({ endOfDaySummary: m }),
     dayEndOpen: () => isDayEndOpen(),
     advanceDay: () => {

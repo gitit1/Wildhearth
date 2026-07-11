@@ -29,6 +29,32 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## screens — end-of-day summary redesigned (small details pass)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Owner directive:** "redesign the screens better, invest in small details."
+  The full end-of-day panel was a flat list of plain-text lines ("🪙 Coins: +5
+  (earned 10, spent 5)", "Items sold: 6", …) — informative but unstructured.
+- **What shipped (pure presentation, no logic change):** `src/ui/dayendpanel.ts`
+  `showFullSummary` rebuilt to structured DOM + new CSS in `index.html`:
+  - A **hero** line — a coin glyph + the day's NET coins big in gold
+    (`+169 / −N`, red-tinted when negative) + "coins today", with a quiet
+    "earned X · spent Y" subline.
+  - The day's tallies (items sold / fish / crops / wild finds / dishes) as an
+    aligned **receipt grid** — icon + label left, count right-aligned with
+    `font-variant-numeric: tabular-nums`; only non-zero rows show.
+  - Quiet gold **section headers** (Skills / Bonds / Today's firsts) over a
+    hairline rule; skill and relationship deltas as `+N` gold (gain) / red
+    (loss) right-aligned values; a subtle row hover.
+  - Styled empty state ("A quiet day.") centred/italic.
+  - New dev-only `__wh.showDayEnd()` (behind `import.meta.env.DEV`, so
+    dead-code-eliminated from production) opens the panel with a rich synthetic
+    ledger for layout verification without playing out a whole day.
+- **Verified** (headless Edge + puppeteer-core, `scratchpad/dayend-after.png`):
+  the panel renders the hero + aligned tallies + Skills/Bonds sections with
+  tabular right-aligned numbers, scrolls for a long day. `npm run build` green.
+- **Follow-ups:** the quick-summary pill (non-full mode) was left as-is (already
+  a tidy 3-line toast). Could later show the pixel item icons per tally row.
+
 ## trade-window-polish — the market/shop trade window, refined for detail
 - **Date:** 2026-07-11 (v1-foundation)
 - **Context:** owner directive "redesign the screens better, invest in small

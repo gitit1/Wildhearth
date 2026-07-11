@@ -58,12 +58,24 @@ let onCloseCb: (() => void) | null = null;
 
 export function isDayEndOpen(): boolean { return win.isOpen(); }
 
-function row(text: string, cls = "eod-row"): HTMLElement {
-  const div = document.createElement("div");
-  div.className = cls;
-  div.textContent = text;
-  return div;
+function el(tag: string, cls: string, text?: string): HTMLElement {
+  const n = document.createElement(tag);
+  n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
 }
+
+/** One "icon · label ……… value" line, the value right-aligned + tabular so a
+ *  column of them reads like a tidy receipt. `tone` tints the value (gain/spend). */
+function statRow(icon: string, label: string, value: string, tone = ""): HTMLElement {
+  const row = el("div", "eod-stat");
+  row.append(el("span", "eod-stat-ico", icon));
+  row.append(el("span", "eod-stat-label", label));
+  row.append(el("span", "eod-stat-val" + (tone ? " " + tone : ""), value));
+  return row;
+}
+
+const sectionHead = (text: string) => el("div", "eod-section", text);
 
 export function showFullSummary(snap: DayEndSnapshot, onClose: () => void): void {
   onCloseCb = onClose;
@@ -71,31 +83,69 @@ export function showFullSummary(snap: DayEndSnapshot, onClose: () => void): void
   win.setTitle(`${cap(snap.season)}, Day ${snap.day} — day complete`);
   bodyEl.replaceChildren();
 
-  const rows: string[] = [];
   const net = log.coinsEarned - log.coinsSpent;
-  if (log.coinsEarned || log.coinsSpent)
-    rows.push(`🪙 Coins: ${net >= 0 ? "+" : ""}${net} (earned ${log.coinsEarned}, spent ${log.coinsSpent})`);
-  if (log.itemsSold) rows.push(`Items sold: ${log.itemsSold}`);
-  if (log.catches) rows.push(`🐟 Fish caught: ${log.catches}`);
-  if (log.harvests) rows.push(`🌽 Crops harvested: ${log.harvests}`);
-  if (log.forages) rows.push(`Wild finds: ${log.forages}`);
-  if (log.dishesCooked) rows.push(`🍲 Dishes cooked: ${log.dishesCooked}`);
-  for (const [id, amt] of Object.entries(log.skillGains))
-    rows.push(`📜 ${SKILL_NAMES[id] ?? id}: +${amt}`);
-  for (const [npcId, d] of Object.entries(log.relationshipChanges)) {
-    const parts: string[] = [];
-    if (d.friendship) parts.push(`Friendship ${d.friendship > 0 ? "+" : ""}${d.friendship}`);
-    if (d.romance) parts.push(`Romance ${d.romance > 0 ? "+" : ""}${d.romance}`);
-    if (parts.length) rows.push(`${cap(npcId)}: ${parts.join(", ")}`);
-  }
-  if (rows.length === 0) rows.push("A quiet day.");
-  for (const r of rows) bodyEl.append(row(r));
+  let anything = false;
 
-  if (log.newDiscoveries.length || log.newMemories.length) {
-    bodyEl.append(row("Achievements today", "eod-achieve-head"));
-    for (const d of log.newDiscoveries) bodyEl.append(row(`📖 New find: ${d}`));
-    for (const m of log.newMemories) bodyEl.append(row(`✒ ${m}`));
+  // --- hero: the day's bottom line in coins ---
+  const hero = el("div", "eod-hero " + (net >= 0 ? "pos" : "neg"));
+  hero.append(el("span", "eod-hero-coin", "🪙"));
+  hero.append(el("span", "eod-hero-num", `${net >= 0 ? "+" : "−"}${Math.abs(net)}`));
+  hero.append(el("span", "eod-hero-lbl", "coins today"));
+  bodyEl.append(hero);
+  if (log.coinsEarned || log.coinsSpent) {
+    bodyEl.append(el("div", "eod-hero-sub", `earned ${log.coinsEarned} · spent ${log.coinsSpent}`));
+    anything = true;
   }
+
+  // --- the day's tallies ---
+  const tallies: Array<[string, string, number]> = [
+    ["🏷️", "Items sold", log.itemsSold],
+    ["🐟", "Fish caught", log.catches],
+    ["🌽", "Crops harvested", log.harvests],
+    ["🍃", "Wild finds", log.forages],
+    ["🍲", "Dishes cooked", log.dishesCooked],
+  ];
+  const shownTallies = tallies.filter(([, , n]) => n > 0);
+  if (shownTallies.length) {
+    const grid = el("div", "eod-grid");
+    for (const [ic, lbl, n] of shownTallies) grid.append(statRow(ic, lbl, String(n)));
+    bodyEl.append(grid);
+    anything = true;
+  }
+
+  // --- skills learned ---
+  const skills = Object.entries(log.skillGains);
+  if (skills.length) {
+    bodyEl.append(sectionHead("Skills"));
+    const grid = el("div", "eod-grid");
+    for (const [id, amt] of skills) grid.append(statRow("📜", SKILL_NAMES[id] ?? id, `+${amt}`, "gain"));
+    bodyEl.append(grid);
+    anything = true;
+  }
+
+  // --- bonds moved ---
+  const bonds: HTMLElement[] = [];
+  for (const [npcId, d] of Object.entries(log.relationshipChanges)) {
+    if (d.friendship) bonds.push(statRow("💛", `${cap(npcId)} · Friendship`, `${d.friendship > 0 ? "+" : "−"}${Math.abs(d.friendship)}`, d.friendship > 0 ? "gain" : "spend"));
+    if (d.romance) bonds.push(statRow("💗", `${cap(npcId)} · Romance`, `${d.romance > 0 ? "+" : "−"}${Math.abs(d.romance)}`, d.romance > 0 ? "gain" : "spend"));
+  }
+  if (bonds.length) {
+    bodyEl.append(sectionHead("Bonds"));
+    const grid = el("div", "eod-grid");
+    for (const b of bonds) grid.append(b);
+    bodyEl.append(grid);
+    anything = true;
+  }
+
+  // --- today's firsts (discoveries + memories) ---
+  if (log.newDiscoveries.length || log.newMemories.length) {
+    bodyEl.append(sectionHead("Today's firsts"));
+    for (const d of log.newDiscoveries) bodyEl.append(el("div", "eod-first", `📖  New find — ${d}`));
+    for (const m of log.newMemories) bodyEl.append(el("div", "eod-first", `✒  ${m}`));
+    anything = true;
+  }
+
+  if (!anything) bodyEl.append(el("div", "eod-quiet", "A quiet day."));
 
   win.open();
 }

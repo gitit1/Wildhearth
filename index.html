@@ -420,10 +420,29 @@
       background:var(--panel-bg);border:1.5px solid var(--wood);box-shadow:var(--pill-shadow);
       color:var(--ink);padding:10px 18px;border-radius:12px;font-size:13px;line-height:1.6;
       font-weight:700;text-align:center;z-index:6;white-space:nowrap;transition:opacity .3s linear}
-    #eodPanel{color:var(--ink);padding:14px 20px;max-height:min(500px,calc(100vh - 80px));overflow-y:auto}
-    .eod-row{font-size:14px;padding:3px 0}
-    .eod-achieve-head{color:var(--gold);font-weight:700;font-size:13px;margin:10px 0 2px;
-      border-top:1px solid var(--hairline);padding-top:8px;text-transform:uppercase;letter-spacing:.05em}
+    #eodPanel{color:var(--ink);padding:14px 20px 6px;max-height:min(500px,calc(100vh - 80px));overflow-y:auto}
+    /* hero: the day's coin bottom-line, the first thing the eye lands on */
+    .eod-hero{display:flex;align-items:baseline;justify-content:center;gap:9px;margin:2px 0 1px}
+    .eod-hero-coin{font-size:21px;align-self:center}
+    .eod-hero-num{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+    .eod-hero.pos .eod-hero-num{color:var(--gold)}
+    .eod-hero.neg .eod-hero-num{color:#d98a6b}
+    .eod-hero-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+    .eod-hero-sub{text-align:center;color:var(--muted);font-size:12px;margin:0 0 6px;
+      font-variant-numeric:tabular-nums}
+    /* tallies / skills / bonds: aligned receipt rows */
+    .eod-grid{display:flex;flex-direction:column;gap:1px;margin:2px 0}
+    .eod-stat{display:flex;align-items:center;gap:9px;padding:4px 8px;border-radius:7px}
+    .eod-stat:hover{background:rgba(255,255,255,.04)}
+    .eod-stat-ico{width:18px;text-align:center;flex:0 0 auto;font-size:14px}
+    .eod-stat-label{flex:1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .eod-stat-val{font-variant-numeric:tabular-nums;font-weight:700;min-width:42px;text-align:right}
+    .eod-stat-val.gain{color:var(--gold)}
+    .eod-stat-val.spend{color:#d98a6b}
+    .eod-section{color:var(--gold);font-weight:700;font-size:12px;margin:12px 0 4px;
+      border-top:1px solid var(--hairline);padding-top:9px;text-transform:uppercase;letter-spacing:.06em}
+    .eod-first{font-size:13.5px;padding:3px 8px;line-height:1.45}
+    .eod-quiet{text-align:center;color:var(--muted);font-style:italic;padding:20px 0 12px;font-size:15px}
     #eodHint{text-align:center;color:var(--muted);font-size:12px;margin-top:12px;font-style:italic}
     /* ===== Guidance Mode (Part A #5) ===== */
     /* Tutorial step bubble — a transparent panel, top-centre of the play area,
