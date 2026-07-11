@@ -160,6 +160,17 @@
     .shop-btn:hover{background:#f2cf6b}
     .shop-sellall{display:block;margin:calc(2px*var(--s)) auto 0}
     .shop-empty{font-size:calc(12px*var(--s));opacity:.75;padding:calc(4px*var(--s)) calc(6px*var(--s))}
+    /* Customers at your stall (v2): a warmer-tinted row that reads apart from
+       the flat sell list, with the premium price called out in the same gold. */
+    #shopCustomers .shop-row{background:rgba(230,190,80,.12);border:1px solid rgba(230,190,80,.28)}
+    .shop-cust-want{font-size:calc(11px*var(--s));opacity:.8;font-weight:600}
+    /* Each list scrolls within a bounded region (the scale-window model: the
+       window's height controls how much of the scroll region shows), so the
+       trade window opens at a sensible size instead of collapsing / running off
+       the screen when the buy list is long. */
+    #shopCustomers{max-height:calc(150px*var(--s));overflow-y:auto}
+    #shopSell{max-height:calc(230px*var(--s));overflow-y:auto}
+    #shopBuy{max-height:calc(240px*var(--s));overflow-y:auto}
     /* Barn storage window (R5): two slot grids (barn + backpack), click a slot
        to move its stack across. Reuses the shop's --s scale + cell chrome. */
     #storageWindow{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(12px*var(--s))}
@@ -738,7 +749,8 @@
   </div>
   <div id="shopWindow">
     <div class="shop-head">🪙 <span id="shopCoins">0</span></div>
-    <div class="shop-section">Sell</div>
+    <div id="shopCustomers"></div>
+    <div class="shop-section" id="shopSellLabel">Sell</div>
     <div id="shopSell"></div>
     <div class="shop-section" id="shopBuyLabel">Buy</div>
     <div id="shopBuy"></div>

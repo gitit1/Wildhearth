@@ -78,6 +78,18 @@ export function sellGood(e: Economy, id: string, qty = Infinity): number {
   return earned;
 }
 
+/** Sells an EXACT quantity of a good at a caller-supplied unit price — used by
+ *  customer sales (v2), which pay a premium over the flat GOOD_PRICES rate.
+ *  Returns coins earned, or 0 if the backpack doesn't hold that many. */
+export function sellGoodAt(e: Economy, id: string, qty: number, unitPrice: number): number {
+  if (qty <= 0 || countItem(e.inv, id) < qty) return 0;
+  removeItem(e.inv, id, qty);
+  const earned = unitPrice * qty;
+  e.coins += earned;
+  saveEconomy(e);
+  return earned;
+}
+
 /** Sells everything with a price; returns total coins earned. */
 export function sellAllGoods(e: Economy): number {
   let earned = 0;

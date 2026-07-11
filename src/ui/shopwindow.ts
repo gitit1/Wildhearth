@@ -28,6 +28,7 @@ const ICON_PX = 26;
 
 let win: WindowHandle;
 let sellList: HTMLElement;
+let custList: HTMLElement;
 let buyList: HTMLElement;
 let buyLabelEl: HTMLElement;
 let coinsEl: HTMLElement;
@@ -48,6 +49,18 @@ let toastFn: (s: string) => void = () => {};
 let memoryFn: (key: string, text: string) => void = () => {};
 let logSaleFn: (coins: number, qty: number) => void = () => {};
 let logPurchaseFn: (coins: number) => void = () => {};
+
+/** A townsperson waiting at the player's stall to buy (v2 customers block). */
+export interface CustomerRow {
+  npcId: string;
+  npcName: string;
+  itemId: string;
+  qty: number;
+  unitPrice: number;
+  total: number;
+}
+let customersFn: () => CustomerRow[] = () => [];
+let onServeFn: (npcId: string) => void = () => {};
 const sellQty = new Map<string, number>();
 const buyQty = new Map<string, number>();
 
@@ -58,6 +71,8 @@ export function initShopWindow(
   toast: (s: string) => void, memory: (key: string, text: string) => void,
   logSale: (coins: number, qty: number) => void = () => {},
   logPurchase: (coins: number) => void = () => {},
+  customers: () => CustomerRow[] = () => [],
+  onServe: (npcId: string) => void = () => {},
 ) {
   eco = economy;
   sk = skills;
@@ -70,8 +85,11 @@ export function initShopWindow(
   memoryFn = memory;
   logSaleFn = logSale;
   logPurchaseFn = logPurchase;
+  customersFn = customers;
+  onServeFn = onServe;
   const panel = document.getElementById("shopWindow")!;
   sellList = document.getElementById("shopSell")!;
+  custList = document.getElementById("shopCustomers")!;
   buyList = document.getElementById("shopBuy")!;
   buyLabelEl = document.getElementById("shopBuyLabel")!;
   coinsEl = document.getElementById("shopCoins")!;
@@ -87,10 +105,23 @@ export function initShopWindow(
 
 export function isShopOpen(): boolean { return win.isOpen(); }
 
+/** Fit the window's height to its (now scroll-bounded) content, so it opens at a
+ *  sensible size rather than the tiny box measured while its lists were empty at
+ *  init. Width is left alone (width drives the panel scale); a resizable window's
+ *  .wh-body has no padding, so it's just the title bar + the panel's own box. */
+function fitHeight() {
+  if (!win.isOpen()) return;
+  const panel = document.getElementById("shopWindow")!;
+  const tb = win.el.querySelector<HTMLElement>(".wh-titlebar");
+  const tbH = tb ? tb.offsetHeight : 30;
+  win.setRect({ h: Math.round(tbH + panel.getBoundingClientRect().height + 2) });
+}
+
 export function openShopWindow() {
   mode = { kind: "player" };
   render();
   win.open();
+  fitHeight();
 }
 
 /**
@@ -106,6 +137,7 @@ export function openNpcStallWindow(npcName: string, categoryId: string, onSale: 
   mode = { kind: "npc", npcName, categoryId, onSale };
   render();
   win.open();
+  fitHeight();
 }
 
 export function closeShopWindow() {
@@ -143,6 +175,43 @@ function render() {
   win.setTitle(npc ? `${npc.npcName}'s stall` : "Market stall");
   buyLabelEl.style.display = npc ? "none" : "";
   buyList.style.display = npc ? "none" : "";
+
+  // ----- customers at your stall (player mode only): townsfolk who walked up
+  // wanting to buy, paying a premium over the flat rate. Serving one is handled
+  // by main.ts (onServeFn): coins + the same sell seam a flat sale fires + a
+  // small Friendship bump + the customer leaving. -----
+  custList.replaceChildren();
+  if (!npc) {
+    const waiting = customersFn();
+    if (waiting.length > 0) {
+      const head = document.createElement("div");
+      head.className = "shop-section";
+      head.textContent = waiting.length === 1 ? "A customer at your stall" : "Customers at your stall";
+      custList.append(head);
+      for (const c of waiting) {
+        const itemName = (ITEM_NAMES[c.itemId] ?? c.itemId).toLowerCase();
+        const row = document.createElement("div");
+        row.className = "shop-row";
+        const name = document.createElement("span");
+        name.className = "shop-name";
+        const who = document.createElement("span");
+        who.textContent = c.npcName;
+        const want = document.createElement("span");
+        want.className = "shop-cust-want";
+        want.textContent = ` wants ${c.qty} ${itemName}`;
+        name.append(who, want);
+        const total = document.createElement("span");
+        total.className = "shop-total";
+        total.textContent = `${c.unitPrice} × ${c.qty} = ${c.total}`;
+        const btn = document.createElement("button");
+        btn.className = "shop-btn";
+        btn.textContent = "Sell";
+        btn.addEventListener("click", () => { onServeFn(c.npcId); render(); });
+        row.append(iconCanvas(c.itemId), name, total, btn);
+        custList.append(row);
+      }
+    }
+  }
 
   // ----- sell side -----
   // player mode: path/category-aware union of everything this player can sell.
@@ -321,4 +390,11 @@ function render() {
 /** Keeps the numbers honest if inventory changes while the window is open. */
 export function updateShopWindow() {
   if (win.isOpen()) coinsEl.textContent = String(eco.coins);
+}
+
+/** Full repaint if open — called when a customer arrives at / leaves the stall
+ *  while the player already has the trade window up (v2 customers block). Re-fit
+ *  so the customers section appearing/clearing grows/shrinks the window tidily. */
+export function refreshShopWindow() {
+  if (win.isOpen()) { render(); fitHeight(); }
 }

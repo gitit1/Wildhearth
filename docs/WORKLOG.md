@@ -29,6 +29,101 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## economy — customers come to your stall (v2 economy block #1)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** advance toward v5 one block at a time; take v2's FIRST
+  unbuilt block in the roadmap's value/dependency order. Verified against
+  `docs/ROADMAP_TO_V5.md` §v2: the "real sell menu / own-stall selling" the
+  brief guessed at is **already built** (v1 — `ui/shopwindow.ts` is a full
+  window with stepper/total/sell-all/category-aware/NPC-stall modes). The
+  genuinely-first unbuilt v2 block, per the v2 economy delta + the global
+  dependency spine (`Schedules → Customers → Reputation → Town`), is
+  **`systems/customers.ts` — "NPCs walk to your stall with want-table-driven
+  demand"** (customers.ts + reputation.ts both confirmed absent). This also
+  IS the "deepened own-stall selling" the brief described. **Reputation is
+  the NEXT block (#2) and deliberately NOT built here.**
+- **What shipped (player-facing):** while she minds her own market stall
+  during market hours (08–18), townsfolk who are out in the plaza walk up to
+  her counter wanting to buy something she's holding, and pay a **premium**
+  over the flat stall price (1.3×). A "Customers at your stall" section at the
+  top of her stall window lists each waiter (name + "wants N <item>" + premium
+  total + a Sell button); serving one grants the coins, fires the same sell
+  seam a flat sale does (guidance/quests/day-log/story-arcs), nudges that NPC's
+  Friendship (+1, repeatable), logs a "first customer" memory, and sends them
+  on their way. A bobbing 🛒 bubble marks anyone heading to / waiting at the
+  stall. Customers give up after ~90 in-game min unserved (no penalty — that's
+  the reputation block). A per-day served cap (6) keeps the poverty pacing.
+- **New file:** `src/systems/customers.ts` — the pure RULES half: `GoodCategory`
+  membership derived from the data tables (fish/crop/forage/dish/flower, junk
+  excluded), a `CUSTOMER_WANTS: Record<Role, GoodCategory[]>` want-table (baker
+  wants ingredients + a posy, herbalist wild finds, peddler anything, etc.),
+  `rollCustomerWant(def, inv)` (picks a preferred category she has stock in →
+  a held item → qty capped by stock & knob → premium `unitPrice`/`total`), and
+  a persisted daily ledger (`CustomerLedger {day,served}` + load/save/reset/
+  `rolloverDay`/`customersRemain`/`noteServed`).
+- **Entity (`src/entities/npc.ts`):** new `CustomerVisit {spot,want,arrived,
+  patience}` + `Npc.visit`; the update loop gained a visit override (walk to
+  the counter spot, then hold facing it) mirroring the existing talkTimer
+  override; `sendCustomer` / `customerWaiting` / `clearVisit` (clearVisit
+  routes them back to their live schedule so they don't freeze at the counter).
+  `initNpcPositions` clears visits on (re)snap.
+- **UI (`src/ui/shopwindow.ts` + `index.html`):** player-mode render now draws
+  the customers section (fed by an injected `customers: () => CustomerRow[]`
+  provider + `onServe` callback — the window stays pure UI); new
+  `refreshShopWindow()` repaints when a customer arrives/leaves while the
+  window is open; new `CustomerRow` export + `#shopCustomers` container +
+  warm-tinted `.shop-row` styling. **Also fixed a pre-existing window-sizing
+  bug the customers section surfaced:** the scale-window measures its content
+  height once at init while the shop's sell/buy lists are still EMPTY (the
+  backpack, which has content at init, sizes fine), so on a fresh profile the
+  trade window opened collapsed to a ~27px body that clipped everything. Fix,
+  contained to the shop window: the three lists (`#shopCustomers/#shopSell/
+  #shopBuy`) now scroll within bounded max-heights (matching `scalewindow.ts`'s
+  own documented "vertical size = how much scroll region shows" model), and a
+  new `fitHeight()` sizes the window to its content on open / on customer
+  refresh. Verified the window now opens correctly filled.
+- **Wiring (`src/main.ts`):** extracted the sell seam into a named `logSale()`
+  reused by both the flat-stall Sell button and customer sales; `nearStall()`,
+  `customerSpot(slot)`, `customerRows()`, `serveCustomer(npcId)` (clamps qty to
+  live stock; premium sale via new `economy.sellGoodAt`), `trySpawnCustomer`
+  (eligible = plaza-dweller in atMarket/socializing, not indoors/talking/already
+  a customer, x>44T), `customerLiveMinute()` (patience cull + gated spawn:
+  market hours + tending + daily cap + concurrent cap 2 + cadence 25 min +
+  60% chance) wired into `liveMinute()`; `rolloverDay` into the new-day hook;
+  `clearAllCustomers()` on sleep/nap/collapse; `resetCustomers` + visit clear
+  in New Game; a `drawCustomerBubble` overlay; `__wh` dev hooks (`forceCustomer`
+  /`arriveCustomers`/`customers`/`serveCustomerDev`/`customerLedger`).
+- **Economy (`src/systems/economy.ts`):** `sellGoodAt(e,id,qty,unitPrice)` —
+  sells an exact qty at a caller-supplied (premium) price; used by customer
+  sales. Flat `sellGood` unchanged.
+- **Persistence:** new `CUSTOMERS_KEY` (`config.ts`) folded into `saves.ts`
+  GAME_KEYS (New Game clears it); old saves without the key start fresh
+  (`loadCustomers` → zeroed). Save-compatible: no existing store's schema
+  changed.
+- **Config knobs (`src/config.ts`):** `CUSTOMER_MARKET_START/END`,
+  `CUSTOMER_DAILY_CAP`, `CUSTOMER_MAX_CONCURRENT`, `CUSTOMER_PREMIUM`,
+  `CUSTOMER_QTY_MAX`, `CUSTOMER_SPAWN_GAP_MIN`, `CUSTOMER_SPAWN_CHANCE`,
+  `CUSTOMER_PATIENCE_MIN`, `CUSTOMER_TEND_TILES`, `CUSTOMER_FRIENDSHIP_BUMP`.
+- **Verified:** `npm run build` green (tsc strict + vite). Live headless-Edge
+  (puppeteer-core + the `__wh` bridge, driver in the run scratchpad, NOT
+  committed): fresh fisher life → stocked a fish/flower/dish/crop/forage →
+  minded the stall at 12:00 → customers spawned (BOTH dev-forced and organically
+  via the live minute loop) with role-correct wants (Liora/Ada→flower[tulip],
+  Bram/Jonas→crop[corn], Maren→dish) at premium prices (corn 5→7, dish 6→8);
+  serving granted coins (50→74→96 across sales), decremented the exact stock
+  (tulip 4→1), fired the sell seam (day-log coinsEarned/itemsSold), bumped
+  Friendship +1, logged the memory, showed the toast + 🛒 bubbles; the ledger's
+  served count persisted (4) across a reload. Screenshots (filled window + after
+  serving) in the run scratchpad `v2-block1/`. Zero-PNG boot unaffected (no
+  sprite/asset-loading code touched).
+- **Follow-ups:** (1) Reputation/Fame (v2 block #2) — will shift customer
+  prices + who shows up + add a soft penalty for ignored customers. (2)
+  `forceCustomer` dev-spawn bypasses the concurrent cap by design (test hook);
+  the real `customerLiveMinute` path honors it. (3) The premium is a flat 1.3×
+  for now; block #2's reputation is the intended modulator. (4) Customer visits
+  are runtime-only (not persisted mid-visit) — a reload mid-market clears the
+  queue, which is fine (they'd re-approach), but worth noting.
+
 ## docs — overnight run sync: mediums final, quest system, variety counts (R9)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R9, the last item in the overnight-run repo queue (see

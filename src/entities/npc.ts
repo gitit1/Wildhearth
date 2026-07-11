@@ -23,6 +23,17 @@ import { NPCS, JONAS_ROUTE, type NpcDef, type Personality } from "../data/npcs";
 import {
   dayOfWeek, resolveState, placeFor, scheduleWeatherTweak, type NpcState,
 } from "../systems/schedule";
+import type { CustomerWant } from "../systems/customers";
+
+/** An active visit to the PLAYER's own market stall (v2 customers block): the
+ *  NPC walks to a spot in front of her counter and holds there until she serves
+ *  them or their patience runs out (both driven from main.ts). */
+export interface CustomerVisit {
+  spot: readonly [number, number];
+  want: CustomerWant;
+  arrived: boolean;
+  patience: number;   // in-game minutes left before they give up and wander off
+}
 
 export interface Npc {
   def: NpcDef;
@@ -39,6 +50,7 @@ export interface Npc {
   gestureT: number;                // drives occasional socializing gestures
   patrolIdx: number;               // peddler patrol cursor
   patrolDir: 1 | -1;
+  visit: CustomerVisit | null;     // set while this NPC is a customer at the player's stall
 }
 
 export function createNpcs(): Npc[] {
@@ -48,7 +60,7 @@ export function createNpcs(): Npc[] {
     facing: 2 as Facing, state: "asleep" as NpcState, pose: "idle" as PoseName,
     dist: 0, moving: false, indoors: true, route: [],
     talkTimer: 0, gestureT: Math.random() * 10,
-    patrolIdx: 0, patrolDir: 1,
+    patrolIdx: 0, patrolDir: 1, visit: null,
   }));
 }
 
@@ -62,7 +74,7 @@ export function initNpcPositions(npcs: Npc[], cal: CalendarState, weather: Weath
     const place = placeFor(n.def, state, dow, n.i);
     n.state = state;
     n.x = place[0]; n.y = place[1];
-    n.route = []; n.moving = false;
+    n.route = []; n.moving = false; n.visit = null;
     n.indoors = state === "atHome" || state === "asleep";
     n.facing = idleFacing(n, state);
     n.pose = poseFor(n, state);
@@ -83,6 +95,22 @@ export function updateNpcs(
       n.facing = facingTo(n.x, n.y, player.x, player.y);
       n.moving = false;
       n.pose = "talking";
+      continue;
+    }
+
+    // customer at the player's stall: walk to the counter spot, then hold there
+    // facing it. main.ts sets the visit (spawn), and clears it (serve/timeout).
+    if (n.visit) {
+      n.indoors = false;
+      if (!n.visit.arrived) {
+        stepAlong(n, dt);
+        if (!n.moving) { n.visit.arrived = true; n.facing = 0; }  // arrived: face the counter (north)
+        n.pose = n.moving ? "walking" : "idle";
+      } else {
+        n.moving = false;
+        n.facing = 0;
+        n.pose = "idle";
+      }
       continue;
     }
 
@@ -231,6 +259,36 @@ export function startTalking(n: Npc, px?: number, py?: number) {
 
 export function npcById(npcs: Npc[], id: string): Npc | undefined {
   return npcs.find((n) => n.def.id === id);
+}
+
+// ---- customer visits (v2 customers-to-your-stall block) ---------------------
+
+/** Send an NPC to the player's stall as a customer: hand them a want and route
+ *  them straight to the counter spot (they're already in the open plaza, so no
+ *  waypoint skirting is needed). Cleared by clearVisit once served or bored. */
+export function sendCustomer(n: Npc, spot: readonly [number, number], want: CustomerWant, patience: number) {
+  n.visit = { spot, want, arrived: false, patience };
+  n.route = [[spot[0], spot[1]]];
+  n.moving = true;
+  n.talkTimer = 0;
+}
+
+/** True once a summoned customer has reached the counter and is waiting. */
+export function customerWaiting(n: Npc): boolean {
+  return !!n.visit && n.visit.arrived;
+}
+
+/** End a visit (served or patience expired) and send the NPC back to whatever
+ *  their schedule says they should be doing right now, so they don't freeze at
+ *  the counter until the next scheduled state change. */
+export function clearVisit(n: Npc, cal: CalendarState, weather: WeatherState) {
+  n.visit = null;
+  const dow = dayOfWeek(cal);
+  const festival = !!activeFestival(cal);
+  const state = scheduleWeatherTweak(n.def, resolveState(n.def, dow, cal.hour, festival), weather);
+  n.state = state;
+  n.route = buildRoute(n.def, n.x, n.y, placeFor(n.def, state, dow, n.i));
+  n.moving = n.route.length > 0;
 }
 
 // ---- needs comment hook (Needs engine) -------------------------------------

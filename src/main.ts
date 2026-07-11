@@ -1,7 +1,10 @@
 import {
+  T,
   WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE,
   DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS, AUTOSAVE_SECONDS, NPC_SALE_FRIENDSHIP_BUMP,
   CAM_NORTH_SKY_MARGIN,
+  CUSTOMER_MARKET_START, CUSTOMER_MARKET_END, CUSTOMER_MAX_CONCURRENT, CUSTOMER_SPAWN_GAP_MIN,
+  CUSTOMER_SPAWN_CHANCE, CUSTOMER_PATIENCE_MIN, CUSTOMER_TEND_TILES, CUSTOMER_FRIENDSHIP_BUMP,
 } from "./config";
 import {
   initInput, consumeAction, consumeLeftClick, consumeRightClick,
@@ -30,9 +33,12 @@ import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen, spawnDuck, spawnPig, spawnSheep } from "./entities/animals";
 import { createWildlife, updateWildlife, type WildlifeInst } from "./entities/wildlife";
 import { drawWildlife } from "./art/wildlife";
-import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcById, npcNeedComment, type Npc } from "./entities/npc";
+import { createNpcs, updateNpcs, initNpcPositions, startTalking, npcById, npcNeedComment, sendCustomer, clearVisit, customerWaiting, type Npc } from "./entities/npc";
 import { loadLivestock, resetLivestock, saveLivestock } from "./systems/livestock";
-import { loadEconomy, gainItem, saveEconomy } from "./systems/economy";
+import { loadEconomy, gainItem, saveEconomy, goodCount, sellGoodAt } from "./systems/economy";
+import {
+  loadCustomers, resetCustomers, rolloverDay, customersRemain, noteServed, rollCustomerWant,
+} from "./systems/customers";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
 import {
@@ -122,6 +128,7 @@ import { initMinimap, updateMinimap, setMinimapField } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup } from "./ui/skills";
 import {
   initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow,
+  refreshShopWindow, type CustomerRow,
 } from "./ui/shopwindow";
 import {
   initStorageWindow, openStorageWindow, closeStorageWindow, isStorageOpen, updateStorageWindow,
@@ -289,6 +296,12 @@ for (const trade of NPC_STALL_TRADES) {
   const stallDef = MARKET_STALLS.find((s) => s.sign === trade.stallSign);
   if (tradeNpc && stallDef) registerNpcStall(trade, tradeNpc, stallDef);
 }
+
+// Customers-to-your-stall (v2 economy block #1): the day's sales ledger (caps
+// how many customers you serve per day) + a spawn-cadence accumulator. Old
+// saves without the key simply start fresh (loadCustomers -> zeroed).
+const customerLedger = loadCustomers();
+let customerSpawnGapMin = 0;   // in-game minutes counted toward the next spawn attempt
 
 /** Talk seam: opens the dialogue bottom-box (condition-keyed opening line +
  *  shallow choice turns). The window drives the conversation; the Social-need
@@ -551,6 +564,15 @@ if (import.meta.env.DEV)
       const t = NPC_STALL_TRADES.find((x) => x.npcId === npcId);
       if (t) openNpcStallTrade(t);
     },
+    // customers-to-your-stall verification bridge (v2): force a customer, read
+    // the queue, serve one, and inspect the day's ledger — no timing/proximity
+    // needed. `forceCustomer` ignores the market-hours/tending gate but still
+    // routes through the same want-roll + send, so it exercises the real path.
+    forceCustomer: () => trySpawnCustomer(npcs.reduce((k, n) => k + (n.visit ? 1 : 0), 0)),
+    arriveCustomers: () => { for (const n of npcs) if (n.visit) { n.visit.arrived = true; n.moving = false; } refreshShopWindow(); },
+    customers: () => customerRows(),
+    serveCustomerDev: (npcId: string) => serveCustomer(npcId),
+    customerLedger: () => ({ ...customerLedger }),
   };
 
 initBackpack(economy, eatItem);
@@ -736,13 +758,9 @@ initShopWindow(economy, skills, farm, livestock,
   () => currentSeason(calendar),
   () => sellableGoodIds({ inv: economy.inv, collections }),
   toast, remember,
-  (coins, qty) => {
-    logCoinsEarned(dayLog, coins); logItemsSold(dayLog, qty); fireGuidance({ kind: "sale" });
-    fireQuest({ kind: "sell", count: qty });   // Quests: "sell N goods" activity steps
-    arcs.recordActivity("sale");
-    if (devNotesOn()) devNotes.observe("sell", absoluteDay(calendar));
-  },
-  (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); });
+  logSale,
+  (coins) => { logCoinsSpent(dayLog, coins); fireGuidance({ kind: "buy" }); },
+  customerRows, serveCustomer);
 initStorageWindow(storage, economy, toast);   // R5: the barn's storage chest
 // R6: the quest-log window (a window-system citizen like the backpack). Its
 // "Getting Started" panel mirrors the live Guidance layer so tutorial/aspiration
@@ -829,6 +847,142 @@ function onNpcSale(npcId: string) {
   }
 }
 
+// ---- customers come to your stall (v2 economy block #1) --------------------
+// The single sell seam every sale fires — the FLAT-price stall sale (shop
+// window's own Sell button) AND premium customer sales both route through this,
+// so guidance/quests/day-log/story-arcs advance identically for either path.
+function logSale(coins: number, qty: number) {
+  logCoinsEarned(dayLog, coins);
+  logItemsSold(dayLog, qty);
+  fireGuidance({ kind: "sale" });            // Guidance: "sell" progress
+  fireQuest({ kind: "sell", count: qty });   // Quests: "sell N goods" activity steps
+  arcs.recordActivity("sale");
+  if (devNotesOn()) devNotes.observe("sell", absoluteDay(calendar));
+}
+
+/** True when the player is minding her own stall (close enough to serve). */
+function nearStall(): boolean {
+  const m = CUSTOMER_TEND_TILES * T;
+  return player.x > STALL.x - m && player.x < STALL.x + STALL.w + m
+      && player.y > STALL.y - m && player.y < STALL.y + STALL.h + m;
+}
+
+/** A waiting spot just in front of her counter, offset by slot so two customers
+ *  don't stand on top of one another. */
+function customerSpot(slot: number): readonly [number, number] {
+  const cx = STALL.x + STALL.w / 2;
+  const y = STALL.y + STALL.h + 0.9 * T;
+  return [cx + (slot === 0 ? -0.7 : 0.7) * T, y];
+}
+
+/** The customers currently waiting AT the counter (arrived), for the window. */
+function customerRows(): CustomerRow[] {
+  const out: CustomerRow[] = [];
+  for (const n of npcs) {
+    if (!customerWaiting(n) || !n.visit) continue;
+    const w = n.visit.want;
+    out.push({ npcId: n.def.id, npcName: n.def.name, itemId: w.itemId, qty: w.qty, unitPrice: w.unitPrice, total: w.total });
+  }
+  return out;
+}
+
+/** Serve a waiting customer: sell them (up to) what they asked at the premium
+ *  price, fire the same sell seam a flat sale does, nudge Friendship a touch,
+ *  then send them on their way. Clamps to current stock — she may have sold some
+ *  of it elsewhere since they queued. */
+function serveCustomer(npcId: string) {
+  const n = npcById(npcs, npcId);
+  if (!n || !n.visit) return;
+  const w = n.visit.want;
+  const qty = Math.min(w.qty, goodCount(economy, w.itemId));
+  if (qty <= 0) {
+    toast(`${n.def.name} sighs — you've none of that left to sell.`);
+    clearVisit(n, calendar, weather);
+    refreshShopWindow();
+    return;
+  }
+  const earned = sellGoodAt(economy, w.itemId, qty, w.unitPrice);
+  if (earned > 0) {
+    logSale(earned, qty);
+    noteServed(customerLedger);
+    const thresholds = dialogueBump(relationships, n.def, CUSTOMER_FRIENDSHIP_BUMP, calendar);
+    logRelationshipChange(dayLog, npcId, "friendship", CUSTOMER_FRIENDSHIP_BUMP);
+    const itemName = (ITEM_NAMES[w.itemId] ?? w.itemId).toLowerCase();
+    toast(`${n.def.name} buys ${qty} ${itemName} for ${earned} coins! (+${CUSTOMER_FRIENDSHIP_BUMP} ♥)`);
+    remember("first_customer", "Your very first customer, come to YOUR own stall.");
+    for (const ev of thresholds) fireHeart(n, ev);
+  }
+  clearVisit(n, calendar, weather);
+  refreshShopWindow();
+}
+
+/** Send one eligible plaza-dweller to the stall wanting something she holds.
+ *  `slot` is the queue position (drives the standing spot). */
+function trySpawnCustomer(slot: number): boolean {
+  const pool = npcs.filter((n) =>
+    !n.visit && !n.indoors && n.talkTimer <= 0 &&
+    (n.state === "atMarket" || n.state === "socializing") &&
+    n.x > 44 * T);   // in the market/road belt, not off at the lake or deep forest
+  for (const n of pool.sort(() => Math.random() - 0.5)) {
+    const want = rollCustomerWant(n.def, economy.inv);
+    if (want) {
+      sendCustomer(n, customerSpot(slot), want, CUSTOMER_PATIENCE_MIN);
+      refreshShopWindow();
+      return true;
+    }
+  }
+  return false;
+}
+
+/** One live in-game minute of stall custom: age out the bored, then maybe send
+ *  a fresh customer while she's minding the stall in market hours. */
+function customerLiveMinute() {
+  if (scene !== "world") return;
+  // patience: cull anyone who has waited too long — no reputation hit (that's
+  // the NEXT block); they simply wander off
+  for (const n of npcs) {
+    if (!n.visit) continue;
+    n.visit.patience -= 1;
+    if (n.visit.patience <= 0) {
+      const name = n.def.name;
+      const wasWaiting = n.visit.arrived;
+      clearVisit(n, calendar, weather);
+      if (wasWaiting && nearStall()) toast(`${name} gives up waiting and drifts off.`);
+      refreshShopWindow();
+    }
+  }
+  const h = calendar.hour;
+  if (h < CUSTOMER_MARKET_START || h >= CUSTOMER_MARKET_END) return;
+  if (!nearStall()) { customerSpawnGapMin = 0; return; }   // only when she's minding it
+  if (!customersRemain(customerLedger)) return;
+  const active = npcs.reduce((k, n) => k + (n.visit ? 1 : 0), 0);
+  if (active >= CUSTOMER_MAX_CONCURRENT) return;
+  customerSpawnGapMin += 1;
+  if (customerSpawnGapMin < CUSTOMER_SPAWN_GAP_MIN) return;
+  customerSpawnGapMin = 0;
+  if (Math.random() > CUSTOMER_SPAWN_CHANCE) return;
+  trySpawnCustomer(active);
+}
+
+/** Clear every active visit (a night's sleep / a collapse ends the market day). */
+function clearAllCustomers() {
+  let any = false;
+  for (const n of npcs) if (n.visit) { clearVisit(n, calendar, weather); any = true; }
+  if (any) refreshShopWindow();
+}
+
+/** A little bobbing 🛒 disc above a customer's head, world-space. */
+function drawCustomerBubble(g: CanvasRenderingContext2D, x: number, y: number, t: number) {
+  const by = y - 34 + Math.sin(t * 2.5) * 1.5;
+  g.save();
+  g.fillStyle = "rgba(40,32,18,.82)";
+  g.beginPath(); g.arc(x, by, 11, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = "rgba(230,190,80,.9)"; g.lineWidth = 1.5; g.stroke();
+  g.font = "15px system-ui"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText("🛒", x, by + 1);
+  g.restore();
+}
+
 // ---- opening sequence (title -> creation -> intro -> reveal -> path -> guidance) ----
 let openingActive = true;
 let menuOpen = false;  // an in-game top-level menu (Settings/Pause/Exit) is open — pauses time
@@ -874,6 +1028,7 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     if (isFestivalDay(calendar)) setWorldFlag(worldFlags, "festival_today", 1, absoluteDay(calendar));
     // ---- AI daily hooks (Part D) — all no-ops with their features off --------
     const abs = absoluteDay(calendar);
+    rolloverDay(customerLedger, abs);   // v2: reset the day's customer-sales count
     // Quest offers (#3, D3): maybe surface one validated AI offer (scripted
     // fallback on any failure; inert with the feature off).
     questOffers.maybeGenerateDaily(
@@ -915,6 +1070,7 @@ function presentDayEnd(snap: DayEndSnapshot) {
 function liveMinute(): boolean {
   const snap = stepGameMinute(false);
   if (snap) presentDayEnd(snap);
+  customerLiveMinute();   // v2: townsfolk come to the player's stall to buy
   for (const line of collectWarnings(needs)) toast(line);   // escalating 25/10 warnings
   const crit = criticalNeed(needs);
   if (crit) {
@@ -937,6 +1093,7 @@ function minutesUntilMorning(): number {
 function sleepUntilMorning() {
   if (timeSkipping) return;
   timeSkipping = true;
+  clearAllCustomers();   // v2: no one waits at the stall overnight
   const mins = minutesUntilMorning();
   let pendingDayEnd: DayEndSnapshot | null = null;
   fadeThrough(
@@ -954,6 +1111,7 @@ function sleepUntilMorning() {
 function napAnHour() {
   if (timeSkipping) return;
   timeSkipping = true;
+  clearAllCustomers();   // v2: she steps away from the stall to nap
   let pendingDayEnd: DayEndSnapshot | null = null;
   fadeThrough(
     () => { for (let i = 0; i < 60; i++) { const s = stepGameMinute(true); if (s) pendingDayEnd = s; } },
@@ -973,6 +1131,7 @@ function wakeAtBed() {
 function handleCollapse(need: NeedId) {
   if (timeSkipping) return;
   timeSkipping = true;
+  clearAllCustomers();   // v2: a collapse ends the market day
   const label = need === "energy" ? "exhaustion" : need === "hunger" ? "hunger" : "thirst";
   const mins = minutesUntilMorning();
   let fee = 0;
@@ -1383,6 +1542,8 @@ function newGameReset(character: Character, mode: Guidance) {
   setMinimapField(fieldBounds(0));
   resetGarden(garden);
   resetStorage(storage);              // R5: a new life starts with an empty barn
+  resetCustomers(customerLedger);     // v2: a new life has served no customers
+  for (const n of npcs) n.visit = null;   // no one is queued at the stall in a fresh world
   resetCollections(collections);
   resetMemories(memories);
   for (const b of bushes) { b.full = true; b.regrow = 0; }
@@ -2037,7 +2198,13 @@ function draw(dt: number) {
     const showLabel = hovered?.id === tag || nearReach?.id === tag;
     // subtle ♥ Friendship / ⚭ Romance readout on the pill, only when labelled
     const rel = showLabel ? relationshipSummary(n.def, relationships) : undefined;
-    ents.push({ y: n.y + 13, f: () => drawNpc(ctx, n, time, showLabel, rel) });
+    // v2 customers: a customer heading to / waiting at the stall always shows a
+    // name label and a little 🛒 bubble, so she can see who's come to buy.
+    const customer = !!n.visit;
+    ents.push({ y: n.y + 13, f: () => {
+      drawNpc(ctx, n, time, showLabel || customer, rel);
+      if (customer) drawCustomerBubble(ctx, n.x, n.y, time);
+    } });
   }
   ents.sort((a, b) => a.y - b.y);
   for (const e of ents) e.f();

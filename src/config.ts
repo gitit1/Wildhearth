@@ -169,6 +169,24 @@ export const INTERACT_DIMINISH = [1, 0.5, 0.15] as const;
 export const NPC_SALE_FRIENDSHIP_BUMP = 3;
 
 // ===========================================================================
+//  Customers-to-your-stall (v2 economy block #1) — townsfolk who walk to the
+//  player's OWN market stall with want-table-driven demand and buy at a small
+//  premium over the flat stall price, so tending the stall pays off. Every
+//  magnitude a knob; Reputation (the NEXT block) is deliberately absent here.
+// ===========================================================================
+export const CUSTOMER_MARKET_START = 8;   // customers only shop during market hours
+export const CUSTOMER_MARKET_END = 18;
+export const CUSTOMER_DAILY_CAP = 6;      // most sales customers bring you in one day
+export const CUSTOMER_MAX_CONCURRENT = 2; // most customers queued at your stall at once
+export const CUSTOMER_PREMIUM = 1.3;      // they pay 1.3x the flat GOOD_PRICES rate
+export const CUSTOMER_QTY_MAX = 3;        // most units one customer buys of a good
+export const CUSTOMER_SPAWN_GAP_MIN = 25; // in-game minutes between spawn attempts
+export const CUSTOMER_SPAWN_CHANCE = 0.6; // odds a due attempt actually produces one
+export const CUSTOMER_PATIENCE_MIN = 90;  // in-game minutes a customer waits before leaving
+export const CUSTOMER_TEND_TILES = 5;     // player must be within this (tiles) of her stall
+export const CUSTOMER_FRIENDSHIP_BUMP = 1; // small repeatable Friendship nudge per sale
+
+// ===========================================================================
 //  Dialogue engine (Part A #4, mechanical layer) — condition-keyed opening
 //  lines + shallow choice trees, shown in the bottom-box. Every magnitude a knob.
 // ===========================================================================
@@ -535,6 +553,7 @@ export const RELATIONSHIPS_KEY = "wildhearth-relationships-v1"; // per-NPC Frien
 export const SLOT_KEY = "wildhearth-slot-v1";        // save-slot manifest (Save system, Part A #11)
 export const GUIDANCE_KEY = "wildhearth-guidance-v1"; // tutorial/aspiration progress (Guidance Mode engine)
 export const QUESTS_KEY = "wildhearth-quests-v1";    // quest log: accepted/active/completed + AI offer (R6 quest system)
+export const CUSTOMERS_KEY = "wildhearth-customers-v1"; // daily customer ledger (v2: customers come to your stall)
 
 // ===========================================================================
 //  Quest system (R6) — authored quests + AI dynamic offers → one quest log.
