@@ -221,6 +221,21 @@ export const TOWN_SHOP_OPEN_HOUR = 8;    // town shops open at this hour...
 export const TOWN_SHOP_CLOSE_HOUR = 20;  // ...and shut at this one (sleep at the inn is later town life)
 
 // ===========================================================================
+//  Fast travel (v2 BLOCK #4) — paid carriage/ferry hops between discovered
+//  minimap nodes. VISION §9: walking discovers the world; once a place has been
+//  reached on foot it becomes a quick-travel node "for a small coin cost" (an
+//  old-world coachman, not a free warp). VISION price table anchors the fare at
+//  3-5 coins per trip; time still ticks (no teleport-out-of-the-clock), scaled
+//  with distance so a cross-map hop eats a chunk of the day but never all of it.
+// ===========================================================================
+export const TRAVEL_FARE_MIN = 3;          // coins for the shortest hop (VISION anchor 3-5)
+export const TRAVEL_FARE_MAX = 5;          // coins for the longest hop
+export const TRAVEL_FARE_PER_TILE = 0.04;  // fare ramp per tile of distance (min→max across the map)
+export const TRAVEL_MIN_MINUTES = 20;      // even a short carriage ride costs some clock time
+export const TRAVEL_MINUTES_PER_TILE = 1.0;// in-game minutes per tile travelled
+export const TRAVEL_MAX_MINUTES = 90;      // cap: a cross-map hop never blows a whole day
+
+// ===========================================================================
 //  Dialogue engine (Part A #4, mechanical layer) — condition-keyed opening
 //  lines + shallow choice trees, shown in the bottom-box. Every magnitude a knob.
 // ===========================================================================
@@ -589,6 +604,7 @@ export const GUIDANCE_KEY = "wildhearth-guidance-v1"; // tutorial/aspiration pro
 export const QUESTS_KEY = "wildhearth-quests-v1";    // quest log: accepted/active/completed + AI offer (R6 quest system)
 export const CUSTOMERS_KEY = "wildhearth-customers-v1"; // daily customer ledger (v2: customers come to your stall)
 export const REPUTATION_KEY = "wildhearth-reputation-v1"; // town-wide Fame 0-100 (v2 block #2)
+export const DISCOVERY_KEY = "wildhearth-discovery-v1"; // fast-travel nodes reached on foot (v2 block #4)
 
 // ===========================================================================
 //  Quest system (R6) — authored quests + AI dynamic offers → one quest log.

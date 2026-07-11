@@ -49,8 +49,24 @@
        the window's natural size, and once reparented into a resizable
        window's body — matching the old fixed-position panels' sizing). */
     #backpack{--s:1;display:inline-block;padding:calc(10px*var(--s)) calc(12px*var(--s))}
-    #minimapBox{display:flex;align-items:center;justify-content:center;width:100%;height:100%}
-    #minimap{border-radius:8px}
+    #minimapBox{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+    #minimap{border-radius:8px;cursor:pointer}
+    /* Fast-travel confirm (v2 block #4): a small parchment card over the map when
+       a discovered pin is clicked. Hidden until a pin is picked. */
+    #travelConfirm{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      min-width:170px;max-width:82%;padding:10px 12px 11px;border-radius:9px;z-index:5;
+      background:linear-gradient(#f3e4c3,#e6d0a4);color:#3a2c17;border:2px solid #7a5a30;
+      box-shadow:0 6px 18px rgba(0,0,0,.5);text-align:center;font-size:13px;display:none}
+    #travelConfirm.show{display:block}
+    #travelConfirm .tc-title{font-weight:800;margin-bottom:2px}
+    #travelConfirm .tc-fare{font-size:12px;opacity:.9;margin-bottom:9px}
+    #travelConfirm .tc-fare b{color:#8a5a1e}
+    #travelConfirm .tc-btns{display:flex;gap:8px;justify-content:center}
+    #travelConfirm button{font:inherit;font-weight:800;cursor:pointer;border-radius:7px;
+      padding:5px 12px;border:2px solid #5c421f}
+    #travelConfirm .tc-go{background:#7bb04f;color:#20340f;border-color:#4c6b2b}
+    #travelConfirm .tc-no{background:#e9dcc0;color:#4a3820}
+    #travelConfirm.blocked .tc-fare{color:#9c3d34}
     #backpackGrid{display:grid;grid-template-columns:repeat(4,calc(52px*var(--s)));gap:calc(8px*var(--s))}
     .bp-slot{position:relative;width:calc(52px*var(--s));height:calc(52px*var(--s));border-radius:8px;
       background:rgba(240,234,214,.08);border:1px solid rgba(240,234,214,.2);
@@ -830,7 +846,12 @@
   <div id="coinsWin">
     <div class="pill">🪙 <span id="coins">0</span></div>
   </div>
-  <div id="minimapBox"><canvas id="minimap"></canvas></div>
+  <div id="minimapBox"><canvas id="minimap"></canvas>
+    <div id="travelConfirm">
+      <div class="tc-title"></div>
+      <div class="tc-fare"></div>
+      <div class="tc-btns"><button class="tc-go">Travel</button><button class="tc-no">Cancel</button></div>
+    </div></div>
   <div id="backpack">
     <div id="backpackGrid"></div>
   </div>

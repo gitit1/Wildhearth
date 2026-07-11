@@ -46,6 +46,10 @@ import {
   loadReputation, resetReputation, gainReputation, penalizeReputation, decayReputation,
   reputationTier, reputationPremium, reputationDailyCap, reputationSpawnBonus, reputationBuyDiscount,
 } from "./systems/reputation";
+import {
+  loadDiscovery, resetDiscovery, discoverRegion, travelFare, travelMinutes,
+  nodeForRegion, TRAVEL_NODES, type TravelNode,
+} from "./systems/discovery";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
 import {
@@ -131,7 +135,7 @@ import { updateHud, updateNeedsStrip, setPrompt, toast, updateToast } from "./ui
 import { initFade, fadeThrough } from "./ui/fade";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initQuestLog, updateQuestLog } from "./ui/questlog";
-import { initMinimap, updateMinimap, setMinimapField } from "./ui/minimap";
+import { initMinimap, updateMinimap, setMinimapField, setTravelHooks } from "./ui/minimap";
 import { initSkillsUI, updateSkillsUI, skillGainPopup, updateReputationUI } from "./ui/skills";
 import {
   initShopWindow, openShopWindow, closeShopWindow, isShopOpen, updateShopWindow, openNpcStallWindow, openMerchantBuyWindow,
@@ -313,6 +317,11 @@ let customerSpawnGapMin = 0;   // in-game minutes counted toward the next spawn 
 // rises on good custom and modulates the customer economy. Old saves without the
 // key start at Unknown (loadReputation -> zeroed).
 const reputation = loadReputation();
+// Discovery ledger (v2 block #4): which named locations she's reached on foot,
+// i.e. which minimap nodes fast travel is unlocked for. Farm is seeded; every
+// other node is earned by walking there once. Old saves start with just the farm
+// and re-discover as she moves (the region-change seam below fires discovery).
+const discovery = loadDiscovery();
 
 /** Talk seam: opens the dialogue bottom-box (condition-keyed opening line +
  *  shallow choice turns). The window drives the conversation; the Social-need
@@ -546,6 +555,15 @@ if (import.meta.env.DEV)
       player.x = m.x + m.w / 2; player.y = m.y + m.h + 10; player.moving = false; clearMoveTarget();
       openTownMerchant(kind);
     },
+    // fast-travel verification bridge (v2 BLOCK #4): read the discovery ledger,
+    // force a node discovered, and ride there through the REAL fade/minute loop.
+    discovered: () => [...discovery.discovered],
+    discoverAll: () => { for (const n of TRAVEL_NODES) discoverRegion(discovery, n.region); },
+    travelTo: (id: string) => { const n = TRAVEL_NODES.find((x) => x.id === id); if (n) fastTravel(n); },
+    travelQuote: (id: string) => {
+      const n = TRAVEL_NODES.find((x) => x.id === id); if (!n) return null;
+      return { fare: travelFare(player.x, player.y, n), mins: travelMinutes(player.x, player.y, n), reason: travelGuardReason(n, travelFare(player.x, player.y, n)) };
+    },
     // save-system verification bridge — force the two save paths and shrink
     // the autosave interval instead of waiting 10 real minutes
     saveNow: manualSave,
@@ -721,6 +739,14 @@ if (import.meta.env.DEV) {
   };
 }
 initMinimap();
+// v2 block #4: hand the minimap the discovery ledger + travel plumbing so its
+// pins/confirm card can offer paid fast travel between reached locations.
+setTravelHooks({
+  discovery,
+  playerPos: () => ({ x: player.x, y: player.y }),
+  guard: (node, fare) => travelGuardReason(node, fare),
+  travel: (node) => fastTravel(node),
+});
 initSkillsUI(skills);
 initMemoryBook(collections, memories);
 initDebugPanel();
@@ -1213,6 +1239,68 @@ function napAnHour() {
   );
 }
 
+// ---- fast travel (v2 BLOCK #4) ----------------------------------------------
+
+/** First-arrival flavour for a newly discovered node. The town keeps block #3's
+ *  bespoke greeting; the others get a short "you can travel here now" note. Each
+ *  lands in the Memory Book once, ever (addMemory de-dupes by key). */
+function celebrateDiscovery(node: TravelNode) {
+  if (node.id === "farm") return;
+  if (node.id === "town") {
+    if (addMemory(memories, "first_town", "You followed the road to its end and found the coastal town.", calendar))
+      logMemory(dayLog, "You followed the road to its end and found the coastal town.");
+    toast("The road opens onto a coastal town — an inn, merchants, and the sea beyond. 🌊");
+    return;
+  }
+  const text = `You discovered the ${node.label} — you can now travel here from the map.`;
+  if (addMemory(memories, `discover_${node.id}`, text, calendar)) logMemory(dayLog, text);
+  toast(`${node.icon} ${node.label} discovered — fast travel here is now unlocked on the map.`);
+}
+
+/** Why a fast-travel hop can't happen right now (null = go). Guards the owner's
+ *  rails: never mid-fade, mid-menu, mid-dialogue/transaction, from indoors, to
+ *  where she already stands, or beyond her purse. Festivals are a convenience,
+ *  not a lockout, so they don't block (see WORKLOG judgment note). */
+function travelGuardReason(node: TravelNode, fare: number): string | null {
+  if (timeSkipping) return "You're already on your way.";
+  if (openingActive || menuOpen) return "Not right now.";
+  if (scene !== "world") return "Step outside before you set off.";
+  if (isDialogueOpen() || isDayEndOpen() || isGuidancePromptOpen() || isShopOpen() || isStorageOpen())
+    return "Finish what you're doing first.";
+  if (nodeForRegion(regionAt(player.x, player.y))?.id === node.id) return "You're already here.";
+  if (economy.coins < fare) return `You need ${fare} coins for the carriage fare.`;
+  return null;
+}
+
+/** Pay the coachman and ride: fade out, drive the REAL minute loop (needs drain
+ *  as if she'd walked — no clock teleport), reposition at full black, fade in at
+ *  the destination. Mirrors sleepUntilMorning's skip pattern. */
+function fastTravel(node: TravelNode) {
+  const fare = travelFare(player.x, player.y, node);
+  const reason = travelGuardReason(node, fare);
+  if (reason) { toast(reason); return; }
+  const mins = travelMinutes(player.x, player.y, node);
+  economy.coins -= fare;
+  saveEconomy(economy);
+  timeSkipping = true;
+  clearAllCustomers();   // she leaves her stall to travel
+  let pendingDayEnd: DayEndSnapshot | null = null;
+  fadeThrough(
+    () => {
+      for (let i = 0; i < mins; i++) { const s = stepGameMinute(false); if (s) pendingDayEnd = s; }
+      player.x = node.x; player.y = node.y;
+      player.moving = false; clearMoveTarget();
+      lastQuestRegion = null;   // re-fire the region seam so arrival counts as "reached"
+    },
+    `Travelling to ${node.label}…`,
+    () => {
+      timeSkipping = false;
+      if (pendingDayEnd) presentDayEnd(pendingDayEnd);
+      toast(`${node.icon} You arrive at ${node.label}.`);
+    },
+  );
+}
+
 /** Wake in the farmhouse (used by collapse — pulls the player home to the bed). */
 function wakeAtBed() {
   if (scene !== "interior") enterHouse();
@@ -1639,6 +1727,7 @@ function newGameReset(character: Character, mode: Guidance) {
   resetStorage(storage);              // R5: a new life starts with an empty barn
   resetCustomers(customerLedger);     // v2: a new life has served no customers
   resetReputation(reputation);        // v2 block #2: an unknown newcomer again
+  resetDiscovery(discovery);          // v2 block #4: the world is unknown again — only the farm
   for (const n of npcs) n.visit = null;   // no one is queued at the stall in a fresh world
   resetCollections(collections);
   resetMemories(memories);
@@ -2159,12 +2248,11 @@ function tick(now: number) {
   if (region !== lastQuestRegion) {
     lastQuestRegion = region;
     fireQuest({ kind: "reach", region });
-    // v2 BLOCK #3: the FIRST time she reaches the coastal town, greet it + point
-    // the way. addMemory celebrates it once, ever, into the Memory Book.
-    if (region === "town" && addMemory(memories, "first_town", "You followed the road to its end and found the coastal town.", calendar)) {
-      logMemory(dayLog, "You followed the road to its end and found the coastal town.");
-      toast("The road opens onto a coastal town — an inn, merchants, and the sea beyond. 🌊");
-    }
+    // v2 BLOCK #4: reaching a named location on foot unlocks it as a fast-travel
+    // node. block #3's bespoke first-town greeting is now one case of the general
+    // discovery ledger (discoverRegion celebrates each node once, ever).
+    const found = discoverRegion(discovery, region);
+    if (found) celebrateDiscovery(found);
   }
   // Festival engine: first time entering the market during festival hours
   // TODAY, greet it with a toast; the very first time EVER, that's also the

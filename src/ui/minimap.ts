@@ -15,6 +15,22 @@ import { roundR } from "../art/shapes";
 import { wm, toggleWindow } from "./windows/manager";
 import type { WindowHandle } from "./windows/window";
 import type { Player } from "../entities/player";
+import {
+  TRAVEL_NODES, travelFare, travelMinutes, type TravelNode, type Discovery,
+} from "../systems/discovery";
+
+/** Fast travel (v2 block #4). main.ts owns the live Discovery ledger, the coins,
+ *  and the faded trip; the minimap owns the pins + the click→confirm UI, calling
+ *  back through these hooks. `guard` returns a human reason the trip can't happen
+ *  right now (null = go ahead) so the confirm card can explain itself. */
+export interface TravelHooks {
+  discovery: Discovery;
+  playerPos: () => { x: number; y: number };
+  guard: (node: TravelNode, fare: number) => string | null;
+  travel: (node: TravelNode) => void;
+}
+let hooks: TravelHooks | null = null;
+export function setTravelHooks(h: TravelHooks) { hooks = h; refreshTravelUI(); }
 
 /**
  * Minimap window (Windows migration I): an always-on-by-default radar map.
@@ -35,11 +51,16 @@ let W = 0, H = 0;
 let win: WindowHandle;
 let mapBtn: HTMLElement | null = null;
 
+// fast-travel confirm-card state
+let confirmEl: HTMLElement | null = null;
+let pendingNode: TravelNode | null = null;
+
 export function initMinimap() {
   const box = document.getElementById("minimapBox")!;
   canvas = document.getElementById("minimap") as HTMLCanvasElement;
   mapBtn = document.getElementById("mapBtn");
   g = canvas.getContext("2d")!;
+  initFastTravel();
 
   const applyScale = (userS: number) => {
     scale = MINIMAP_SCALE * userS;
@@ -83,12 +104,114 @@ export function updateMinimap(player: Player) {
   if (!win.isOpen()) return;
   g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
   g.drawImage(base, 0, 0, W, H);
+  drawTravelPins();
   const px = player.x * scale, py = player.y * scale;
   const r = Math.max(3, 3 * (scale / MINIMAP_SCALE));
   g.fillStyle = "#fff";
   g.beginPath(); g.arc(px, py, r, 0, 7); g.fill();
   g.fillStyle = "#e8c34f";
   g.beginPath(); g.arc(px, py, r * 0.6, 0, 7); g.fill();
+}
+
+/** Fast-travel nodes as parchment map-pins. Discovered nodes get a bright ringed
+ *  dot + a small name label; undiscovered ones are hinted only as a faint hollow
+ *  dot (there IS somewhere out there, but she must walk to it first). */
+function drawTravelPins() {
+  const d = hooks?.discovery;
+  const rad = Math.max(3.5, 4 * (scale / MINIMAP_SCALE));
+  for (const n of TRAVEL_NODES) {
+    const x = n.x * scale, y = n.y * scale;
+    const known = !!d && d.discovered.includes(n.id);
+    if (!known) {
+      // subtle hint: a faint hollow ring, no label
+      g.beginPath(); g.arc(x, y, rad * 0.7, 0, 7);
+      g.fillStyle = "rgba(20,16,8,0.28)"; g.fill();
+      g.lineWidth = 1; g.strokeStyle = "rgba(255,246,222,0.35)"; g.stroke();
+      continue;
+    }
+    // discovered pin: dark outline ring + warm parchment fill + gold centre
+    g.beginPath(); g.arc(x, y, rad + 1.5, 0, 7); g.fillStyle = "rgba(30,20,8,0.85)"; g.fill();
+    g.beginPath(); g.arc(x, y, rad, 0, 7); g.fillStyle = "#f0dfb6"; g.fill();
+    g.beginPath(); g.arc(x, y, rad * 0.5, 0, 7); g.fillStyle = "#c98b23"; g.fill();
+    // label just above the pin, with a legibility shadow
+    const fs = Math.max(9, Math.round(9 * (scale / MINIMAP_SCALE)));
+    g.font = `700 ${fs}px system-ui, sans-serif`;
+    g.textAlign = "center"; g.textBaseline = "bottom";
+    const ly = y - rad - 2;
+    g.lineWidth = 3; g.strokeStyle = "rgba(20,14,4,0.9)"; g.strokeText(n.label, x, ly);
+    g.fillStyle = "#fff4dc"; g.fillText(n.label, x, ly);
+  }
+  g.textAlign = "start"; g.textBaseline = "alphabetic";
+}
+
+// ---- fast-travel click + confirm card ---------------------------------------
+
+function initFastTravel() {
+  confirmEl = document.getElementById("travelConfirm");
+  canvas.addEventListener("click", onMapClick);
+  confirmEl?.querySelector(".tc-no")?.addEventListener("click", (e) => { e.stopPropagation(); hideConfirm(); });
+  confirmEl?.querySelector(".tc-go")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (pendingNode && hooks) { const n = pendingNode; hideConfirm(); hooks.travel(n); }
+  });
+  // closing/hiding the map dismisses any open card
+  addEventListener("keydown", (e) => { if (e.code === "KeyM") hideConfirm(); });
+}
+
+/** Called when the ledger changes (New Game, or a fresh handoff) so a stale card
+ *  for a now-undiscovered place doesn't linger. */
+function refreshTravelUI() { hideConfirm(); }
+
+function nodeAtMapPoint(mx: number, my: number): TravelNode | null {
+  const hitR = Math.max(9, 10 * (scale / MINIMAP_SCALE));
+  let best: TravelNode | null = null, bestD = hitR * hitR;
+  for (const n of TRAVEL_NODES) {
+    const dx = n.x * scale - mx, dy = n.y * scale - my;
+    const dd = dx * dx + dy * dy;
+    if (dd <= bestD) { bestD = dd; best = n; }
+  }
+  return best;
+}
+
+function onMapClick(e: MouseEvent) {
+  if (!hooks) return;
+  const rect = canvas.getBoundingClientRect();
+  // canvas CSS size is W×H (see applyScale) — map straight into map-space
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+  const node = nodeAtMapPoint(mx, my);
+  if (!node) { hideConfirm(); return; }
+  if (!hooks.discovery.discovered.includes(node.id)) {
+    // an undiscovered pin: gently hint it must be walked to first
+    showConfirm(node, "You haven't been here yet — walk there once to unlock travel.", true);
+    return;
+  }
+  const pos = hooks.playerPos();
+  const fare = travelFare(pos.x, pos.y, node);
+  const mins = travelMinutes(pos.x, pos.y, node);
+  const reason = hooks.guard(node, fare);
+  if (reason) { showConfirm(node, reason, true); return; }
+  const hrs = Math.floor(mins / 60), rem = mins % 60;
+  const timeStr = hrs > 0 ? `${hrs}h${rem ? ` ${rem}m` : ""}` : `${mins} min`;
+  showConfirm(node, `Fare <b>${fare}</b> coins · about ${timeStr} by carriage`, false);
+}
+
+function showConfirm(node: TravelNode, fareLine: string, blockedState: boolean) {
+  if (!confirmEl) return;
+  pendingNode = blockedState ? null : node;
+  (confirmEl.querySelector(".tc-title") as HTMLElement).textContent =
+    blockedState ? node.label : `Travel to ${node.label}?`;
+  (confirmEl.querySelector(".tc-fare") as HTMLElement).innerHTML = fareLine;
+  const go = confirmEl.querySelector(".tc-go") as HTMLElement;
+  go.style.display = blockedState ? "none" : "";
+  (confirmEl.querySelector(".tc-no") as HTMLElement).textContent = blockedState ? "OK" : "Cancel";
+  confirmEl.classList.toggle("blocked", blockedState);
+  confirmEl.classList.add("show");
+}
+
+function hideConfirm() {
+  pendingNode = null;
+  confirmEl?.classList.remove("show");
 }
 
 /** Scaled-down echo of the whole world (regions, road, water, buildings),

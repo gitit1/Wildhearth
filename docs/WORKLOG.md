@@ -29,6 +29,73 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## world — paid minimap fast travel between discovered locations (v2 BLOCK #4)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Doc-verified scope:** ROADMAP_TO_V5 §v2 ("minimap fast travel") + VISION §9
+  Transportation ("clicking a discovered location on the minimap offers a
+  quick-travel option **for a small coin cost**… only unlocked for locations
+  already discovered on foot") + VISION price table ("Fast travel per
+  discovered-location trip: 3-5"). Built exactly to that: paid, discovered-only,
+  time still ticks.
+- **New `src/systems/discovery.ts`** — the RULES half. `TRAVEL_NODES` (5 named
+  places, each mapped 1:1 to a world Region + a verified-walkable arrival point:
+  Home Farm/farm, Market Square/market=BUSK_SPOT, Forest Edge/forest, Lake
+  Dock/river=DOCK deck, Coastal Town/town=TOWN_SQUARE). `Discovery` store
+  (`{version,discovered[]}`, farm seeded) with load/save/reset matching
+  reputation.ts convention (versioned, corrupt-tolerant, private-mode safe, farm
+  always re-added). `discoverRegion(d,region)` marks a node discovered on first
+  reach and returns it for celebration. Pure helpers `travelFare(fx,fy,node)`
+  (VISION 3-5 anchor, distance-ramped + clamped — ONE source so the confirm card
+  SHOWS what main CHARGES) and `travelMinutes(fx,fy,node)` (distance-scaled clock
+  cost, MIN..MAX). Arrival points verified non-colliding via a `blocked()` node
+  harness (all 5 false).
+- **`src/config.ts`** — `TRAVEL_FARE_MIN/MAX` (3/5), `TRAVEL_FARE_PER_TILE`,
+  `TRAVEL_MIN_MINUTES`/`TRAVEL_MINUTES_PER_TILE`/`TRAVEL_MAX_MINUTES`, and
+  `DISCOVERY_KEY` (`wildhearth-discovery-v1`).
+- **`src/ui/minimap.ts`** — pins + click→confirm UI. `setTravelHooks({discovery,
+  playerPos,guard,travel})` wires it to main. `drawTravelPins()` (in the live
+  overlay each frame): discovered nodes = dark-ringed parchment pin + gold centre
+  + a shadowed name label; undiscovered = a faint hollow ring (subtly hinted, no
+  label). Canvas click → `nodeAtMapPoint` hit-test → parchment confirm card
+  (`#travelConfirm`, new DOM+CSS in index.html) showing "Travel to X? Fare N
+  coins · about M min by carriage" with Travel/Cancel; undiscovered or
+  guard-blocked pins show the reason with an OK-only card.
+- **`src/main.ts`** — owns the ledger + the trip. `loadDiscovery()` at boot;
+  block #3's bespoke first-town greeting GENERALISED — the region-change seam now
+  calls `discoverRegion` and `celebrateDiscovery(node)` (town keeps its rich
+  greeting; others get a "you can now travel here" Memory + toast).
+  `travelGuardReason(node,fare)` enforces the rails (never mid-fade/menu/dialogue/
+  transaction, not from indoors, not to where you stand, not beyond your purse).
+  `fastTravel(node)` charges the fare (`economy.coins`+saveEconomy), then mirrors
+  sleepUntilMorning: `fadeThrough` drives the REAL `stepGameMinute` loop for the
+  travel minutes (needs drain as if walked — no clock teleport), repositions the
+  player at full black, resets `lastQuestRegion` so arrival re-counts as
+  "reached", fades in. `resetDiscovery` on New Game. `DISCOVERY_KEY` added to
+  `saves.ts` GAME_KEYS (New Game wipes it; save/reload keeps it). Dev bridge:
+  `discovered()`, `discoverAll()`, `travelTo(id)`, `travelQuote(id)`.
+- **Verified (live headless-Edge/puppeteer, screenshots `scratchpad/v2-block4/`):**
+  fresh ledger = `["farm"]`; walking into market/forest/dock/town discovers each
+  in turn; the town pin click opens the confirm card ("Fare 5 coins · about 52
+  min"); farm→town paid trip moved coins 50→45 (−5 fare), clock +53 min (~quoted
+  52), player landed exactly on the town arrival tile (1856,1133) on walkable
+  cobble; town→market −4 fare / +21 min; guard returns "Finish what you're doing
+  first." mid-dialogue and "You're already here." when standing on the target;
+  save+reload keeps all 5 discoveries; New Game wipes back to `["farm"]`. Map
+  renders 5 labelled pins (discovered) vs faint hints (undiscovered). `npm run
+  build` green. Local commit only, never pushed. Adds no PNGs — the minimap pins
+  + card are all code-drawn/DOM, so zero-PNG boot is structurally unaffected.
+- **Judgment calls (owner may revisit):** (1) FARE ramp tuned so remote hops hit
+  the VISION cap of 5 and adjacent nodes cost 3-4 — from the corner-set farm
+  everything reads 5, which is faithful to "3-5 per trip". (2) Festivals do NOT
+  block travel — a festival is a convenience destination, not a critical lockout
+  the way dialogue/transactions are; the guard blocks only what genuinely
+  objects. (3) PROPOSAL #15 (Fame-discounted fares) left unbuilt — it's a
+  proposal, not v2 scope.
+- **Follow-ups:** minimap labels can visually overlap for adjacent nodes
+  (Market/Lake Dock) at small window sizes — cosmetic, could offset or fade
+  non-hovered labels later. A "carriage/coachman" sprite or a little travel
+  animation would sell the old-world framing (currently just the fade + toast).
+
 ## npc — town life + first-arrival hint (v2 BLOCK #3, part 3)
 - **Date:** 2026-07-11 (v1-foundation)
 - **What & why:** so the coastal town isn't a ghost street, a few existing
