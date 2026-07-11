@@ -336,42 +336,108 @@
       box-shadow:0 0 0 1px #e8c34f inset}
     .choice-card .cc-note{margin-top:6px;color:#ffd54f;opacity:.95;font-weight:700;font-size:11px}
     /* ============ Character Creation + Path/Goal screens ============ */
-    .cc-panel{max-width:760px;width:min(760px,calc(100vw - 24px));
+    .cc-panel{max-width:780px;width:min(780px,calc(100vw - 24px));
       max-height:92vh;overflow-y:auto;text-align:left}
-    .cc-title{font-size:30px;text-align:center;margin-bottom:12px}
-    .cc-body{display:flex;gap:22px;align-items:flex-start}
-    .cc-left{flex:none}
-    .cc-preview{background:radial-gradient(ellipse at 50% 42%,rgba(90,120,70,.35),rgba(14,18,10,.55));
-      border:2px solid var(--wood);border-radius:12px;box-shadow:var(--pill-shadow)}
-    .cc-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:11px}
-    .cc-field{display:flex;flex-direction:column;gap:5px}
-    .cc-field.cc-inline{flex-direction:row;align-items:center;gap:12px}
-    .cc-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-    .cc-names{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+    .cc-title{font-size:30px;text-align:center;margin-bottom:2px}
+    .cc-sub{text-align:center;color:var(--muted);font-size:13px;font-style:italic;margin:0 0 16px}
+    .cc-body{display:flex;gap:24px;align-items:flex-start}
+    /* -- left: the preview stage (hero) -- */
+    .cc-left{flex:none;display:flex;flex-direction:column;align-items:center;gap:10px}
+    .cc-stage{border-radius:14px;padding:3px;
+      background:linear-gradient(180deg,rgba(232,195,79,.24),rgba(122,92,52,.16));
+      box-shadow:var(--pill-shadow)}
+    .cc-preview{display:block;border-radius:12px;border:2px solid var(--wood);
+      image-rendering:pixelated;image-rendering:crisp-edges;
+      background:
+        radial-gradient(ellipse 58% 12% at 50% 90%, rgba(0,0,0,.5), rgba(0,0,0,0) 72%),
+        radial-gradient(ellipse at 50% 40%, rgba(120,150,90,.34), rgba(14,18,10,.66) 78%),
+        linear-gradient(180deg, rgba(40,54,30,.5), rgba(12,16,9,.62));
+      box-shadow:inset 0 0 24px rgba(0,0,0,.55), inset 0 0 0 1px var(--hairline)}
+    .cc-caption{text-align:center;min-height:36px}
+    .cc-cap-name{font-family:var(--font-title);font-size:17px;font-weight:800;color:var(--gold);
+      line-height:1.15;letter-spacing:.02em}
+    .cc-cap-meta{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-top:3px}
+    /* -- right: option groups -- */
+    .cc-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:13px}
+    .cc-field{display:flex;flex-direction:column;gap:6px}
+    .cc-field.cc-inline{flex-direction:row;align-items:center;gap:14px}
+    .cc-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
+    .cc-names{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
     .cc-input{flex:1;min-width:96px;background:var(--cell-bg);border:1px solid var(--cell-edge);
-      border-radius:8px;color:var(--ink);font:inherit;font-size:14px;padding:8px 10px}
-    .cc-input:focus{outline:none;border-color:var(--gold-soft)}
-    .cc-dice{flex:none;width:40px;height:38px;border-radius:9px;border:2px solid var(--wood);
-      background:var(--panel-bg);color:var(--ink);font-size:19px;cursor:pointer;line-height:1;box-shadow:var(--pill-shadow)}
-    .cc-dice:hover{border-color:var(--gold-soft)}
-    .cc-stepper{display:flex;align-items:center;gap:8px}
-    .cc-step{width:30px;height:30px;border-radius:8px;border:1px solid var(--cell-edge);
-      background:var(--cell-bg);color:var(--ink);font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0}
-    .cc-step:hover{border-color:var(--gold-soft)}
-    .cc-age-val{min-width:34px;text-align:center;font-size:16px;font-weight:800;color:var(--gold);
+      border-radius:8px;color:var(--ink);font:inherit;font-size:14px;padding:8px 11px;
+      transition:border-color .12s,box-shadow .12s,background .12s}
+    .cc-input:hover{border-color:var(--gold-soft)}
+    .cc-input:focus{outline:none;border-color:var(--gold-soft);
+      box-shadow:0 0 0 2px rgba(232,195,79,.3);background:rgba(230,190,80,.07)}
+    .cc-input::placeholder{color:var(--muted);opacity:.7}
+    /* age stepper — a single joined control */
+    .cc-stepper{display:inline-flex;align-items:center;gap:2px;background:var(--cell-bg);
+      border:1px solid var(--cell-edge);border-radius:9px;padding:2px}
+    .cc-step{width:30px;height:28px;border-radius:7px;border:0;background:transparent;
+      color:var(--ink);font-size:18px;font-weight:700;cursor:pointer;line-height:1;padding:0;
+      transition:background .12s,transform .05s}
+    .cc-step:hover{background:rgba(230,190,80,.2)}
+    .cc-step:active{transform:translateY(1px)}
+    .cc-age-val{min-width:38px;text-align:center;font-size:16px;font-weight:800;color:var(--gold);
       font-variant-numeric:tabular-nums}
-    .cc-toggle,.cc-row{display:flex;gap:6px}
+    /* option pills */
+    .cc-toggle,.cc-row{display:flex;gap:7px}
     .cc-row.cc-wrap{flex-wrap:wrap}
     .cc-btn{background:var(--cell-bg);border:1px solid var(--cell-edge);border-radius:8px;
-      color:var(--ink);font:inherit;font-size:13px;font-weight:700;padding:6px 12px;cursor:pointer}
-    .cc-btn:hover{border-color:var(--gold-soft)}
-    .cc-btn.sel{background:rgba(230,190,80,.9);color:#241d0e;border-color:#b8912f}
-    .cc-swatch{width:30px;height:30px;border-radius:8px;border:2px solid rgba(240,234,214,.25);
-      cursor:pointer;padding:0}
-    .cc-swatch:hover{border-color:var(--gold-soft)}
-    .cc-swatch.sel{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,213,79,.5)}
-    .cc-outfit{width:36px;height:30px}
-    .cc-continue{margin-top:16px}
+      color:var(--ink);font:inherit;font-size:13px;font-weight:700;padding:7px 13px;cursor:pointer;
+      transition:border-color .12s,background .12s,color .12s,transform .05s}
+    .cc-btn:hover{border-color:var(--gold-soft);background:rgba(230,190,80,.1)}
+    .cc-btn:active{transform:translateY(1px)}
+    .cc-btn.sel{background:linear-gradient(180deg,#f2cf6b,#e6be50);color:#241d0e;border-color:#b8912f;
+      box-shadow:0 1px 3px rgba(0,0,0,.3)}
+    /* segmented control (gender + body size) — buttons share one framed track */
+    .cc-seg{display:inline-flex;align-self:flex-start;gap:0;background:var(--cell-bg);
+      border:1px solid var(--cell-edge);border-radius:9px;padding:2px;flex-wrap:nowrap}
+    .cc-seg .cc-btn{border:0;border-radius:7px;background:transparent;box-shadow:none;
+      min-width:66px;text-align:center}
+    .cc-seg .cc-btn:hover:not(.sel){background:rgba(230,190,80,.14)}
+    /* keep the gold fill on the selected segment (would otherwise lose to the
+       track's transparent-background rule at equal specificity) */
+    .cc-seg .cc-btn.sel{background:linear-gradient(180deg,#f2cf6b,#e6be50);
+      box-shadow:0 1px 3px rgba(0,0,0,.3)}
+    /* swatches */
+    .cc-swatch{width:30px;height:30px;border-radius:8px;border:2px solid rgba(240,234,214,.28);
+      cursor:pointer;padding:0;transition:border-color .12s,transform .06s,box-shadow .12s}
+    .cc-swatch:hover{border-color:var(--gold-soft);transform:translateY(-1px)}
+    .cc-swatch.sel{border-color:var(--gold);
+      box-shadow:0 0 0 2px rgba(255,213,79,.55),0 2px 6px rgba(0,0,0,.35)}
+    .cc-shade{width:34px;height:34px;border-radius:50%}   /* hair shades read as colour dots */
+    .cc-outfit{width:38px;height:30px}
+    /* reserved (coming soon) axis — quiet dashed chip, intentionally not gold */
+    .cc-soon{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;
+      font-size:12px;font-weight:700;color:var(--muted);cursor:default;
+      background:repeating-linear-gradient(135deg,rgba(240,234,214,.05) 0 6px,rgba(240,234,214,.09) 6px 12px);
+      border:1px dashed var(--cell-edge);border-radius:8px;padding:6px 11px}
+    .cc-soon-ic{opacity:.8;font-size:11px}
+    /* keyboard focus rings across every interactive control */
+    .cc-btn:focus-visible,.cc-swatch:focus-visible,.cc-step:focus-visible,
+    .cc-randomize:focus-visible,.cc-continue:focus-visible{outline:none;
+      box-shadow:0 0 0 3px rgba(255,213,79,.5)}
+    /* footer action bar: Randomize (secondary) + Continue (primary) */
+    .cc-actions{display:flex;gap:12px;align-items:stretch;margin-top:20px}
+    .cc-randomize{flex:none;display:inline-flex;align-items:center;gap:8px;
+      background:var(--cell-bg);border:1px solid var(--wood);border-radius:12px;
+      color:var(--ink);font:inherit;font-size:14px;font-weight:700;padding:0 18px;cursor:pointer;
+      transition:border-color .12s,background .12s,transform .05s}
+    .cc-randomize:hover{border-color:var(--gold-soft);background:rgba(240,234,214,.1)}
+    .cc-randomize:active{transform:translateY(1px)}
+    .cc-randomize .cc-rnd-ic{font-size:18px;line-height:1}
+    .cc-continue{flex:1;padding:13px;border-radius:12px;border:2px solid #b8912f;
+      background:linear-gradient(180deg,#f2cf6b,#e6be50);color:#241d0e;font-weight:800;font-size:16px;
+      cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4);
+      transition:filter .12s,transform .05s,box-shadow .12s}
+    .cc-continue:hover{filter:brightness(1.06)}
+    .cc-continue:active{transform:translateY(1px);box-shadow:0 2px 6px rgba(0,0,0,.4)}
+    /* narrow screens: stack the columns, preview leading and centred */
+    @media (max-width:560px){
+      .cc-body{flex-direction:column;align-items:center;gap:16px}
+      .cc-right{width:100%}
+    }
     .cc-section-head{font-size:14px;font-weight:800;color:var(--gold);letter-spacing:.04em;
       text-align:center;margin:14px 0 4px;text-transform:uppercase}
     .goal-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:2px 0}
@@ -798,7 +864,7 @@
     .set-section-title,.shop-section,.wn-title,.q-title,.credits-head,
     .wh-title-text,#tutTitle,.mm-big-title,.choice-card h3,.cc-goal-title,
     #gpTitle,.eod-achieve-head,.book-cat,.help-tab,.book-tab,.q-tab,
-    .menu-btn,.mm-big-title{ font-family:var(--font-title) }
+    .menu-btn,.mm-big-title,.cc-continue{ font-family:var(--font-title) }
     /* the pixel font sits a touch tall — nudge tracking on the big display titles */
     .menu-title,.screen-title,.cc-title{ letter-spacing:.02em }
 

@@ -29,6 +29,58 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## screens — character-creation screen refined (small details pass)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Owner directive:** "redesign the screens better, invest in small details."
+  This block is the CHARACTER-CREATION screen (New Game → design your heroine).
+  Scope was explicitly UI/layout/CSS only — the sprite/appearance pipeline
+  (`src/art/spriteChar.ts`, the sprite matrix, recolour/resolve logic) was
+  **left untouched**; the same options produce the same resulting character,
+  presented better.
+- **Files changed:** `src/ui/charcreation.ts` (DOM structure, classes, copy),
+  `index.html` (the `.cc-*` CSS block + added `.cc-continue` to the pixel-font
+  heading selector list). No logic/behaviour change to what character is
+  created — `onDone(identity)` payload is byte-for-byte the same.
+- **What shipped (pure presentation):**
+  - **Preview is now the hero.** The canvas sits on a framed **stage** (gold→
+    wood gradient bezel + inner vignette + a soft ground-plinth shadow), got
+    `image-rendering: pixelated` (it was missing — the pixel-art sprite is now
+    crisp), and grew (150×210 → 178×250, draw scale 2.5 → 2.7, feet anchor
+    0.82 → 0.86). A **live caption** under it shows her name (nickname or
+    "First Last") + "Age N · Gender", read from `state` each frame via a new
+    `syncCaption()` (guarded so it only writes the DOM when the text changes) —
+    it tracks the name inputs, the dice and the gender toggle with no extra
+    wiring.
+  - **Clear selected states.** Option pills (`.cc-btn.sel`) now use a gold
+    gradient fill + shadow; hover tint + `:active` press; a shared
+    **`:focus-visible`** gold ring across pills, swatches, steppers, and both
+    footer buttons.
+  - **Segmented controls.** Gender and Body size render as joined
+    segmented tracks (`.cc-seg`) instead of loose buttons; fixed the selected
+    segment losing its gold fill (equal-specificity source-order clash with the
+    track's transparent-background rule) and made the track shrink-to-content.
+  - **Swatches.** Hair shades are now circular colour dots (`.cc-shade`) with a
+    strong gold selection ring, reading clearly as colour choices.
+  - **Reserved axis.** The "Skin tone → Coming soon" placeholder is now a quiet
+    **dashed, muted, lock-icon chip** (`.cc-soon`) — intentionally *not* gold,
+    so it reads as pending rather than accidentally-selected. `comingSoonGroup`
+    simplified (dropped the unused `soon` param).
+  - **Footer actions.** The bare dice moved out of the name row into a footer
+    action bar: **🎲 Randomize** (secondary, wood-outlined) + **Continue**
+    (primary gold CTA, full-width). Added a one-line subtitle under the title.
+  - **Responsive.** New `@media (max-width:560px)` stacks the columns (preview
+    leads, centred; options full-width below) — fixes the gender toggle
+    clipping off-screen on narrow viewports.
+- **Verified** (headless Edge + puppeteer-core, before/after at 1280×860 and
+  420×740 in `scratchpad/charcreate-polish/`): selected states read at a glance
+  (gender/body-size/hairstyle/outfit gold-filled), preview crisp, small
+  viewport stacks cleanly, and the full flow still works — New Game → toggle
+  male/cropped/shade → **Continue advances to the intro with 0 page errors**
+  and an intact look. `npm run build` green.
+- **Follow-ups:** skin-tone and additional body-size variety remain deferred to
+  the (owner-paused) character-sprite work — the screen already exposes the
+  axes, it just needs the sprite pipeline to catch up.
+
 ## screens — end-of-day summary redesigned (small details pass)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Owner directive:** "redesign the screens better, invest in small details."

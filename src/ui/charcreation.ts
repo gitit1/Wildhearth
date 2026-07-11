@@ -113,22 +113,49 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   const h1 = document.createElement("h1");
   h1.className = "menu-title cc-title";
   h1.textContent = "Create your character";
+  const sub = document.createElement("p");
+  sub.className = "cc-sub";
+  sub.textContent = "This is you — the one part of your story you begin with.";
 
   const body = document.createElement("div");
   body.className = "cc-body";
 
-  // ---- left: live preview ----
+  // ---- left: live preview (hero stage) ----
   const left = document.createElement("div");
   left.className = "cc-left";
+  const stage = document.createElement("div");
+  stage.className = "cc-stage";
   const cv = document.createElement("canvas");
   cv.className = "cc-preview";
-  const CW = 150, CH = 210;
+  const CW = 178, CH = 250;
   cv.width = CW * devicePixelRatio;
   cv.height = CH * devicePixelRatio;
   cv.style.width = `${CW}px`;
   cv.style.height = `${CH}px`;
   const g = cv.getContext("2d")!;
-  left.append(cv);
+  stage.append(cv);
+  // live caption — her name + age/gender, read from `state` each frame so it
+  // tracks the name inputs, the dice and the gender toggle with no extra wiring.
+  const caption = document.createElement("div");
+  caption.className = "cc-caption";
+  const capName = document.createElement("div");
+  capName.className = "cc-cap-name";
+  const capMeta = document.createElement("div");
+  capMeta.className = "cc-cap-meta";
+  caption.append(capName, capMeta);
+  left.append(stage, caption);
+  let lastCap = "";
+  const syncCaption = () => {
+    const nm = state.nickname.trim()
+      || `${state.firstName.trim() || "Robin"} ${state.lastName.trim() || "Vale"}`.trim();
+    const meta = `Age ${state.age} · ${state.gender === "female" ? "Female" : "Male"}`;
+    const key = `${nm}|${meta}`;
+    if (key === lastCap) return;
+    lastCap = key;
+    capName.textContent = nm;
+    capMeta.textContent = meta;
+  };
+  syncCaption();
 
   // ---- right: option controls (rebuilt-on-demand groups + persistent inputs) ----
   const right = document.createElement("div");
@@ -146,11 +173,11 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   const lastIn = textInput("Last name", state.lastName, (v) => (state.lastName = v));
   const nickIn = textInput("Nickname (optional)", state.nickname, (v) => (state.nickname = v));
   const dice = document.createElement("button");
-  dice.className = "cc-dice";
+  dice.className = "cc-randomize";
   dice.id = "ccRandomize";
-  dice.title = "Randomize";
-  dice.textContent = "🎲";
-  names.append(firstIn, lastIn, nickIn, dice);
+  dice.title = "Roll a whole new look (and name)";
+  dice.innerHTML = '<span class="cc-rnd-ic">🎲</span> Randomize';
+  names.append(firstIn, lastIn, nickIn);
   nameField.append(nameLabel, names);
 
   // age stepper
@@ -172,7 +199,7 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   const genderField = document.createElement("div");
   genderField.className = "cc-field cc-inline";
   const genderBox = document.createElement("div");
-  genderBox.className = "cc-toggle";
+  genderBox.className = "cc-toggle cc-seg";
   const gBtns: Array<{ id: Gender; el: HTMLButtonElement }> = [];
   for (const gd of ["female", "male"] as Gender[]) {
     const b = document.createElement("button");
@@ -208,7 +235,7 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     // silhouette). The live preview re-resolves the sheet each frame from
     // state.appearance.bodySize, so switching updates the character instantly.
     const sizeRow = labelGroup("Body size", BODY_SIZES.map((s) => ({ v: s.id, label: s.label })),
-      () => state.appearance.bodySize, (v) => (state.appearance.bodySize = v as BodySize), syncers);
+      () => state.appearance.bodySize, (v) => (state.appearance.bodySize = v as BodySize), syncers, "cc-seg");
     right.append(nameField, ageField, genderField, hairRow, outfitRow, shadeRow, skinRow, sizeRow);
   } else {
     const skinRow = swatchGroup("Skin", SKINS, () => state.appearance.skin, (c) => (state.appearance.skin = c), syncers);
@@ -225,11 +252,16 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
   body.append(left, right);
 
   const cont = document.createElement("button");
-  cont.className = "menu-btn cc-continue";
+  cont.className = "cc-continue";
   cont.id = "ccContinue";
   cont.textContent = "Continue";
 
-  panel.append(h1, body, cont);
+  // footer action bar: Randomize (secondary) + Continue (primary)
+  const actions = document.createElement("div");
+  actions.className = "cc-actions";
+  actions.append(dice, cont);
+
+  panel.append(h1, sub, body, actions);
   o.append(panel);
 
   // ---- randomize ----
@@ -266,10 +298,12 @@ export function showCharacterCreation(onDone: (identity: CharacterIdentity) => v
     g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     g.clearRect(0, 0, CW, CH);
     const facing = ([2, 1, 2, 3] as const)[Math.floor(t / 2.2) % 4]!;   // front, right, front, left
+    syncCaption();
+    const ay = CH * 0.86;   // feet anchor, low on the stage so she stands on the plinth
     const covered = spriteCoversLook(state.gender, state.appearance)
-      && drawHeroinePreview(g, state.gender, state.appearance, CW / 2, CH * 0.82, facing, 2.5, t);
+      && drawHeroinePreview(g, state.gender, state.appearance, CW / 2, ay, facing, 2.7, t);
     if (!covered)
-      drawRig(g, CW / 2, CH * 0.82, facing, previewRig(state.appearance, 2.5), "idle", 0, t);
+      drawRig(g, CW / 2, ay, facing, previewRig(state.appearance, 2.7), "idle", 0, t);
     previewRaf = requestAnimationFrame(frame);
   };
   cancelAnimationFrame(previewRaf);
@@ -347,12 +381,12 @@ function swatchGroup(
 
 function labelGroup(
   label: string, opts: Array<{ v: string; label: string }>, get: () => string, set: (v: string) => void,
-  syncers: Array<() => void>,
+  syncers: Array<() => void>, rowClass = "cc-row cc-wrap",
 ): HTMLElement {
   const field = document.createElement("div");
   field.className = "cc-field";
   const row = document.createElement("div");
-  row.className = "cc-row cc-wrap";
+  row.className = rowClass;
   const btns: Array<{ v: string; el: HTMLButtonElement }> = [];
   opts.forEach((opt) => {
     const b = document.createElement("button");
@@ -446,7 +480,7 @@ function indexSwatchGroup(
   const btns: HTMLButtonElement[] = [];
   colors.forEach((c, i) => {
     const b = document.createElement("button");
-    b.className = "cc-swatch";
+    b.className = "cc-swatch cc-shade";
     b.style.background = c;
     b.addEventListener("click", () => { set(i); sync(); });
     row.append(b);
@@ -459,28 +493,21 @@ function indexSwatchGroup(
   return field;
 }
 
-/** A reserved axis shown but not yet selectable: an active pill (`current`) plus
- *  greyed "coming soon" options — used for skin tone and body size in v1. */
-function comingSoonGroup(label: string, current: string, soon: readonly string[] = []): HTMLElement {
+/** A reserved axis: shown as a quiet, intentionally-disabled "locked" chip
+ *  (dashed, muted — never gold, so it reads as pending rather than selected).
+ *  Used for skin tone in v1. */
+function comingSoonGroup(label: string, current: string): HTMLElement {
   const field = document.createElement("div");
   field.className = "cc-field";
-  const row = document.createElement("div");
-  row.className = "cc-row cc-wrap";
-  const cur = document.createElement("button");
-  cur.className = "cc-btn sel";
-  cur.textContent = current;
-  cur.disabled = true;
-  row.append(cur);
-  soon.forEach((s) => {
-    const b = document.createElement("button");
-    b.className = "cc-btn";
-    b.textContent = s;
-    b.disabled = true;
-    b.style.opacity = "0.4";
-    b.title = "Coming soon";
-    row.append(b);
-  });
-  if (soon.length === 0) cur.title = "Coming soon";
-  field.append(fieldLabel(label), row);
+  const chip = document.createElement("div");
+  chip.className = "cc-soon";
+  chip.title = "Coming soon";
+  const ic = document.createElement("span");
+  ic.className = "cc-soon-ic";
+  ic.textContent = "🔒";
+  const txt = document.createElement("span");
+  txt.textContent = current;
+  chip.append(ic, txt);
+  field.append(fieldLabel(label), chip);
   return field;
 }
