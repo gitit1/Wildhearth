@@ -534,6 +534,15 @@ export const NEEDS_KEY = "wildhearth-needs-v1";             // 7 needs (hunger/t
 export const RELATIONSHIPS_KEY = "wildhearth-relationships-v1"; // per-NPC Friendship/Romance (Relationship engine)
 export const SLOT_KEY = "wildhearth-slot-v1";        // save-slot manifest (Save system, Part A #11)
 export const GUIDANCE_KEY = "wildhearth-guidance-v1"; // tutorial/aspiration progress (Guidance Mode engine)
+export const QUESTS_KEY = "wildhearth-quests-v1";    // quest log: accepted/active/completed + AI offer (R6 quest system)
+
+// ===========================================================================
+//  Quest system (R6) — authored quests + AI dynamic offers → one quest log.
+//  Content (quest defs) lives in data/quests.ts; the engine in systems/
+//  quests.ts. These are the tuning knobs.
+// ===========================================================================
+export const QUEST_AI_OFFER_MIN_INTERVAL_DAYS = 2; // at most one AI-generated offer attempt per this many in-game days
+export const QUEST_AI_REWARD_CLAMP = 0.5;          // AI-proposed reward is clamped to template.reward × [1-this, 1+this]
 
 // ===========================================================================
 //  Window system (UO-classic windows) — src/ui/windows/*. Everything on screen

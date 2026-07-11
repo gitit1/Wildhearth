@@ -29,6 +29,56 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## quests — core engine + authored quest data + save key (R6, commit 1)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Block given:** R6 — build the real quest system the docs promise (authored
+  quests + AI dynamic offers → one quest log), integrated with what already
+  exists (Guidance, dialogue, relationships, economy, saves). This commit lands
+  the CORE: data + engine + persistence. UI / dialogue / AI wiring follow in
+  later commits.
+- **New `src/data/quests.ts`:** authored quest defs (id, giver, title,
+  description, ordered `steps`, `reward` {coins/items/friendship},
+  `availability` {minDay/season/skill/relationship/requires}, kind, turnIn,
+  repeatable, ai). Two step flavours: ACTIVITY counters
+  (catch/harvest/forage/cook/busk/sell/talk/reach — event-driven) and
+  POSSESSION steps (`gather` a specific item / `gatherAny` a whole category —
+  live-checked against the bag, consumed on turn-in). `CATEGORY_IDS` membership
+  sets built from FISH/CROPS/FORAGE/FLOWERS/JUNK. Six authored quests: Maren's
+  "Tavern Night" (5 fish), Petra's "Bread Run" (3 wheat → a pie back), Henrik's
+  "Barn Favour" (4 acorns + a fished-up rope), Finn's "Something Shiny" (an
+  empty tin — the junk twist, repeatable), Tobin's autumn "Dressing the Square"
+  (4 flowers + a pumpkin), Liora's "A Song in Bloom" (3 home-grown flowers,
+  using R3's gardening). Plus 3 AI-eligible dynamic templates
+  (`dyn_*`, `ai:true`) whose authored text doubles as the scripted fallback.
+- **New `src/systems/quests.ts`:** the engine — `QuestLog` state
+  (per-quest `QuestState` + a persisted `AiOffer`), versioned tolerant store
+  under the new `QUESTS_KEY`. `acceptQuest` / `abandonQuest` (side quests only)
+  / `notifyQuests(event)` (activity steps) / `refreshQuests(heldCount)`
+  (possession steps, live) / `turnInQuest` / auto-complete for `turnIn:false`
+  goals. Every side-effect is RETURNED as a `QuestResult`
+  (toasts/grants/consume/memories) the caller applies — same effect-return
+  pattern as Guidance/Dialogue. Reads for the UI/dialogue: `activeQuests`,
+  `completedQuests`, `stepProgress`, `offerableFor`, `aiOfferFor`,
+  `turnInReadyFor`, `isOfferable` (availability + AI-gating). Steps are
+  sequential; a `gatherAny` consumes the cheapest-first held items of its
+  category.
+- **`src/config.ts`:** new `QUESTS_KEY` + `QUEST_AI_OFFER_MIN_INTERVAL_DAYS` /
+  `QUEST_AI_REWARD_CLAMP` knobs. **`src/systems/saves.ts`:** `QUESTS_KEY` added
+  to `GAME_KEYS` so New Game wipes the quest log.
+- **Verified:** `npm run build` green (tsc strict + vite). A node/esbuild
+  harness drove the whole lifecycle — accept → possession progress → ready →
+  turn-in (correct coins/friendship, exactly-5-fish consumption) → completed;
+  two-step Henrik; repeatable Finn; season-gated Tobin (spring vs autumn);
+  AI templates excluded from authored offers; AI offer surfaces only for its
+  giver and clears on accept; side-quest abandon vs. story-quest non-abandon.
+  All 33 assertions pass.
+- **Follow-ups:** commit 2 wires the engine into main.ts (event seams, reward
+  application, New Game reset, dev bridge); then the quest-log window, dialogue
+  offers/turn-ins, and the D3 AI offer promotion. Noted separately:
+  `STORAGE_KEY` (R5) is still absent from saves.ts `GAME_KEYS` — harmless today
+  (New Game re-seeds it explicitly via `resetStorage`) but inconsistent with
+  the "add a key = New Game wipes it" contract; left untouched (out of R6 scope).
+
 ## character — the curated sprite matrix becomes the shipped player look (R1)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Block given:** R1 — make the generated 50-combo character matrix (2 genders
