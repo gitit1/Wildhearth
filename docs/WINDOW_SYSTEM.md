@@ -47,6 +47,8 @@ interface WindowSpec {
   minimizable?: boolean;      // default true
   pinnable?: boolean;         // default true
   defaultRect: WindowRect | ((desk: {w,h}) => WindowRect);
+  autoPlace?: boolean;        // default true; false = permanent HUD chrome (no open placement)
+  openAt?(desk, size): {x,y}; // open-placement anchor override (dialogue/minimap/debug)
   onResize?(cw, ch): void;    // content box settled (viewport refits the canvas here)
   onOpen?(); onClose?(); onMinimize?(min); onFocus?();
 }
@@ -133,14 +135,36 @@ dragged position is within `WIN_SNAP_DIST` of a candidate it jumps to it
 (position assist only — **no docking semantics**). **Hold Alt** (read from
 `pointermove.altKey`) to bypass entirely.
 
-### Keep-on-screen rescue (the off-screen edge case)
-`clampRect()` guarantees at least `WIN_MIN_VISIBLE`px of a window's title bar
-stays grabbable horizontally and that its top stays within the desktop
-vertically, so a window can never be dragged fully off-screen. On browser
-resize, `onDesktopResize()` re-clamps **every** window back into reach and
-shrinks any resizable window that now overflows the desktop (then refits it).
-This runs on boot too (`wm.clampAll()`), so a layout saved on a big monitor and
-restored on a small one is pulled back into view.
+### Open placement — the "logical order" rule (small-screens pass)
+When a window OPENS (hidden → normal; not a restore-from-minimize) and the
+player has never dragged/resized it herself, `autoPlace()` places it instead
+of trusting a possibly-stale rect: **centered on the desktop, cascading
++26px** per already-open auto-placed window whose origin sits on the
+candidate spot — windows opened one after another fan like a deck instead of
+landing exactly on top of each other. Three windows override the centered
+base with `openAt` (a natural anchor): dialogue = bottom-center, minimap =
+top-right under the clock, debug = top-left. The permanent chrome (viewport/
+clock/coins/needs/dock) opts out entirely with `autoPlace: false` — preset
+homes, not pop-up spots. **A window the player drags or resizes sets its
+`userPlaced` flag** (persisted as `up`): reopen then keeps HER spot, exactly
+like a UO gump. Presets (Classic/Cozy/Reset) clear every flag — a preset is
+a fresh arrangement.
+
+### Keep-on-screen clamp (fully-on-screen, small-screens pass)
+`clampRect()` keeps a window that FITS the desktop **entirely inside it** — a
+window can no longer sit half off the edge (the mobile clipping bug). Only a
+window genuinely bigger than the desktop falls back to the lenient rule: at
+least `WIN_MIN_VISIBLE`px of title bar grabbable horizontally, title-bar top
+within the desktop vertically. `clampFor()` wraps it with the window's REAL
+footprint: resizable windows first cap w/h to the desktop (a 720px Settings
+shrinks onto a 390px phone and its body scrolls — `.wh-window` carries
+`max-width/max-height:100%` and every non-viewport `.wh-body` is
+`overflow:auto`; `#tools` flex-wraps so the dock folds to two rows instead of
+running off the edge), and auto-sized HUD windows substitute their measured
+box for the meaningless stored w/h. Used at create (a lazily-built Settings
+lands on-screen from its first frame), open, `setRect`, `applyLayout`, and on
+browser resize (`onDesktopResize()` → boot's `wm.clampAll()`), so a layout
+saved on a big monitor restores fully visible on a small one.
 
 ### The game viewport is a window
 `setup.ts` wraps the whole `#gameArea` (canvas + prompt/dialogue/actBtn/zoom
@@ -167,11 +191,15 @@ on boot. Format:
   "slot": 1,
   "dockOrientation": "horizontal" | "vertical",
   "windows": {
-    "<id>": { "x", "y", "w"?, "h"?, "state": "normal|minimized|hidden", "pinned"?, "z"? }
+    "<id>": { "x", "y", "w"?, "h"?, "state": "normal|minimized|hidden", "pinned"?, "z"?, "up"? }
     // w/h are stored only for resizable windows; z is the "stable z-order
     // after reload" field (§2) — optional/omittable for forward-compat with
     // layouts saved before it existed (missing => treated as 0, falling back
     // to creation order, exactly what every layout did before this field).
+    // up = the player placed this window herself (drag/resize) — reopen keeps
+    // her rect instead of auto-placing (§2 "Open placement"). Also optional:
+    // missing => not user-placed, so every pre-existing scattered layout
+    // heals itself window-by-window as things are reopened.
   }
 }
 ```

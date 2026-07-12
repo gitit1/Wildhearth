@@ -29,6 +29,56 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## windows — logical open placement + never-clipped (the mobile fix)
+- **Date:** 2026-07-11 (v1-foundation)
+- **Owner directive:** "the different menus must open in a logical order, not
+  thrown on the screen — and on mobile they get really cut off."
+- **Reproduced first (evidence):** fresh boot at 390×844 — Settings (720px
+  fixed) clipped 165px off BOTH sides, the quest log clipped 43px, and the
+  Tools dock (486px) clipped 148px, putting Save/Settings/Pause physically
+  off-screen. At 1280×800, opening skills → book → quests → settings piled
+  windows at unrelated hardcoded spots (each module's `defaultRect`), with
+  no awareness of what was already open.
+- **Root causes:** (1) `clampRect()` only guaranteed a `WIN_MIN_VISIBLE`
+  sliver of title bar — never full visibility, and non-resizable windows
+  never shrank; (2) no runtime placement policy — a window opened at whatever
+  rect it last had (stale saved layouts included), so "open" = "thrown".
+- **Files changed:** `src/ui/windows/window.ts` (spec: `autoPlace?`,
+  `openAt?`; layout row: `up?`), `src/ui/windows/manager.ts` (fit-inside
+  `clampRect`, new `clampFor` — resizable w/h capped to desktop, auto-sized
+  windows clamped by MEASURED box; new `autoPlace()` centered-cascade engine;
+  `userPlaced` tracking on drag/resize end; `resetPlacement()`; clamp applied
+  at create/open/setRect/applyLayout/desktop-resize), `src/ui/windows/setup.ts`
+  (chrome windows `autoPlace:false`; Classic/Cozy presets call
+  `wm.resetPlacement()`), `src/ui/dialoguebox.ts` / `src/ui/minimap.ts` /
+  `src/ui/debugpanel.ts` (`openAt` anchors: bottom-center / top-right under
+  clock / top-left), `index.html` (`.wh-window{max-width/max-height:100%}`,
+  non-viewport `.wh-body{overflow:auto}`, `#tools` flex-wraps),
+  `docs/WINDOW_SYSTEM.md` (new "Open placement" + rewritten clamp section,
+  persistence format).
+- **Player-facing behavior:**
+  - Opening any panel now places it **centered on the desktop, cascading
+    +26px** per already-open window — a fanned deck, never an exact pile.
+    Dialogue keeps bottom-center, the map its top-right HUD corner, debug
+    top-left.
+  - A window the player drags/resizes keeps HER spot on reopen (persisted
+    `up` flag, UO-gump feel); presets clear the flags.
+  - **Nothing can be clipped any more:** windows that fit stay fully
+    on-screen (drag included); bigger-than-screen windows cap to the desktop
+    and their body scrolls; on a 390px phone Settings fills the width, and
+    the Tools dock wraps to two rows so every button stays reachable.
+  - Old saved layouts (no `up` flags) heal themselves: boot clamps everything
+    fully visible, and each reopen auto-places sensibly.
+- **Verified (puppeteer + Edge, both 1280×800 and 390×844):** clip = 0 on
+  every open window at both sizes (was −165/−148/−43 on mobile); quests opens
+  dead-center (x=478 = (1280−324)/2), close→reopen returns there; after a
+  real title-bar drag to (666,373), close→reopen returns to (666,373)
+  exactly; a poisoned layout (skills at x=5000,y=−50) heals to fully-visible
+  (990,0); zero page errors. `npm run build` green.
+- **Follow-ups:** the Classic preset's HUD arrangement on phones (clock/coins
+  share the top row tightly) could get a dedicated stacked mobile preset —
+  cosmetic, not blocking; all clipping/reachability issues are fixed.
+
 ## docs — EXECUTION_PLAN_V5: the operational build-order to v5 (Fable → Opus handoff)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Owner directive:** "run, as far as I'm concerned, up to v5 — Fable,

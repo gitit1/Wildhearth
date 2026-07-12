@@ -28,8 +28,8 @@
       display:flex;align-items:center;justify-content:center;padding:0}
     /* the icon dock (viewport tool row) is now a window body; it lays out as a
        flex row, or a column when the dock's ⇄ orientation toggle flips it. */
-    #tools{display:flex;flex-direction:row;flex-wrap:nowrap;justify-content:center;gap:8px;
-      align-items:center}
+    #tools{display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;gap:8px;
+      align-items:center;max-width:100%}
     #tools.wh-dock-vertical{flex-direction:column}
     .tool-btn{width:52px;height:52px;border-radius:14px;border:2px solid #7a5c34;cursor:pointer;
       background:rgba(25,32,18,.85);color:#f0ead6;font-size:24px;line-height:1;
@@ -803,8 +803,14 @@
         repeating-linear-gradient(180deg, rgba(0,0,0,.16) 0 39px, rgba(255,220,150,.028) 39px 41px),
         linear-gradient(180deg,#2b2013,#1c140b)}
     .wh-window{position:absolute;box-sizing:border-box;display:flex;flex-direction:column;
+      max-width:100%;max-height:100%;
       border-radius:10px;color:var(--ink);background:var(--panel-bg);
       box-shadow:0 8px 22px rgba(0,0,0,.55), inset 0 0 0 2px var(--wood), inset 0 0 0 3px var(--hairline)}
+    /* a window can never outgrow the desktop (max-width/height above); when its
+       content is genuinely bigger — a wide panel on a phone — the BODY scrolls
+       instead of the frame clipping off-screen. The viewport keeps overflow:hidden
+       (the canvas fills it edge-to-edge; scrollbars there would be a bug). */
+    .wh-window:not([data-win="viewport"])>.wh-body{overflow:auto}
     .wh-titlebar{flex:none;height:26px;display:flex;align-items:center;gap:6px;padding:0 4px 0 8px;
       cursor:move;user-select:none;border-radius:8px 8px 0 0;
       background:linear-gradient(180deg,#6b4f30,#4e3a24);

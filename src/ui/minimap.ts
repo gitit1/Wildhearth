@@ -93,6 +93,11 @@ export function initMinimap() {
       const clockH = wm.get("clock")?.el.getBoundingClientRect().height ?? 74;
       return { x: d.w - W - GAP, y: GAP + clockH + GAP, w: W, h: H };
     },
+    // the map's logical home is its HUD corner, not the centered-cascade spot
+    openAt: (d, s) => {
+      const clockH = wm.get("clock")?.el.getBoundingClientRect().height ?? 74;
+      return { x: d.w - s.w - GAP, y: GAP + clockH + GAP };
+    },
     onResize: (cw, ch) => applyScale(Math.min(cw / WORLD_W, ch / WORLD_H) / MINIMAP_SCALE),
     onMinimize: (hidden) => mapBtn?.classList.toggle("active", !hidden),
   });

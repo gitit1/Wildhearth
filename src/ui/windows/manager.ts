@@ -29,6 +29,9 @@ interface Managed {
   state: WindowState;
   pinned: boolean;
   z: number;
+  /** The player dragged/resized this window herself — reopen keeps her spot
+   *  instead of auto-placing. Persisted (`up` in the layout row). */
+  userPlaced: boolean;
 }
 
 class WindowManager {
@@ -71,14 +74,33 @@ class WindowManager {
   setLayoutChangeListener(fn: () => void): void { this.onLayoutChange = fn; }
 
   // ---- keep-on-screen clamp (the "off-screen rescue" edge case) -----------
-  /** Never lets a window's title bar leave the desktop: at least
-   *  WIN_MIN_VISIBLE px stays grabbable horizontally, and the title bar's top
-   *  stays within the desktop vertically. */
+  /** A window that FITS the desktop stays entirely inside it (no more windows
+   *  half-hanging off the edge — the mobile clipping complaint). Only a window
+   *  genuinely BIGGER than the desktop falls back to the old lenient rule: at
+   *  least WIN_MIN_VISIBLE px of title bar stays grabbable horizontally, and
+   *  the title bar's top stays within the desktop vertically. */
   private clampRect(r: WindowRect): WindowRect {
     const { w: dw, h: dh } = this.deskSize();
-    const x = clamp(r.x, WIN_MIN_VISIBLE - r.w, dw - WIN_MIN_VISIBLE);
-    const y = clamp(r.y, 0, Math.max(0, dh - WIN_TITLEBAR_H));
+    const x = r.w <= dw
+      ? clamp(r.x, 0, dw - r.w)
+      : clamp(r.x, WIN_MIN_VISIBLE - r.w, dw - WIN_MIN_VISIBLE);
+    const y = clamp(r.y, 0, Math.max(0, dh - (r.h > 0 && r.h <= dh ? r.h : WIN_TITLEBAR_H)));
     return { x, y, w: r.w, h: r.h };
+  }
+
+  /** clampRect with the window's REAL footprint: resizable windows first cap
+   *  w/h to the desktop (a 720px Settings shrinks onto a 390px phone; its body
+   *  scrolls), auto-sized windows substitute their measured frame box for the
+   *  meaningless stored w/h (0 for the HUD windows). */
+  private clampFor(m: Managed, r: WindowRect): WindowRect {
+    const { w: dw, h: dh } = this.deskSize();
+    if (m.spec.resizable ?? false) {
+      const w = Math.min(r.w, dw), h = Math.min(r.h, dh);
+      return this.clampRect({ x: r.x, y: r.y, w, h });
+    }
+    const live = this.liveSize(m);
+    const c = this.clampRect({ x: r.x, y: r.y, w: live.w || r.w, h: live.h || r.h });
+    return { x: c.x, y: c.y, w: r.w, h: r.h };   // keep the stored w/h untouched
   }
 
   private resolveDefault(spec: WindowSpec): WindowRect {
@@ -124,7 +146,7 @@ class WindowManager {
     const rect = this.resolveDefault(spec);
     const managed: Managed = {
       spec, frame, titlebar, body,
-      normalRect: rect, state: "normal", pinned: false, z: 0,
+      normalRect: rect, state: "normal", pinned: false, z: 0, userPlaced: false,
       handle: undefined as unknown as WindowHandle,
     };
 
@@ -156,7 +178,10 @@ class WindowManager {
     this.wireDrag(managed);
 
     this.desktop.appendChild(frame);
-    this.applyRect(managed, rect);
+    // clampFor, not the raw default: a window created mid-play on a small
+    // screen (Settings is built lazily on first open) must land on-screen,
+    // capped to the desktop, from its very first frame.
+    this.applyRect(managed, this.clampFor(managed, rect));
     this.focus(spec.id);
     spec.onOpen?.();
     return handle;
@@ -186,7 +211,7 @@ class WindowManager {
       rect() { return { ...m.normalRect }; },
       setRect(r) {
         const next: WindowRect = { ...m.normalRect, ...r };
-        self.applyRect(m, self.clampRect(next), true);
+        self.applyRect(m, self.clampFor(m, next), true);
         self.persist();
       },
       setPinned(v: boolean) { self.setPinned(m, v); },
@@ -278,13 +303,47 @@ class WindowManager {
         this.desktop.appendChild(m.frame);
         this.reflowDock();
       }
-      const r = this.clampRect(m.normalRect);
-      this.applyRect(m, r, true);
+      // A fresh OPEN (not a restore-from-minimize) of a window the player never
+      // placed herself gets the logical spot: centered cascade / its openAt
+      // anchor. Everything else keeps its rect, pulled fully on-screen.
+      if (prev === "hidden" && (m.spec.autoPlace ?? true) && !m.userPlaced) this.autoPlace(m);
+      else this.applyRect(m, this.clampFor(m, m.normalRect), true);
       this.focus(m.spec.id);
       m.spec.onMinimize?.(false);
       if (prev === "hidden") m.spec.onOpen?.();
     }
     this.persist();
+  }
+
+  /** The "logical order" open placement: base = the window's `openAt` anchor
+   *  (dialogue bottom-center, minimap top-right, …) or the desktop center,
+   *  then cascade +26px per already-open auto-placed window whose origin sits
+   *  on the candidate spot — so windows opened one after another stack like a
+   *  fanned deck instead of landing exactly on top of each other. Resizable
+   *  windows cap to the desktop first (phone-size screens), and the final
+   *  rect is always fully on-screen. */
+  private autoPlace(m: Managed): void {
+    const d = this.deskSize();
+    const live = this.liveSize(m);
+    const resizable = m.spec.resizable ?? false;
+    const w = resizable ? Math.min(m.normalRect.w, d.w) : live.w;
+    const h = resizable ? Math.min(m.normalRect.h, d.h) : live.h;
+    const base = m.spec.openAt
+      ? m.spec.openAt(d, { w, h })
+      : { x: Math.round((d.w - w) / 2), y: Math.round((d.h - h) / 2) };
+    const STEP = 26;
+    const taken = [...this.wins.values()].filter((o) =>
+      o !== m && o.state === "normal" && (o.spec.autoPlace ?? true));
+    let { x, y } = base;
+    for (let i = 0; i < 8; i++) {
+      const c = this.clampRect({ x, y, w, h });
+      const collide = taken.some((o) =>
+        Math.abs(o.normalRect.x - c.x) < STEP && Math.abs(o.normalRect.y - c.y) < STEP);
+      if (!collide) { x = c.x; y = c.y; break; }
+      x = c.x + STEP; y = c.y + STEP;
+    }
+    const r = this.clampRect({ x, y, w, h });
+    this.applyRect(m, resizable ? r : { ...r, w: m.normalRect.w, h: m.normalRect.h }, true);
   }
 
   private reflowDock(): void {
@@ -345,7 +404,7 @@ class WindowManager {
         return;
       }
       try { tb.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
-      if (moved) this.persist();
+      if (moved) { m.userPlaced = true; this.persist(); }
     };
     tb.addEventListener("pointerup", end);
     tb.addEventListener("pointercancel", end);
@@ -418,6 +477,7 @@ class WindowManager {
         rs = null;
         try { g.releasePointerCapture(ev.pointerId); } catch { /* not captured */ }
         this.applyRect(m, this.clampRect(m.normalRect), true);
+        m.userPlaced = true;
         this.persist();
       };
       g.addEventListener("pointerup", rzEnd);
@@ -429,16 +489,11 @@ class WindowManager {
   //  Desktop resize → keep every window in reach (the rescue rule)
   // =========================================================================
   private onDesktopResize(): void {
-    const { w: dw, h: dh } = this.deskSize();
     for (const m of this.wins.values()) {
       if (m.state !== "normal") continue;
-      let r = { ...m.normalRect };
-      // resizable windows that now overflow the desktop shrink to fit
-      if (m.spec.resizable ?? false) {
-        r.w = Math.min(r.w, dw);
-        r.h = Math.min(r.h, dh);
-      }
-      this.applyRect(m, this.clampRect(r), true);
+      // clampFor shrinks a resizable window that overflows the desktop and
+      // clamps auto-sized windows by their MEASURED box (stored w/h is 0).
+      this.applyRect(m, this.clampFor(m, { ...m.normalRect }), true);
     }
     this.persist();
   }
@@ -461,6 +516,7 @@ class WindowManager {
       const row: WindowLayout = { x: m.normalRect.x, y: m.normalRect.y, state: m.state, z: m.z };
       if (m.spec.resizable ?? false) { row.w = m.normalRect.w; row.h = m.normalRect.h; }
       if (m.pinned) row.pinned = true;
+      if (m.userPlaced) row.up = true;
       windows[id] = row;
     }
     return { version: 1, slot: 1, windows, dockOrientation: this.dockOrientation };
@@ -482,7 +538,8 @@ class WindowManager {
       const base = resizable
         ? { x: row.x, y: row.y, w: row.w ?? m.normalRect.w, h: row.h ?? m.normalRect.h }
         : { x: row.x, y: row.y, w: m.normalRect.w, h: m.normalRect.h };
-      m.normalRect = this.clampRect(base);
+      m.normalRect = this.clampFor(m, base);
+      m.userPlaced = row.up === true;
       m.pinned = row.pinned === true;
       m.frame.classList.toggle("wh-pinned", m.pinned);
       // set state without persisting per-window (batch persist at the end)
@@ -556,6 +613,12 @@ class WindowManager {
   desktopSize(): DesktopSize { return this.deskSize(); }
   /** Re-clamp everything into reach (boot + after a bulk relayout). */
   clampAll(): void { this.onDesktopResize(); }
+  /** Forget every "the player placed this herself" flag — presets are a fresh
+   *  arrangement, so windows opened after one go back to logical auto-placement. */
+  resetPlacement(): void {
+    for (const m of this.wins.values()) m.userPlaced = false;
+    this.persist();
+  }
 
   loadSavedLayout(): LayoutStore | null { return loadLayout(); }
 }

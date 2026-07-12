@@ -76,6 +76,7 @@ export function setupWindows(hooks: WindowSetupHooks): void {
     resizable: true,
     minW: WIN_VIEWPORT_MIN_W,
     minH: WIN_VIEWPORT_MIN_H,
+    autoPlace: false,   // permanent chrome — preset homes, not pop-up spots
     defaultRect: (d) => centered(d.w, d.h, WIN_VIEWPORT_FILL),
     onResize: () => hooks.refitViewport(),
     onMinimize: (min) => { viewportActive = !min && viewportWin.isOpen(); },
@@ -86,22 +87,26 @@ export function setupWindows(hooks: WindowSetupHooks): void {
   clockWin = wm.createWindow({
     id: "clock", title: "Clock", icon: "🕑",
     content: byId("clockWin"),
+    autoPlace: false,
     defaultRect: { x: 0, y: GAP, w: 0, h: 0 }, // repositioned by classicLayout()
   });
   coinsWin = wm.createWindow({
     id: "coins", title: "Coins", icon: "🪙",
     content: byId("coinsWin"),
+    autoPlace: false,
     defaultRect: { x: GAP, y: GAP, w: 0, h: 0 },
   });
   needsWin = wm.createWindow({
     id: "needs", title: "Needs", icon: "❤",
     content: byId("needsWin"),
+    autoPlace: false,
     defaultRect: { x: GAP, y: 96, w: 0, h: 0 },
   });
   dockWin = wm.createWindow({
     id: "dock", title: "Tools", icon: "🧰",
     content: byId("tools"),
     closable: false,   // never fully closable — guarantees the ☰ reopen path stays reachable
+    autoPlace: false,
     defaultRect: { x: 0, y: 0, w: 0, h: 0 },
   });
 
@@ -211,6 +216,7 @@ export function applyWindowPreset(preset: WindowPreset): void {
  *  POSITION (their sizes are content-derived, so only x/y are set here). */
 function classicLayout(): void {
   const d = wm.desktopSize();
+  wm.resetPlacement();   // a preset is a fresh arrangement — future opens auto-place
   allNormal();
   setDock("horizontal");
   viewportWin.setRect(centered(d.w, d.h, WIN_VIEWPORT_FILL));
@@ -245,6 +251,7 @@ function focusLayout(): void {
 /** A smaller viewport (~72%) with the HUD + panel windows tiled neatly around it. */
 function cozyLayout(): void {
   const d = wm.desktopSize();
+  wm.resetPlacement();   // a preset is a fresh arrangement — future opens auto-place
   allNormal();
   setDock("horizontal");
   const vw = Math.round(d.w * WIN_COZY_FILL), vh = Math.round(d.h * WIN_COZY_FILL);

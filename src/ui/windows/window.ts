@@ -42,6 +42,17 @@ export interface WindowSpec {
   pinnable?: boolean;     // default true
   /** Where the window sits in the default ("Classic") layout. */
   defaultRect: WindowRect | ((desk: DesktopSize) => WindowRect);
+  /** Runtime OPEN placement (the "logical order" rule). When a window opens
+   *  (hidden → normal) and the player has never dragged/resized it herself,
+   *  the manager auto-places it instead of trusting a possibly-stale rect:
+   *  centered on the desktop by default, cascading +26px per already-open
+   *  window so nothing lands exactly on top of anything else, always clamped
+   *  fully on-screen. `autoPlace: false` opts out (the permanent HUD chrome —
+   *  clock/coins/needs/dock/viewport — has preset homes, not pop-up spots).
+   *  `openAt` overrides the centered base for windows with a natural anchor
+   *  (dialogue = bottom-center, minimap = top-right, debug = top-left). */
+  autoPlace?: boolean;    // default true
+  openAt?: (desk: DesktopSize, size: { w: number; h: number }) => { x: number; y: number };
   /** Fired after a resize settles the content box (viewport uses it to refit
    *  the canvas + camera). cw/ch are the CONTENT box in CSS px. */
   onResize?: (cw: number, ch: number) => void;
@@ -90,6 +101,12 @@ export interface WindowLayout {
    *  saved layouts (missing => treated as 0, falling back to creation order,
    *  which is what every layout did before this field existed). */
   z?: number;
+  /** True once the PLAYER has dragged or resized this window herself — her
+   *  placement then survives reopen (auto-place skips it). Program-driven
+   *  setRect / presets never set it; presets clear it. Optional for
+   *  forward-compat with older layouts (missing => not user-placed, so every
+   *  pre-existing scattered rect heals itself on the next open). */
+  up?: boolean;
 }
 
 /** The whole persisted layout (WIN_LAYOUT_KEY). Per-slot forward-compat: the

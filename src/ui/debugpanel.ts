@@ -28,6 +28,7 @@ export function initDebugPanel() {
     content: box,
     resizable: true, minW: 280, minH: 200, maxW: 900, maxH: 900,
     defaultRect: (d) => ({ x: 8, y: 8, w: Math.min(480, d.w - 16), h: Math.min(520, d.h - 16) }),
+    openAt: () => ({ x: 8, y: 8 }),   // a diagnostic overlay lives top-left, out of the way
   });
   win.close(); // default: hidden
 

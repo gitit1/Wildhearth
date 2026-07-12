@@ -117,6 +117,9 @@ export function initDialogue(h: DialogueHooks) {
     resizable: true, minW: 380, minH: 180, maxW: 820, maxH: 520,
     minimizable: false, // an active conversation, not a gump to tuck away
     defaultRect: (d) => ({ x: Math.round((d.w - DLG_W) / 2), y: d.h - DLG_H - GAP, w: DLG_W, h: DLG_H }),
+    // a conversation belongs bottom-center (a classic dialogue bar), not the
+    // generic centered-cascade spot — the manager still clamps + caps it.
+    openAt: (d, s) => ({ x: Math.round((d.w - s.w) / 2), y: d.h - s.h - GAP }),
     onClose: () => {
       choicesEl.replaceChildren();
       const d = def;
