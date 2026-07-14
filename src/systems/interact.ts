@@ -1,7 +1,7 @@
 import {
   POND, STALL, BARN, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
   FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot, type StallDef,
-  TOWN_MERCHANTS, INN, TOWN_HOMES, STABLE, DOCK, TOWN_DOCK, type MerchantKind,
+  TOWN_MERCHANTS, INN, TOWN_HOMES, STABLE, DOCK, TOWN_DOCK, TOWN_BUSK_SPOT, type MerchantKind,
 } from "../world/zones";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
 import { nearPond, nearRect } from "../world/collision";
@@ -391,6 +391,26 @@ const buskSpot: Interactable = {
   drawHover: (g, t) => glowEllipse(g, BUSK_SPOT[0], BUSK_SPOT[1], 26, 19, t),
 };
 
+// V2-B1: the town square's own busking corner — same mechanic as the market
+// spot (busking is location-agnostic: startBusk just runs a timer), keyed to
+// TOWN_BUSK_SPOT so the player can earn a tune's coin in the coastal town too.
+const townBuskSpot: Interactable = {
+  id: "busk-town",
+  name: "Busking spot",
+  anchor: [TOWN_BUSK_SPOT[0], TOWN_BUSK_SPOT[1] + 6],
+  defaultActionId: "busk",
+  hit: (wx, wy) => {
+    const dx = (wx - TOWN_BUSK_SPOT[0]) / 24, dy = (wy - TOWN_BUSK_SPOT[1]) / 17;
+    return dx * dx + dy * dy <= 1;
+  },
+  inReach: (px, py) => Math.hypot(px - TOWN_BUSK_SPOT[0], py - TOWN_BUSK_SPOT[1]) < 42,
+  actions: () => [
+    { id: "busk", label: "Busk", run: (c) => { if (!busy(c)) startBusk(c.busking); } },
+    { id: "look", label: "Look", run: (c) => c.toast("A cobbled corner by the sea — play here and the town square will hear you.") },
+  ],
+  drawHover: (g, t) => glowEllipse(g, TOWN_BUSK_SPOT[0], TOWN_BUSK_SPOT[1], 26, 19, t),
+};
+
 // The farmhouse is the renovation hub (Step 8): walk up to it and each still-
 // broken part offers a paid repair that flips its rundown flag and swaps the
 // painter output. Kept on the house (not per-structure) so the whole
@@ -602,7 +622,7 @@ const doorMat: Interactable = {
 export const INTERACTABLES: Interactable[] = [
   pond, stall, barn, buskSpot, houseDoor, house, outhouseSpot,
   ...fishSpots, ...dockRowboats, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
-  ...townMerchants, townInn, ...townHomes, stable,   // coastal town (v2 BLOCK #3 + stable, BLOCK #5)
+  ...townMerchants, townInn, ...townHomes, stable, townBuskSpot,   // coastal town (v2 BLOCK #3 + stable, BLOCK #5; townBuskSpot V2-B1)
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];
 

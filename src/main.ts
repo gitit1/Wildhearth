@@ -19,7 +19,7 @@ import {
   HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
   FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, WORLD_PROPS, type Rect,
-  INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK, STABLE, type MerchantKind,
+  INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK, STABLE, TOWN_BUSK_SPOT, type MerchantKind,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
@@ -2627,6 +2627,8 @@ function draw(dt: number) {
         cropById(c.cropId ?? "")?.growth, c.cropId ?? "");
   }
   drawBuskSpot(ctx, BUSK_SPOT[0], BUSK_SPOT[1], time);
+  drawBuskSpot(ctx, TOWN_BUSK_SPOT[0], TOWN_BUSK_SPOT[1], time);   // V2-B1: town-square busking corner
+
   FLOWER_BEDS.forEach(([fx, fy], i) => drawFlowerBed(ctx, fx, fy, garden.beds[i]!, time));
   if (busking.playing) drawMusicNotes(ctx, player.x, player.y - 8, time);
 

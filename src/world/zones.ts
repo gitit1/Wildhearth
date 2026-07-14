@@ -235,6 +235,15 @@ export const TOWN_DOCK = rect(63.5, 39.6, 3, 6);
  *  of every building front, the dock mouth and the merchant counters. */
 export const TOWN_SQUARE: [number, number] = [58 * T, 35.4 * T];
 
+/** The town square's busking spot (V2-B1). The player's own stall now lives in
+ *  this square, so the coastal town — not just the market — is a place to earn
+ *  coin with a tune. A second cobbled busking corner, mirroring the market
+ *  BUSK_SPOT (which is UNCHANGED — still Liora's stage + the "market" travel
+ *  node). Sits at the square's heart, a step south of TOWN_SQUARE so townsfolk
+ *  who gather there ring a performer, and clear of the stall, the dock mouth
+ *  and the seafront benches. */
+export const TOWN_BUSK_SPOT: [number, number] = [58 * T, 36.4 * T];
+
 /** The inn — the town's largest building (VISION: "Inn, town square"). Code-
  *  drawn (drawInn) for now; a dedicated PixelLab sprite is a logged follow-up. */
 export const INN = rect(43.5, 31.7, 6, 3.4);

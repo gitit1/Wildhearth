@@ -1,6 +1,6 @@
 import { T, WORLD_W, WORLD_H } from "../config";
 import {
-  FIELD, YARD, POND, HOUSE, BARN, STALL, BUSHES, FLOWER_BEDS, BUSK_SPOT, OLD_BUSK_SIGN,
+  FIELD, YARD, POND, HOUSE, BARN, STALL, BUSHES, FLOWER_BEDS, BUSK_SPOT, TOWN_BUSK_SPOT, OLD_BUSK_SIGN,
   fieldBounds, PLOT_EXPANSIONS,
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, WELL, STRUCTURES, HEDGES, MARKET_STALLS, COTTAGES,
   FOREST_BUSHES, WORLD_TREES, regionAt, onRoad, inWater, type Rect,
@@ -514,7 +514,7 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
     for (const b of [HOUSE, BARN, STALL, ...STRUCTURES, ...HEDGES, ...MARKET_STALLS, ...COTTAGES]) if (inRect(x, y, b, 16)) return true;
     // trees + interactable point-props
     for (const [tx, ty] of WORLD_TREES) if (Math.hypot(x - tx, y - ty) < 30) return true;
-    for (const [bx, by] of [...BUSHES, ...FOREST_BUSHES, ...FLOWER_BEDS, BUSK_SPOT, OLD_BUSK_SIGN]) if (Math.hypot(x - bx, y - by) < 34) return true;
+    for (const [bx, by] of [...BUSHES, ...FOREST_BUSHES, ...FLOWER_BEDS, BUSK_SPOT, TOWN_BUSK_SPOT, OLD_BUSK_SIGN]) if (Math.hypot(x - bx, y - by) < 34) return true;
     return false;
   };
   const spot = (): [number, number] | null => {

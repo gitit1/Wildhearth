@@ -19,7 +19,7 @@ import { mulberry32 } from "../engine/rng";
 import { sprite, spriteBaseAnchor } from "./sprites";
 import {
   regionAt, onRoad, inWater, fieldBounds, HOUSE, BARN, STALL, OUTHOUSE, WELL, DOCK,
-  STRUCTURES, HOUSE_DOOR, FLOWER_BEDS, BUSK_SPOT, FISH_SPOTS, WORLD_TREES, WORLD_PROPS, POND,
+  STRUCTURES, HOUSE_DOOR, FLOWER_BEDS, BUSK_SPOT, TOWN_BUSK_SPOT, FISH_SPOTS, WORLD_TREES, WORLD_PROPS, POND,
   type Rect,
 } from "../world/zones";
 
@@ -53,7 +53,7 @@ function waterEdge(x: number, y: number): boolean {
 function nearInteraction(x: number, y: number): boolean {
   const door = { x: HOUSE_DOOR.x + HOUSE_DOOR.w / 2, y: HOUSE_DOOR.y + HOUSE_DOOR.h };
   const pts: Array<[number, number]> = [
-    [door.x, door.y], BUSK_SPOT,
+    [door.x, door.y], BUSK_SPOT, TOWN_BUSK_SPOT,
     ...FLOWER_BEDS,
     ...FISH_SPOTS.flatMap((s) => [[s.ax, s.ay], [s.wx, s.wy]] as Array<[number, number]>),
   ];

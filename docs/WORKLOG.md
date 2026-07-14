@@ -29,6 +29,82 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## V2-B1 — the town becomes real estate
+- **Date:** 2026-07-14 (v1-foundation) — Phase V2 opener of `EXECUTION_PLAN_V5.md`.
+- **HONEST AUDIT FIRST (executor contract rule #6 — "say so if the town
+  already satisfies the goal").** On opening the repo the coastal town was
+  found **already built well beyond V2-B1's spec** — by an earlier session
+  under a DIFFERENT plan numbering (the "v2 BLOCK #3/#4/#5" comments in
+  `zones.ts`/`main.ts`, not EXECUTION_PLAN_V5's V2-B1..B12). Verified already
+  present, walkable, sprite-backed, depth-sorted, collision-clean:
+  - **Inn** (`INN` rect + `drawInn`, `buildings/inn.png` dual-path) — exterior,
+    grounded, "INN" sign. Interior not built (spec allows exterior-only).
+  - **Seafront** (`TOWN_SEA`) with a code-dithered sand/beach transition and the
+    walkable **town dock** (`TOWN_DOCK` + `drawDock`).
+  - **5 distinct homes** (`TOWN_HOMES`): 2 use the market-UNUSED cottage sprite
+    variants (1, 5), 3 are seed-distinct code-painter cottages — no two alike
+    (owner's "no repetitive buildings" rule). Within the spec's 5–8 band.
+  - **4 specialised merchant stalls** (`TOWN_MERCHANTS`): general / fishmonger /
+    greengrocer / tailor, each a DISTINCT banked spare-stall sprite
+    (`buildings/spare/stall-*`), never a market-stall duplicate.
+  - Plus the **stable** transport vendor and an NPC **town square** gather point
+    (`TOWN_SQUARE`). (Trade/customer/reputation/transport wiring for these
+    already exists too — from later-block work by the prior session; left
+    untouched, NOT my scope here.)
+- **THE ONE LITERAL GAP I FILLED — a busking spot in the town square.** The
+  V2-B1 goal names "a town square with a busking spot," but the only busking
+  spot (`BUSK_SPOT`) was in the MARKET square, not the coastal town. Since the
+  player's own stall now lives in this square (the town is her commercial
+  heart), a busking corner here is both spec-required and design-coherent.
+  Added **additively** (the market spot is unchanged — still Liora the
+  musician's stage + the "market" travel node):
+  - `src/world/zones.ts`: new `TOWN_BUSK_SPOT = [58*T, 36.4*T]` — the square's
+    centre, a step south of `TOWN_SQUARE` so gathered townsfolk ring a
+    performer, clear of the stall / dock mouth / seafront benches.
+  - `src/systems/interact.ts`: new `townBuskSpot` Interactable (id `busk-town`),
+    registered in `INTERACTABLES`. A structural clone of the proven market
+    `buskSpot` — busking is location-agnostic (`startBusk` just runs a timer),
+    so ZERO change to `systems/busking.ts`. Same `Busk`/`Look` actions, 42px
+    reach, hover glow.
+  - `src/main.ts`: second `drawBuskSpot(...)` call for `TOWN_BUSK_SPOT`;
+    imported the const.
+  - Keep-clear: added `TOWN_BUSK_SPOT` to the foliage-scatter exclusion in
+    `src/art/scatter.ts` (`nearInteraction`) and the ground-painter exclusion
+    in `src/world/ground.ts` so no pebble/weed lands on the cobbles.
+- **Player-facing behavior added:** the player can now click the cobbled busk
+  corner in the coastal town square and perform for tips (same payout/skill/
+  guidance/quest loop as the market spot).
+- **Gens spent:** **ZERO.** Everything reused (the busk spot is a code painter,
+  `drawBuskSpot`; every town building was already sprite-backed). PixelLab
+  balance before = after = **7030 remaining** (Tier 3), `get_balance` confirmed.
+- **Files changed:** `src/world/zones.ts`, `src/systems/interact.ts`,
+  `src/main.ts`, `src/art/scatter.ts`, `src/world/ground.ts`,
+  `docs/WORKLOG.md`, `docs/WORLD_MAP.md`.
+- **Verified (with my eyes + the gates):** `npm run build` green;
+  `npm run verify:save` 3/3 PASS (old saves survive — busking state is
+  transient, no save-shape change); `npm run verify:smoke` 8/8 PASS. A
+  scratchpad puppeteer harness (headless Edge, `window.__wh.player` teleport)
+  screenshotted 6 town vantages — square (busk cobble rendered), west
+  inn+merchants, east homes+tailor, seafront+dock, and a two-shot depth test
+  (player behind vs. in front of a home). All clean: no clipped/floating
+  buildings, natural beach transition, correct depth-sort, zero page/console
+  errors.
+- **Follow-ups / open questions for the owner:**
+  1. **Two busking spots now (market + town).** DECISIONS once said "music
+     income v1: only at the stall-area"; the stall has since MOVED to the town,
+     so the town spot honors the spirit of that rule, but there are now two
+     playable spots. If she wants only ONE, the market `BUSK_SPOT` can be
+     retired (it would ripple into Liora's schedule + the "market" travel node).
+  2. **Homes at the low end (5 of 5–8).** The town reads full in screenshots,
+     but 1–2 more code-painter homes could be dropped in the east/promenade
+     gaps if she wants it denser — no gens needed.
+  3. **Inn interior** is unbuilt (spec allowed exterior-only). Enterable inn +
+     paid inn-sleep is explicitly scheduled for V2-B12.
+  4. A small hard-edged brown rectangle sits on the grass just NORTH of the
+     town street (visible in the depth-test shots) — pre-existing, outside the
+     town proper (market/road band), not a building clip; logged for a later
+     ground-texture look, not touched here.
+
 ## V1-C2 — the verify/ harness: save-compat regression net + the seal smoke, repo-checked
 - **Date:** 2026-07-11 (v1-foundation) — second block of `EXECUTION_PLAN_V5.md`.
 - **What shipped:** a permanent, self-contained verification harness under
