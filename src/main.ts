@@ -1357,6 +1357,15 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     // snapshot's references stay untouched by the reset below.
     snapshot = { season: endedSeason, day: endedDayNum, log: { ...dayLog } };
     resetDayLog(dayLog);   // a fresh ledger for the day that just began
+    // The day rollover is a canonical save point (the farm-game convention):
+    // force every store to disk AND refresh the slot manifest. Without the
+    // stamp here, a player who slept and quit before the 10-minute autosave
+    // ever ticked came back to a DISABLED Continue ("No saved game yet")
+    // while her whole game sat saved — the stores save per-mutation, but the
+    // manifest only refreshed on manual save / autosave / save-before-exit.
+    saveAllStores();
+    saveGuidance(guidance);
+    stampSave(calendar, economy.coins, guidanceMode());
   }
   decayNeeds(needs, { season: currentSeason(calendar), weather: weather.kind, sleeping });
   return snapshot;

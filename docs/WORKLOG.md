@@ -29,6 +29,35 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## V1-C1 — v1 audit & seal (+ the Continue-after-sleep save fix)
+- **Date:** 2026-07-11 (v1-foundation) — first block of `EXECUTION_PLAN_V5.md`.
+- **Audit:** swept `GAME_OVERVIEW.md` against `ROADMAP_TO_V5.md` §v1. No
+  un-annotated v1 gap: every v1 system is 🟢; every remaining 🔵/🟡/⚪ is
+  explicitly v2+ (town, Fisherwoman kit, crafting, transportation, marriage,
+  mine) or owner-gated (G1: character S/L sizes). v1 marked **SEALED** in
+  both docs.
+- **The audit's one real find (fixed):** sleeping saves every per-mutation
+  store, but the **slot manifest** (`systems/saveSlots.ts` `stampSave`) only
+  refreshed on manual save / the 10-minute autosave / save-before-exit. A
+  player who slept and quit before the first autosave tick came back to a
+  DISABLED Continue reading "No saved game yet" — with her whole game sitting
+  saved. Reproduced in the harness (all 29 store keys present, `btnContinue`
+  disabled), then fixed in `src/main.ts` `stepGameMinute`'s day-rollover
+  block: the rollover is now a canonical save point — `saveAllStores()` +
+  `saveGuidance()` + `stampSave()` fire once per day boundary (covers sleep,
+  naps across midnight, and staying up late).
+- **Smoke run (the REAL flow, puppeteer + Edge, 8/8 PASS, zero page/console
+  errors):** title → New Game → char creation (Continue) → intro skip → farm
+  reveal → path pick → Begin → guidance pick (None) → in-game day 1 with 50
+  coins → sleep → **full day-end window opens** (mode=full; the default
+  "quick" toast is by design) → Enter closes it, day 2 → reload → **Continue
+  enabled with the slot glance and resumes day 2** (fails before the fix).
+  Script: scratchpad `v1-smoke.mjs` (lands in the repo with V1-C2's
+  save-compat harness).
+- **Files changed:** `src/main.ts` (day-rollover save trio),
+  `docs/ROADMAP_TO_V5.md` + `docs/GAME_OVERVIEW.md` (SEALED markers).
+- **Follow-ups:** none for v1. Next block: V1-C2 (save-compat harness).
+
 ## windows — logical open placement + never-clipped (the mobile fix)
 - **Date:** 2026-07-11 (v1-foundation)
 - **Owner directive:** "the different menus must open in a logical order, not

@@ -136,6 +136,18 @@ Terse cell = the state of that system at that version. "→" means "grows into."
 
 ## v1 — The farm comes alive
 
+**✅ SEALED 2026-07-11 (V1-C1, `EXECUTION_PLAN_V5.md`).** The audit found no
+un-annotated v1 gap: every v1 system in `GAME_OVERVIEW.md` is 🟢, and every
+remaining 🔵/🟡/⚪ is explicitly assigned to v2+ (town, Fisherwoman kit,
+crafting, transportation, marriage, mine) or gated on the owner's G1
+(character-matrix S/L sizes). The full REAL player flow is harness-verified
+end-to-end (title → New Game → char creation → intro skip → farm reveal →
+path pick → guidance pick → day 1 → sleep → full day-end window → Enter →
+day 2 → reload → Continue resumes) with zero page/console errors. The audit's
+one real find — Continue showing "No saved game yet" after sleeping and
+quitting before the first 10-minute autosave — was fixed by making the day
+rollover a canonical save point (full-store save + slot-manifest stamp).
+
 **Theme:** a complete, self-contained life-sim on and around the farm — with
 people, needs, relationships, and optional AI — *before a single town building
 exists*. Everything must be fully playable and satisfying with AI switched

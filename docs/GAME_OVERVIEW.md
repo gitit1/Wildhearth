@@ -8,6 +8,9 @@ tag on every piece: what's actually running in code today, what's fully
 designed but not built, and what's still an open question. New task blocks
 get derived from the gaps this document exposes, not the other way around.
 
+**v1 is SEALED (2026-07-11, V1-C1 audit — see `ROADMAP_TO_V5.md` §v1):**
+every v1 system below is 🟢; the remaining 🔵/🟡/⚪ belong to v2+ by design.
+
 **Status legend**, used throughout:
 - 🟢 **Built** — real, working code today.
 - 🔵 **Speced** — fully designed in another doc, not built yet.
