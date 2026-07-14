@@ -339,35 +339,52 @@ class WindowManager {
     this.persist();
   }
 
-  /** The "logical order" open placement: base = the window's `openAt` anchor
-   *  (dialogue bottom-center, minimap top-right, …) or the desktop center,
-   *  then cascade +26px per already-open auto-placed window whose origin sits
-   *  on the candidate spot — so windows opened one after another stack like a
-   *  fanned deck instead of landing exactly on top of each other. Resizable
-   *  windows cap to the desktop first (phone-size screens), and the final
-   *  rect is always fully on-screen. */
+  /** UO-gump open placement: a window opens in FREE SPACE, never on top of
+   *  another gump when the desktop has room. Candidates = the window's
+   *  preferred anchor (`openAt`, else the desktop center) plus a coarse grid
+   *  sweep; each is scored by its overlap area against every other open
+   *  window (the viewport doesn't count — it IS the desktop). Zero-overlap
+   *  wins, nearest-to-preferred breaks ties; when the screen is genuinely
+   *  too small to avoid overlap (phones), the least-covering spot is taken.
+   *  Resizable windows cap to the desktop first; the result is always fully
+   *  on-screen. */
   private autoPlace(m: Managed): void {
     const d = this.deskSize();
     const live = this.liveSize(m);
     const resizable = m.spec.resizable ?? false;
     const w = resizable ? Math.min(m.normalRect.w, d.w) : live.w;
     const h = resizable ? Math.min(m.normalRect.h, d.h) : live.h;
-    const base = m.spec.openAt
+    const prefer = m.spec.openAt
       ? m.spec.openAt(d, { w, h })
       : { x: Math.round((d.w - w) / 2), y: Math.round((d.h - h) / 2) };
-    const STEP = 26;
-    const taken = [...this.wins.values()].filter((o) =>
-      o !== m && o.state === "normal" && (o.spec.autoPlace ?? true));
-    let { x, y } = base;
-    for (let i = 0; i < 8; i++) {
-      const c = this.clampRect({ x, y, w, h });
-      const collide = taken.some((o) =>
-        Math.abs(o.normalRect.x - c.x) < STEP && Math.abs(o.normalRect.y - c.y) < STEP);
-      if (!collide) { x = c.x; y = c.y; break; }
-      x = c.x + STEP; y = c.y + STEP;
+    // every other visible gump's footprint (measured for auto-sized windows)
+    const taken = [...this.wins.values()]
+      .filter((o) => o !== m && o.state === "normal" && o.spec.id !== "viewport")
+      .map((o) => {
+        const s = this.liveSize(o);
+        return { x: o.normalRect.x, y: o.normalRect.y, w: s.w || o.normalRect.w, h: s.h || o.normalRect.h };
+      });
+    const overlapAt = (x: number, y: number): number => taken.reduce((a, r) => {
+      const ox = Math.max(0, Math.min(x + w, r.x + r.w) - Math.max(x, r.x));
+      const oy = Math.max(0, Math.min(y + h, r.y + r.h) - Math.max(y, r.y));
+      return a + ox * oy;
+    }, 0);
+    const GRID = 48, PAD = 12;
+    const cands: Array<{ x: number; y: number }> = [prefer];
+    for (let y = PAD; y <= Math.max(PAD, d.h - h - PAD); y += GRID)
+      for (let x = PAD; x <= Math.max(PAD, d.w - w - PAD); x += GRID) cands.push({ x, y });
+    let best = this.clampRect({ ...prefer, w, h });
+    let bestOv = Infinity, bestDist = Infinity;
+    for (const c of cands) {
+      const r = this.clampRect({ x: c.x, y: c.y, w, h });
+      const ov = overlapAt(r.x, r.y);
+      const dist = Math.hypot(r.x - prefer.x, r.y - prefer.y);
+      if (ov < bestOv || (ov === bestOv && dist < bestDist)) {
+        best = r; bestOv = ov; bestDist = dist;
+        if (ov === 0 && dist === 0) break;   // the preferred spot itself is free
+      }
     }
-    const r = this.clampRect({ x, y, w, h });
-    this.applyRect(m, resizable ? r : { ...r, w: m.normalRect.w, h: m.normalRect.h }, true);
+    this.applyRect(m, resizable ? best : { ...best, w: m.normalRect.w, h: m.normalRect.h }, true);
   }
 
   private reflowDock(): void {
@@ -382,27 +399,41 @@ class WindowManager {
   }
 
   // =========================================================================
-  //  Drag (title bar) + snap
+  //  Drag (the whole frame, UO-gump style) + snap
   // =========================================================================
+  /** UO-classic drag: a gump is grabbed by ANY part of its frame that isn't
+   *  content — the title bar AND the (skinned) wood border around the body.
+   *  The PixelLab skin made this mandatory, not a nicety: its wood band is a
+   *  real border OUTSIDE the title-bar element, so "grab the visible frame"
+   *  did nothing and windows felt undraggable. Buttons, resize handles, and
+   *  everything inside the body stay interactive, never drag. */
   private wireDrag(m: Managed): void {
-    const tb = m.titlebar;
+    const fr = m.frame;
     let drag: { dx: number; dy: number; moved: boolean } | null = null;
-    tb.style.touchAction = "none";
-    tb.addEventListener("pointerdown", (e) => {
-      // clicking a control button never starts a drag
-      if ((e.target as HTMLElement).closest(".wh-btn")) return;
+    fr.style.touchAction = "none";        // touch drags the frame...
+    m.body.style.touchAction = "auto";    // ...but content keeps its gestures
+    const grabbable = (t: HTMLElement): boolean => {
+      if (t.closest(".wh-btn") || t.closest(".wh-rz")) return false;
+      if (t === fr) return true;                    // the frame surface = the skin's wood border
+      if (t.closest(".wh-titlebar")) return true;   // the classic handle
+      return false;                                 // anything in the body = content
+    };
+    fr.addEventListener("pointerdown", (e) => {
+      if (!grabbable(e.target as HTMLElement)) return;
       if (m.state === "minimized") { drag = { dx: 0, dy: 0, moved: false }; return; }
       if (m.pinned) return;
-      const r = m.frame.getBoundingClientRect();
+      const r = fr.getBoundingClientRect();
       const deskR = this.desktop.getBoundingClientRect();
-      drag = { dx: e.clientX - r.left, dy: e.clientY - r.top, moved: false };
-      // record pointer offset relative to the desktop origin
-      drag.dx = e.clientX - (r.left - deskR.left);
-      drag.dy = e.clientY - (r.top - deskR.top);
-      try { tb.setPointerCapture(e.pointerId); } catch { /* no active pointer (synthetic) */ }
+      // pointer offset relative to the desktop origin
+      drag = {
+        dx: e.clientX - (r.left - deskR.left),
+        dy: e.clientY - (r.top - deskR.top),
+        moved: false,
+      };
+      try { fr.setPointerCapture(e.pointerId); } catch { /* no active pointer (synthetic) */ }
       e.preventDefault();
     });
-    tb.addEventListener("pointermove", (e) => {
+    fr.addEventListener("pointermove", (e) => {
       if (!drag) return;
       if (m.state === "minimized") { drag.moved = true; return; }
       const deskR = this.desktop.getBoundingClientRect();
@@ -427,11 +458,11 @@ class WindowManager {
         if (!(e.target as HTMLElement).closest(".wh-btn")) this.setState(m, "normal");
         return;
       }
-      try { tb.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
+      try { fr.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
       if (moved) { m.userPlaced = true; this.persist(); }
     };
-    tb.addEventListener("pointerup", end);
-    tb.addEventListener("pointercancel", end);
+    fr.addEventListener("pointerup", end);
+    fr.addEventListener("pointercancel", end);
   }
 
   /** Gentle position-assist snap to desktop edges + other windows' edges. */

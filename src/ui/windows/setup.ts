@@ -273,8 +273,11 @@ function cozyLayout(): void {
 function layoutPanels(d: DesktopSize, clk: { w: number; h: number }, cn: { w: number; h: number }, nd: { w: number; h: number }): void {
   const bp = wm.get("backpack"), sk = wm.get("skills"), bk = wm.get("memorybook"),
     mm = wm.get("minimap"), sh = wm.get("shop"), gf = wm.get("gift");
-  if (bp) { bp.setPinned(false); bp.restore(); bp.setRect({ x: d.w - bp.rect().w - GAP, y: 236 }); }
   if (mm) { mm.setPinned(false); mm.restore(); mm.setRect({ x: d.w - mm.rect().w - GAP, y: GAP + clk.h + GAP }); }
+  // backpack sits BELOW the map, right-aligned — the town-era map is big
+  // (≈700×340), so the old fixed y:236 would bury the backpack under it.
+  const bpY = mm ? mm.rect().y + mm.rect().h + GAP : 236;
+  if (bp) { bp.setPinned(false); bp.restore(); bp.setRect({ x: d.w - bp.rect().w - GAP, y: bpY }); }
   if (sk) { sk.setPinned(false); sk.setRect({ x: GAP, y: GAP + cn.h + GAP + nd.h + GAP }); sk.close(); }
   if (bk) { bk.setPinned(false); bk.setRect({ x: Math.round(d.w * 0.22), y: Math.round(d.h * 0.18) }); bk.close(); }
   if (sh) { sh.setPinned(false); sh.setRect({ x: Math.round(d.w * 0.5 - sh.rect().w / 2), y: Math.round(d.h * 0.5 - sh.rect().h / 2) }); sh.close(); }

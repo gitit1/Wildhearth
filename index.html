@@ -811,6 +811,11 @@
        instead of the frame clipping off-screen. The viewport keeps overflow:hidden
        (the canvas fills it edge-to-edge; scrollbars there would be a bug). */
     .wh-window:not([data-win="viewport"])>.wh-body{overflow:auto}
+    /* UO-gump drag: the whole frame surface (incl. the skin's wood border) is a
+       drag handle — show it. Content inside the body keeps its own cursors. */
+    .wh-window{cursor:move}
+    .wh-window>.wh-body{cursor:auto}
+    .wh-pinned{cursor:default}
     .wh-titlebar{flex:none;height:26px;display:flex;align-items:center;gap:6px;padding:0 4px 0 8px;
       cursor:move;user-select:none;border-radius:8px 8px 0 0;
       background:linear-gradient(180deg,#6b4f30,#4e3a24);

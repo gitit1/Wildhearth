@@ -29,6 +29,50 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## windows — UO-gump drag (grab the frame anywhere) + free-space open placement (owner report)
+- **Date:** 2026-07-14 (v1-foundation)
+- **Owner report:** "it doesn't move — there should be a drag option; windows
+  pile on each other. Look at how Ultima Online is built and fix ours."
+- **Root causes, both real:**
+  1. **The visible frame wasn't the drag handle.** Drag lived ONLY on the
+     inner `.wh-titlebar` strip — but the PixelLab skin's wood band is a
+     border-image OUTSIDE that element, so grabbing the frame players
+     actually SEE (the wood) did nothing. Windows felt undraggable.
+  2. **"Fanned deck" placement still stacked windows.** The open-placement
+     cascade offset each window by only 26px — cosmetically staggered,
+     practically a pile.
+- **Fix (`src/ui/windows/manager.ts`):**
+  - **`wireDrag` moved from the title bar to the WHOLE FRAME**, UO-gump
+    style: pointerdown on the frame surface (the skin's border) or the
+    title bar starts a drag; buttons, resize handles, and anything inside
+    `.wh-body` never do. `touch-action:none` on the frame with
+    `touch-action:auto` restored on the body (content gestures survive).
+    CSS: `cursor:move` on the frame, `auto` inside the body
+    (`index.html`).
+  - **`autoPlace` rewritten as a free-space search**: candidates = the
+    window's `openAt` anchor (else desktop center) + a 48px grid sweep;
+    each scored by total overlap area against every other open window
+    (the viewport exempt — it IS the desktop); zero-overlap wins, nearest-
+    to-anchor breaks ties; on a genuinely too-small screen the least-
+    covering spot is taken.
+  - `setup.ts` `layoutPanels`: backpack now anchors BELOW the (town-era,
+    ~700×340) map instead of the fixed y:236 that the bigger map buried.
+- **Verified (1440×900, skinned, headless Edge):** dragging the quest log
+  by its LEFT WOOD BORDER moves it exactly (348,252 → 228,444); opening
+  quests/skills/book/backpack/map lands **zero pairwise overlap** among all
+  9 everyday panels (Settings exempt — at 720×560 no free hole exists once
+  the desktop is furnished; it takes the least-covering spot by design);
+  body content still clickable (no drag hijack); zero page errors;
+  `verify:save` + `verify:smoke` GREEN. Desktop screenshot reviewed — map
+  top-right, backpack under it, panels tiled clear of each other.
+- **Files changed:** `src/ui/windows/manager.ts`, `src/ui/windows/setup.ts`,
+  `index.html`.
+- **Incident note:** cleaning up the debug worktrees, `rm -rf` followed the
+  `node_modules` junctions and gutted the real `node_modules` — restored
+  with `npm install` (lockfile intact, zero source damage). Lesson: unlink
+  junctions with `rmdir` BEFORE any recursive delete.
+- **Follow-ups:** live grow-back (from the previous block) still open.
+
 ## windows — the map (and every panel) gets its true size back (owner bug report)
 - **Date:** 2026-07-14 (v1-foundation)
 - **Owner report:** "the map is unreadable — really small inside its box" +
