@@ -29,6 +29,39 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## V1-C2 — the verify/ harness: save-compat regression net + the seal smoke, repo-checked
+- **Date:** 2026-07-11 (v1-foundation) — second block of `EXECUTION_PLAN_V5.md`.
+- **What shipped:** a permanent, self-contained verification harness under
+  `verify/` (new top-level dir) — the regression net every later version
+  leans on (executor-contract rule #9: old saves must survive):
+  - `verify/lib.mjs` — shared plumbing: spawns a dedicated Vite on port 5199
+    (`WH_VERIFY_PORT` overrides), launches headless Edge via puppeteer-core
+    (`WH_EDGE` overrides the binary path), error collection, PASS/FAIL
+    checker, teardown with a real exit code. No dev server needed — each
+    script brings its own.
+  - `verify/fixtures/v1-save.json` — a CANNED REAL v1 save (28 store keys),
+    dumped from an actual playthrough: fisher path, items in the bag, 2 hens
+    bought+fed, slept once to day 2. Game keys only (settings/layout are
+    per-machine preferences, excluded by design).
+  - `verify/save-compat.mjs` (`npm run verify:save`) — seeds the fixture,
+    boots, asserts: Continue enabled with the slot glance ("Spring · Day 2 ·
+    50 coins · saved…"), world resumes on the fixture's day/coins, Continue
+    enters the game and a live minute runs clean. 3/3 PASS.
+  - `verify/smoke.mjs` (`npm run verify:smoke`) — V1-C1's full REAL-flow seal
+    smoke, now permanent: title → New Game → char creation → intro skip →
+    reveal → path → guidance → day 1 → sleep → full day-end window → Enter →
+    day 2 → reload → Continue resumes. 8/8 PASS.
+- **Files changed:** `verify/lib.mjs`, `verify/save-compat.mjs`,
+  `verify/smoke.mjs`, `verify/fixtures/v1-save.json` (all new),
+  `package.json` (+`verify:save`/`verify:smoke` scripts; `puppeteer-core`
+  promoted to a declared devDependency — it was already installed but
+  unlisted).
+- **Verified:** both scripts run green from a cold repo (they spawn their own
+  server): save-compat 3/3, smoke 8/8, zero page/console errors, exit 0.
+- **Follow-ups:** when a future version's save shape changes DELIBERATELY,
+  regenerate the fixture for the new version but KEEP the old fixture(s) —
+  the file is versioned by name (`v1-save.json`) for exactly that reason.
+
 ## V1-C1 — v1 audit & seal (+ the Continue-after-sleep save fix)
 - **Date:** 2026-07-11 (v1-foundation) — first block of `EXECUTION_PLAN_V5.md`.
 - **Audit:** swept `GAME_OVERVIEW.md` against `ROADMAP_TO_V5.md` §v1. No
