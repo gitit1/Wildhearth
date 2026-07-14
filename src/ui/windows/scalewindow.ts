@@ -44,6 +44,10 @@ export function createScaleWindow(opts: {
     icon: opts.icon,
     content: opts.content,
     resizable: true,
+    // baseW/baseH are the panel's natural CONTENT size — the manager adds the
+    // measured chrome (title bar + skin border), so the panel opens at s=1
+    // instead of being squeezed below its natural scale by the wood frame.
+    contentSized: true,
     minW: Math.round(baseW * WIN_PANEL_SCALE_MIN),
     maxW: Math.round(baseW * WIN_PANEL_SCALE_MAX),
     minH: Math.round(baseH * WIN_PANEL_SCALE_MIN),

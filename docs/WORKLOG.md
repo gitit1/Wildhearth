@@ -29,6 +29,53 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## windows — the map (and every panel) gets its true size back (owner bug report)
+- **Date:** 2026-07-14 (v1-foundation)
+- **Owner report:** "the map is unreadable — really small inside its box" +
+  "all the other menus are shrunken."
+- **Diagnosis (instrumented repro, headless Edge):** THREE stacked causes —
+  1. **The skin steals interior space silently.** The PixelLab wood
+     nine-slice is a real border (18px sides / 20+22px top+bottom): a
+     380×162 map window's BODY was only 344×100. The manager assumed
+     chrome = title bar only, everywhere.
+  2. **The map's scale predated the town.** `MINIMAP_SCALE` 0.11 was tuned
+     for the pre-town world; at 108×46 tiles it rendered the whole world
+     into a 380×162 strip — the canvas auto-fit DOWN to 235×100 inside the
+     skin-eaten body (0.618 scale, unreadable).
+  3. **Every scale panel opened below natural size** for the same
+     chrome-theft reason (backpack opened at s=0.86, never s=1).
+- **Fix:**
+  - `manager.ts`: new `chromeSize()` — MEASURES the real chrome (frame box
+    minus body box) instead of assuming the title bar; new `contentSized`
+    spec flag (`window.ts`) — defaultRect w/h mean the CONTENT box and the
+    manager adds measured chrome; resize-handle min/max now chrome-aware on
+    BOTH axes; new `userSized`/`us` flag (set on player resize, cleared by
+    presets) + **size self-heal**: on boot, a resizable window the player
+    never resized re-derives its size from the spec default — stale
+    persisted sizes (like her tiny map) heal themselves; new
+    `wm.chromeChanged()` re-applies content-sized windows when the skin's
+    border arrives after boot (`skin.ts` calls it).
+  - `scalewindow.ts` + `minimap.ts`: `contentSized: true`; the minimap's
+    defaultRect now uses NATURAL canvas dims (the live W/H mutate per
+    rescale and made the default drift).
+  - `config.ts`: `MINIMAP_SCALE` 0.11 → **0.19**, retuned for the town-era
+    world.
+- **Verified (worktree harness + main tree):** fresh boot map canvas
+  **657×280 filling its body exactly** (was 235×100 — ~5.5× the area),
+  frame 693×342 with the skin's chrome correctly added; a seeded stale
+  380×162 layout **heals to full size on reload**; backpack opens at
+  **s=1.0** (was 0.859); shrink-to-560px viewport refits the canvas
+  proportionally (524×223) with no clipping; in-game screenshot reviewed —
+  Home Farm/Coastal Town labels and the whole world readable. Zero
+  page/console errors; `verify:save` + `verify:smoke` green on the main
+  tree after landing.
+- **Files changed:** `src/ui/windows/manager.ts`, `src/ui/windows/window.ts`,
+  `src/ui/windows/scalewindow.ts`, `src/ui/minimap.ts`, `src/ui/skin.ts`,
+  `src/config.ts`.
+- **Follow-ups:** live grow-back (browser window shrunk then grown mid-
+  session keeps the shrunk size until the next reload heals it) — needs the
+  intent-vs-effective rect split; logged, not blocking.
+
 ## V2-B2 — town residents & schedules (all-day custom)
 - **Date:** 2026-07-14 (v1-foundation) — closes owner-gate **G3** by design
   (the coastal town's homes were decorative and custom was afternoon-only).

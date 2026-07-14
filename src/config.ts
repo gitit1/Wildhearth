@@ -112,7 +112,7 @@ export const SKILL_DECAY_PER_DAY = 0.2;   // points lost per idle day past the g
 export const SKILL_TIER_FLOORS = [33, 66] as const;  // Skilled / Expert entry (Novice floor is 0)
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
-export const MINIMAP_SCALE = 0.11;      // minimap px per world px (scaled up for the wider v1 world)
+export const MINIMAP_SCALE = 0.19;      // minimap px per world px — retuned for the town-era 108x46 world (0.11 dated from the smaller map and rendered it unreadably dense)
 
 // ===========================================================================
 //  Needs engine (Part A #2) — 7 needs, each 0-100. All tuning lives here; the

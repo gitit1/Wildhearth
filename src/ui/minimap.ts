@@ -87,11 +87,15 @@ export function initMinimap() {
     id: "minimap", title: "Map", icon: "🗺️",
     content: box,
     resizable: true,
+    contentSized: true,   // W/H below are the CANVAS box — the manager adds the real chrome
     minW, minH, maxW, maxH,
-    // top-right, under the clock window (created earlier in boot — see setup.ts)
+    // top-right, under the clock window (created earlier in boot — see setup.ts).
+    // NATURAL canvas dims, not the live W/H — those mutate with every rescale,
+    // which would make the "default size" drift with whatever fit last.
     defaultRect: (d) => {
       const clockH = wm.get("clock")?.el.getBoundingClientRect().height ?? 74;
-      return { x: d.w - W - GAP, y: GAP + clockH + GAP, w: W, h: H };
+      const natW = Math.round(WORLD_W * MINIMAP_SCALE), natH = Math.round(WORLD_H * MINIMAP_SCALE);
+      return { x: d.w - natW - GAP, y: GAP + clockH + GAP, w: natW, h: natH };
     },
     // the map's logical home is its HUD corner, not the centered-cascade spot
     openAt: (d, s) => {

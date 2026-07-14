@@ -16,6 +16,7 @@
  */
 import { SPRITE_MANIFEST } from "../assets/pixellab/manifest";
 import fontUrl from "../assets/fonts/WildhearthStorybook.ttf?url";
+import { wm } from "./windows/manager";
 
 const SANS = "-apple-system,Segoe UI,Roboto,sans-serif";
 
@@ -52,6 +53,10 @@ export function initSkin(): void {
     if (u) root.style.setProperty(varName, `url(${u})`);
   }
   root.classList.add("wh-skinned");
+  // The wood nine-slice is a real border — it changes every window's chrome
+  // footprint AFTER windows were already sized. Let the manager re-derive
+  // content-sized windows so their content keeps its intended box.
+  wm.chromeChanged();
 }
 
 /** Portrait bust URL for an NPC, or null when none has shipped yet (the other

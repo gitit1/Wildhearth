@@ -52,6 +52,13 @@ export interface WindowSpec {
    *  `openAt` overrides the centered base for windows with a natural anchor
    *  (dialogue = bottom-center, minimap = top-right, debug = top-left). */
   autoPlace?: boolean;    // default true
+  /** When true, defaultRect's w/h describe the CONTENT box (what the window's
+   *  body must give its content — a canvas, a scaled panel). The manager adds
+   *  the MEASURED chrome (title bar + any skin border frame) when applying it,
+   *  so "I need 640x280 for my canvas" stays true under any chrome. Without
+   *  this, specs guess "content + titlebar" and the PixelLab skin's wood
+   *  border silently steals ~36x62px from every window's content. */
+  contentSized?: boolean;
   openAt?: (desk: DesktopSize, size: { w: number; h: number }) => { x: number; y: number };
   /** Fired after a resize settles the content box (viewport uses it to refit
    *  the canvas + camera). cw/ch are the CONTENT box in CSS px. */
@@ -107,6 +114,11 @@ export interface WindowLayout {
    *  forward-compat with older layouts (missing => not user-placed, so every
    *  pre-existing scattered rect heals itself on the next open). */
   up?: boolean;
+  /** True once the PLAYER resized this window herself — her SIZE then
+   *  survives reloads. Absent => the stored w/h are untrusted history and
+   *  boot re-derives the size from the spec's default — the self-heal for
+   *  panels persisted too small. */
+  us?: boolean;
 }
 
 /** The whole persisted layout (WIN_LAYOUT_KEY). Per-slot forward-compat: the

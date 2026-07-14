@@ -32,6 +32,10 @@ interface Managed {
   /** The player dragged/resized this window herself — reopen keeps her spot
    *  instead of auto-placing. Persisted (`up` in the layout row). */
   userPlaced: boolean;
+  /** The player resized this window herself — her size survives reloads.
+   *  Persisted (`us`). Un-sized windows re-derive their size from the spec
+   *  default on boot (the self-heal for stale persisted sizes). */
+  userSized: boolean;
 }
 
 class WindowManager {
@@ -103,6 +107,26 @@ class WindowManager {
     return { x: c.x, y: c.y, w: r.w, h: r.h };   // keep the stored w/h untouched
   }
 
+  /** The MEASURED chrome around the content box: title bar + any skin border
+   *  (the PixelLab wood frame is a real border-image that steals interior
+   *  space). Falls back to the bare title bar when the frame isn't laid out
+   *  (display:none / pre-append). */
+  private chromeSize(m: Managed): { w: number; h: number } {
+    const fr = m.frame.getBoundingClientRect();
+    const br = m.body.getBoundingClientRect();
+    if (fr.width > 0 && br.width > 0 && fr.height > 0 && br.height > 0)
+      return { w: Math.round(fr.width - br.width), h: Math.round(fr.height - br.height) };
+    return { w: 0, h: WIN_TITLEBAR_H };
+  }
+
+  /** For a contentSized spec, converts a rect whose w/h mean "content box"
+   *  into the FRAME rect the manager actually lays out. */
+  private frameRectFor(m: Managed, r: WindowRect): WindowRect {
+    if (!(m.spec.contentSized ?? false) || !(m.spec.resizable ?? false)) return r;
+    const c = this.chromeSize(m);
+    return { x: r.x, y: r.y, w: r.w + c.w, h: r.h + c.h };
+  }
+
   private resolveDefault(spec: WindowSpec): WindowRect {
     const d = typeof spec.defaultRect === "function" ? spec.defaultRect(this.deskSize()) : spec.defaultRect;
     return { ...d };
@@ -146,7 +170,7 @@ class WindowManager {
     const rect = this.resolveDefault(spec);
     const managed: Managed = {
       spec, frame, titlebar, body,
-      normalRect: rect, state: "normal", pinned: false, z: 0, userPlaced: false,
+      normalRect: rect, state: "normal", pinned: false, z: 0, userPlaced: false, userSized: false,
       handle: undefined as unknown as WindowHandle,
     };
 
@@ -181,7 +205,7 @@ class WindowManager {
     // clampFor, not the raw default: a window created mid-play on a small
     // screen (Settings is built lazily on first open) must land on-screen,
     // capped to the desktop, from its very first frame.
-    this.applyRect(managed, this.clampFor(managed, rect));
+    this.applyRect(managed, this.clampFor(managed, this.frameRectFor(managed, rect)));
     this.focus(spec.id);
     spec.onOpen?.();
     return handle;
@@ -517,6 +541,7 @@ class WindowManager {
       if (m.spec.resizable ?? false) { row.w = m.normalRect.w; row.h = m.normalRect.h; }
       if (m.pinned) row.pinned = true;
       if (m.userPlaced) row.up = true;
+      if (m.userSized) row.us = true;
       windows[id] = row;
     }
     return { version: 1, slot: 1, windows, dockOrientation: this.dockOrientation };
@@ -535,11 +560,21 @@ class WindowManager {
       const m = this.wins.get(id);
       if (!m) continue;
       const resizable = m.spec.resizable ?? false;
+      m.userPlaced = row.up === true;
+      m.userSized = row.us === true;
+      // Size self-heal: a stored w/h the player never set herself is history,
+      // not intent — the world, the chrome, or a past clamp may have shrunk
+      // it since (the "map unreadable inside its box" bug). Re-derive from
+      // the spec's default; only a player-resized window keeps its stored
+      // size. Position is always kept.
+      const defSize = resizable && !m.userSized
+        ? this.frameRectFor(m, this.resolveDefault(m.spec)) : null;
       const base = resizable
-        ? { x: row.x, y: row.y, w: row.w ?? m.normalRect.w, h: row.h ?? m.normalRect.h }
+        ? { x: row.x, y: row.y,
+            w: defSize ? defSize.w : (row.w ?? m.normalRect.w),
+            h: defSize ? defSize.h : (row.h ?? m.normalRect.h) }
         : { x: row.x, y: row.y, w: m.normalRect.w, h: m.normalRect.h };
       m.normalRect = this.clampFor(m, base);
-      m.userPlaced = row.up === true;
       m.pinned = row.pinned === true;
       m.frame.classList.toggle("wh-pinned", m.pinned);
       // set state without persisting per-window (batch persist at the end)
@@ -613,6 +648,21 @@ class WindowManager {
   desktopSize(): DesktopSize { return this.deskSize(); }
   /** Re-clamp everything into reach (boot + after a bulk relayout). */
   clampAll(): void { this.onDesktopResize(); }
+  /** The chrome footprint changed globally (the PixelLab skin's wood border
+   *  arrived after boot). Re-derive every content-sized window the player
+   *  hasn't sized herself, so its CONTENT keeps the intended box instead of
+   *  being squeezed by the new border. Player-sized windows are left alone. */
+  chromeChanged(): void {
+    for (const m of this.wins.values()) {
+      if (!(m.spec.resizable ?? false) || !(m.spec.contentSized ?? false) || m.userSized) continue;
+      if (m.state !== "normal") continue;
+      const def = this.frameRectFor(m, this.resolveDefault(m.spec));
+      const r = this.clampFor(m, { ...m.normalRect, w: def.w, h: def.h });
+      this.applyRect(m, r, true);
+    }
+    this.persist();
+  }
+
   /** Forget every "the player placed this herself" flag — presets are a fresh
    *  arrangement, so windows opened after one go back to logical auto-placement. */
   resetPlacement(): void {
