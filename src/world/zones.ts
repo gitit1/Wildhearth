@@ -255,17 +255,19 @@ export const INN = rect(43.5, 31.7, 6, 3.4);
 export const STABLE = rect(86.5, 32, 3.8, 2.9);
 
 export interface TownHomeDef extends Rect { variant?: number; seed: number }
-/** NPC homes ringing the street. `variant` (1-8) picks a cottage sprite when
- *  set — only the two market-UNUSED variants (1, 5) are used here so no town
- *  home duplicates a market cottage; the rest are the seed-driven code painter
- *  (drawCottage fallback), each seed distinct so no two homes read alike (the
- *  owner's hard "no two buildings alike" rule). */
+/** NPC homes ringing the street. `variant` picks a cottage sprite: 1/5 are the
+ *  two market-UNUSED variants, 9-11 are V2-B1b's coastal-flavored generations
+ *  (whitewash-shutters / blue-timber-buoys / brick-lantern) — every town home
+ *  is now sprite-first (everything-pixels rule), no home duplicates a market
+ *  cottage, and no two homes read alike (the owner's hard "no two buildings
+ *  alike" rule). `seed` still keys drawCottage's code-painter FALLBACK (the
+ *  zero-PNG dual path). */
 export const TOWN_HOMES: TownHomeDef[] = [
   { ...rect(51.5, 32, 2.8, 2.3), variant: 1, seed: 5101 },
   { ...rect(60, 32, 2.8, 2.3), variant: 5, seed: 5205 },
-  { ...rect(70.5, 32, 2.8, 2.3), seed: 5303 },   // code painter, unique seed
-  { ...rect(80, 32, 2.8, 2.3), seed: 5407 },     // code painter, unique seed
-  { ...rect(84.5, 37.4, 2.8, 2.3), seed: 5509 }, // code painter, unique seed
+  { ...rect(70.5, 32, 2.8, 2.3), variant: 9, seed: 5303 },
+  { ...rect(80, 32, 2.8, 2.3), variant: 10, seed: 5407 },
+  { ...rect(84.5, 37.4, 2.8, 2.3), variant: 11, seed: 5509 },
 ];
 
 export type MerchantKind = "general" | "fishmonger" | "greengrocer" | "tailor";

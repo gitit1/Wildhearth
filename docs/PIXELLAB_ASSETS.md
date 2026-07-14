@@ -466,6 +466,9 @@ src/assets/pixellab/
   buildings/cottage-04_shingle-timber-leanto.png
   buildings/cottage-05_thatch-plaster-flowerbox.png
   buildings/cottage-07_redtile-timber-ivy.png
+  buildings/cottage-09_slate-whitewash-shutters.png   ← wave 8: coastal town homes (V2-B1b)
+  buildings/cottage-10_shingle-bluetimber-buoys.png
+  buildings/cottage-11_slate-brick-lantern.png
   buildings/spare/                     ← paid-for, unused this wave (see notes above)
   interior/hearth.png
   interior/room-backdrop.png
@@ -811,3 +814,17 @@ comfortably inside the run's own ≤1,500/day pacing rule. Next generation day's
 planned spend: 8 more NPC portraits (~8-16 gens), S/L body sizes for the
 character matrix (+100 combos ≈ +500 gens incl. walks), and a lightness-aware
 skin recolour mechanism (0 gens — a code change, not a new generation).
+
+**Wave 8 — coastal town-home variants** (2026-07-14, V2-B1b): **3
+`create_map_object` generations, all clean on the first try** (the wave-4
+flat-front guardrail wording again, verbatim; 112×128, high top-down, high
+detail, selective outline, medium shading). Fixes an everything-pixels
+violation: 3 of the 5 coastal-town homes were seed-driven CODE cottages
+clashing next to sprite neighbours. The 3 new variants are coastal-flavored so
+the town reads different from the farm market: `cottage-09_slate-whitewash-
+shutters.png` (whitewashed stone, blue shutters, hanging net), `cottage-10_
+shingle-bluetimber-buoys.png` (weathered blue timber, rope-hung buoys),
+`cottage-11_slate-brick-lantern.png` (red-brown brick, ship lantern) — wired
+as `COTTAGE_SPRITES` variants 9–11 (alpha-bbox-measured anchors, like 6/8),
+assigned to `TOWN_HOMES` in `zones.ts`; the seed-keyed code painter stays the
+zero-PNG fallback. Balance metered 7,030 → **7,027 remaining** (Tier 3).

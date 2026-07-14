@@ -29,6 +29,50 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## V2-B1b — town homes go pixel (everything-pixels rule)
+- **Date:** 2026-07-14 (v1-foundation) — correction pass on V2-B1, flagged on
+  coordinator review: the 3 seed-driven CODE-painter town homes (seeds
+  5303/5407/5509) violated the owner's standing everything-pixels rule (memory
+  `art-medium-no-middle`: the world is ONE visual language, all pixel-art) —
+  the smooth code cottages clashed next to their sprite neighbours.
+- **What shipped:** 3 NEW coastal-flavored cottage sprites (PixelLab wave 8,
+  `create_map_object` BASIC, the proven wave-4 flat-front guardrail prompt
+  verbatim, 112×128 — same canvas as cottage variants 1–8; all 3 landed clean
+  on the FIRST try, zero rejects):
+  - `src/assets/pixellab/buildings/cottage-09_slate-whitewash-shutters.png` —
+    whitewashed stone, slate roof, blue shutters, a hanging fishing net.
+  - `src/assets/pixellab/buildings/cottage-10_shingle-bluetimber-buoys.png` —
+    weathered blue-painted timber, grey shingle roof, rope-hung buoys.
+  - `src/assets/pixellab/buildings/cottage-11_slate-brick-lantern.png` —
+    red-brown brick, dark slate roof, a brass ship lantern by the door.
+  Coastal-flavored on purpose so the town reads DIFFERENT from the farm-market
+  cottages (thatch/plaster/ivy/flowerbox axes); no existing variant uses
+  whitewash-shutters, blue timber, or brick — anti-repetition preserved.
+- **Wiring (dual-path, unchanged contract):** `src/art/buildings.ts`
+  `COTTAGE_SPRITES` gains entries 9/10/11 (no hand-measured anchors — the
+  alpha-bbox `spriteBaseAnchor` path, same as variants 6/8);
+  `src/world/zones.ts` `TOWN_HOMES` rows 3–5 gain `variant: 9/10/11`. The
+  `seed` field STAYS on every row — `drawCottage`'s seed-keyed code painter
+  remains the zero-PNG runtime fallback (hard rule #1). All 5 town homes are
+  now sprite-first; no home duplicates a market cottage; no two homes alike.
+  The manifest auto-globs the new PNGs (all ≥8.5KB, safely above Vite's 4KB
+  inline threshold) — zero manifest/code changes for loading.
+- **Gens spent: 3** (budget was ≤5). `get_balance` before 7,030 → after
+  **7,027** (Tier 3). Downloads gated on the endpoint returning HTTP 200; all
+  three verified 112×128 RGBA PNGs on disk before wiring.
+- **Files changed:** 3 new PNGs under `src/assets/pixellab/buildings/`,
+  `src/art/buildings.ts`, `src/world/zones.ts`, `docs/PIXELLAB_ASSETS.md`
+  (wave-8 ledger + §3 file listing), `docs/WORKLOG.md`.
+- **Verified (with my eyes + the gates):** `npm run build` green;
+  `npm run verify:save` 3/3 PASS; `npm run verify:smoke` 8/8 PASS; zero
+  page/console errors. Re-ran the V2-B1 scratchpad screenshot harness and
+  LOOKED: all 3 new cottages render in place (east street + seafront),
+  base-on-ground with shadows, correct depth-sort (player in front when
+  south), and the town now reads as one pixel language — no smooth code
+  cottage anywhere in the strip.
+- **Follow-ups:** none new. (V2-B1's open items — two busking spots, homes at
+  5 of 5–8, inn interior at V2-B12 — carry unchanged.)
+
 ## V2-B1 — the town becomes real estate
 - **Date:** 2026-07-14 (v1-foundation) — Phase V2 opener of `EXECUTION_PLAN_V5.md`.
 - **HONEST AUDIT FIRST (executor contract rule #6 — "say so if the town

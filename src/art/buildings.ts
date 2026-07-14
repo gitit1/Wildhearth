@@ -404,6 +404,13 @@ const COTTAGE_SPRITES: Record<number, CottageSpriteInfo> = {
   6: { id: "buildings/spare/cottage-06_slate-stone-porch" },
   7: { id: "buildings/cottage-07_redtile-timber-ivy", cx: 56.5, foot: 121 },
   8: { id: "buildings/spare/cottage-08_shingle-plank-leanto" },
+  // V2-B1b — 3 coastal-flavored town-home variants (everything-pixels rule:
+  // the 3 code-painter town homes clashed against sprite neighbors). Same
+  // 112x128 canvas + flat-front guardrail as 1-8; anchors measured off the
+  // alpha bbox at draw time, like 6/8.
+  9: { id: "buildings/cottage-09_slate-whitewash-shutters" },
+  10: { id: "buildings/cottage-10_shingle-bluetimber-buoys" },
+  11: { id: "buildings/cottage-11_slate-brick-lantern" },
 };
 
 /** A small cottage — a compact house variant for the market's NPC homes.
