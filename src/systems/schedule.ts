@@ -102,6 +102,24 @@ export function daySchedule(def: NpcDef, dow: number): ScheduleEntry[] {
     e.push({ startHour: wake + 1, state: "socializing" });
     e.push({ startHour: 14, state: sundayAfternoon(def.role) });
     e.push({ startHour: 18, state: "socializing" });
+  } else if (def.townResident) {
+    // Town residents (V2-B2): out in the coastal town square before AND after
+    // work, and asleep in their town home at night — so the seafront has bodies
+    // (and the player's stall real custom) morning-to-dusk, not just 15:00-18:00.
+    // `socializing`/`atMarket` resolve to the TOWN square (see placeFor), so
+    // these blocks keep the resident in the coastal band all their waking,
+    // non-working hours. Their closed day is spent mingling/running town errands.
+    if (def.closedDay === dow) {
+      e.push({ startHour: wake + 1, state: "socializing" });
+      e.push({ startHour: 13, state: "atMarket" });
+      e.push({ startHour: 16, state: "socializing" });
+    } else {
+      const { start, end } = workHours(def, dow);
+      e.push({ startHour: wake + 1, state: "socializing" });  // morning in the square
+      e.push({ startHour: start, state: "atWork" });
+      e.push({ startHour: end, state: "socializing" });        // evening in the square
+      e.push({ startHour: clampHour(end + 2), state: "atHome" });
+    }
   } else if (def.closedDay === dow) {
     // stall/trade shut: run errands and mingle instead of working
     e.push({ startHour: wake + 1, state: "atMarket" });
@@ -182,6 +200,15 @@ function socialSpot(idx: number): [number, number] {
   return [WELL.cx + Math.cos(a) * 2.3 * T, WELL.cy + 1.3 * T + Math.sin(a) * 1.5 * T];
 }
 
+/** Where a TOWN RESIDENT gathers — a small ring around the coastal TOWN_SQUARE
+ *  instead of the northern market well (V2-B2). Keeps residents in the coastal
+ *  band (y >= 31) through all their off-work daylight, which is what makes the
+ *  player's stall custom span the whole shop day rather than the afternoon only. */
+function townSocialSpot(idx: number): [number, number] {
+  const a = (idx / 10) * TAU;
+  return [TOWN_SQUARE[0] + Math.cos(a) * 2.3 * T, TOWN_SQUARE[1] + Math.sin(a) * 1.5 * T];
+}
+
 /** A spot along the coastal town street, spread by roster index so town
  *  visitors mill along the promenade rather than stacking on one tile. */
 function townSpot(idx: number): [number, number] {
@@ -197,12 +224,16 @@ export function placeFor(def: NpcDef, state: NpcState, dow: number, idx: number)
     case "atWork":
       return workPlace(def, dow);
     case "atMarket":
-      return marketWander(idx);
+      // town residents run their errands along the coastal town street, not the
+      // northern market plaza (keeps them in the customer-pool band).
+      return def.townResident ? townSpot(idx) : marketWander(idx);
     case "socializing":
       // Ada keeps to the trees even when "gathering" — she's shy of the square;
-      // Nerys keeps to her river bend, a recluse of the water (never the well).
+      // Nerys keeps to her river bend, a recluse of the water (never the well);
+      // town residents ring the coastal TOWN_SQUARE rather than the market well.
       if (def.role === "forager") return [ADA_FOREST_REST[0], ADA_FOREST_REST[1]];
       if (def.role === "fisherwoman") return [RIVERSIDE_REST[0], RIVERSIDE_REST[1]];
+      if (def.townResident) return townSocialSpot(idx);
       return socialSpot(idx);
     case "festival":
       // festival day pulls EVERYONE to the square, Ada included — Liora takes

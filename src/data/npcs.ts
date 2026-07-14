@@ -17,6 +17,7 @@
  * Roster is logged for owner review in docs/WORKLOG.md.
  */
 import { T } from "../config";
+import { TOWN_HOMES } from "../world/zones";
 import type { RigParams } from "../art/rig";
 
 export type AgeBand = "kid" | "adult" | "elder";
@@ -43,6 +44,12 @@ interface NpcCommon {
   rig: RigParams;                // its distinct look
   home: readonly [number, number];
   work: readonly [number, number];
+  // A town resident LIVES in the coastal town (V2-B2): `home` is a TOWN_HOMES
+  // slot, and the schedule engine routes their off-work gathering to the TOWN
+  // square rather than the northern market well — so the seafront town has bodies
+  // (and the player's stall real custom) from morning to dusk, not just 15:00-18:00.
+  // Undefined = market-plaza / farm-country folk, unchanged. See schedule.ts.
+  townResident?: boolean;
   wake: number;                  // base wake hour (jittered ±1h per NPC in schedule.ts)
   sleep: number;                 // base bedtime hour
   workStart: number;
@@ -78,6 +85,15 @@ export function isBirthday(def: NpcDef, seasonIndex: number, day: number): boole
 }
 
 const P = (xT: number, yT: number): readonly [number, number] => [xT * T, yT * T];
+
+/** The standing / sleep spot for a town resident: centred on the front (south)
+ *  of the assigned TOWN_HOMES cottage, on the open street — so they path in from
+ *  the square without clipping the building, then step "indoors" (unrendered) on
+ *  arrival. Keeps the home assignment in DATA, derived from zones' layout. */
+const townHome = (i: number): readonly [number, number] => {
+  const h = TOWN_HOMES[i]!;
+  return [h.x + h.w / 2, h.y + h.h + 0.5 * T];
+};
 
 // ---- 2-3 canned lines per personality (rotated on each Talk this block; the
 //      real dialogue engine is the NEXT block and swaps in at the onTalk seam) -
@@ -170,10 +186,16 @@ export const BRAM_MARKET_SPOT: readonly [number, number] = P(75.7, 18.35);
 export const RIVERSIDE_REST: readonly [number, number] = P(92.6, 11.2);
 
 // ---- the 10 ----------------------------------------------------------------
-// Homes: the six square cottages + Henrik's neighbour farmhouse, Ada's forest
-// nook, Finn's lakeside spot, Jonas's roadside. Work spots stand just IN FRONT
-// of the relevant building so the rig reads clearly (3/4 view; behind the
-// counter it would be occluded by the awning).
+// Homes: FIVE now live down in the coastal TOWN (V2-B2, `townResident`) — Finn
+// the harbour boy, Liora who busks the town square, Jonas the road-peddler, Bram
+// the town tradesman, and Sera the general-goods merchant (beside the town's own
+// general store). The rest stay put: the market-plaza stallkeepers Maren & Tobin
+// and baker Petra (their day IS the northern market), gruff Henrik on his
+// neighbour farm, shy Ada in her forest nook, and Nerys the recluse of the far
+// river bend — farm-country and market folk, not seafront townsfolk. Work spots
+// stand just IN FRONT of the relevant building so the rig reads clearly (3/4
+// view; behind the counter it would be occluded by the awning). Full reasoning
+// in docs/WORKLOG.md.
 
 export const NPCS: NpcDef[] = [
   {
@@ -208,7 +230,7 @@ export const NPCS: NpcDef[] = [
     id: "sera", name: "Sera", gender: "female", ageBand: "adult", romantic: false,
     profession: "general-goods keeper", personality: "precise-practical", role: "stall-goods",
     blurb: "Sera, the general-goods keeper — everything squared away, nothing out of place.",
-    home: P(77.4, 21.85), work: P(71.7, 18.35),
+    townResident: true, home: townHome(0), work: P(71.7, 18.35),  // lives in town by the general store; still keeps the market goods stall by day
     wake: 6, sleep: 22, workStart: 9, workEnd: 18, closedDay: 6, // Saturday off
     birthday: { seasonIndex: 1, day: 2 },   // summer d2
     rig: {
@@ -249,7 +271,7 @@ export const NPCS: NpcDef[] = [
     id: "liora", name: "Liora", gender: "female", ageBand: "adult", romantic: true,
     profession: "street musician", personality: "dreamy-performer", role: "musician",
     blurb: "Liora, the street musician — half here, half in whatever tune she's chasing.",
-    home: P(61.9, 26.85), work: P(66.5, 22.2), // near the busk spot, never ON it
+    townResident: true, home: townHome(1), work: P(58, 36.4), // lives in town, performs on the TOWN_BUSK_SPOT in the seafront square
     wake: 8, sleep: 23, workStart: 12, workEnd: 20,
     birthday: { seasonIndex: 2, day: 9 },   // autumn d9
     rig: {
@@ -262,7 +284,7 @@ export const NPCS: NpcDef[] = [
     id: "bram", name: "Bram", gender: "male", ageBand: "adult", romantic: true,
     profession: "carpenter", personality: "quiet-craftsman", role: "handyman",
     blurb: "Bram, the carpenter — says little, mends everything.",
-    home: P(74.9, 28.15), work: P(75.7, 18.35),
+    townResident: true, home: townHome(2), work: P(75.7, 18.35),  // town tradesman; still splits the market/farm repair jobs by day
     wake: 6, sleep: 22, workStart: 8, workEnd: 17,
     birthday: { seasonIndex: 3, day: 3 },   // winter d3
     rig: {
@@ -288,7 +310,7 @@ export const NPCS: NpcDef[] = [
     id: "finn", name: "Finn", gender: "male", ageBand: "kid",
     profession: "fishing apprentice", personality: "eager-apprentice", role: "fisher-kid",
     blurb: "Finn, Maren's fishing apprentice — all elbows and eagerness.",
-    home: P(79, 22), work: P(83.5, 23.4), // out on the dock
+    townResident: true, home: townHome(4), work: P(65, 41), // harbour boy: lives by the sea, fishes the TOWN_DOCK
     wake: 7, sleep: 21, workStart: 14, workEnd: 18, // weekdays after "school"; weekends handled in schedule.ts
     birthday: { seasonIndex: 0, day: 5 },   // spring d5
     rig: {
@@ -301,7 +323,7 @@ export const NPCS: NpcDef[] = [
     id: "jonas", name: "Jonas", gender: "male", ageBand: "adult", romantic: false,
     profession: "peddler", personality: "gossipy-connector", role: "peddler",
     blurb: "Jonas, the peddler — walks every road and carries every rumour.",
-    home: P(57.5, 25), work: P(40, 22.5), // fallback; his real "work" is the JONAS_ROUTE patrol
+    townResident: true, home: townHome(3), work: P(40, 22.5), // town-based traveller; real "work" is the JONAS_ROUTE patrol
     wake: 6, sleep: 23, workStart: 8, workEnd: 19,
     birthday: { seasonIndex: 1, day: 6 },   // summer d6
     rig: {

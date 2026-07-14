@@ -29,6 +29,84 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## V2-B2 — town residents & schedules (all-day custom)
+- **Date:** 2026-07-14 (v1-foundation) — closes owner-gate **G3** by design
+  (the coastal town's homes were decorative and custom was afternoon-only).
+- **The problem it fixes:** V2-B1 built the coastal town (homes, merchants,
+  seafront, dock) but nobody LIVED there — the 5 `TOWN_HOMES` were empty props,
+  and the player's stall only saw customers ~15:00–18:00. That afternoon-only
+  feel was *emergent*, not a rule: `CUSTOMER_MARKET_START/END` was already 8–18,
+  but NPCs only entered the coastal band (`y ≥ 31`) during the 15:00 `"town"`
+  visit block, so the buyer pool was empty every morning.
+- **Residents (data — `src/data/npcs.ts`):** new optional `townResident?: boolean`
+  on `NpcCommon`; a `townHome(i)` helper derives each resident's home/sleep spot
+  from `zones.TOWN_HOMES[i]` (front-of-cottage, on the street). Five of the
+  eleven now live in town, home + (where it made sense) work reassigned:
+  - **Finn** the fishing-apprentice → `TOWN_HOMES[4]` (SE, by the dock); work
+    moved from the northern lake to the **town dock** `P(65,41)` — a harbour boy
+    who lives by the sea and fishes the pier.
+  - **Liora** the musician → `TOWN_HOMES[1]` (centre, by the square); work moved
+    from the northern busk spot to the **`TOWN_BUSK_SPOT`** `P(58,36.4)` — she
+    performs in the seafront square she lives on.
+  - **Jonas** the peddler → `TOWN_HOMES[3]` (east, by the road out); still
+    patrols `JONAS_ROUTE`.
+  - **Bram** the carpenter → `TOWN_HOMES[2]`; still splits market/farm repair
+    jobs by day.
+  - **Sera** the general-goods keeper → `TOWN_HOMES[0]` (west, beside the town's
+    own general-store merchant stall); still keeps the northern goods stall by
+    day (a short commute).
+  - **Reasoning for who stays put:** Maren (fish-buyer) & Tobin (produce-seller)
+    run the *northern market* stalls and Petra bakes at her market-square cottage
+    — their whole day is the market plaza, and moving their stalls is out of
+    scope for this block. Henrik farms the neighbour farm (rural), Ada is shy of
+    crowds in her forest nook (rural), and Nerys is a recluse of the far river
+    bend (rural). So the residents are exactly the town-plausible non-market roles
+    plus the one merchant (Sera) whose town-store analog already exists.
+- **Schedule engine (`src/systems/schedule.ts`):** a new `townResident` branch in
+  `daySchedule()` gives residents a morning **and** evening `"socializing"` block
+  bracketing their work (and, on their closed day, all-day mingling/errands),
+  then `"atHome"`/`"asleep"` at their town home. New `townSocialSpot(idx)` rings
+  the coastal `TOWN_SQUARE` (not the northern `WELL`); `placeFor()` now routes a
+  resident's `socializing` → `townSocialSpot` and `atMarket` → `townSpot`, so a
+  resident stays in the coastal band (`y ≥ 31`) through all their off-work
+  daylight hours. Non-residents are completely unchanged (the old `townVisitsToday`
+  afternoon visits still apply to Henrik on Wednesdays, etc.).
+- **All-day custom (`src/main.ts` + `src/config.ts`):** `trySpawnCustomer`'s pool
+  predicate widened from `state === "town"` to `state ∈ {town, socializing,
+  atMarket}` (still gated on `!indoors && y ≥ 31 && !visit && !talking`), so
+  residents mingling in the square are eligible buyers all day — while workers at
+  their posts are correctly excluded. The customer-hours knob
+  `CUSTOMER_MARKET_START` is now **9** (was 8) with `CUSTOMER_MARKET_END` **18**,
+  documented as the town's natural shop hours; the real widening is the pool now
+  being populated across those hours by residents.
+- **Save compatibility:** purely additive **data/logic** — no new or changed
+  persisted store, no save-shape change. `verify:save` (a pre-block V1-C2 fixture
+  save) loads clean and resumes on day 2.
+- **Verified (evidence, own eyes / assertions):**
+  - `npm run build` green (tsc strict + vite).
+  - Scripted-day assertion harness (`scratchpad/town-day.mjs`, puppeteer + headless
+    Edge, `__wh` bridge, following `verify/lib.mjs`): across hours {2,8,11,16,21}
+    the 5 residents occupy **3 distinct states** (asleep / socializing / atWork);
+    every resident is **asleep exactly at its town home** at 02:00 (dist 0.0px,
+    homeY ≥ 31 tiles); a customer (**Finn**) walked up via the *real* gated
+    `customerMinuteDev` path at **10:00** (gated minute 49) and was served 2
+    primrose for **+10 coins** (`served` +1) — a purchase **outside** the old
+    15:00–18:00 window. Screenshots `town-morning.png` (11:00) and
+    `town-afternoon.png` (16:00) reviewed: coastal street with multiple residents
+    visibly present (and Finn fishing the town dock in the afternoon). Zero
+    page/console errors.
+  - `verify:save` GREEN, `verify:smoke` GREEN.
+- **Files changed:** `src/data/npcs.ts`, `src/systems/schedule.ts`, `src/main.ts`,
+  `src/config.ts`, `docs/WORKLOG.md`.
+- **Follow-ups:**
+  - G3 confirmation is the owner's to make on review — she should sanity-check
+    that residents making custom all-day is the resolution she's happy with.
+  - Sera commutes north to the market stall each day; if V2-B5 ever moves the
+    market merchants down into the coastal town's own merchant stalls, her
+    (and Maren/Tobin's) work anchors should follow and the commute disappears.
+  - No sprite work this block (respects gate G1); Finn/Liora now stand at the
+    town dock / town busk spot, which reuse existing rig poses — no new gens.
+
 ## verify — lib: spawn vite unwrapped + refuse foreign servers (the stale-server trap)
 - **Date:** 2026-07-14 (v1-foundation)
 - **The incident that forced this:** while eyeball-verifying V2-B1b's new

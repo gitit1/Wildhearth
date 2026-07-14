@@ -205,8 +205,12 @@ export const NPC_SALE_FRIENDSHIP_BUMP = 3;
 //  premium over the flat stall price, so tending the stall pays off. Every
 //  magnitude a knob; Reputation (the NEXT block) is deliberately absent here.
 // ===========================================================================
-export const CUSTOMER_MARKET_START = 8;   // customers only shop during market hours
-export const CUSTOMER_MARKET_END = 18;
+// The town's shop hours: the window in which townsfolk will walk up to the
+// player's stall. With V2-B2's town residents populating the seafront square all
+// day, custom now spans these natural morning-to-dusk hours (it used to feel
+// afternoon-only because the coastal town was empty until the 15:00 visit block).
+export const CUSTOMER_MARKET_START = 9;   // shop opens ~09:00
+export const CUSTOMER_MARKET_END = 18;    // …and closes ~18:00
 export const CUSTOMER_DAILY_CAP = 6;      // most sales customers bring you in one day
 export const CUSTOMER_MAX_CONCURRENT = 2; // most customers queued at your stall at once
 export const CUSTOMER_PREMIUM = 1.3;      // they pay 1.3x the flat GOOD_PRICES rate

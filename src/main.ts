@@ -1209,9 +1209,12 @@ function serveCustomer(npcId: string) {
 function trySpawnCustomer(slot: number): boolean {
   const pool = npcs.filter((n) =>
     !n.visit && !n.indoors && n.talkTimer <= 0 &&
-    n.state === "town" &&
-    n.y >= 31 * T);   // physically down in the coastal town (her stall's new home) —
-                      // a short straight walk to the counter, no cross-region pathing
+    n.y >= 31 * T &&   // physically down in the coastal town (her stall's new home) —
+                       // a short straight walk to the counter, no cross-region pathing
+    // out-and-about, not working: an afternoon "town" visitor OR (V2-B2) a town
+    // RESIDENT mingling / running errands in the seafront square. Residents keep
+    // the pool populated from morning to dusk, so custom is no longer afternoon-only.
+    (n.state === "town" || n.state === "socializing" || n.state === "atMarket"));
   const premium = reputationPremium(reputation.fame);   // v2 block #2: fame lifts the price band
   for (const n of pool.sort(() => Math.random() - 0.5)) {
     const want = rollCustomerWant(n.def, economy.inv, premium);
