@@ -1609,6 +1609,8 @@ function maybeNpcThought(npcTagId: string) {
 }
 
 function beginPlay() {
+  // leaving any story/menu flow: the desktop's windows may show again
+  document.documentElement.classList.remove("wh-story");
   hideOpening();
   openingActive = false;
   consumeAction(); consumeLeftClick(); consumeRightClick(); clearMoveTarget();
@@ -2071,6 +2073,12 @@ document.getElementById("saveBtn")!.addEventListener("click", manualSave);
 // then carried through the intro/reveal in this closure and joined with the
 // path/goal chosen AFTER seeing the place.
 function startNewGameFlow() {
+  // Story mode: while the new-game sequence runs (char creation → intro →
+  // farm reveal → path → guidance), every window except the viewport is
+  // hidden — the reveal shows HER FARM, not a desktop of floating panels
+  // (owner report: the map/backpack/tools sat on top of the story moment).
+  // beginPlay() lifts it on every exit path.
+  document.documentElement.classList.add("wh-story");
   showCharacterCreation((identity) =>
     showIntro(() => showReveal(() =>
       showPathAndGoal((path, lifeGoal) => {

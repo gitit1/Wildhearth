@@ -373,15 +373,24 @@ class WindowManager {
     const cands: Array<{ x: number; y: number }> = [prefer];
     for (let y = PAD; y <= Math.max(PAD, d.h - h - PAD); y += GRID)
       for (let x = PAD; x <= Math.max(PAD, d.w - w - PAD); x += GRID) cands.push({ x, y });
+    // Windows with an authored anchor (`openAt`) fight for THAT spot; plain
+    // panels are pulled toward the desktop's SIDES (owner: "rational, off to
+    // the sides — the game world stays clear"), so among overlap-free spots
+    // the one hugging the nearest vertical edge wins.
+    const hasAnchor = !!m.spec.openAt;
+    const { w: dw } = d;
     let best = this.clampRect({ ...prefer, w, h });
-    let bestOv = Infinity, bestDist = Infinity;
+    let bestOv = Infinity, bestEdge = Infinity, bestDist = Infinity;
     for (const c of cands) {
       const r = this.clampRect({ x: c.x, y: c.y, w, h });
       const ov = overlapAt(r.x, r.y);
+      const edge = hasAnchor ? 0 : Math.min(r.x, dw - (r.x + w));
       const dist = Math.hypot(r.x - prefer.x, r.y - prefer.y);
-      if (ov < bestOv || (ov === bestOv && dist < bestDist)) {
-        best = r; bestOv = ov; bestDist = dist;
-        if (ov === 0 && dist === 0) break;   // the preferred spot itself is free
+      if (ov < bestOv
+        || (ov === bestOv && edge < bestEdge)
+        || (ov === bestOv && edge === bestEdge && dist < bestDist)) {
+        best = r; bestOv = ov; bestEdge = edge; bestDist = dist;
+        if (ov === 0 && dist === 0 && hasAnchor) break;   // the anchored spot itself is free
       }
     }
     this.applyRect(m, resizable ? best : { ...best, w: m.normalRect.w, h: m.normalRect.h }, true);

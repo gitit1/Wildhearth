@@ -273,10 +273,14 @@ function cozyLayout(): void {
 function layoutPanels(d: DesktopSize, clk: { w: number; h: number }, cn: { w: number; h: number }, nd: { w: number; h: number }): void {
   const bp = wm.get("backpack"), sk = wm.get("skills"), bk = wm.get("memorybook"),
     mm = wm.get("minimap"), sh = wm.get("shop"), gf = wm.get("gift");
-  if (mm) { mm.setPinned(false); mm.restore(); mm.setRect({ x: d.w - mm.rect().w - GAP, y: GAP + clk.h + GAP }); }
-  // backpack sits BELOW the map, right-aligned — the town-era map is big
-  // (≈700×340), so the old fixed y:236 would bury the backpack under it.
-  const bpY = mm ? mm.rect().y + mm.rect().h + GAP : 236;
+  // The town-era map is a big readable panel (≈700×340), not the old always-on
+  // radar strip — open-by-default it sat ON TOP of the game world (owner
+  // report). Default: CLOSED; M / 🗺 opens it at its top-right home.
+  if (mm) { mm.setPinned(false); mm.setRect({ x: d.w - mm.rect().w - GAP, y: GAP + clk.h + GAP }); mm.close(); }
+  // backpack: right edge BELOW the map's reserved slot — the right column
+  // reads clock → (map's home, kept clear even while closed) → backpack →
+  // dock, so pressing M always finds the map's spot free.
+  const bpY = mm ? mm.rect().y + mm.rect().h + GAP : Math.round(d.h * 0.42);
   if (bp) { bp.setPinned(false); bp.restore(); bp.setRect({ x: d.w - bp.rect().w - GAP, y: bpY }); }
   if (sk) { sk.setPinned(false); sk.setRect({ x: GAP, y: GAP + cn.h + GAP + nd.h + GAP }); sk.close(); }
   if (bk) { bk.setPinned(false); bk.setRect({ x: Math.round(d.w * 0.22), y: Math.round(d.h * 0.18) }); bk.close(); }

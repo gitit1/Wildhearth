@@ -816,6 +816,10 @@
     .wh-window{cursor:move}
     .wh-window>.wh-body{cursor:auto}
     .wh-pinned{cursor:default}
+    /* Story mode (the new-game sequence: intro / farm reveal / path / guidance):
+       the world shows through the viewport alone — no HUD, no panels, no dock
+       floating over the story moment. main.ts toggles the class. */
+    .wh-story .wh-window:not([data-win="viewport"]){visibility:hidden}
     .wh-titlebar{flex:none;height:26px;display:flex;align-items:center;gap:6px;padding:0 4px 0 8px;
       cursor:move;user-select:none;border-radius:8px 8px 0 0;
       background:linear-gradient(180deg,#6b4f30,#4e3a24);

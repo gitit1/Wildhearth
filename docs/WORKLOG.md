@@ -29,6 +29,43 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## windows — story mode + the game world stays clear (map off by default, edge-seeking panels)
+- **Date:** 2026-07-14 (v1-foundation)
+- **Owner report (with her screenshot):** during the new-game FARM REVEAL,
+  the map/backpack/tools sat on top of the story moment; and in play "the
+  map still sits on the game screen itself — it should be rational, off to
+  the sides, but readable."
+- **What her screenshot exposed that my verification missed:** I verified
+  free-space placement on a fresh desktop at test sizes — never the actual
+  NEW-GAME SEQUENCE, and never at her (wide) screen. The reveal step shows
+  the world through the viewport, so every boot-opened window (Classic's
+  map+backpack, the HUD, the dock) floated over it. And the town-era map,
+  open by default, permanently covered the play area.
+- **Fix:**
+  - **Story mode** (`src/main.ts` + `index.html`): `startNewGameFlow()` puts
+    `wh-story` on the root — CSS hides every window except the viewport for
+    the whole sequence (char creation → intro → reveal → path → guidance);
+    `beginPlay()` lifts it on every exit path. The reveal is now HER FARM
+    and the story card, nothing else.
+  - **The map no longer opens by default** (`setup.ts` layoutPanels): it's a
+    big readable panel now, not the old radar strip — open-by-default meant
+    permanently covering the world. M / 🗺 opens it at its top-right home;
+    its SLOT stays reserved (backpack anchors below `mm.rect()` even while
+    the map is closed), so M always finds the spot free.
+  - **Edge-seeking placement** (`manager.ts` autoPlace): among overlap-free
+    spots, plain panels now prefer the spot hugging the nearest vertical
+    EDGE (windows with an authored `openAt` anchor keep fighting for their
+    anchor) — panels line the sides; the world's center stays clear.
+- **Verified at HER conditions (2000×1100, the real flow, screenshots
+  reviewed):** (A) reveal step: ZERO windows over the story; (B) play
+  begins: HUD back, map closed; (C) M: map opens flush right (12px gap)
+  under the clock, zero overlap; right column reads clock → map → backpack
+  → dock. `verify:save` + `verify:smoke` GREEN; build green.
+- **Files changed:** `src/main.ts`, `index.html`,
+  `src/ui/windows/manager.ts`, `src/ui/windows/setup.ts`.
+- **Process lesson (hers, adopted):** verify on the OWNER'S real scenario —
+  the actual flow, the actual screen size — not only a clean-room repro.
+
 ## windows — UO-gump drag (grab the frame anywhere) + free-space open placement (owner report)
 - **Date:** 2026-07-14 (v1-foundation)
 - **Owner report:** "it doesn't move — there should be a drag option; windows
