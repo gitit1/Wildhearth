@@ -17,11 +17,27 @@ const EDGE = process.env.WH_EDGE
 
 export const PORT = Number(process.env.WH_VERIFY_PORT || 5199);
 
-/** Spawns `vite --port PORT --strictPort`, resolves when it answers HTTP. */
+/** Spawns Vite on PORT, resolves when it answers HTTP.
+ *
+ *  Two hard-won rules (a stale-server incident cost a full debugging hunt):
+ *  1. REFUSE a port that already answers — an orphaned server from an earlier
+ *     run would silently serve STALE code and the "verification" would test
+ *     the wrong build. Fail loudly instead.
+ *  2. Spawn vite's bin with node DIRECTLY (no shell wrapper): on Windows,
+ *     killing a shell-wrapped child kills the shell and ORPHANS vite — the
+ *     exact way stale servers are born. child.kill() must hit vite itself. */
 export async function startServer() {
-  const child = spawn(process.platform === "win32" ? "npx.cmd" : "npx",
-    ["vite", "--port", String(PORT), "--strictPort"],
-    { cwd: ROOT, stdio: "ignore", shell: process.platform === "win32" });
+  try {
+    await fetch(`http://localhost:${PORT}/`);
+    throw new Error(`port ${PORT} is already answering — an orphaned/foreign server is running. ` +
+      `Kill it first (it would serve stale code): powershell "Get-NetTCPConnection -LocalPort ${PORT} -State Listen | % OwningProcess | % { Stop-Process -Id $_ -Force }"`);
+  } catch (e) {
+    if (e instanceof Error && /already answering/.test(e.message)) throw e;
+    /* connection refused = port free, good */
+  }
+  const viteBin = path.join(ROOT, "node_modules", "vite", "bin", "vite.js");
+  const child = spawn(process.execPath, [viteBin, "--port", String(PORT), "--strictPort"],
+    { cwd: ROOT, stdio: "ignore" });
   const deadline = Date.now() + 30000;
   for (;;) {
     try {

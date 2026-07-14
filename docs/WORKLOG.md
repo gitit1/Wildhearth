@@ -29,6 +29,30 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## verify — lib: spawn vite unwrapped + refuse foreign servers (the stale-server trap)
+- **Date:** 2026-07-14 (v1-foundation)
+- **The incident that forced this:** while eyeball-verifying V2-B1b's new
+  cottage sprites, every screenshot kept showing the OLD code cottage. A long
+  hunt (PNG signatures, pngjs decode, manifest glob, `node_modules/.vite`,
+  mtimes, filename bytes, a prod-build cross-check) ended at the real cause:
+  on Windows, `spawn(..., { shell: true })` + `child.kill()` kills the SHELL
+  and **orphans vite** — and the next run's "wait until the port answers"
+  loop happily connected to the orphaned server, silently verifying STALE
+  code. The game and V2-B1b were correct the whole time; the harness lied.
+- **Fix (`verify/lib.mjs` `startServer`):** (1) spawn `node_modules/vite/bin/
+  vite.js` with `process.execPath` DIRECTLY — no shell wrapper — so
+  `child.kill()` hits vite itself; (2) before spawning, probe the port and
+  **fail loudly if anything already answers** (with the exact PowerShell
+  kill command in the error), so an orphaned/foreign server can never again
+  masquerade as the code under test.
+- **Verified:** killed the live orphan (it was IPv6-bound — the guard caught
+  it on its very first run), then `verify:save` GREEN, `verify:smoke` GREEN,
+  and a back-to-back `verify:save` GREEN without tripping the guard —
+  proving the child is now reaped. Zero page/console errors.
+- **Files changed:** `verify/lib.mjs` only.
+- **Follow-ups:** scratchpad screenshot scripts should reuse this pattern
+  (spawn unwrapped + foreign-server guard) rather than hand-rolling spawns.
+
 ## V2-B1b — town homes go pixel (everything-pixels rule)
 - **Date:** 2026-07-14 (v1-foundation) — correction pass on V2-B1, flagged on
   coordinator review: the 3 seed-driven CODE-painter town homes (seeds
