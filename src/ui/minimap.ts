@@ -1,4 +1,4 @@
-import { T, WORLD_W, WORLD_H, MINIMAP_SCALE, WIN_PANEL_SCALE_MIN, WIN_PANEL_SCALE_MAX } from "../config";
+import { T, WORLD_W, WORLD_H, MINIMAP_SCALE, WIN_PANEL_SCALE_MIN, WIN_PANEL_SCALE_MAX, RADAR_W, RADAR_H, RADAR_SCALE } from "../config";
 import {
   FIELD, YARD, HOUSE, BARN, STALL, POND, WORLD_TREES,
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES,
@@ -9,7 +9,8 @@ import {
 let fieldBounds = { x0: FIELD.x0, y0: FIELD.y0, x1: FIELD.x1, y1: FIELD.y1 };
 export function setMinimapField(b: { x0: number; y0: number; x1: number; y1: number }) {
   fieldBounds = b;
-  if (base) base = paintBase();   // repaint the static layer with the new field
+  if (base) base = paintBaseAt(scale);   // repaint the static layer with the new field
+  if (radarBase) radarBase = paintBaseAt(RADAR_SCALE);
 }
 import { roundR } from "../art/shapes";
 import { wm, toggleWindow } from "./windows/manager";
@@ -44,7 +45,6 @@ export function setTravelHooks(h: TravelHooks) { hooks = h; refreshTravelUI(); }
  * Icon 🗺️ / key M toggle it. Default: open, top-right (under the clock).
  */
 
-const GAP = 12;
 
 let canvas: HTMLCanvasElement;
 let g: CanvasRenderingContext2D;
@@ -54,6 +54,15 @@ let W = 0, H = 0;
 
 let win: WindowHandle;
 let mapBtn: HTMLElement | null = null;
+
+// The UO-style corner RADAR: a small always-on window showing a zoomed-in
+// crop of the world AROUND the player (readable because it's local — it never
+// tries to squeeze the whole world into a corner). The big world map above
+// stays the on-demand overview (M / 🗺), exactly like UO's radar + world map.
+let radarWin: WindowHandle;
+let radarCv: HTMLCanvasElement;
+let rg: CanvasRenderingContext2D;
+let radarBase: HTMLCanvasElement;
 
 // fast-travel confirm-card state
 let confirmEl: HTMLElement | null = null;
@@ -74,7 +83,7 @@ export function initMinimap() {
     canvas.height = H * devicePixelRatio;
     canvas.style.width = `${W}px`;
     canvas.style.height = `${H}px`;
-    base = paintBase();
+    base = paintBaseAt(scale);
   };
   applyScale(1);
 
@@ -89,21 +98,38 @@ export function initMinimap() {
     resizable: true,
     contentSized: true,   // W/H below are the CANVAS box — the manager adds the real chrome
     minW, minH, maxW, maxH,
-    // top-right, under the clock window (created earlier in boot — see setup.ts).
+    // centered — the world map is a consult-and-close overview, like UO's.
     // NATURAL canvas dims, not the live W/H — those mutate with every rescale,
     // which would make the "default size" drift with whatever fit last.
     defaultRect: (d) => {
-      const clockH = wm.get("clock")?.el.getBoundingClientRect().height ?? 74;
       const natW = Math.round(WORLD_W * MINIMAP_SCALE), natH = Math.round(WORLD_H * MINIMAP_SCALE);
-      return { x: d.w - natW - GAP, y: GAP + clockH + GAP, w: natW, h: natH };
+      return { x: Math.round((d.w - natW) / 2), y: Math.round((d.h - natH) / 2), w: natW, h: natH };
     },
-    // the map's logical home is its HUD corner, not the centered-cascade spot
-    openAt: (d, s) => {
-      const clockH = wm.get("clock")?.el.getBoundingClientRect().height ?? 74;
-      return { x: d.w - s.w - GAP, y: GAP + clockH + GAP };
-    },
+    // the big world map is an on-demand overview — like UO's, it opens
+    // CENTER-SCREEN (anchored, so the edge-seeking rule for side panels
+    // doesn't drag it into a corner); consult it, close it.
+    openAt: (d, s) => ({ x: Math.round((d.w - s.w) / 2), y: Math.round((d.h - s.h) / 2) }),
     onResize: (cw, ch) => applyScale(Math.min(cw / WORLD_W, ch / WORLD_H) / MINIMAP_SCALE),
     onMinimize: (hidden) => mapBtn?.classList.toggle("active", !hidden),
+  });
+
+  // ---- the corner radar (always-on, UO style) -----------------------------
+  radarBase = paintBaseAt(RADAR_SCALE);
+  const radarBox = document.createElement("div");
+  radarBox.style.cssText = "display:inline-block;line-height:0";
+  radarCv = document.createElement("canvas");
+  radarCv.width = RADAR_W * devicePixelRatio;
+  radarCv.height = RADAR_H * devicePixelRatio;
+  radarCv.style.width = `${RADAR_W}px`;
+  radarCv.style.height = `${RADAR_H}px`;
+  radarCv.style.borderRadius = "6px";
+  radarBox.appendChild(radarCv);
+  rg = radarCv.getContext("2d")!;
+  radarWin = wm.createWindow({
+    id: "radar", title: "Radar", icon: "🧭",
+    content: radarBox,
+    autoPlace: false,   // HUD chrome — its home is the top-right corner
+    defaultRect: (d) => ({ x: d.w - RADAR_W - 40, y: 140, w: 0, h: 0 }), // repositioned by presets
   });
 
   mapBtn?.addEventListener("click", () => toggleWindow(win));
@@ -113,7 +139,31 @@ export function initMinimap() {
   });
 }
 
+/** The radar frame: a zoomed-in crop of the pre-painted world base centered
+ *  on the player (edge-clamped so the view never leaves the world), with the
+ *  player dot at its true offset. Called every frame from updateMinimap. */
+function drawRadar(player: Player) {
+  if (!radarWin?.isOpen()) return;
+  const dpr = devicePixelRatio;
+  rg.setTransform(dpr, 0, 0, dpr, 0, 0);
+  rg.imageSmoothingEnabled = false;
+  const bw = radarBase.width, bh = radarBase.height;
+  let sx = player.x * RADAR_SCALE - RADAR_W / 2;
+  let sy = player.y * RADAR_SCALE - RADAR_H / 2;
+  sx = Math.max(0, Math.min(bw - RADAR_W, sx));
+  sy = Math.max(0, Math.min(bh - RADAR_H, sy));
+  rg.fillStyle = "#42622e";
+  rg.fillRect(0, 0, RADAR_W, RADAR_H);
+  rg.drawImage(radarBase, sx, sy, RADAR_W, RADAR_H, 0, 0, RADAR_W, RADAR_H);
+  const px = player.x * RADAR_SCALE - sx, py = player.y * RADAR_SCALE - sy;
+  rg.fillStyle = "#fff";
+  rg.beginPath(); rg.arc(px, py, 4, 0, 7); rg.fill();
+  rg.fillStyle = "#e8c34f";
+  rg.beginPath(); rg.arc(px, py, 2.4, 0, 7); rg.fill();
+}
+
 export function updateMinimap(player: Player) {
+  drawRadar(player);
   if (!win.isOpen()) return;
   g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
   g.drawImage(base, 0, 0, W, H);
@@ -231,16 +281,15 @@ function hideConfirm() {
 
 /** Scaled-down echo of the whole world (regions, road, water, buildings),
  *  painted once per resize. Player dot is drawn live on top each frame. */
-function paintBase(): HTMLCanvasElement {
+function paintBaseAt(s: number): HTMLCanvasElement {
   const c = document.createElement("canvas");
-  c.width = W; c.height = H;
+  c.width = Math.round(WORLD_W * s); c.height = Math.round(WORLD_H * s);
   const b = c.getContext("2d")!;
-  const s = scale;
   const rectFill = (r: { x: number; y: number; w: number; h: number }, col: string, rr = 2) => {
     roundR(b, r.x * s, r.y * s, r.w * s, r.h * s, rr); b.fillStyle = col; b.fill();
   };
 
-  b.fillStyle = "#5d8a3c"; b.fillRect(0, 0, W, H);
+  b.fillStyle = "#5d8a3c"; b.fillRect(0, 0, c.width, c.height);
   // forest region — a darker patch north-central
   rectFill({ x: 46 * T, y: 0, w: 18 * T, h: 17.5 * T }, "#456a2c", 6);
   // market square apron

@@ -113,6 +113,12 @@ export const SKILL_TIER_FLOORS = [33, 66] as const;  // Skilled / Expert entry (
 
 export const INVENTORY_SLOTS = 12;      // backpack size (upgradeable post-MVP)
 export const MINIMAP_SCALE = 0.19;      // minimap px per world px — retuned for the town-era 108x46 world (0.11 dated from the smaller map and rendered it unreadably dense)
+// The UO-style corner RADAR — a small always-on crop of the world AROUND the
+// player (the big world map above is the on-demand overview). RADAR_SCALE is
+// its zoom: 0.5 => one tile = 16 radar px => the window shows ~11x9 tiles of
+// local surroundings, readable at a glance.
+export const RADAR_W = 176, RADAR_H = 148;   // radar canvas (CSS px)
+export const RADAR_SCALE = 0.5;              // radar px per world px (zoom)
 
 // ===========================================================================
 //  Needs engine (Part A #2) — 7 needs, each 0-100. All tuning lives here; the

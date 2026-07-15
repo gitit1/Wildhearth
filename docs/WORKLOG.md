@@ -29,6 +29,37 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## map — the UO radar: a corner view of your surroundings + the world map goes on-demand
+- **Date:** 2026-07-14 (v1-foundation)
+- **Owner reference (her UO client screenshot):** "you didn't fix the map —
+  look at Ultima Online. That's how I see it, only in OUR style." UO has
+  TWO maps: a small always-on RADAR in the top-right corner showing the
+  area AROUND the player, and a big world map you open on demand. We only
+  had the big one — so it either covered the world (always-on) or gave no
+  ambient orientation (closed).
+- **What shipped (`src/ui/minimap.ts`, knobs in `src/config.ts`):**
+  - **The RADAR** (`RADAR_W`/`RADAR_H` = 176×148, `RADAR_SCALE` = 0.5 → one
+    tile = 16px, ~11×9 tiles of local surroundings): a compact always-on
+    window in the top-right corner under the clock, drawing a live
+    edge-clamped crop of the pre-painted world base centered on the player,
+    player dot at its true offset. Chrome-class window (in
+    `CHROME_WINDOW_IDS`): Esc never closes it, Focus never sweeps it, story
+    mode hides it like all HUD.
+  - **The world map** is now a consult-and-close overview: opens CENTERED
+    (`openAt`, like UO's world map), still M / 🗺, closed by default.
+  - `paintBase()` → `paintBaseAt(scale)` — one painter, two pre-painted
+    bases (map zoom + radar zoom); field expansions repaint both.
+  - Presets: right column now reads clock → radar → backpack → dock.
+- **Verified (2000×1100, the real new-game flow, screenshots reviewed):**
+  reveal still clean (story mode covers the radar too); play begins with
+  radar ON + world map closed; radar shows the farm's local area readably
+  with the player dot; M opens the world map dead-center, zero overlap
+  with panels; `verify:save` + `verify:smoke` GREEN.
+- **Files changed:** `src/ui/minimap.ts`, `src/ui/windows/setup.ts`,
+  `src/config.ts`.
+- **Follow-ups:** radar could later mark NPCs/travel nodes as tiny dots
+  (UO marks corpses/party members); deferred until the owner asks.
+
 ## dev — the game's home address is now http://localhost:7777 (owner request)
 - **Date:** 2026-07-14 (v1-foundation)
 - **Owner request:** a dev port that isn't Vite's default (5173).

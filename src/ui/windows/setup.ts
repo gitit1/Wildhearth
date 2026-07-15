@@ -38,7 +38,7 @@ const GAP = 12;
  *  (closing the viewport via Esc would make Esc "hide the game" instead of
  *  "pause", since a click-to-move click on the canvas focuses the viewport
  *  constantly during normal play) and never swept by the Focus preset. */
-const CHROME_WINDOW_IDS = new Set(["viewport", "clock", "coins", "needs", "dock"]);
+const CHROME_WINDOW_IDS = new Set(["viewport", "clock", "coins", "needs", "dock", "radar"]);
 
 /** The Esc cascade's entry point (Windows migration II). Closes the topmost
  *  utility window (backpack/skills/…/dialogue/debug/day-end/settings/…) if
@@ -276,11 +276,13 @@ function layoutPanels(d: DesktopSize, clk: { w: number; h: number }, cn: { w: nu
   // The town-era map is a big readable panel (≈700×340), not the old always-on
   // radar strip — open-by-default it sat ON TOP of the game world (owner
   // report). Default: CLOSED; M / 🗺 opens it at its top-right home.
-  if (mm) { mm.setPinned(false); mm.setRect({ x: d.w - mm.rect().w - GAP, y: GAP + clk.h + GAP }); mm.close(); }
-  // backpack: right edge BELOW the map's reserved slot — the right column
-  // reads clock → (map's home, kept clear even while closed) → backpack →
-  // dock, so pressing M always finds the map's spot free.
-  const bpY = mm ? mm.rect().y + mm.rect().h + GAP : Math.round(d.h * 0.42);
+// the big world map: centered (a consult-and-close overview), CLOSED by default
+  if (mm) { mm.setPinned(false); mm.setRect({ x: Math.round((d.w - mm.rect().w) / 2), y: Math.round((d.h - mm.rect().h) / 2) }); mm.close(); }
+  // the corner RADAR: always-on, top-right under the clock (UO's corner)
+  const rd = wm.get("radar");
+  if (rd) { rd.setPinned(false); rd.restore(); rd.setRect({ x: d.w - size(rd).w - GAP, y: GAP + clk.h + GAP }); }
+  // backpack: right edge below the radar
+  const bpY = rd ? rd.rect().y + size(rd).h + GAP : Math.round(d.h * 0.42);
   if (bp) { bp.setPinned(false); bp.restore(); bp.setRect({ x: d.w - bp.rect().w - GAP, y: bpY }); }
   if (sk) { sk.setPinned(false); sk.setRect({ x: GAP, y: GAP + cn.h + GAP + nd.h + GAP }); sk.close(); }
   if (bk) { bk.setPinned(false); bk.setRect({ x: Math.round(d.w * 0.22), y: Math.round(d.h * 0.18) }); bk.close(); }
