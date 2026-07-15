@@ -288,6 +288,23 @@ glints replacing smooth ellipses).
 
 ---
 
+## Art direction — FULL PIVOT to the UO-mood look (2026-07-15, FINAL)
+
+The owner, after a 4-generation style probe: the cozy/bright style "is not
+the graphics I wanted — I want something more similar to Ultima Online."
+Root diagnosis, hers: **"everything looks detached — like you PLACED the
+house, PLACED the rock; it doesn't read as one realistic screen." Verdict:
+full pivot.** Target look: muted earthy palette, realistic (non-chibi)
+proportions, gritty painterly texture, NO outlines (lineless), moody
+lighting; camera stays top-down (true isometric remains a non-goal). The
+"detached objects" fix ships with it: shared terrain/object anchors,
+grounding aprons/base-blend under every object, retuned contact shadows.
+Execution program + wave budget (~2,000–2,500 gens): `docs/ART_PIVOT_UO.md`.
+The deferred character-matrix rebuild happens ONCE, inside this pivot
+(wave W3). No new generations in the old cozy style from this date.
+
+---
+
 ## Open decisions still on the table
 
 - Mine location (accessible from farm/forest, or through town?)

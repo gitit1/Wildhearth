@@ -29,6 +29,27 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## docs — ART PIVOT decision recorded: full restyle to the UO-mood look
+- **Date:** 2026-07-15 (v1-foundation) — docs only, no code/behavior change.
+- **Owner decision (after a 4-gen probe she reviewed side-by-side):** FULL
+  pivot away from the cozy/bright style — "not the graphics I wanted; I
+  want something more similar to Ultima Online… everything looks detached,
+  like you placed the house, placed the rock; it doesn't read as one
+  realistic screen." Probe artifact:
+  https://claude.ai/code/artifact/a43ca535-3325-4b77-8277-d3a876bd74b8
+- **Files:** `docs/ART_PIVOT_UO.md` (new — the execution program: target
+  look, the three "detached objects" fixes as first-class workstreams,
+  waves W0–W5 with gen budgets ~2,000–2,500 of 7,027, standing rules),
+  `docs/DECISIONS.md` (decision record). The deferred character rebuild
+  (G1) merges into wave W3 — built once, in the new style. Camera stays
+  top-down; the dual-path law is untouched.
+- **Also recorded (memory):** the owner's operating directive — Fable
+  manages/verifies, lighter agents implement (`fable-is-manager`).
+- **Next:** W0 (style bible + one composed mock screen) delegated to an
+  agent; the composed screen is the single owner gate before the waves run.
+- **Follow-ups:** after W0 sign-off — update `PIXELLAB_ASSETS.md` style
+  anchors + the CLAUDE.md medium-division note to name the new look.
+
 ## map — the UO radar: a corner view of your surroundings + the world map goes on-demand
 - **Date:** 2026-07-14 (v1-foundation)
 - **Owner reference (her UO client screenshot):** "you didn't fix the map —
