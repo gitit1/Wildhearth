@@ -29,6 +29,17 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## dev — the game's home address is now http://localhost:7777 (owner request)
+- **Date:** 2026-07-14 (v1-foundation)
+- **Owner request:** a dev port that isn't Vite's default (5173).
+- **Change (`vite.config.ts`):** `server.port = 7777` with `strictPort: true`
+  — `npm run dev` always opens http://localhost:7777, and if the port is
+  taken it FAILS LOUDLY instead of silently drifting to another port (the
+  stale-server incident's lesson: "some server answered" is how you end up
+  playing old code). The verify harness keeps its own 5199.
+- **Verified:** `npm run build` green (config-only; no game behavior change).
+- **Follow-ups:** none.
+
 ## windows — story mode + the game world stays clear (map off by default, edge-seeking panels)
 - **Date:** 2026-07-14 (v1-foundation)
 - **Owner report (with her screenshot):** during the new-game FARM REVEAL,
