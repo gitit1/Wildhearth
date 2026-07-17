@@ -3,7 +3,7 @@ import {
   FIELD, YARD, POND, HOUSE, BARN, COOP, STALL, BUSHES, FLOWER_BEDS, BUSK_SPOT, TOWN_BUSK_SPOT, OLD_BUSK_SIGN,
   fieldBounds, PLOT_EXPANSIONS,
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, WELL, STRUCTURES, HEDGES, MARKET_STALLS, COTTAGES,
-  FOREST_BUSHES, WORLD_TREES, regionAt, onRoad, inWater, type Rect,
+  FOREST_BUSHES, WORLD_TREES, WORLD_PROPS, regionAt, onRoad, inWater, type Rect,
   TOWN_STREET, TOWN_SEA, TOWN_DOCK,
   OUTHOUSE, NEIGHBOR, INN, STABLE, TOWN_HOMES, TOWN_MERCHANTS,
 } from "./zones";
@@ -42,6 +42,37 @@ function noise01(x: number, y: number, salt: number): number {
 function edgeThr(x: number, y: number): number {
   return 0.45 * noise01(x >> 2, y >> 2, 11) + 0.35 * noise01(x >> 1, y >> 1, 22) + 0.2 * noise01(x, y, 33);
 }
+
+// ===========================================================================
+//  COHESION-1 — SMOOTH value noise + signed-distance FINGER transitions.
+//  The shipped terrain edges used a per-pixel edgeThr threshold (a mechanical
+//  speckle the owner rejected as "pushed in"). These replace it with a domain-
+//  warped signed-distance edge: sd = distanceToBoundary + (fbm-0.5)*amp; fill
+//  when sd<0 → interlocking organic fingers, no checkerboard. Ported from the
+//  owner-approved probe (scratchpad/cohesion/lib.mjs + scene2-5). Deterministic.
+// ===========================================================================
+function smstep(t: number): number { return t * t * (3 - 2 * t); }
+/** Bilinear-interpolated value noise in (0,1); feature size = `cell` px. */
+function vnoise(x: number, y: number, cell: number, salt: number): number {
+  const gx = x / cell, gy = y / cell;
+  const ix = Math.floor(gx), iy = Math.floor(gy);
+  const fx = smstep(gx - ix), fy = smstep(gy - iy);
+  const a = noise01(ix, iy, salt), b = noise01(ix + 1, iy, salt);
+  const c = noise01(ix, iy + 1, salt), d = noise01(ix + 1, iy + 1, salt);
+  return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
+}
+/** Fractal (2-octave) value noise in (0,1) — the organic-finger engine. */
+function fbm(x: number, y: number, cell: number, salt: number): number {
+  return 0.65 * vnoise(x, y, cell, salt) + 0.35 * vnoise(x, y, cell / 2, salt + 7);
+}
+/** Signed distance (px) to an axis-aligned rect boundary — NEGATIVE inside. */
+function sdRect(x: number, y: number, r: { x: number; y: number; w: number; h: number }): number {
+  return -Math.min(x - r.x, r.x + r.w - x, y - r.y, r.y + r.h - y);
+}
+// Finger-warp amplitudes shared by the fill (paintTerrainTiles) and the edge
+// detail scatter (paintTransitionScatter) so tufts land on the SAME boundary.
+const FING = 0.60 * T;        // soil / plaza / water finger amplitude
+const FING_FIELD = 0.5 * T;   // gentler ragged edge at the fenced field
 
 /** Expand a weighted spec [[tileIndex, weight], ...] into a flat pick bag. */
 function bag(spec: Array<[number, number]>): number[] {
@@ -183,12 +214,23 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
   const townPlaza = { x: TOWN_STREET.x, y: TOWN_STREET.y, w: TOWN_STREET.w, h: TOWN_STREET.h };
   const forest = { x: 46 * T, y: 0, w: 18 * T, h: 17.5 * T };
   const soilRegions = [...ROAD_SEGMENTS, farmPath];
+  const waterRects = [RIVER, LAKE, TOWN_SEA];
+
+  // COHESION-1 (B/C/D) tuning — wear/bank palettes (FING/FING_FIELD module-level).
+  const BARE = [78, 65, 44];    // barer packed earth toward path traffic centre
+  const SEAM = [74, 64, 48];    // worn-dirt seam under the plaza edge cobbles
+  const MOSS = [63, 90, 44];    // moss grown into the plaza grout near grass
+  const WETMUD = [43, 40, 32], DAMP = [61, 54, 38];   // water bank: wet mud -> damp earth
 
   const img = g.getImageData(0, 0, WORLD_W, WORLD_H);
   const out = img.data;
 
   const texel = (sbuf: Uint8ClampedArray, x: number, y: number, ch: 0 | 1 | 2): number =>
     sbuf[(((y & 31) * T + (x & 31)) << 2) + ch]!;
+  const soilTexel = (x: number, y: number): [number, number, number] => {
+    const sb = buf.soil![pickTile(SOIL_PATH_BAG, (x / T) | 0, (y / T) | 0, 2)]!;
+    return [texel(sb, x, y, 0), texel(sb, x, y, 1), texel(sb, x, y, 2)];
+  };
 
   for (let y = 0; y < WORLD_H; y++) {
     for (let x = 0; x < WORLD_W; x++) {
@@ -210,71 +252,101 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
         }
       }
 
-      // --- SOIL: roads + farmyard + farm path (dithered edges into grass) ---
-      let sa = 0;
-      for (const rr of soilRegions) {
-        const e = rectInsetTiles(x, y, rr);
-        const a = e > 0.5 ? 1 : e > -1 ? (e + 1) / 1.5 : 0;
-        if (a > sa) sa = a;
-      }
-      if (sa > 0 && (sa >= 1 || sa > thr)) {
-        const si = pickTile(SOIL_PATH_BAG, cx, cy, 2);
-        const sb = buf.soil![si]!;
-        r = texel(sb, x, y, 0); gg = texel(sb, x, y, 1); b = texel(sb, x, y, 2);
+      // --- SOIL: roads + farmyard + farm path. COHESION-1(B/C): interlocking
+      //     organic FINGERS (domain-warped signed distance, not the speckle
+      //     threshold) + a wear gradient (darker + barer toward the traffic
+      //     centre, grassier at the shoulders). ---
+      {
+        let depthPx = -1;   // deepest inset into the soil union (px), <0 = outside
+        for (const rr of soilRegions) {
+          const sd = sdRect(x, y, rr) + (fbm(x, y, 7, 3) - 0.5) * 2 * FING;
+          if (-sd > depthPx) depthPx = -sd;
+        }
+        if (depthPx > 0) {
+          let [pr, pg, pb] = soilTexel(x, y);
+          const depth = Math.min(1, depthPx / (1.3 * T));
+          const dk = 1 - 0.12 * depth, toBare = 0.10 * depth;   // gentle: packed dust, not mud
+          pr = pr * dk * (1 - toBare) + BARE[0]! * toBare;
+          pg = pg * dk * (1 - toBare) + BARE[1]! * toBare;
+          pb = pb * dk * (1 - toBare) + BARE[2]! * toBare;
+          r = pr; gg = pg; b = pb;
+        }
       }
 
-      // --- TILLED field: furrowed soil with a soft ragged edge ---
+      // --- TILLED field: furrowed soil, organic finger edge into the grass ---
       {
-        const e = rectInsetTiles(x, y, field);
-        const a = e > 0.35 ? 1 : e > -0.8 ? (e + 0.8) / 1.15 : 0;
-        if (a > 0 && (a >= 1 || a > thr)) {
-          const ti = pickTile(SOIL_TILLED_BAG, cx, cy, 4);
-          const tb = buf.soil![ti]!;
+        const sd = sdRect(x, y, field) + (fbm(x, y, 7, 13) - 0.5) * 2 * FING_FIELD;
+        if (sd < 0) {
+          const tb = buf.soil![pickTile(SOIL_TILLED_BAG, cx, cy, 4)]!;
           r = texel(tb, x, y, 0); gg = texel(tb, x, y, 1); b = texel(tb, x, y, 2);
         }
       }
 
-      // --- PLAZA: warm-grey cobble across the market square AND the town street ---
+      // --- PLAZA cobble (market + town street). COHESION-1(C): organic finger
+      //     edge, moss grown into the grout near grass, a worn-dirt seam at the
+      //     edge, and a dirt seam bleeding onto the grass side. ---
       for (const pz of [plaza, townPlaza]) {
-        const e = rectInsetTiles(x, y, pz);
-        const a = e > 0.5 ? 1 : e > -1.1 ? (e + 1.1) / 1.6 : 0;
-        if (a > 0 && (a >= 1 || a > thr)) {
-          const zi = pickTile(PLAZA_BAG, cx, cy, 5);
-          const zb = buf.plaza![zi]!;
-          r = texel(zb, x, y, 0); gg = texel(zb, x, y, 1); b = texel(zb, x, y, 2);
+        const sd = sdRect(x, y, pz) + (fbm(x, y, 7, 23) - 0.5) * 2 * FING;
+        if (sd < 0) {
+          const zb = buf.plaza![pickTile(PLAZA_BAG, cx, cy, 5)]!;
+          let pr = texel(zb, x, y, 0), pg = texel(zb, x, y, 1), pb = texel(zb, x, y, 2);
+          const luma = 0.299 * pr + 0.587 * pg + 0.114 * pb;
+          const nearEdge = Math.max(0, 1 + sd / (2.6 * T));   // 1 at edge .. 0 deep
+          if (luma < 118 && nearEdge > 0 && fbm(x, y, 9, 31) < nearEdge * 0.95) {
+            const k = (0.55 * nearEdge + 0.18) * (luma < 96 ? 1 : 0.7);   // moss into grout (strongest in dark grout)
+            pr = pr * (1 - k) + MOSS[0]! * k; pg = pg * (1 - k) + MOSS[1]! * k; pb = pb * (1 - k) + MOSS[2]! * k;
+          }
+          if (-sd < 0.7 * T) {                                 // packed-dirt seam
+            const k = 0.38 * (1 - (-sd) / (0.7 * T));
+            pr = pr * (1 - k) + SEAM[0]! * k; pg = pg * (1 - k) + SEAM[1]! * k; pb = pb * (1 - k) + SEAM[2]! * k;
+          }
+          r = pr; gg = pg; b = pb;
+        } else if (sd < 0.55 * T) {                            // dirt seam onto grass
+          const [sr, sg, sb] = soilTexel(x, y);
+          const k = 0.55 * (1 - sd / (0.55 * T));
+          r = r * (1 - k) + sr * k; gg = gg * (1 - k) + sg * k; b = b * (1 - k) + sb * k;
         }
       }
 
-      // --- WATER: pond (ellipse) + river/lake (rects). Deep interior, muted
-      //     shallow ring, mud shore ring dithered into grass (mud-dominant). ---
-      // pond
+      // --- WATER: pond (ellipse) + river/lake/sea (rects). COHESION-1(D):
+      //     organic finger shoreline, a wet-earth BANK above the waterline
+      //     (wet mud -> damp earth gradient) + a 1px wet-contact sheen row. ---
       {
-        const dx = (x - POND.cx) / POND.rx, dy = (y - POND.cy) / POND.ry;
-        const nd = Math.sqrt(dx * dx + dy * dy);
-        if (nd < 1.12) {
-          let wbag: number[], a = 1;
-          if (nd < 0.82) wbag = WATER_DEEP_BAG;
-          else if (nd < 0.94) wbag = WATER_SHALLOW_BAG;
-          else { wbag = WATER_SHORE_BAG; a = nd < 1.03 ? 1 : (1.12 - nd) / 0.09; }
-          if (a >= 1 || a > thr) {
-            const wi = pickTile(wbag, cx, cy, 6);
-            const wb = buf.water![wi]!;
-            r = texel(wb, x, y, 0); gg = texel(wb, x, y, 1); b = texel(wb, x, y, 2);
-          }
+        const ndx = (x - POND.cx) / POND.rx, ndy = (y - POND.cy) / POND.ry;
+        const nd = Math.sqrt(ndx * ndx + ndy * ndy) + (fbm(x, y, 7, 43) - 0.5) * 0.16;
+        const bankNd = 1 + (1.15 * T) / POND.ry;
+        if (nd < 1) {
+          const depth = (1 - nd) * POND.ry;
+          const wbag = depth > 1.6 * T ? WATER_DEEP_BAG : depth > 0.55 * T ? WATER_SHALLOW_BAG : WATER_SHORE_BAG;
+          const wb = buf.water![pickTile(wbag, cx, cy, 6)]!;
+          let wr = texel(wb, x, y, 0), wgc = texel(wb, x, y, 1), wbc = texel(wb, x, y, 2);
+          if (depth < 5) { wr = wr * 0.7 + 45; wgc = wgc * 0.7 + 49.5; wbc = wbc * 0.7 + 51; }
+          r = wr; gg = wgc; b = wbc;
+        } else if (nd < bankNd) {
+          const wet = 1 - (nd - 1) / (bankNd - 1);
+          let [sr, sg, sb] = soilTexel(x, y);
+          const tgt = wet > 0.55 ? WETMUD : DAMP, k = 0.35 + 0.5 * wet;
+          sr = sr * (1 - k) + tgt[0]! * k; sg = sg * (1 - k) + tgt[1]! * k; sb = sb * (1 - k) + tgt[2]! * k;
+          if (wet > 0.8) { sr *= 1.12; sg *= 1.14; sb *= 1.18; }
+          r = sr; gg = sg; b = sb;
         }
       }
-      // river + lake + coastal sea (the sea's grass-side shore reads as beach)
-      for (const wtr of [RIVER, LAKE, TOWN_SEA]) {
-        const e = rectInsetTiles(x, y, wtr);
-        if (e <= -0.35) continue;
-        let wbag: number[], a = 1;
-        if (e > 1.1) wbag = WATER_DEEP_BAG;
-        else if (e > 0.45) wbag = WATER_SHALLOW_BAG;
-        else { wbag = WATER_SHORE_BAG; a = e > 0 ? 1 : (e + 0.35) / 0.35; }
-        if (a >= 1 || a > thr) {
-          const wi = pickTile(wbag, cx, cy, 7);
-          const wb = buf.water![wi]!;
-          r = texel(wb, x, y, 0); gg = texel(wb, x, y, 1); b = texel(wb, x, y, 2);
+      for (const wtr of waterRects) {
+        const sd = sdRect(x, y, wtr) + (fbm(x, y, 7, 33) - 0.5) * 2 * FING;
+        if (sd < 0) {                                         // ---- WATER ----
+          const depth = -sd;
+          const wbag = depth > 1.6 * T ? WATER_DEEP_BAG : depth > 0.55 * T ? WATER_SHALLOW_BAG : WATER_SHORE_BAG;
+          const wb = buf.water![pickTile(wbag, cx, cy, 7)]!;
+          let wr = texel(wb, x, y, 0), wgc = texel(wb, x, y, 1), wbc = texel(wb, x, y, 2);
+          if (depth < 5) { wr = wr * 0.7 + 45; wgc = wgc * 0.7 + 49.5; wbc = wbc * 0.7 + 51; }
+          r = wr; gg = wgc; b = wbc;
+        } else if (sd < 1.15 * T) {                           // ---- LAND BANK ----
+          const wet = 1 - sd / (1.15 * T);
+          let [sr, sg, sb] = soilTexel(x, y);
+          const tgt = wet > 0.55 ? WETMUD : DAMP, k = 0.35 + 0.5 * wet;
+          sr = sr * (1 - k) + tgt[0]! * k; sg = sg * (1 - k) + tgt[1]! * k; sb = sb * (1 - k) + tgt[2]! * k;
+          if (wet > 0.8) { sr *= 1.12; sg *= 1.14; sb *= 1.18; }
+          r = sr; gg = sg; b = sb;
         }
       }
 
@@ -327,47 +399,32 @@ function scuffNoise(x: number, y: number): number {
   return noise01(x, y, 91) * 0.6 + noise01(x >> 1, y >> 1, 47) * 0.4;
 }
 
-/** Blend the ground under one building base toward compacted earth, edge
- *  dithered. Reads + writes the ground canvas in place (samples local terrain). */
+/** COHESION-1(E): a LIGHT, organic worn-GRASS field in front of a FARM building
+ *  base — replaces the shipped dark worn-dirt oval (a "pasted patch") + the dark
+ *  contact ellipse (contact now hugs the base chevron per-frame in baseGrounding).
+ *  Tints the grass toward a worn-grass mid-tone (~#766c4e), max α~0.4 so the grass
+ *  texture bleeds through heavily, boundary finger-warped (no contained shape).
+ *  Non-farm buildings bake nothing (their per-frame hug AO + base tufts ground
+ *  them without a dirt patch clashing on cobble). Reads + writes in place. */
+const WORN_GRASS: [number, number, number] = [118, 108, 78];
 function scuffOne(g: CanvasRenderingContext2D, f: FootPrint) {
-  const rxC = f.halfW * 1.06, ryC = Math.max(7, f.halfW * 0.34);   // dark contact
-  const rxW = f.halfW * 1.4,  ryW = Math.max(10, f.halfW * 0.6);   // warm worn ring
-  const rx = f.worn ? rxW : rxC, ry = f.worn ? ryW : ryC;
-  const cx = f.cx, cy = f.cy - ry * 0.15;
-  const x0 = Math.max(0, Math.floor(cx - rx - 2)), x1 = Math.min(WORLD_W, Math.ceil(cx + rx + 2));
-  const y0 = Math.max(0, Math.floor(cy - ry - 2)), y1 = Math.min(WORLD_H, Math.ceil(cy + ry + 2));
+  if (!f.worn) return;
+  const rx = f.halfW * 1.55, ry = Math.max(12, f.halfW * 0.72);
+  const cx = f.cx, cy = f.cy + ry * 0.30;                            // worn area sits IN FRONT (south) of the base
+  const x0 = Math.max(0, Math.floor(cx - rx - 3)), x1 = Math.min(WORLD_W, Math.ceil(cx + rx + 3));
+  const y0 = Math.max(0, Math.floor(cy - ry - 3)), y1 = Math.min(WORLD_H, Math.ceil(cy + ry + 3));
   if (x1 <= x0 || y1 <= y0) return;
   const img = g.getImageData(x0, y0, x1 - x0, y1 - y0);
   const d = img.data, iw = x1 - x0;
   for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const nx = (x - cx) / rx, ny = (y - cy) / ry;
+    const v = (1 - Math.sqrt(nx * nx + ny * ny)) + (fbm(x, y, 9, 3) - 0.5) * 0.5;   // finger-warped radial field
+    if (v <= 0.12) continue;
+    const a = Math.min(0.40, Math.min(1, v / 0.9) * 0.5);           // heavy grass bleed-through
     const i = ((y - y0) * iw + (x - x0)) * 4;
-    const nz = scuffNoise(x, y);
-    if (f.worn) {                                   // warm worn-dirt ring (farm)
-      const nxW = (x - cx) / rxW, nyW = (y - cy) / ryW;
-      const dW = Math.sqrt(nxW * nxW + nyW * nyW);
-      if (dW < 1) {
-        const fall = 1 - dW;
-        let a = 0.42 * fall * fall;
-        if (fall < 0.42 && nz > fall / 0.42) a = 0; // dither the outer boundary
-        if (a > 0) {
-          d[i]     = d[i]     * (1 - a) + 74 * a;
-          d[i + 1] = d[i + 1] * (1 - a) + 58 * a;
-          d[i + 2] = d[i + 2] * (1 - a) + 38 * a;
-        }
-      }
-    }
-    const nxC = (x - cx) / rxC, nyC = (y - cy) / ryC;   // dark contact compression
-    const dC = Math.sqrt(nxC * nxC + nyC * nyC);
-    if (dC < 1) {
-      const fall = 1 - dC;
-      let a = 0.4 * fall * fall;
-      if (fall < 0.5 && nz > fall / 0.5) a = 0;
-      if (a > 0) {
-        d[i]     = d[i]     * (1 - a) + 26 * a;
-        d[i + 1] = d[i + 1] * (1 - a) + 20 * a;
-        d[i + 2] = d[i + 2] * (1 - a) + 13 * a;
-      }
-    }
+    d[i]     = d[i]     * (1 - a) + WORN_GRASS[0] * a;
+    d[i + 1] = d[i + 1] * (1 - a) + WORN_GRASS[1] * a;
+    d[i + 2] = d[i + 2] * (1 - a) + WORN_GRASS[2] * a;
   }
   g.putImageData(img, x0, y0);
 }
@@ -375,6 +432,220 @@ function scuffOne(g: CanvasRenderingContext2D, f: FootPrint) {
 /** Bake every building's base-blend decal into the ground canvas. */
 function paintBuildingGrounding(g: CanvasRenderingContext2D) {
   for (const f of buildingFootprints()) scuffOne(g, f);
+}
+
+// ===========================================================================
+//  COHESION-1 (A) — NATURE GROUNDING. The clean-cut (apron-stripped) tree /
+//  boulder / bush sprites need the object to sit IN the meadow, WORN — not on a
+//  patch of sand (the shipped baked apron, now removed by strip-nature-apron.mjs).
+//  Baked ONCE into the ground (under the depth-sorted sprite), mirroring
+//  paintBuildingGrounding: per object a darker/desaturated SAME-grass worn ring
+//  + a short contact AO + a dense IRREGULAR cluster of tufts/leaf-litter and a
+//  few tiny dark scuff specks overlapping the base and spilling asymmetrically.
+//  Ported faithfully from the owner-approved probe (scratchpad/cohesion/scene1).
+//  Runs on BOTH ground paths (tiled + painterly). Zero sprite dependency → the
+//  fixed per-category radii keep it dual-path safe.
+// ===========================================================================
+const TUFT_G: [number, number, number][] = [[71, 99, 46], [92, 125, 56], [51, 68, 29]];
+const TUFT_DRY: [number, number, number][] = [[111, 122, 52], [138, 138, 74], [74, 83, 35]];
+const LITTER: [number, number, number][] = [[106, 84, 58], [122, 106, 48], [90, 74, 44], [74, 61, 41]];
+const SCUFF_C: [number, number, number][] = [[46, 38, 29], [50, 42, 31], [54, 45, 33]];
+const PEBBLE: [number, number, number][] = [[108, 96, 89], [91, 94, 100], [115, 98, 79], [132, 122, 106]];
+const CRACK_C: [number, number, number] = [42, 34, 22];
+const BARE_C: [number, number, number][] = [[58, 49, 32], [51, 42, 28], [46, 38, 29]];
+
+/** Alpha pixel dab (rgba fillRect), rounded to integer coords. */
+function dabA(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, c: [number, number, number], a: number) {
+  g.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${(a / 255).toFixed(3)})`;
+  g.fillRect(Math.round(x), Math.round(y), w, h);
+}
+/** One grass tuft: 3-5 upright blades in two greens + a darker root pixel. */
+function tuftDraw(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number, pal: [number, number, number][]) {
+  const blades = 3 + ((rnd() * 3) | 0);
+  for (let b = 0; b < blades; b++) {
+    const lean = Math.round((b - (blades - 1) / 2) * 1.6);
+    const hh = 3 + ((rnd() * 5) | 0);
+    const col = rnd() < 0.5 ? pal[0]! : pal[1]!;
+    for (let k = 0; k < hh; k++) dabA(g, x + lean + Math.round((k / hh) * lean * 0.2), y - k, 1, 1, col, 235);
+  }
+  dabA(g, x, y, 1, 1, pal[2]!, 200);
+}
+
+interface NatureSpot { x: number; y: number; baseR: number }
+function natureSpots(): NatureSpot[] {
+  const s: NatureSpot[] = [];
+  for (const [x, y] of WORLD_TREES) s.push({ x, y, baseR: 23 });
+  for (const [x, y] of [...BUSHES, ...FOREST_BUSHES]) s.push({ x, y, baseR: 11 });
+  for (const p of WORLD_PROPS) {
+    if (!p.id.startsWith("props/boulder")) continue;
+    const w = p.id.endsWith("small") ? 66 : p.id.endsWith("med") ? 90 : 115;
+    s.push({ x: p.x, y: p.y, baseR: Math.round(w * (p.scale ?? 0.5) * 0.34) });
+  }
+  return s;
+}
+
+/** Worn ring (darker/desaturated warm-olive, dithered — NOT dirt) + short
+ *  contact AO for one nature object, read+written on the ground in place. */
+function natureWornAndAO(g: CanvasRenderingContext2D, s: NatureSpot) {
+  const { x: fx, y: fy, baseR } = s;
+  const rx = baseR * 1.5, ry = baseR * 0.64;
+  const axr = baseR * 1.18, ayr = Math.max(5, baseR * 0.44);
+  const x0 = Math.max(0, Math.floor(fx - rx - 3)), x1 = Math.min(WORLD_W, Math.ceil(fx + rx + 3));
+  const y0 = Math.max(0, Math.floor(fy - ry - 3)), y1 = Math.min(WORLD_H, Math.ceil(fy + ry + 4));
+  if (x1 <= x0 || y1 <= y0) return;
+  const img = g.getImageData(x0, y0, x1 - x0, y1 - y0);
+  const d = img.data, iw = x1 - x0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const i = ((y - y0) * iw + (x - x0)) * 4;
+    // worn ring — trampled meadow (toward warm-olive 74,70,42), never bright
+    const nx = (x - fx) / rx, ny = (y - (fy - 1)) / ry, dist = Math.sqrt(nx * nx + ny * ny);
+    if (dist < 1) {
+      const fall = 1 - dist, nz = fbm(x, y, 5, 71);
+      let t = fall * 0.5;
+      if (fall < 0.5 && nz > fall / 0.5) t = 0;
+      if (t > 0) {
+        const k = t * 0.52;
+        d[i] = d[i]! * (1 - k) + 74 * k; d[i + 1] = d[i + 1]! * (1 - k) + 70 * k; d[i + 2] = d[i + 2]! * (1 - k) + 42 * k;
+      }
+    }
+    // short contact AO — multiply darken, tight ellipse hugging the base
+    const nxa = (x - fx) / axr, nya = (y - (fy - 2)) / ayr, da = nxa * nxa + nya * nya;
+    if (da < 1) {
+      const ta = Math.pow(1 - da, 1.7) * 0.46;
+      d[i] = d[i]! * (1 - ta); d[i + 1] = d[i + 1]! * (1 - ta); d[i + 2] = d[i + 2]! * (1 - ta);
+    }
+  }
+  g.putImageData(img, x0, y0);
+}
+
+/** The tuft/leaf-litter/scuff cluster overlapping one nature object's base,
+ *  spilling asymmetrically front/left (canvas draws, over the worn ring/AO). */
+function natureCluster(g: CanvasRenderingContext2D, s: NatureSpot) {
+  const { x: fx, y: fy, baseR } = s;
+  const rnd = mulberry32((((s.x | 0) * 73856093) ^ ((s.y | 0) * 19349663)) >>> 0);
+  // tiny dark scuff specks tight at the contact (never a bright oval)
+  for (let i = 0; i < Math.round(baseR * 0.5); i++) {
+    const a = rnd() * Math.PI * 2, rr = rnd() * baseR * 0.55;
+    dabA(g, fx + Math.cos(a) * rr, fy + Math.sin(a) * rr * 0.44 - 1, 1 + (rnd() < 0.4 ? 1 : 0), 1, SCUFF_C[(rnd() * 3) | 0]!, 140 + rnd() * 70);
+  }
+  // leaf litter dabs, biased front/left
+  for (let i = 0; i < Math.round(baseR * 0.85); i++) {
+    const a = -Math.PI * 0.15 + rnd() * Math.PI * 1.3, rr = baseR * (0.35 + rnd() * 1.05);
+    dabA(g, fx - Math.cos(a) * rr * 0.85, fy - Math.sin(a) * rr * 0.42 + rnd() * 3, 1 + (rnd() < 0.3 ? 1 : 0), 1, LITTER[(rnd() * LITTER.length) | 0]!, 210);
+  }
+  // tufts — elliptical band hugging the base, denser front + left (asymmetric spill)
+  const N = Math.round(baseR * 2.3);
+  for (let i = 0; i < N; i++) {
+    const a = rnd() * Math.PI * 2;
+    const front = Math.sin(a) > 0 ? 1 : 0.6, left = Math.cos(a) < 0 ? 1 : 0.75;
+    if (rnd() > 0.5 * front * left + 0.28) continue;
+    const rr = baseR * (0.35 + rnd() * 1.05);
+    tuftDraw(g, fx + Math.cos(a) * rr, fy + Math.sin(a) * rr * 0.46, rnd, rnd() < 0.16 ? TUFT_DRY : TUFT_G);
+  }
+  // a few undergrowth clumps overlapping the base directly (front)
+  for (let i = 0; i < Math.round(baseR * 0.4); i++) {
+    tuftDraw(g, fx + (rnd() - 0.5) * baseR * 1.2, fy - rnd() * 5, rnd, TUFT_G);
+  }
+}
+
+/** Bake worn ground under every tree / boulder / bush (both ground paths). */
+function paintNatureGrounding(g: CanvasRenderingContext2D) {
+  const prev = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;
+  for (const s of natureSpots()) { natureWornAndAO(g, s); natureCluster(g, s); }
+  g.imageSmoothingEnabled = prev;
+}
+
+// ===========================================================================
+//  COHESION-1 (C) — WORN-PATH / PLAZA / FIELD EDGE detail scatter. The per-pixel
+//  wear gradient, moss-grout and seam are baked in paintTerrainTiles; this adds
+//  the vegetation + grit that read hand-authored: grass tufts breaking BOTH
+//  edges in fbm CLUSTERS (not polka-dots), bare specks where grass loses hold,
+//  pebbles + hairline cracks in the barer path centres, faint twin cart-ruts
+//  along the road segments, and a few half-buried muted cobbles in the plaza
+//  seam. All gated by the SAME warped signed-distance field the fill uses.
+// ===========================================================================
+function scatterEdge(
+  g: CanvasRenderingContext2D, region: Rect, warpSalt: number, fing: number, seed: number,
+  opts: { pebbles?: boolean; cobbles?: boolean; density?: number } = {},
+) {
+  const rnd = mulberry32(seed >>> 0);
+  const pad = 2.2 * T;
+  const x0 = region.x - pad, y0 = region.y - pad;
+  const w = region.w + pad * 2, h = region.h + pad * 2;
+  const density = opts.density ?? 1;
+  const n = Math.round((w * h) / 1500 * density);
+  const sdAt = (x: number, y: number) => sdRect(x, y, region) + (fbm(x, y, 7, warpSalt) - 0.5) * 2 * fing;
+  for (let i = 0; i < n; i++) {
+    const x = x0 + rnd() * w, y = y0 + rnd() * h;
+    if (x < 1 || y < 1 || x > WORLD_W - 1 || y > WORLD_H - 1) continue;
+    const sd = sdAt(x, y);
+    const cluster = fbm(x, y, 12, warpSalt + 5);
+    if (sd > 0.15 * T && sd < 2.0 * T) {                 // grass shoulder — thinning tufts
+      const p = (1 - sd / (2.0 * T)) * 0.9;
+      if (cluster < p && rnd() < 0.6) tuftDraw(g, x, y, rnd, TUFT_G);
+      else if (rnd() < 0.28 && sd < 1.4 * T) dabA(g, x, y, 1, 1, BARE_C[(rnd() * 3) | 0]!, 110);
+    } else if (sd < 0 && sd > -0.7 * T) {                // survivor tuft on the shoulder
+      if (cluster < 0.4 && rnd() < 0.28) tuftDraw(g, x, y, rnd, TUFT_G);
+    } else if (opts.pebbles && sd < -6) {                // pebbles + cracks in the bare centre
+      if (rnd() < 0.10) { const c = PEBBLE[(rnd() * PEBBLE.length) | 0]!; dabA(g, x, y, 1 + (rnd() < 0.4 ? 1 : 0), 1, c, 235); dabA(g, x, y - 1, 1, 1, [c[0] + 16, c[1] + 16, c[2] + 16], 110); }
+      else if (rnd() < 0.03) { const len = 2 + ((rnd() * 4) | 0); for (let k = 0; k < len; k++) dabA(g, x + Math.round(Math.sin(k * 1.3)), y + k, 1, 1, CRACK_C, 150); }
+    }
+    if (opts.cobbles && sd > 0 && sd < 0.9 * T && fbm(x, y, 10, warpSalt + 8) < 0.5 && rnd() < 0.05) {
+      const sz = 2 + ((rnd() * 2) | 0);
+      const col: [number, number, number] = [118 - 8 + rnd() * 16, 116 - 8 + rnd() * 16, 106 - 8 + rnd() * 16];
+      dabA(g, x - 1, y + sz - 1, sz + 2, 1, [36, 34, 28], 130);       // grout/contact
+      dabA(g, x, y, sz, sz - 1, col, 235);
+      dabA(g, x, y - 1, sz - 1, 1, [col[0] + 12, col[1] + 12, col[2] + 12], 150);
+      if (rnd() < 0.5) dabA(g, x + 1, y + 1, 1, 1, MOSS_C[(rnd() * 3) | 0]!, 150);
+    }
+  }
+}
+const MOSS_C: [number, number, number][] = [[63, 90, 44], [74, 106, 52], [51, 72, 31]];
+
+/** Faint twin cart-ruts along each road segment's long axis (over the bare
+ *  centre, inside the warped soil boundary). */
+function paintRuts(g: CanvasRenderingContext2D) {
+  const img = g.getImageData(0, 0, WORLD_W, WORLD_H);
+  const d = img.data;
+  for (const s of ROAD_SEGMENTS) {
+    const horiz = s.w >= s.h;
+    for (const f of [0.40, 0.60]) {
+      if (horiz) {
+        const ry = s.y + s.h * f;
+        for (let x = Math.floor(s.x + s.w * 0.08); x < s.x + s.w * 0.92; x++) {
+          const sd = sdRect(x, ry, s) + (fbm(x, ry, 7, 3) - 0.5) * 2 * FING;
+          if (sd > -6) continue;
+          for (let yy = -1; yy <= 1; yy++) { const o = (((ry | 0) + yy) * WORLD_W + x) * 4; const k = yy === 0 ? 0.16 : 0.08; d[o] = d[o]! * (1 - k); d[o + 1] = d[o + 1]! * (1 - k); d[o + 2] = d[o + 2]! * (1 - k); }
+        }
+      } else {
+        const rx = s.x + s.w * f;
+        for (let y = Math.floor(s.y + s.h * 0.08); y < s.y + s.h * 0.92; y++) {
+          const sd = sdRect(rx, y, s) + (fbm(rx, y, 7, 3) - 0.5) * 2 * FING;
+          if (sd > -6) continue;
+          for (let xx = -1; xx <= 1; xx++) { const o = (y * WORLD_W + ((rx | 0) + xx)) * 4; const k = xx === 0 ? 0.16 : 0.08; d[o] = d[o]! * (1 - k); d[o + 1] = d[o + 1]! * (1 - k); d[o + 2] = d[o + 2]! * (1 - k); }
+        }
+      }
+    }
+  }
+  g.putImageData(img, 0, 0);
+}
+
+/** Bake all COHESION-1 transition detail (paths, field, plaza edges). */
+function paintTransitionScatter(g: CanvasRenderingContext2D) {
+  const prev = g.imageSmoothingEnabled;
+  g.imageSmoothingEnabled = false;
+  const farmPath = { x: 12.4 * T, y: 8.6 * T, w: 7.8 * T, h: 1.3 * T };
+  const field = { x: FIELD.x0 * T, y: FIELD.y0 * T, w: (FIELD.x1 - FIELD.x0) * T, h: (FIELD.y1 - FIELD.y0) * T };
+  const plaza = { x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T };
+  const townPlaza = { x: TOWN_STREET.x, y: TOWN_STREET.y, w: TOWN_STREET.w, h: TOWN_STREET.h };
+  paintRuts(g);
+  let seed = 91117;
+  for (const s of ROAD_SEGMENTS) scatterEdge(g, s, 3, FING, seed++, { pebbles: true });
+  scatterEdge(g, farmPath, 3, FING, seed++, { pebbles: true });
+  scatterEdge(g, field, 13, FING_FIELD, seed++, { density: 0.7 });
+  for (const pz of [plaza, townPlaza]) scatterEdge(g, pz, 23, FING, seed++, { cobbles: true });
+  g.imageSmoothingEnabled = prev;
 }
 
 // ===========================================================================
@@ -415,9 +686,9 @@ function wearSeg(
     if (fall < 0.55 && nz > fall / 0.55) a = 0;   // dither the outer edge
     if (a <= 0) continue;
     const i = ((y - y0) * iw + (x - x0)) * 4;
-    d[i]     = d[i]     * (1 - a) + 60 * a;        // compacted warm earth
-    d[i + 1] = d[i + 1] * (1 - a) + 47 * a;
-    d[i + 2] = d[i + 2] * (1 - a) + 31 * a;
+    d[i]     = d[i]     * (1 - a) + 96 * a;         // COHESION-1(E): lightened worn track (was dark 60,47,31)
+    d[i + 1] = d[i + 1] * (1 - a) + 84 * a;
+    d[i + 2] = d[i + 2] * (1 - a) + 58 * a;
   }
   g.putImageData(img, x0, y0);
 }
@@ -466,9 +737,11 @@ export function paintGround(manifest: FarmManifest): HTMLCanvasElement {
     // Small organic decorations (stones, leaves, wildflowers, forest litter)
     // stay code-drawn on TOP of the tiles — they break up any tile repetition
     // and add life; their rejection zones keep them off water/plaza/paths.
+    paintTransitionScatter(g);   // COHESION-1(C): worn-path/plaza edge detail
     scatterAmbientProps(g);
     paintBuildingGrounding(g);
     paintFarmWear(g, manifest);
+    paintNatureGrounding(g);     // COHESION-1(A): worn ground under trees/rocks/bushes
     return ground;
   }
 
@@ -553,6 +826,7 @@ export function paintGround(manifest: FarmManifest): HTMLCanvasElement {
   scatterAmbientProps(g);
   paintBuildingGrounding(g);
   paintFarmWear(g, manifest);
+  paintNatureGrounding(g);       // COHESION-1(A): dual-path — worn ground under nature
   return ground;
 }
 
@@ -994,16 +1268,29 @@ function drawAcorn(g: CanvasRenderingContext2D, x: number, y: number) {
  * extra per-frame ents for how small these read at world scale (see WORKLOG).
  */
 function scatterWaterEdgeDecor(g: CanvasRenderingContext2D, rnd: () => number) {
+  // COHESION-1(D): reeds/rocks in a few tight CLUSTERS along the shore (not an
+  // even fringe) — each cluster with reeds pushed into the wet bank, a couple of
+  // wet rocks at the waterline, bank grass tufts fanning back, and pebbles.
   for (const wtr of [RIVER, LAKE]) {
-    const n = Math.round((2 * (wtr.w + wtr.h) / 70) * AREA_K * 0.65);
-    for (let i = 0; i < n; i++) {
+    const perim = 2 * (wtr.w + wtr.h);
+    const clusters = Math.max(3, Math.round(perim / (16 * T) * AREA_K));
+    for (let c = 0; c < clusters; c++) {
       const side = rnd() * 4 | 0;
-      let bx: number, by: number;
-      if (side === 0) { bx = wtr.x + rnd() * wtr.w; by = wtr.y - 8 - rnd() * 6; }
-      else if (side === 1) { bx = wtr.x + rnd() * wtr.w; by = wtr.y + wtr.h + 8 + rnd() * 6; }
-      else if (side === 2) { bx = wtr.x - 8 - rnd() * 6; by = wtr.y + rnd() * wtr.h; }
-      else { bx = wtr.x + wtr.w + 8 + rnd() * 6; by = wtr.y + rnd() * wtr.h; }
-      if (rnd() < 0.5) drawCattail(g, bx, by); else drawReedClump(g, bx, by, rnd);
+      let bx: number, by: number, nx: number, ny: number;   // shore point + outward (bank) normal
+      if (side === 0) { bx = wtr.x + rnd() * wtr.w; by = wtr.y; nx = 0; ny = -1; }
+      else if (side === 1) { bx = wtr.x + rnd() * wtr.w; by = wtr.y + wtr.h; nx = 0; ny = 1; }
+      else if (side === 2) { bx = wtr.x; by = wtr.y + rnd() * wtr.h; nx = -1; ny = 0; }
+      else { bx = wtr.x + wtr.w; by = wtr.y + rnd() * wtr.h; nx = 1; ny = 0; }
+      const along = (span: number) => (rnd() - 0.5) * span;                  // spread ALONG the shore
+      const at = (aSpan: number, into: number): [number, number] => {
+        const s = along(aSpan);
+        return [bx + (ny !== 0 ? s : 0) + nx * into, by + (nx !== 0 ? s : 0) + ny * into];
+      };
+      const cnt = 2 + (rnd() * 4 | 0);                                       // reeds pushed into the bank
+      for (let k = 0; k < cnt; k++) { const [ax, ay] = at(3 * T, 4 + rnd() * 9); if (rnd() < 0.55) drawReedClump(g, ax, ay, rnd); else drawCattail(g, ax, ay); }
+      if (rnd() < 0.75) for (let k = 0; k < 1 + (rnd() * 2 | 0); k++) { const [rx, ry] = at(2 * T, rnd() * 3); drawWetRock(g, rx, ry, rnd); }
+      for (let k = 0; k < 5; k++) { const [gx, gy] = at(3 * T, 6 + rnd() * 14); tuftDraw(g, gx, gy, rnd, TUFT_G); }
+      for (let k = 0; k < 4; k++) { const [px, py] = at(3 * T, rnd() * 3); dabA(g, px, py, 1 + (rnd() < 0.3 ? 1 : 0), 1, PEBBLE[(rnd() * PEBBLE.length) | 0]!, 200); }
     }
   }
   // lily pads at the LAKE's still-water edge (river excluded — it flows)
@@ -1026,6 +1313,16 @@ function scatterWaterEdgeDecor(g: CanvasRenderingContext2D, rnd: () => number) {
     pxDot(g, bx - 2, by - 1, 4, 2, "#a89a80");
     pxDot(g, bx - 1, by - 2, 2, 1, "#a89a80");
   }
+}
+
+/** A small wet shore rock: grey pixel block, a darker waterline base + lighter
+ *  top facet, an odd moss dab — the baked cousin of the boulder sprites. */
+function drawWetRock(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
+  const w = 3 + ((rnd() * 3) | 0), h = 2 + ((rnd() * 2) | 0);
+  dabA(g, x - w / 2, y - h, w, h, [92, 96, 102], 255);
+  dabA(g, x - w / 2, y - 1, w, 1, [52, 54, 58], 210);           // wet base
+  dabA(g, x - w / 2, y - h, Math.max(1, w - 1), 1, [128, 130, 134], 200);
+  if (rnd() < 0.5) dabA(g, x - w / 2 + 1, y - h + 1, 1, 1, MOSS_C[(rnd() * 3) | 0]!, 170);
 }
 
 /** Lily pad: a flat green pixel-block disc with a lighter center facet. */

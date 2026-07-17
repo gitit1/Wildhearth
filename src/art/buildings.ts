@@ -162,12 +162,12 @@ export function drawHouse(
   const img = sprite(spriteId);
   if (img) {
     const gx = x + w / 2, gy = y + h;
-    contactShadow(g, gx, gy, w * 0.5);   // W2c: soft short contact shadow (was the hard diagonal polygon)
     const anchor = spriteId === "buildings/farmhouse" ? FARMHOUSE_SHEET : FARMHOUSE_NEIGHBOR_SHEET;
     const p = drawGroundSprite(g, img, gx, gy, anchor.cx, anchor.foot, SPRITE_HOUSE_SCALE);
     if (!roofOk) drawHouseRoofDamageSprite(g, p);      // renovation overlays land on the sprite's roof / window
     if (!windowOk) drawHouseWindowBoardSprite(g, p);
-    baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0);   // W2c: tufts + tint break the base line
+    // COHESION-1(E): tufts laced over the base chevron + hug AO (replaces the wide contact band)
+    baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0, { id: spriteId, img, anchorCx: anchor.cx, anchorFoot: anchor.foot, scale: SPRITE_HOUSE_SCALE });
     return;
   }
   // ---- code-drawn fallback (painter path) ----
@@ -218,10 +218,9 @@ export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = B
   const img = sprite("buildings/barn");
   if (img) {
     const gx = x + w / 2, gy = y + h;
-    contactShadow(g, gx, gy, w * 0.52);   // W2c
     const p = drawGroundSprite(g, img, gx, gy, BARN_SHEET.cx, BARN_SHEET.foot, SPRITE_BARN_SCALE);
     if (!barnOk) drawBarnDamageSprite(g, p);
-    baseGrounding(g, gx, gy, w * 0.52, (x * 3 + y * 7) | 0);   // W2c
+    baseGrounding(g, gx, gy, w * 0.52, (x * 3 + y * 7) | 0, { id: "buildings/barn", img, anchorCx: BARN_SHEET.cx, anchorFoot: BARN_SHEET.foot, scale: SPRITE_BARN_SCALE });   // COHESION-1(E)
     return;
   }
   // ---- code-drawn fallback (painter path) ----
@@ -398,10 +397,9 @@ export function drawStall(
       const gx = x + w / 2, gy = y + h;
       const a = theme.cx !== undefined && theme.foot !== undefined
         ? { cx: theme.cx, foot: theme.foot } : spriteBaseAnchor(theme.id, timg);
-      contactShadow(g, gx, gy, w * 0.5);   // W2c
       drawGroundSprite(g, timg, gx, gy, a.cx, a.foot, SPRITE_STALL_SCALE);
       drawStallGoods(g, r, accent, sign);
-      baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
+      baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0, { id: theme.id, img: timg, anchorCx: a.cx, anchorFoot: a.foot, scale: SPRITE_STALL_SCALE });   // COHESION-1(E)
       return;
     }
     // this stall's themed sprite hasn't decoded yet (or is missing) -> fall
@@ -416,11 +414,10 @@ export function drawStall(
   const img = sprite("buildings/market-stall");
   if (img) {
     const gx = x + w / 2, gy = y + h;
-    contactShadow(g, gx, gy, w * 0.5);   // W2c
     const tinted = recolorSprite("buildings/market-stall", img, awning, STALL_AWNING_BAND);
     drawGroundSprite(g, tinted ?? img, gx, gy, STALL_SHEET.cx, STALL_SHEET.foot, SPRITE_STALL_SCALE);
     drawStallGoods(g, r, accent, sign);
-    baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
+    baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0, { id: "buildings/market-stall", img, anchorCx: STALL_SHEET.cx, anchorFoot: STALL_SHEET.foot, scale: SPRITE_STALL_SCALE });   // COHESION-1(E)
     return;
   }
   // ---- code-drawn fallback (painter path) ----
@@ -525,7 +522,6 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, 
   const img = info ? sprite(info.id) : null;
   if (img && info) {
     const gx = x + w / 2, gy = y + h;
-    contactShadow(g, gx, gy, w * 0.5);   // W2c
     // anchor: hand-measured when present, else measured off the alpha bbox
     const a = info.cx !== undefined && info.foot !== undefined
       ? { cx: info.cx, foot: info.foot } : spriteBaseAnchor(info.id, img);
@@ -542,7 +538,7 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, 
     } else {
       drawGroundSprite(g, img, gx, gy, a.cx, a.foot, SPRITE_COTTAGE_SCALE);
     }
-    baseGrounding(g, gx, gy, w * 0.5, seed);   // W2c (drawn upright, outside the flip)
+    baseGrounding(g, gx, gy, w * 0.5, seed, { id: info.id, img, anchorCx: a.cx, anchorFoot: a.foot, scale: SPRITE_COTTAGE_SCALE, flip });   // COHESION-1(E) (chevron mirrored to match the flip)
     return;
   }
   // ---- code-drawn fallback (painter path) ----
@@ -580,9 +576,8 @@ export function drawInn(g: CanvasRenderingContext2D, r: Rect) {
   const inn = sprite("buildings/inn");
   if (inn) {
     const a = spriteBaseAnchor("buildings/inn", inn);
-    contactShadow(g, cx, y + h, w * 0.5);   // W2c
     drawGroundSprite(g, inn, cx, y + h, a.cx, a.foot, SPRITE_INN_SCALE);
-    baseGrounding(g, cx, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
+    baseGrounding(g, cx, y + h, w * 0.5, (x * 3 + y * 7) | 0, { id: "buildings/inn", img: inn, anchorCx: a.cx, anchorFoot: a.foot, scale: SPRITE_INN_SCALE });   // COHESION-1(E)
     return;
   }
   // ---- code-drawn fallback (painter path) ----
@@ -640,9 +635,8 @@ export function drawStable(g: CanvasRenderingContext2D, r: Rect) {
   const stbl = sprite("buildings/stable");
   if (stbl) {
     const a = spriteBaseAnchor("buildings/stable", stbl);
-    contactShadow(g, cx, y + h, w * 0.5);   // W2c
     drawGroundSprite(g, stbl, cx, y + h, a.cx, a.foot, SPRITE_STABLE_SCALE);
-    baseGrounding(g, cx, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
+    baseGrounding(g, cx, y + h, w * 0.5, (x * 3 + y * 7) | 0, { id: "buildings/stable", img: stbl, anchorCx: a.cx, anchorFoot: a.foot, scale: SPRITE_STABLE_SCALE });   // COHESION-1(E)
     return;
   }
   // ---- code-drawn fallback (painter path) ----
@@ -702,9 +696,8 @@ export function drawOuthouse(g: CanvasRenderingContext2D, r: Rect) {
   const img = sprite("buildings/outhouse");
   if (img) {
     const a = spriteBaseAnchor("buildings/outhouse", img);
-    contactShadow(g, x + w / 2, y + h, w * 0.5);   // W2c
     drawGroundSprite(g, img, x + w / 2, y + h, a.cx, a.foot, SPRITE_OUTHOUSE_SCALE);
-    baseGrounding(g, x + w / 2, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
+    baseGrounding(g, x + w / 2, y + h, w * 0.5, (x * 3 + y * 7) | 0, { id: "buildings/outhouse", img, anchorCx: a.cx, anchorFoot: a.foot, scale: SPRITE_OUTHOUSE_SCALE });   // COHESION-1(E)
     return;
   }
   // ---- code-drawn fallback (painter path) ----
@@ -746,9 +739,8 @@ export function drawWell(g: CanvasRenderingContext2D, cx: number, cy: number, r:
   // (keyed to WELL's cx/cy/r, not to this painter). ----
   const img = sprite("buildings/well");
   if (img) {
-    contactShadow(g, cx, cy + r, r * 0.95);   // W2c
     drawGroundSprite(g, img, cx, cy + r, WELL_SHEET.cx, WELL_SHEET.foot, SPRITE_WELL_SCALE);
-    baseGrounding(g, cx, cy + r, r * 0.95, (cx * 3 + cy * 7) | 0);   // W2c
+    baseGrounding(g, cx, cy + r, r * 0.95, (cx * 3 + cy * 7) | 0, { id: "buildings/well", img, anchorCx: WELL_SHEET.cx, anchorFoot: WELL_SHEET.foot, scale: SPRITE_WELL_SCALE });   // COHESION-1(E)
     return;
   }
   // ---- code-drawn fallback (painter path) ----

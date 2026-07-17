@@ -29,6 +29,90 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## COHESION-1 — the world connects: nature grounded, organic transitions, worn paths, real water banks, grounded buildings
+- **Date:** 2026-07-18 (v1-foundation). Implements the OWNER-APPROVED cohesion
+  probe grounding (scratchpad/cohesion/COHESION-BOARD.png + HOUSE-BOARD.png) in
+  the real engine — the fix for the owner's standing note that objects still read
+  "pushed in / a patch of sand" and the world doesn't connect "every pixel to the
+  next." **ZERO PixelLab generations** — all code + one committed post-process.
+  Root-cause spec: `scratchpad/cohesion-diagnosis.md`; probe reference ports:
+  `scratchpad/cohesion/{lib,scene1-5}.mjs`.
+- **A. Nature grounding — killed the baked sand apron.** The bright tan apron
+  (and the pine/boulder grass discs) were BAKED into the tree/boulder/bush sprite
+  PNGs. New one-time committed post-process `scripts/strip-nature-apron.mjs`
+  (pngjs, idempotent via a `.apron-stripped` marker per dir, like
+  `flood-key-bg.mjs`) strips each sprite's ground-plane apron via the
+  trunk-protection WEDGE mask (per-category `halfTop/halfBot/band`; warm-sand test
+  `r-g>10 && r-b>24` protects birch's near-neutral bark; boulders also strip the
+  green base-grass disc), keeping trunk/roots. Ran on 10 tree + 3 boulder + 4 bush
+  PNGs (~17k px cleared). New baked `paintNatureGrounding(g)` in
+  `src/world/ground.ts` (mirror of `paintBuildingGrounding`) bakes, per
+  tree/boulder/bush position (`WORLD_TREES`, `BUSHES`+`FOREST_BUSHES`,
+  `WORLD_PROPS` boulder-*): a darker/desaturated SAME-grass worn ring + short
+  contact AO (`natureWornAndAO`, sub-rect getImageData) + an asymmetric
+  tuft/leaf-litter/scuff cluster (`natureCluster`, `tuftDraw`/`dabA`). Runs on
+  BOTH ground paths (tiled + painterly).
+- **B. Terrain transitions — dropped the Bayer speckle.** In `paintTerrainTiles`,
+  the `rectInsetTiles + edgeThr` threshold for soil (`ROAD_SEGMENTS`+farmPath),
+  field, plaza (market+town) and water (pond ellipse + river/lake/sea rects) is
+  replaced by a domain-warped signed-distance FINGER edge (`sdRect` + `(fbm-0.5)
+  *amp`, fill `sd<0`) — new `smstep/vnoise/fbm/sdRect` helpers ported from the
+  probe. Interlocking organic fingers, no checkerboard; `pickTile` bags kept. The
+  forest tint stays on the old threshold (subtle, out of scope).
+- **C. Worn paths / plaza.** Per-pixel wear gradient baked into the soil fill
+  (darker + barer toward the traffic centre); faint twin cart-ruts along
+  `ROAD_SEGMENTS` (`paintRuts`); plaza edge = moss-in-grout (dark grout pixels
+  keyed toward moss, fbm-gated near the grass edge) + worn-dirt seam + a dirt seam
+  bleeding onto the grass side. New `paintTransitionScatter(g)` +`scatterEdge`
+  add clustered grass tufts breaking BOTH edges, bare specks, pebbles/cracks in
+  the path centres, and a few half-buried muted cobbles in the plaza seam — all
+  gated by the same warped SDF field.
+- **D. Water banks.** Wet-earth bank band above the waterline (darken+cool soil
+  gradient) + a 1px wet-contact sheen row for pond/river/lake/sea, baked in the
+  fill. `scatterWaterEdgeDecor` converted from an even reed/rock fringe to
+  CLUSTERED placement (reeds pushed into the bank, wet rocks at the waterline —
+  new `drawWetRock` — bank grass tufts fanning back, pebbles).
+- **E. Building grounding refinement (the HOUSE-BOARD case).** `baseGrounding`
+  (`src/art/shapes.ts`) now takes an optional `BaseChevron` and laces tufts OVER
+  the sprite's true bottom silhouette: new `spriteBaseEdge(id,img)` in
+  `src/art/sprites.ts` caches the per-column lowest-opaque row (the chevron),
+  mapped to world space (flip-aware for mirrored cottages); tufts root 2-5px above
+  the stone contact, break the line on both wall faces, densest at the 3 corners;
+  a short per-column contact AO HUGS the chevron with a dithered tail (no
+  horizontal band). `BASE_TUFT_MIN/MAX` densified 4/8 → 7/14 (`src/config.ts`).
+  The 9 sprite-path building painters in `src/art/buildings.ts` (house, barn,
+  stalls, cottage, inn, stable, outhouse, well) pass the chevron and DROP the wide
+  `contactShadow` ellipse (the "pasted" band the AO replaces); fallback/zero-PNG
+  paths keep `contactShadow` + the flat tint fallback. `scuffOne`
+  (`src/world/ground.ts`) rewritten from the dark worn-dirt oval + dark contact
+  ellipse to a LIGHT, finger-warped worn-GRASS field (~#766c4e, α≤0.4, heavy grass
+  bleed) in front of FARM building bases only; the farm-wear trails lightened
+  (60,47,31 → 96,84,58). Net: buildings sit like the tree does — base line broken
+  by growth, no dirt blob, no shadow line.
+- **Files:** `scripts/strip-nature-apron.mjs` (new), `src/world/ground.ts`,
+  `src/art/shapes.ts`, `src/art/sprites.ts`, `src/art/buildings.ts`,
+  `src/config.ts`, the 17 nature sprite PNGs + 3 `.apron-stripped` markers,
+  `runs/cohesion1-plan.md`.
+- **Verification:** `npm run build` green; `verify:smoke`, `verify:save`,
+  `gp1-farmstart` (fisher/farmer/keeper + legacy-fixture) all GREEN, zero console
+  errors; zero-PNG boot GREEN (1122 sprite PNGs blocked, painterly fallback +
+  fallback baseGrounding render clean). 1920×1080 real-flow shots LOOKED AT vs the
+  boards (farm day+dusk, tree/rock base, grass↔path junction, lake shore, plaza
+  edge, farmhouse base, market, town, legacy barn) — all match. Frame-time probe:
+  no FPS regression (building-heavy farm/market/town all hold 60fps, identical to
+  an empty field). Mock check (live farm-dusk vs uo-mock-screen-v3): the live
+  world now delivers the mock's core promise — every object planted with a worn,
+  tufted base and terrain that flows edge-to-edge instead of speckle-cutting — but
+  reads calmer and greener, keeping its muted grass-meadow ground rather than the
+  mock's wall-to-wall cobblestone and holding fewer objects per screen.
+- **Follow-ups:** (1) The tilled FIELD region bakes as flat dark tilled soil with
+  no fence/furrow read at a fresh start — a pre-existing composition item (not
+  cohesion scope), reads as a dark blob east of the farmhouse. (2) The painterly
+  (zero-PNG) ground keeps its old roundR road/water fills — the SDF transitions
+  are tiled-path only, as specced. (3) Per-frame chevron AO redraws each frame
+  (measured fine); an offscreen per-(id,seed) cache is available if a future
+  heavier scene needs it.
+
 ## W2b — nature, props & the furnished home + the fidelity match: the world completes the pivot
 - **Date:** 2026-07-17 (v1-foundation). Art-pivot wave W2b. Replaces the last
   cozy-era holdouts (trees, bushes/flowers, world props, interior furniture) with

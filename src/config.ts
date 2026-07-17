@@ -910,8 +910,8 @@ export const CAST_SHADOW_ALPHA_DAY = 0.9;      // full strength by day (× CAST_
 export const CONTACT_SHADOW_ALPHA = 0.34;      // darkest (centre-base) alpha of a building's contact shadow, × sun
 export const CONTACT_SHADOW_SE = 0.55;         // south-east offset (fraction of the contact ry)
 export const BASE_TINT_ALPHA = 0.36;           // dark tint climbing ~4px up the foundation base
-export const BASE_TUFT_MIN = 4;                // fewest grass/weed tufts along a building base
-export const BASE_TUFT_MAX = 8;                // most tufts along a building base
+export const BASE_TUFT_MIN = 7;                // fewest grass/weed tufts along a building base (COHESION-1: densified)
+export const BASE_TUFT_MAX = 14;               // most tufts along a building base (COHESION-1: densified)
 
 // ---- Title-screen vista (art/vista.ts) — the PIXEL-ART dawn scene ----
 // Primary path draws the PixelLab landscape (ui/title-vista.png) scaled-to-

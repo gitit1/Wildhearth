@@ -157,6 +157,43 @@ export function spriteBaseAnchor(id: string, img: HTMLImageElement): { cx: numbe
 }
 
 // ===========================================================================
+//  Base EDGE profile — the sprite's true bottom silhouette (a 3/4 building base
+//  is a CHEVRON: near/front corner lowest, side walls receding up). Per sprite
+//  COLUMN, the lowest opaque row. Cached by id (one canvas read per sprite).
+//  COHESION-1(E): baseGrounding laces tufts + hugs contact AO along THIS, not a
+//  flat y-row, so growth breaks the base line on both wall faces (the biggest
+//  "planted" lever — see docs/COMPOSITION_RULES rule 30 + cohesion-diagnosis).
+// ===========================================================================
+const baseEdgeCache = new Map<string, Int16Array | null>();
+
+/** For each column x of `img`, the lowest opaque row (-1 if none). Cached by
+ *  id; null if the pixels can't be read (tainted canvas / fully transparent) —
+ *  callers then fall back to the flat-line treatment. */
+export function spriteBaseEdge(id: string, img: SpriteImage): Int16Array | null {
+  const cached = baseEdgeCache.get(id);
+  if (cached !== undefined) return cached;
+  const w = srcW(img), h = srcH(img);
+  if (!w || !h) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const cx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!cx) { baseEdgeCache.set(id, null); return null; }
+  cx.imageSmoothingEnabled = false;
+  cx.drawImage(img, 0, 0);
+  let px: Uint8ClampedArray;
+  try { px = cx.getImageData(0, 0, w, h).data; }
+  catch { baseEdgeCache.set(id, null); return null; }
+  const edge = new Int16Array(w).fill(-1);
+  for (let x = 0; x < w; x++) {
+    for (let y = h - 1; y >= 0; y--) {
+      if (px[(y * w + x) * 4 + 3]! > 16) { edge[x] = y; break; }
+    }
+  }
+  baseEdgeCache.set(id, edge);
+  return edge;
+}
+
+// ===========================================================================
 //  Sprite recolor — gives ONE baked sprite a per-instance color identity
 //  (e.g. the market stall's striped awning, tinted per stall) without
 //  regenerating art. HSL-based: pixels whose OWN hue/saturation fall inside a
