@@ -305,6 +305,47 @@ The deferred character-matrix rebuild happens ONCE, inside this pivot
 
 ---
 
+## W0 mock rejected → research-driven rebuild → owner approved direction (2026-07-16/17)
+
+The first W0 art-pivot mock was rejected on sight: **"still looks detached —
+like you just placed objects, no logical order, and everything looks
+top-down."** Instead of re-rolling the same generation recipe, the response
+was research-driven: two research reports (a UO rendering deep-dive; a
+Sims-believability + top-down scene-grammar report) were synthesized into
+`docs/COMPOSITION_RULES.md`, the 25-rule constitution — a one-camera
+projection law (Part 1) plus scene grammar (Part 2: circulation first,
+enclosure that closes, functional clusters, vegetation clumping, ground
+discipline, a final per-object audit). The worst offenders (farmhouse's
+isometric corner view, the barn's dead-frontal/roof-ratio mismatch) were
+regenerated against a hardened mandatory view clause (`docs/PIXELLAB_ASSETS.md`
+"UO-mood era" → "WINNING VIEW RECIPE"), and the mock composer was rebuilt
+around path-first layout instead of scattering objects onto a ground plane.
+A further grounding-iteration pass (W0.6) fixed apron/terrain-clash findings
+(a green-grass apron baked onto a cobble-plaza cottage) and a
+`create_map_object` opaque-background failure mode. The owner's verdict on
+the resulting mock: **"כן זה כבר יותר הכיוון"** ("yes, this is already more
+the direction") — approved to proceed past the W0 gate into W1. Full
+execution status: `docs/ART_PIVOT_UO.md`'s "Status" section.
+
+## The REAL-ANIMATIONS LAW (2026-07-16/17)
+
+**Every player action ships with a real generated animation — an action
+without one is an incomplete feature, not a placeholder that's good enough.**
+This was made explicit after auditing the current action set (wash,
+sit-down/seated/stand-up, sleep, cook, chop, fish, hoe, forage, busk, talk,
+eat, drink) and finding it running on GF-1 code bobs — a stopgap, never
+meant to be the shipped feel. Concretely: W3 of the art pivot
+(`docs/ART_PIVOT_UO.md`) now carries a REQUIREMENT, not an aspiration, to
+generate a real animation (via `animate_character`/`create_character_state`)
+for every action in that list, for every body in the character matrix. Since
+a naive per-combo-per-action generation cost does not fit any reasonable
+budget (50 combos × ~13 actions), **W3 planning must solve the cost
+explosion via layering BEFORE generating anything**: animate the base
+bodies once per action, keep hair as a recolored STATIC overlay (the
+existing keyed-purple mechanism already does this for rotations/walk), so
+an action's generation cost is paid once per body shape, not once per full
+(gender × hair × outfit) combo.
+
 ## HUD direction — Proposal A "the tidied UO desk" (owner pick, 2026-07-17)
 
 After the window-feedback arc (the owner's repeated "you throw every part in
@@ -322,8 +363,45 @@ and all re-derive from the desktop edge on every resize (no more drift).
 at a left-edge zone (cascading so they never stack exactly), everything else
 opens centered; the free-space edge-seek is retired for all current windows.
 **RIGHT-CLICK CLOSE** on a window's title bar / frame border. Shipped as block
-**A1+A2**. The rest of Proposal A follows: a paperdoll/equipment hub (A3), a
-relationships panel (A4), and an edit-mode to re-arrange/reset the desk (A5).
+**A1+A2, commit `2a5f884`** ("HUD A1+A2 — the anchored UO desk: taskbar,
+readable needs, one info box, fixed window homes"). The rest of Proposal A
+follows: a paperdoll/equipment hub (A3), a relationships panel (A4), and an
+edit-mode to re-arrange/reset the desk (A5).
+
+## Sims-home vision — buy + place decorating is a committed future feature (2026-07-16/17)
+
+Decorating the player's home/farm the Sims way — **buy furniture/decor and
+place it yourself, NOT a build-mode wall/room editor** (that's the separate,
+already-tracked Tier 2/Tier 3 renovation blocks in
+`docs/ROADMAP_EXPANSION.md`) — is a committed future feature, not a maybe.
+Consequences that apply starting now, ahead of the feature actually being
+built:
+- **Groundwork rule: furniture/decor must be data-driven placeable
+  instances from now on**, not hardcoded draw calls at fixed positions —
+  any new furniture/decor work (interior or exterior) should already be
+  shaped as "an instance of a placeable type at a position," so the future
+  buy+place system is additive on top of existing data, not a rewrite of it.
+- **The house interior will be enlarged and divided into real functional
+  areas** (tracked as roadmap block **HOME-1** in
+  `docs/ROADMAP_EXPANSION.md`) — today's single bare room is a first-pass
+  placeholder (see `docs/ROADMAP_MVP.md`'s interior block), not the shape
+  the decorating system will ship against.
+- **An ownership/assets surface joins the paperdoll** — a panel showing
+  what the player owns beyond what she's wearing (boat, carriage, stall,
+  home furnishings), alongside the paperdoll/equipment hub already planned
+  as HUD Proposal A3 above.
+
+## Interiors — Sims-style roof-hide view is a committed requirement (2026-07-16/17)
+
+Standing view-inside-buildings requirement, reaffirmed as a **W2 constraint**
+on the art pivot (`docs/ART_PIVOT_UO.md`): every enterable building's sprite
+generation must be planned so a roof/facade layer can be hidden at runtime
+when the player is inside — the Sims "roof disappears, you see the room from
+above" read, not a separate disconnected interior scene. This was already the
+W0.5-era sign-off requirement (see the interiors memory note) and is recorded
+here as a binding constraint on every future building generation, not just a
+preference: a building generated as one flat undivided sprite (no separable
+roof/facade) blocks this feature and must be re-planned before it ships.
 
 ---
 

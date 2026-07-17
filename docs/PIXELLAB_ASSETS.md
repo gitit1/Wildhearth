@@ -13,6 +13,130 @@ the asset/manifest layout, and generation costs.
 
 ---
 
+## UO-mood era (CURRENT — supersedes the cozy anchors below)
+
+*(W0/W0.5/W0.6 calibration, 2026-07-15..17 — frozen here after the owner's
+sign-off on the composed mock and the grounding pass; see `docs/ART_PIVOT_UO.md`
+for the execution program and `docs/DECISIONS.md` for the decision record.
+Everything in this section is the ACTIVE style for every new generation from
+this date. `docs/COMPOSITION_RULES.md` is the companion doc — it governs how
+objects get PLACED into a scene (the 25-rule constitution); this section
+governs how each individual object/character gets PROMPTED. Read both before
+generating anything.)*
+
+### The fixed STYLE SUFFIX (append verbatim to EVERY object/character prompt)
+```
+muted earthy desaturated palette of deep greens browns and cold greys,
+gritty hand-painted painterly texture, detailed self-shadowing,
+moody dusk lighting from the upper-left,
+dark-fantasy realism in the style of classic Ultima Online,
+no outlines, weathered and grounded
+```
+
+### Fixed generation parameters
+| Param | World objects (buildings, props, rocks, trees) | Characters |
+|---|---|---|
+| `outline` | **`lineless`** | **`lineless`** *(prompt also says "no cartoon outlines")* |
+| `shading` | `detailed shading` | `detailed shading` |
+| `detail` | `high detail` | `high detail` |
+| `view` | **`high top-down`** | **`low top-down`** |
+
+`lineless` is the single most load-bearing setting — cartoon outlines are the
+#1 "pasted-on / detached" tell the owner rejected. **Never** use
+`selective outline` or `single color outline` in this pivot (that was the
+cozy-era default, including wave 4's flat-front guardrail below — superseded).
+
+### The WINNING VIEW RECIPE — buildings & world objects (calibrated in W0.5)
+W0's plain wording (`view: "high top-down"` + a subject clause ending "...seen
+from a high top-down angle with the front face and roof visible") was **too
+weak** — it let the farmhouse drift into an isometric corner view, the worst
+offender the W0.5 audit found (see `docs/COMPOSITION_RULES.md`'s root-cause
+list). **Every building/object prompt from W0.5 onward MUST append this exact
+mandatory clause**, in addition to `view: "high top-down"`:
+
+> `"viewed straight-on from directly in front and 45 degrees above, the full
+> front facade facing the viewer flat and symmetrical, with the roof plane
+> visible above it, strictly NO corner view, NO isometric angle, NO diagonal
+> rotation, like a <subject> sprite in a classic top-down RPG"`
+
+(`<subject>` = the object being generated, e.g. "farmhouse", "barn", "well".)
+This is the concrete, prompt-level enforcement of `COMPOSITION_RULES.md` Part
+1 rule 1 (one implied camera, pitch ≈45°, yaw 0°, never a corner/diagonal/
+isometric view) — bake the projection law directly into the prompt instead of
+relying on the softer W0 phrasing, which the W0 mock proved wasn't load-bearing
+enough on its own.
+
+**Full per-object prompt** = `<subject clause>` + `<grounding slot>` (below) +
+the view recipe above + the fixed style suffix.
+
+### Palette (sampled from the approved W0/W0.5 pieces — real dominant hexes)
+| Surface | Swatches |
+|---|---|
+| Timber walls (farmhouse) | `#382827` `#664a3e` `#191615` |
+| Mossy shingle roof | `#2e5329` `#213923` |
+| Barn planks / weathered grey wood | `#675c57` `#6c6059` |
+| Dark slate roof | `#26232b` `#363338` `#1b1725` |
+| Fieldstone + plaster (cottage) | `#4d5b31` `#434755` `#362829` |
+| Tree bark (deep shadow) | `#241c2c` `#1a1215` |
+| Tree canopy (muted, in shadow) | `#1a4632` `#05252b` (deep) |
+| Granite boulder | `#73624f` `#5b5e64` |
+| Lichen / moss highlight | `#b1c0a5` (rare highlight only) `#303f24` |
+| Villager skin | `#7f5c3b` |
+| Villager dress (muted brown) | `#613a30` `#452622` |
+| Grass field (olive/khaki) | `#66693b` `#5e5d35` `#483525` |
+| Bare dirt | `#362d21` `#3d3221` `#2e261d` |
+| Worn path | `#534a38` `#3d3728` `#2a2518` |
+
+**Palette rules:** saturation stays low (desaturate ~12% in the final grade);
+value range mid-to-dark; the brightest note allowed on screen is the lichen/
+rim-light `#b1c0a5`, and only as sparse highlight — no pure/candy hues
+anywhere. **Global grade** over the whole composite (see `compose.mjs`):
+desaturate ×0.88, dusk tint `×(1.02R, 0.97G, 0.90B)`, overall dim ×0.94,
+radial vignette darkening to ~42% at the corners (this is
+`COMPOSITION_RULES.md` rule 24 — "the single biggest one-photograph move").
+
+### Grounding split (the "detached objects" fix)
+| Category | Treatment | Why |
+|---|---|---|
+| **Nature** — rocks, boulders, trees, stumps, bushes | **(a) BAKED APRON**: *"standing on a base of trampled dirt and scattered grass tufts that blend outward from its footprint so it sits integrated into the ground"* | Nature always sits on natural terrain — no terrain-clash risk. The dirt-scuff + grass-tuft base is part of the silhouette and reads visibly more "planted" than a flat tint. |
+| **Buildings** — farmhouse, barn, cottage, well | **(b) CLEAN-CUT + runtime base-blend decal**: *"clean cut base with no attached ground, isolated on a transparent background"*, then a Bayer-dithered ground-tint decal under the sprite at runtime (same machinery as terrain edges) | Buildings get placed on *varied* ground (farm dirt-yard, town cobble plaza, grass) — a baked apron would clash the instant a building sits on cobble. **For farm buildings specifically**, additionally paint a separate code-drawn worn-dirt yard decal under them (not baked into the sprite) to recover the "lived-in yard" feel. |
+| **Characters** | **Clean-cut + contact shadow only** | A person casts a shadow but doesn't own a permanent ground scuff — an apron would look wrong the moment they move. |
+
+Net: apron = commit the ground into the art (locks the terrain type, nature
+never moves terrain so this is safe); clean + decal = adapt at runtime
+(buildings/characters do move terrain, so this is required for them).
+
+### Known failure modes (what to avoid)
+1. `view: "top-down"` is **INVALID** for `create_map_object` — only
+   `low top-down`, `high top-down`, `side` validate. Use `high top-down` for
+   world objects/ground, `low top-down` for characters.
+2. `create_map_object` **CANNOT make a ground fill** — it always returns a
+   discrete object on transparency (a bordered patch, a blobby island, an
+   ornate rug). Ground **MUST** come from `create_tiles_pro`
+   (`outline_mode: "segmentation"`, `square_topdown`) — never a map object.
+3. **Bright/saturated foliage drift** — the first gnarled-tree canopy came out
+   spring-green, the one candy note against the muted set. Fix: explicitly add
+   `NOT bright green, NOT saturated` to any foliage subject clause.
+4. `create_tiles_pro` is **expensive** — ~20 generations per 16-tile set, vs
+   ~1 per map object. Budget ground waves accordingly.
+5. `tiles_pro` `square_topdown` tiles carry a **transparent depth skirt**
+   (~5px top/bottom). Tile from the opaque core, or lay them in the intended
+   offset grid — don't assume a full 32×32 opaque square.
+6. **Grid waffle when tiling.** Mitigate with a dominant "plain" tile
+   (~78-85%) + sparse variants + *gentle* brightness/value jitter
+   (×0.96–1.04, or `COMPOSITION_RULES.md` rule 23's ×0.97–1.03). **Do NOT**
+   over-jitter (×0.90–1.10) or add a brick-lay row offset — that overcorrects
+   into a noisy masonry patchwork and dissolves paths.
+7. **NEW (W0.6) — `create_map_object` occasionally returns an OPAQUE flat
+   background instead of a transparent one.** After every generation, assert
+   the PNG's transparency ratio is roughly **40-60%**; if it comes back near
+   **~0%** (fully opaque), do **NOT** just re-roll the generation — fix it
+   with a **border flood-fill keyed on the background's own luma** (sample the
+   corner pixels, flood-fill matching-luma-and-connected pixels to
+   transparent) before it's ever committed.
+
+---
+
 ## 1. What's sprite-sourced today (vs code-drawn)
 
 | Visual | Source | Where |
@@ -170,10 +294,18 @@ Notes:
 
 ## 2. The proven workflow
 
-**Style anchor.** One warm "cute cozy fantasy farm-game" look: warm palette,
-soft dark outlines, readable at small size, **low top-down** view. Anchor every
-new asset to it by (a) reusing the heroine **character id** below as the visual
-reference and (b) repeating the palette/outline descriptors in the prompt.
+**SUPERSEDED (style only) — see "UO-mood era" at the top of this doc.** The
+*mechanics* below (tool usage, the character/map-object recipes, the packing
+scripts, the manifest layout) are still exactly how every generation gets
+made; only the "cute cozy" style descriptors quoted through this section (and
+every ledger entry's recorded prompt, waves 1–8) are historical record of the
+pre-pivot look, not something to reuse in a new prompt.
+
+**Style anchor (cozy era, SUPERSEDED).** One warm "cute cozy fantasy
+farm-game" look: warm palette, soft dark outlines, readable at small size,
+**low top-down** view. Anchor every new asset to it by (a) reusing the
+heroine **character id** below as the visual reference and (b) repeating the
+palette/outline descriptors in the prompt.
 
 **Characters** (`create_character`, export v3):
 1. `create_character` with `view: "low top-down"`, `n_directions: 8`, a `size`

@@ -664,11 +664,107 @@ Tier 3: freeform building/furniture placement.
 
 ---
 
+## HOME-1 — enlarge the house interior into real functional areas
+- [ ] not started
+
+Committed groundwork for the Sims-home vision (`docs/DECISIONS.md`,
+2026-07-16/17): today's house interior is a single bare room (the MVP's
+deliberately-bare first pass, `docs/ROADMAP_MVP.md`) holding all five
+functional spots (cooking, wash, bed, rest) crammed together. This block
+enlarges the interior and divides it into real, separate functional areas
+(a kitchen/hearth area, a sleeping area, a wash area, a living/rest area) —
+each with enough floor space that the buy+place decorating block below has
+somewhere real to put things, and enough separation that
+`docs/COMPOSITION_RULES.md`'s Interiors addendum (functional clusters,
+walkable circulation to every interactable, no object overlapping a
+window/door) is actually achievable rather than fighting one cramped rect.
+
+**Depends on:** the W2 art-pivot constraint that every enterable building's
+sprite supports a hideable roof/facade layer (`docs/ART_PIVOT_UO.md`) — this
+block's new room layout should assume that Sims-style roof-hide interior
+view (see the block immediately below), not the current separate-scene
+interior transition.
+
+---
+
+## Roof-hide interiors — Sims-style top-down view inside buildings
+- [ ] not started
+
+A committed requirement, not a nice-to-have (`docs/DECISIONS.md`,
+2026-07-16/17 + the earlier W0.5-era interiors sign-off): entering a
+building hides its roof/facade layer and shows the room from directly
+above, in place, the way The Sims does it — rather than cutting to a
+disconnected interior scene the way the current interior transition works.
+This constrains every enterable building's art generation going forward
+(the W2 wave of `docs/ART_PIVOT_UO.md`): a building must be generated (or
+layered/state-split) so its roof/facade can be independently hidden at
+runtime. Scope for this block itself:
+- Rework the house (and eventually any other enterable building) so the
+  camera stays in the same world position and the roof/upper-wall layer
+  toggles off on entry, revealing the room in place — no teleport to a
+  separate interior zone rect.
+- The existing interior contents (hearth, basin, bed, chair-crate — see
+  `docs/ROADMAP_MVP.md`'s interior block) carry over unchanged in function,
+  just re-anchored to sit "inside" the same building footprint instead of a
+  disconnected `R_*` zone.
+- Depends on HOME-1 above landing first (or alongside) if the enlarged
+  interior layout changes which floor area the roof-hide reveals.
+
+---
+
+## Buy + place home/farm decorating (Sims-style; NOT build mode)
+- [ ] not started
+
+The Sims-home vision's actual player-facing feature
+(`docs/DECISIONS.md`, 2026-07-16/17): the player buys furniture/decor items
+(from a stall, once one sells them) and places them herself inside the house
+(and eventually the farm yard) — pick an item, pick a spot, done. This is
+explicitly **not** a build-mode wall/room editor (that's Tier 2/Tier 3 above,
+which stays a separate, later system) — it's placement of movable objects
+onto an existing floor plan, closer to Stardew's furniture catalogue than to
+a construction tool.
+- A data-driven placeable-instance model for furniture/decor (position,
+  rotation if applicable, item type) — the standing groundwork rule from
+  `docs/DECISIONS.md` is that furniture/decor has been kept data-driven
+  since that decision, specifically so this block is additive rather than a
+  rewrite.
+- A placement UI: pick an owned decor item from inventory/a dedicated
+  decorating panel, preview it on the floor grid, confirm or cancel: block
+  by collision with walls/other furniture/windows/doors per
+  `docs/COMPOSITION_RULES.md`'s Interiors addendum (no object overlaps a
+  window/door; walkable circulation preserved to every interactable).
+  Decor can be picked back up and moved/stored, not a one-way placement.
+- A first small decor catalogue (a rug, a picture, a plant, a second
+  chair) — depth grows over time, per the game's "rich variety over
+  simplicity" universal principle.
+- **Depends on HOME-1** (needs real floor area to place things into) and
+  ideally lands after the roof-hide interior block so placement previews
+  render in the same in-place view the player will actually see.
+
+---
+
+## Ownership & assets surface — a panel of what you own (boat/carriage/stall)
+- [ ] not started
+
+A committed UI surface alongside the paperdoll/equipment hub
+(HUD Proposal A3, `docs/DECISIONS.md`): a panel showing everything the
+player owns beyond what she's currently wearing — the boat/carriage/other
+transportation purchased in the block below, her stall(s), and (once the
+decorating block above exists) a quick view of owned-but-not-placed
+decor/furniture. This is a growth surface, not a fixed list: as ownership-
+worthy purchases are added elsewhere in the game (a second stall, a pet,
+a second home upgrade tier), they register here rather than each system
+inventing its own "what do I own" display.
+
+---
+
 ## Horses, carriages, boats
 - [ ] not started
 
 Horses, carriages, boats — purchasable, tied to the town/stable, old-
-world only (no motor vehicles per VISION).
+world only (no motor vehicles per VISION). Feeds the Ownership & assets
+surface above — each purchase should register as an owned asset there,
+not just unlock its own gameplay hook in isolation.
 
 ---
 

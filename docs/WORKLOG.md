@@ -29,6 +29,78 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## docs — the pivot constitution frozen: style anchors, 25 composition rules, wave scope updates, owner decisions recorded
+- **Date:** 2026-07-17 (v1-foundation) — docs-only block, freezing the
+  2026-07-15..17 art-pivot calibration + owner decisions into the repo so
+  every future agent is bound by them. No `src/` changes, zero PixelLab
+  generations.
+- **`docs/PIXELLAB_ASSETS.md`**: new top section "UO-mood era (CURRENT —
+  supersedes the cozy anchors below)" — the fixed style suffix + generation
+  params table, the W0.5-calibrated WINNING VIEW RECIPE (the mandatory
+  "viewed straight-on... strictly NO corner view, NO isometric angle..."
+  clause that fixes the W0 farmhouse's isometric drift), the palette table,
+  the grounding split (nature=baked apron / buildings=clean-cut+runtime
+  base-blend decal / characters=clean+contact shadow), and all known failure
+  modes plus the new W0.6 one (`create_map_object` occasionally returns an
+  opaque background — assert transparency ≈40-60%, fix with a border
+  flood-fill keyed on background luma instead of re-rolling). The old cozy
+  style anchors (§2 "The proven workflow") are marked SUPERSEDED (style
+  only — the tool/packing/manifest mechanics documented there still apply).
+- **NEW `docs/COMPOSITION_RULES.md`**: the 25-rule constitution moved from
+  scratchpad — Part 1 (one-camera projection law: pitch≈45°/yaw0°, never
+  isometric/corner/diagonal) + Part 2 (scene grammar: circulation first,
+  enclosure that closes, functional clusters, vegetation clumping, ground
+  discipline, final per-object audit). Binds world-art generation, mock
+  composition, `src/world/zones.ts` layout, AND interior furniture
+  placement — added an "Interiors addendum" explaining the hearth-on-window
+  bug as a rule violation indoors (no object overlaps a window/door;
+  functional clusters like hearth+cooking and bed+nightstand; walkable
+  circulation to every interactable).
+- **`docs/ART_PIVOT_UO.md`**: new "Status" section recording the W0 gate as
+  PASSED (W0.5 projection fix + W0.6 grounding pass; owner approved with
+  "כן זה כבר יותר הכיוון"). Wave scope updates: **W1** also owns restyling
+  the baked ambient ground-scatter (poppies/clover/stones, currently smooth
+  vector, must become chunky pixel) and cleaning dark-bar soil artifacts;
+  **W2** gains three constraints (every enterable building must support a
+  hideable roof/facade for Sims-style interiors; grounding aprons must match
+  the ground a building actually sits on — the audit found cottage green
+  aprons on cobble; interior furniture sprites basin/bed/chair join W2);
+  **W3** gains the REAL-ANIMATIONS requirement (every action —
+  wash/sit-down/seated/stand-up/sleep/cook/chop/fish/hoe/forage/busk/talk/
+  eat/drink — needs a real `animate_character`/`create_character_state`
+  animation, replacing the GF-1 code-bob placeholders; planning must solve
+  the matrix×actions cost explosion via layering before generating). New
+  wave **W-UI** (~20-40 gens): a professional gump-language UI skin via
+  `create_ui_asset` (window frames/taskbar/buttons/slots), typography
+  hierarchy, one consistent icon set replacing emojis.
+- **`docs/DECISIONS.md`**: five dated 2026-07-16/17 entries appended — (a)
+  the W0-mock-rejected → research-driven-rebuild → owner-approved-direction
+  record; (b) the REAL-ANIMATIONS LAW (an action without a real animation is
+  an incomplete feature); (c) the existing HUD Proposal A entry got its
+  shipped commit hash added (`2a5f884`, A1+A2); (d) the Sims-home vision
+  (buy+place decorating, NOT build mode, is committed; furniture/decor must
+  be data-driven placeable instances from now on; the house interior will
+  be enlarged into real functional areas — roadmap block HOME-1; an
+  ownership/assets surface joins the paperdoll); (e) Sims-style roof-hide
+  interiors reaffirmed as a committed W2 constraint.
+- **`docs/ROADMAP_EXPANSION.md`**: three new self-contained blocks added
+  between "Tier 3" and "Horses, carriages, boats" — **HOME-1** (enlarge the
+  house interior into real functional areas), **Roof-hide interiors**
+  (Sims-style in-place top-down view on entry, replacing the disconnected
+  interior-scene transition), and **Buy + place home/farm decorating**
+  (data-driven placeable furniture/decor, NOT a build-mode editor,
+  collision-checked against the Interiors addendum). Also added an
+  **Ownership & assets surface** block (a panel of owned boat/carriage/
+  stall/decor, alongside the paperdoll) and wired the existing "Horses,
+  carriages, boats" block to register its purchases there.
+- **Verification:** `npm run build` passes (docs are bundled as importable
+  JS chunks via an existing glob — `COMPOSITION_RULES.md` was picked up
+  automatically with no manifest/code edit needed, same as every other
+  `docs/*.md` file).
+- **Follow-ups:** none of this block's content requires code changes yet —
+  it's the binding record other agents (W1/W2/W3/W-UI, HOME-1, the
+  decorating system, roof-hide interiors) will execute against.
+
 ## IX-1 — the world answers clicks: trees look/gather, pixel rundown fence, prop flavor
 - **Date:** 2026-07-17 (v1-foundation) — an owner-hit audit found three
   interaction/visual gaps. Zero PixelLab generations used (art pivot in
