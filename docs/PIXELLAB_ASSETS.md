@@ -135,6 +135,54 @@ never moves terrain so this is safe); clean + decal = adapt at runtime
    corner pixels, flood-fill matching-luma-and-connected pixels to
    transparent) before it's ever committed.
 
+### W-UI ledger — the gump UI skin (2026-07-17)
+
+The professional UI re-skin (the owner's "cheap"/"פושטי" verdict on the cozy
+menus). **Cost: exactly 40 generations** — ONE `create_ui_asset` call, which
+is billed at a flat **40 gens per panel** regardless of scope (measured, not
+documented anywhere before — budget UI waves at ~40/panel). Balance
+6976 → 6936. Everything else in the wave is **code/CSS** (CLAUDE.md hard
+rule #1's code-drawn path), zero further gens.
+
+- **UI kit sheet** — `create_ui_asset` id `15f1a17f-f739-4e36-ab90-a1d4b44f8c5c`,
+  384×384, seed 7777. Prompt: *"ornate weathered gump window frame for a
+  dark-fantasy RPG interface, a thick rectangular border of aged dark timber
+  planks bound with black wrought-iron corner brackets rivets and straps, a
+  plain hollow recessed center panel, classic Ultima Online interface chrome,
+  muted earthy desaturated palette of deep charcoal browns and cold iron greys,
+  gritty hand-painted painterly texture, heavy weathering and grime, detailed
+  self-shadowing, grounded and heavy, no bright gold trim, no candy colors, no
+  cartoon outlines"* (palette hint `weathered dark brown timber, black wrought
+  iron, cold slate grey`). The tool returns a COMPOSITE kit sheet (one big
+  frame + ~6 button/label plates + stray gem icons), not a single isolated
+  panel — so **THREE** shipped assets were CROPPED out of the one sheet:
+  - `ui/window.png` (235×229, crop @13,13) — the main window nine-slice frame.
+    Its baked interior decorations (a "QUE" title, a castle scene, a potion, side
+    gems) sit partly inside the border-image slice band, so a `_wui_clean` pass
+    stamped flat dark `#1a140d` over any vivid/bright pixel **within 38px of an
+    edge** (the slice ring) — the plank + iron stayed untouched (low-sat), the
+    decorations in the ring were erased. The center content is irrelevant (the
+    border-image draws no `fill`; `--panel-bg` covers it). Slice
+    `38 36 40 36`, border-width `22px 21px 24px 21px`.
+  - `ui/button.png` (113×51, crop @67,262) — a rounded wrought-iron button
+    plate → the taskbar/zoom `.tool-btn`/`.zoom-btn` border-image (slice 12).
+  - `ui/plate-anchored.png` (116×36, crop @254,38) — a slim iron plate → the
+    ANCHORED HUD chrome (taskbar/needs/info/radar) border-image (slice 10), so
+    fixed HUD reads as riveted iron, distinct from the wood-framed windows.
+  The full raw sheet is kept at `scratchpad/uo-w0/../wui/wh-uo-uikit-source.png`
+  for future harvest (the unused plates can back more chrome without a new gen).
+- **Wired** in `src/ui/skin.ts` (`--skin-window` re-measured + new
+  `--skin-button`/`--skin-anchored`) + `index.html` (all gated behind
+  `.wh-skinned`, each with a zero-PNG CSS fallback — dual-path intact, verified
+  by a zero-PNG smoke boot).
+- **Icons** — the taskbar/HUD emoji (🗺️📜📖📋🎒💾⚙️⏸️☰🪙) are replaced by a
+  code-drawn inline-SVG pixel-glyph set (`src/ui/icons.ts`, `applyIcons()` at
+  boot). Not sprites — code art, always present, the emoji stay in `index.html`
+  as the zero-JS fallback. The 7 need glyphs stayed code-drawn (already clear).
+- **Palette** — the cozy honey/candy-gold token set was retuned to muted UO
+  (aged brass, weathered timber, riveted iron, aged parchment) in `index.html`
+  `:root` + a global de-candy of the bright-gold literals.
+
 ---
 
 ## 1. What's sprite-sourced today (vs code-drawn)
@@ -618,8 +666,10 @@ src/assets/pixellab/
   ground/soil/tile_0.png .. tile_15.png       total), world/ground.ts paintTerrainTiles,
   ground/water/tile_0.png .. tile_15.png      weighted scatter + code Bayer-dither edges
   ground/plaza/tile_0.png .. tile_15.png
-  ui/window.png                   ← session 4: wood+gold nine-slice frame, ui/skin.ts
-  ui/tooltip.png                  ← parchment tooltip panel
+  ui/window.png                   ← W-UI: weathered timber+iron gump nine-slice frame (ring-cleaned), ui/skin.ts
+  ui/button.png                   ← W-UI: wrought-iron button plate (taskbar/zoom border-image)
+  ui/plate-anchored.png           ← W-UI: slim iron plate (anchored HUD chrome border-image)
+  ui/tooltip.png                  ← parchment tooltip panel (cozy-era; superseded by CSS parchment for #prompt)
   ui/portraits/maren.png          ← 2 of 10 NPC busts (8 more queued)
   ui/portraits/tobin.png
 (fonts live alongside, not under pixellab/: src/assets/fonts/WildhearthStorybook.ttf)

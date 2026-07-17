@@ -47,6 +47,12 @@ export function initSkin(): void {
   const panels: Record<string, string> = {
     "--skin-window": "ui/window",
     "--skin-tooltip": "ui/tooltip",
+    // W-UI: the weathered-iron button plate + the slimmer anchored-chrome plate,
+    // both harvested from the same UO-mood gump sheet as ui/window. Each is
+    // gated behind the same `.wh-skinned` class + a zero-PNG CSS fallback, so a
+    // missing PNG just keeps the code-drawn look (dual-path, CLAUDE.md rule #1).
+    "--skin-button": "ui/button",
+    "--skin-anchored": "ui/plate-anchored",
   };
   for (const [varName, id] of Object.entries(panels)) {
     const u = uiUrl(id);

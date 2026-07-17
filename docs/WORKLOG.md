@@ -29,6 +29,73 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## W-UI — the gump skin: professional frames, pixel icons, typography
+- **Date:** 2026-07-17 (v1-foundation). Owner verdict driving it: the cozy
+  menus looked **cheap ("פושטי")** beside a real classic-UO gump. Goal: a
+  professional UI skin in the muted UO-gump language (part of the ART PIVOT,
+  `docs/ART_PIVOT_UO.md` W-UI wave). **Budget: 40 of ≤45 PixelLab generations**
+  (one `create_ui_asset` panel — the tool bills a flat 40/panel; balance
+  6976 → 6936). Everything else is code/CSS (hard-rule-#1 code-drawn path),
+  zero further gens.
+- **The one generation → THREE assets.** `create_ui_asset` id
+  `15f1a17f-…` returned a COMPOSITE UO-mood kit sheet (a big weathered
+  timber+iron window frame + several iron button/label plates). Cropped out of
+  the single sheet: `ui/window.png` (the main nine-slice frame),
+  `ui/button.png` (a wrought-iron button plate), `ui/plate-anchored.png` (a
+  slim iron plate). The frame's baked interior art intruded into the slice
+  ring, so a script stamped flat dark over vivid/bright pixels **within 38px of
+  each edge** (leaving the low-sat plank/iron) — the border-image draws no
+  `fill`, so the untouched centre never renders. Full prompt/ids/crop coords +
+  the flat-40-gens cost note are in `docs/PIXELLAB_ASSETS.md` "W-UI ledger".
+- **Files:**
+  - `src/assets/pixellab/ui/window.png` (REPLACED — the cozy wood+gold frame →
+    the weathered timber+iron gump frame, ring-cleaned).
+  - `src/assets/pixellab/ui/button.png`, `…/plate-anchored.png` (NEW plates).
+  - `src/ui/icons.ts` (NEW): the HUD icon set — code-drawn inline-SVG pixel
+    glyphs (`ICONS`, `setBtnIcon`, `coinIconHtml`, `applyIcons`) that replace
+    the taskbar/coins emoji. Not sprites — code art, always present; the emoji
+    stay in `index.html` as the zero-JS fallback.
+  - `src/main.ts`: imports + calls `applyIcons()` after `setupWindows()` (once
+    every tool button incl. the ☰ hidden-windows button exists); dropped the
+    stray 💾 from the "Game saved." toast.
+  - `src/ui/skin.ts`: wires two new panel URLs — `--skin-button`,
+    `--skin-anchored` — alongside the re-measured `--skin-window`.
+  - `index.html`: (a) `:root` palette retuned from cozy honey/candy-gold to
+    muted UO — aged brass (`--gold #c9a24a`), weathered timber (`--wood`),
+    neutral dark-leather `--panel-bg`, plus NEW `--brass-fill/-edge/-ink`,
+    `--iron/-dark`, `--parch-bg/-ink/-edge` tokens; (b) a global de-candy of
+    the bright-gold literals (`#ffd54f`→brass, the `#f2cf6b/#e6be50` button
+    gradient→brass, the `rgba(230,190,80,…)` fills/tints→muted brass, the
+    `rgba(255,213,79,…)` focus glows→brass); (c) re-measured `--skin-window`
+    slice/border-width; (d) NEW skin rules — the `.tool-btn`/`.zoom-btn` iron
+    button plate + icon-state colours, the `.wh-anchored` riveted-iron chrome
+    (distinct from the wood windows), the `#prompt` aged-parchment pill, the
+    `.ctxmenu` (AX-1 action menu) gump-born parchment strip; every skin rule
+    gated behind `.wh-skinned` with a zero-PNG CSS fallback.
+  - `docs/PIXELLAB_ASSETS.md`: W-UI ledger + folder-listing update.
+- **Behavior:** Every openable window now wears a weathered dark-timber gump
+  frame with black iron corner brackets (the cheap-test asset). The taskbar,
+  needs cluster, info box and radar read as riveted iron HUD plates, clearly
+  distinct from the wood windows. The taskbar/HUD emoji are replaced by one
+  coherent muted pixel-glyph icon set. The whole palette shifted off candy gold
+  to aged brass / weathered iron / aged parchment. The action menu is an aged
+  parchment strip (dark ink, warm hover, greyed-but-readable locked verbs). All
+  DUAL-PATH: with the `ui/` folder gone the game boots on the code-drawn CSS
+  chrome + code-drawn SVG icons (verified).
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** `verify:smoke` + `verify:save` GREEN (zero page/console
+  errors); a **zero-PNG boot** (ui/ renamed out) ran `verify:smoke` GREEN =
+  fallback intact; before/after screenshots at 1920×1080 (desk, backpack+skills,
+  the parchment action menu, the "Game saved." toast) and 390×844 mobile.
+- **Follow-ups:** window TITLEBAR icons (`.wh-icon` spec emoji: 🌻🕑❤🧰…) are
+  still emoji — small and mostly under the wood band, left for a later pass
+  (the pixel-icon set already covers them if wired into the manager). The
+  cozy-era `ui/tooltip.png` is now orphaned (the `#prompt` uses CSS parchment)
+  — harmless, left in place. The in-window `🪙` coin heads
+  (shop/stable/fisher) still use the emoji; `coinIconHtml()` is exported ready
+  to swap them. The raw 40-gen kit sheet has ~4 unused iron plates banked for
+  future chrome (no new gen needed).
+
 ## AX-1 — the action menu: Sims-pie verbs on the world + the axe/chop/wood chain
 - **Date:** 2026-07-17 (v1-foundation). Owner decision behind it: *"there
   should be an action menu — e.g. on a tree, if I have an axe I can also chop

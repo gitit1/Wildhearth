@@ -172,6 +172,7 @@ import { showExitDialog } from "./ui/exitscreen";
 import { applyGlobalPrefs, applyHudPrefs } from "./ui/uiPrefs";
 import { setupWindows, isViewportActive, finishWindowSetup, escCloseTopWindow } from "./ui/windows/setup";
 import { initSkin } from "./ui/skin";
+import { applyIcons } from "./ui/icons";
 import { showIntro, showReveal } from "./ui/intro";
 import { showPathAndGoal } from "./ui/newgame";
 import { showCharacterCreation } from "./ui/charcreation";
@@ -228,6 +229,10 @@ initSkin();
 // BEFORE the first fit(), so the canvas measures its real window body. The
 // manager owns viewport-resize refits from here on (no separate resize listener).
 setupWindows({ refitViewport: fit });
+// Swap the taskbar/HUD emoji for the code-drawn pixel-glyph icon set (one
+// coherent muted family instead of OS emoji). Runs after the dock is built so
+// every tool button (incl. the ☰ hidden-windows button) exists.
+applyIcons();
 fit();
 
 initInput(cv, document.getElementById("actBtn")!);
@@ -2208,7 +2213,7 @@ function manualSave() {
   saveAllStores();
   saveGuidance(guidance);
   stampSave(calendar, economy.coins, guidanceMode());
-  toast("Game saved. 💾");
+  toast("Game saved.");
 }
 
 let autosaveSeconds = AUTOSAVE_SECONDS;
