@@ -82,6 +82,16 @@ export const ICONS: Record<string, string> = {
     `<circle cx="12" cy="12" r="8"/>` +
     `<circle cx="12" cy="12" r="4.2"/>`,
   ),
+  // the PAPERDOLL / character hub: a head + shoulders bust silhouette
+  paperdoll: S(
+    `<circle cx="12" cy="7.5" r="3.4"/>` +
+    `<path d="M5.5 20c0-3.9 2.9-6.6 6.5-6.6s6.5 2.7 6.5 6.6"/>`,
+  ),
+  // a HEART — the relationships hub, one continuous stroke
+  heart: S(
+    `<path d="M12 20.2C6.6 16.3 4 13.2 4 10.1 4 7.6 5.9 5.8 8.2 5.8c1.6 0 2.9.9 3.8 2.2` +
+    `.9-1.3 2.2-2.2 3.8-2.2 2.3 0 4.2 1.8 4.2 4.3 0 3.1-2.6 6.2-8 10.1z"/>`,
+  ),
 };
 
 /** Map a taskbar button id → icon name. */
@@ -91,6 +101,7 @@ const BTN_ICON: Record<string, string> = {
   bookBtn: "book",
   questBtn: "quests",
   bagBtn: "backpack",
+  paperdollBtn: "paperdoll",
   saveBtn: "save",
   settingsBtn: "settings",
   pauseBtn: "pause",

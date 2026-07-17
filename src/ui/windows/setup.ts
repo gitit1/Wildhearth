@@ -281,7 +281,8 @@ function cozyLayout(): void {
  *  restores the radar and never places it. */
 function layoutPanels(d: DesktopSize): void {
   const bp = wm.get("backpack"), sk = wm.get("skills"), bk = wm.get("memorybook"),
-    q = wm.get("quests"), mm = wm.get("minimap"), sh = wm.get("shop"), gf = wm.get("gift");
+    q = wm.get("quests"), mm = wm.get("minimap"), sh = wm.get("shop"), gf = wm.get("gift"),
+    pd = wm.get("paperdoll"), rel = wm.get("relationships");
   // the big world map: centered (a consult-and-close overview), CLOSED by default
   if (mm) { mm.setPinned(false); mm.setRect({ x: Math.round((d.w - mm.rect().w) / 2), y: Math.round((d.h - mm.rect().h) / 2) }); mm.close(); }
   // the corner RADAR: anchored top-left — the manager pins it; just ensure it's shown
@@ -294,6 +295,10 @@ function layoutPanels(d: DesktopSize): void {
   if (sk) { sk.setPinned(false); sk.setRect({ x: lx, y: ly }); sk.close(); }
   if (bk) { bk.setPinned(false); bk.setRect({ x: lx, y: ly }); bk.close(); }
   if (q)  { q.setPinned(false);  q.setRect({ x: lx, y: ly }); q.close(); }
+  // the paperdoll character hub + the relationships panel (HUD-A3/A4): same
+  // left-edge zone, CLOSED by default (they hang off the character, not a preset)
+  if (pd)  { pd.setPinned(false);  pd.setRect({ x: lx, y: ly }); pd.close(); }
+  if (rel) { rel.setPinned(false); rel.setRect({ x: lx, y: ly }); rel.close(); }
   // shop / gift: centered, CLOSED by default
   if (sh) { sh.setPinned(false); sh.setRect({ x: Math.round(d.w * 0.5 - sh.rect().w / 2), y: Math.round(d.h * 0.5 - sh.rect().h / 2) }); sh.close(); }
   if (gf) { gf.setPinned(false); const r = sh?.rect(); gf.setRect({ x: (r?.x ?? 0) + 40, y: (r?.y ?? 0) + 40 }); gf.close(); }
@@ -319,7 +324,7 @@ export const LEFT_PANEL_ZONE_Y = WIN_ANCHOR_MARGIN + RADAR_H + GAP + GAP;
  *  second/third never lands exactly on the first. */
 export function leftPanelAnchor(selfId: string, _d: DesktopSize, _s: { w: number; h: number }): { x: number; y: number } {
   let open = 0;
-  for (const id of ["skills", "memorybook", "quests"]) {
+  for (const id of ["skills", "memorybook", "quests", "paperdoll", "relationships"]) {
     if (id === selfId) continue;
     const h = wm.get(id);
     if (h && h.isOpen()) open++;

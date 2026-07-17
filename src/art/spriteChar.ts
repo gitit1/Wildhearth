@@ -26,6 +26,7 @@
  * SPRITE_MATRIX_SKIN in config.ts.
  */
 import { spriteFrame, sheetInfo, recolorSheet, type SpriteImage, type RecolorBand, type RecolorOp } from "./sprites";
+import type { BustSource } from "./bust";
 import { walkFrame } from "./spriteFacing";
 import { shadow, castShadow } from "./shapes";
 import {
@@ -350,4 +351,23 @@ export function drawHeroinePreview(
   shadow(g, cx, groundY, 12 * (viewScale / 2.5), 4.6 * (viewScale / 2.5));   // soft ground shadow so she doesn't float
   blitMatrix(g, fr, sheetId, cx, groundY, viewScale);
   return true;
+}
+
+// ---- bust: the paperdoll portrait (HUD-A3) --------------------------------
+/**
+ * The player's south-facing (rot_south) sprite frame + geometry for a head+torso
+ * BUST — recoloured to her chosen hair shade, exactly like the in-world sprite.
+ * Returns null when matrix mode is off, her look isn't covered, or the atlas
+ * hasn't decoded yet — the caller (ui/paperdoll.ts) then draws an initials
+ * medallion (art/bust.ts), the zero-PNG dual-path fallback.
+ */
+export function playerBustSource(): BustSource | null {
+  if (!spriteEnabled || !playerAppear) return null;
+  const a = playerAppear, gender = playerGender;
+  if (!spriteCoversLook(gender, a)) return null;
+  const sheetId = matrixSheetId(gender, sizeFor(a), hairFor(a), outfitFor(gender, a));
+  const fr = matrixFrame(sheetId, "rot_south", a);
+  if (!fr) return null;
+  const geo = geometry(sheetId);
+  return { img: fr.img, sx: fr.sx, sy: fr.sy, sw: fr.sw, sh: fr.sh, cell: geo.cell, cx: geo.anchorX, footY: geo.footY };
 }

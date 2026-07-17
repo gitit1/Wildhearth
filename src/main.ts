@@ -78,6 +78,8 @@ import { sellableGoodIds } from "./systems/sellCategories";
 import { NPC_STALL_TRADES, MERCHANT_STOCK, SHOP_STOCK, tryBuy, type NpcStallTrade } from "./systems/shop";
 import { loadMemories, resetMemories, addMemory, saveMemories, attachMemoryFlavor } from "./systems/memories";
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
+import { initPaperdoll, updatePaperdoll, openPaperdoll } from "./ui/paperdoll";
+import { initRelationships, updateRelationships } from "./ui/relationships";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
 import { loadSkills, gainSkill, skillValue, getSkill, saveSkills, decaySkills, teachSkill } from "./systems/skills";
@@ -887,6 +889,26 @@ setTravelHooks({
 });
 initSkillsUI(skills);
 initMemoryBook(collections, memories);
+// HUD-A4 relationships + HUD-A3 paperdoll (created before finishWindowSetup so
+// the saved layout / Classic preset can place them). The paperdoll's
+// Relationships button toggles the relationships window, so create it first.
+initRelationships(relationships, calendar);
+initPaperdoll({
+  getCharacter: () => meta.character,
+  economy, needs, farm, transport, reputation,
+});
+// UO's gesture: DOUBLE-click the player herself opens her paperdoll. A native
+// dblclick leaves the single-click walk path (input.ts) untouched; the two
+// clicks only queued a walk to (roughly) her own feet — a no-op — which we
+// cancel here so she never takes a step from opening her own sheet.
+const PAPERDOLL_SELF_HIT_R = 28;   // world px around her foot that counts as "on her"
+cv.addEventListener("dblclick", (e) => {
+  const [wx, wy] = screenToWorld(e.clientX, e.clientY);
+  if (Math.hypot(wx - player.x, wy - player.y) <= PAPERDOLL_SELF_HIT_R) {
+    openPaperdoll();
+    clearMoveTarget();
+  }
+});
 initDebugPanel();
 initFade();
 initDayEndPanel();
@@ -2799,6 +2821,8 @@ function tick(now: number) {
   updateFisherWindow();
   updateMemoryBook();
   updateQuestLog();
+  updatePaperdoll();        // HUD-A3: needs summary breathes, fame + assets stay current
+  updateRelationships();    // HUD-A4: hearts move the moment a gift lands
   if (!openingActive) { tickGuidance(); tickQuests(); }   // guidance bubble/pill + live quest possession checks
   updateToast(dt);
   // One-time ground re-bake once the pixel tiles have decoded (see boot note).

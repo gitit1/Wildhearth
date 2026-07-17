@@ -29,6 +29,90 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## HUD A3+A4 — the paperdoll hub, what-I-own, and the relationships window
+- **Date:** 2026-07-17 (v1-foundation). Second half of HUD direction A
+  (Proposal A "the tidied UO desk", see `docs/DECISIONS.md`), after the
+  A1+A2 anchored-desk block. **Zero PixelLab generations** — the character
+  busts reuse the already-shipped matrix + NPC sprite sheets; the fallback
+  art is code-drawn.
+- **A3 — the Paperdoll (`src/ui/paperdoll.ts`, new):** a UO-style character
+  hub, a fixed-size (322px, non-resizable) gump-skinned window, id
+  `paperdoll`, home in the left-edge zone (cascaded via `leftPanelAnchor`),
+  right-click / Esc closable. Contents:
+  - **Portrait** — the player's own sprite BUST (south `rot_south` frame from
+    the character matrix, hair recoloured) drawn onto a canvas, cropped to
+    head+torso. New `playerBustSource()` in `src/art/spriteChar.ts` resolves
+    the recoloured frame + geometry; the shared drawer lives in
+    `src/art/bust.ts` (new: `BustSource`, `drawBust`, `drawInitialsMedallion`,
+    `sizeCanvas`, `makeBustCanvas`). Zero-PNG fallback = a code-drawn initials
+    medallion (CLAUDE.md rule #1).
+  - **Name + Town Fame** — `CharacterIdentity` (first/last/nickname) from
+    `systems/meta.ts`; the Fame line (tier + 0/100, from `reputation.ts`
+    `reputationTier`) — reputation's new visible home (the skills-window line
+    stays).
+  - **Needs summary strip** — a compact 7-need cluster reusing
+    `drawNeedsStrip` (`art/needsicons.ts`) at small scale (the anchored needs
+    cluster stays the primary readout).
+  - **Buttons column (the UO paperdoll pattern):** Skills / Quests / Memory
+    Book / Relationships / Settings — the taskbar's own toggle wiring reused
+    by proxying `document.getElementById("skillsBtn").click()` etc.;
+    Relationships calls `toggleRelationships()` (no taskbar button of its own).
+  - **"What I own"** — a data-driven ownership surface via a small provider
+    registry (`houseProvider` + renovation progress from `renovation.ts`
+    `repairsLeft`; `toolsProvider` detecting owned tool ids from the
+    inventory; `transportProvider` from `transport.ts` `ownsTransport`, else
+    "None yet — visit the stable/dock"). New ownable kinds self-list by adding
+    a provider.
+  - **Opened via:** a new 10th taskbar button `#paperdollBtn` (character
+    pixel glyph added to `src/ui/icons.ts` `ICONS.paperdoll` + `BTN_ICON`),
+    the **P** key, AND **double-clicking the player** in the world (native
+    `dblclick` on the canvas in `main.ts`, hit-radius 28px; the single-click
+    walk path in `engine/input.ts` is untouched — the two clicks only queue a
+    walk to her own feet, which the handler cancels).
+- **A4 — the Relationships window (`src/ui/relationships.ts`, new):** id
+  `relationships`, opened from the paperdoll button + the **O** key, NOT on
+  the taskbar (it hangs off the character). One row per NPC from
+  `data/npcs.ts` `NPCS` (11: the 10 townsfolk + Nerys): a head-and-shoulders
+  sprite bust (new `npcBustSource()` in `art/spriteNpc.ts`) or an initials
+  medallion fallback, name + role, Friendship hearts (0-100 → 5 hearts with
+  halves), Romance hearts where `isRomantic` applies, the NPC's birthday
+  (`def.birthday`, real data — no invention), and a "Spoke today / Nd ago /
+  Haven't met yet" hint from the relationship record's `lastInteractDay`.
+  Sorted closest-first (friendship+romance); unmet NPCs sink to the bottom
+  with an intentional empty-state intro line for a day-1 player.
+- **Integration:** both windows are non-viewport wm windows, so story mode
+  (`.wh-story`) hides them for free; added to `leftPanelAnchor`'s cascade
+  list and `layoutPanels` (Classic/Cozy place them CLOSED at the left zone;
+  Reset via Classic) in `src/ui/windows/setup.ts`; both closed by default;
+  both live-update while open (needs strip breathes, hearts move after a
+  gift) via `updatePaperdoll()` / `updateRelationships()` in the main frame
+  loop. Keys P and O verified free (K/B/J/I/M were taken). The ☰
+  hidden-windows menu lists them when closed.
+- **Files:** new `src/art/bust.ts`, `src/ui/paperdoll.ts`,
+  `src/ui/relationships.ts`, `verify/shot-hud-a34.mjs`; edited
+  `src/art/spriteChar.ts`, `src/art/spriteNpc.ts`, `src/ui/icons.ts`,
+  `src/ui/windows/setup.ts`, `src/main.ts`, `index.html`.
+- **Verification:** `npm run build`, `verify:smoke`, `verify:save` all green;
+  `verify/shot-hud-a34.mjs` (new) drives the real flow at 1920×1080 +
+  390×844 with 22 PASS assertions and screenshots
+  (`verify/out/a34-*.png`) — paperdoll (portrait/name/fame/needs/buttons/
+  house+hoe+axe), relationships full (hearts, Maren sorted top) + empty-state,
+  the three-window left-zone cascade, and the double-click-self gesture (single
+  click still walks). All screenshots reviewed by eye.
+- **Follow-ups:**
+  - Overlapping panels bleed faintly through each other — the shared window
+    `--panel-bg` is 96% opaque (pre-existing, all windows), noticeable when the
+    wide paperdoll + relationships are open together; a future opaque-panel
+    option would remove it.
+  - Committed NPC portrait busts already exist at `ui/portraits/<id>.png`
+    (`npcPortraitUrl` in `skin.ts`) for the 10 townsfolk; per this block's
+    brief we used sprite busts, but the relationships rows could swap to those
+    richer portraits later.
+  - Nerys (11th NPC) has no character sheet yet, so her relationship row uses
+    the initials-medallion fallback until one ships.
+  - Skin-tone recolor for the portrait remains "coming soon" (matrix
+    limitation, unchanged from prior blocks).
+
 ## W1.1 — ground quality pass: de-quilt, coherent furrows, organic edges
 - **Date:** 2026-07-17 (v1-foundation). Follow-up to W1 after the
   orchestrator's eyeball review flagged 3 ground defects. **Zero PixelLab

@@ -37,6 +37,7 @@ import {
   SPRITE_NPC_SCALES, SPRITE_FACING_HYSTERESIS, CHARACTER_SPRITES_PRIMARY,
 } from "../config";
 import type { Npc } from "../entities/npc";
+import type { BustSource } from "./bust";
 
 const WALK_FRAMES = 6;
 
@@ -58,6 +59,23 @@ const sheetIdFor = (n: Npc) => `characters/${n.def.id}`;
  *  drawNpcSprite falls back on its own too; this is for the verification bridge. */
 export function npcHasSprite(n: Npc): boolean {
   return npcSpritesEnabled && sheetInfo(sheetIdFor(n)) !== null;
+}
+
+/**
+ * An NPC's south-facing (rot_south) sprite frame + geometry for a head+shoulders
+ * BUST in the Relationships window (HUD-A4). Keyed by NPC id (the roster passes
+ * def.id). Returns null when NPC sprites are off, the NPC has no sheet (e.g.
+ * Nerys today), or the atlas hasn't decoded — the caller then draws an initials
+ * medallion (art/bust.ts), the zero-PNG dual-path fallback.
+ */
+export function npcBustSource(npcId: string): BustSource | null {
+  if (!npcSpritesEnabled) return null;
+  const sheetId = `characters/${npcId}`;
+  const info = sheetInfo(sheetId);
+  if (!info) return null;
+  const fr = spriteFrame(sheetId, "rot_south");
+  if (!fr) return null;
+  return { img: fr.img, sx: fr.sx, sy: fr.sy, sw: fr.sw, sh: fr.sh, cell: info.canvas, cx: info.anchor.cx, footY: info.anchor.footY };
 }
 
 /**
