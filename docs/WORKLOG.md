@@ -29,6 +29,55 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## A4.1 — relationships rows get real faces
+- **Date:** 2026-07-17 (v1-foundation). Fix-block on top of the A3+A4 commit
+  (`a3fa09d`), from an eyeball review of `verify/out/a34-b-relationships-full.png`:
+  the relationships rows' NPC medallions rendered nearly empty — the sprite
+  bust crop was catching the sheet's feet/bottom padding instead of
+  head+shoulders. **Zero PixelLab generations.**
+- **Root cause (`src/art/bust.ts` `drawBust`):** the crop window was
+  `[cell·topFrac .. footY·bustFraction]`, assuming the character's head
+  starts essentially at row 0 of the sheet's cell. True for the player matrix
+  sheets (very little top padding), false for the 10 NPC sheets (noticeably
+  more headroom above the character) — so the same fixed fraction landed the
+  NPC crop mostly on transparent padding above the head, with only a sliver of
+  hair poking in at the very bottom of the medallion. Confirmed by simulating
+  the exact formula against `finn.sheet.png`'s real pixels outside the
+  browser (a throwaway Node/pngjs script) before touching source.
+- **Fix 1 — measured crop (`src/art/bust.ts`):** new `measureTopRow()` scans a
+  resolved frame's own alpha data (once per (image, sub-rect), cached in a
+  `WeakMap`) for its real head-top row, instead of assuming a fixed cell
+  fraction. `drawBust` now derives the crop from the frame's MEASURED span
+  (head-top → `footY`) — `visTop = measuredTop − cell·topFrac` (small margin),
+  `visBot = measuredTop + (footY − measuredTop)·bustFraction` — falling back
+  to the original guess only if the canvas read ever fails. Same call sites,
+  same `bustFraction`/`topFrac` values (paperdoll 0.66/0.02, relationships
+  0.46/0.02); paperdoll's own crop is unaffected (verified — matrix sheets
+  have little top padding either way).
+- **Fix 2 — portrait-first fallback chain (`src/art/bust.ts`, new
+  `drawFace()`):** the 10 committed `ui/portraits/<id>.png` photo portraits
+  (already used by the dialogue notch via `npcPortraitUrl`, `src/ui/skin.ts`)
+  were never wired into the relationships rows. `drawFace()` is the shared
+  chain — shipped portrait (`sprite("ui/portraits/<id>")`) → sprite bust →
+  code-drawn initials medallion — living in `bust.ts` so any future consumer
+  gets the same order, not just this window. Also added `drawPortraitCover()`
+  (private): blits a portrait "cover"-style, top-anchored + centred
+  (mirrors the dialogue notch's own `object-fit:cover; object-position:top
+  center`).
+- **`src/ui/relationships.ts`:** swapped the manual bust-or-medallion branch
+  for one `drawFace()` call per row; `Row.bustDrawn` renamed `Row.faceDrawn`
+  (true once a portrait OR a bust has landed, stopping the redraw-until-decoded
+  retry — unchanged semantics, just no longer bust-only).
+- **Verified by looking:** fresh 1920×1080 `verify/shot-hud-a34.mjs` run
+  (VERIFY GREEN, 19/19 checks) — `verify/out/a34-b-relationships-full.png`
+  now shows Maren/Liora/Petra/Tobin/Finn (and, scrolled, Bram/Ada/Jonas) as
+  their real portrait photos, filling the medallion. Nerys (no sheet, no
+  portrait — the one NPC still missing both) shows a clean "N" initials
+  medallion, not a blank one. `npm run build` and `npm run verify:smoke` both
+  green.
+- **Follow-ups:** Nerys still has neither a portrait nor a character sheet —
+  unchanged scope for this fix (no generations), noted here so it isn't lost.
+
 ## HUD A3+A4 — the paperdoll hub, what-I-own, and the relationships window
 - **Date:** 2026-07-17 (v1-foundation). Second half of HUD direction A
   (Proposal A "the tidied UO desk", see `docs/DECISIONS.md`), after the

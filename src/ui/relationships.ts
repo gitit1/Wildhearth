@@ -2,7 +2,7 @@ import { NPCS, isRomantic, type NpcDef } from "../data/npcs";
 import { readRelationship, type Relationships } from "../systems/relationships";
 import { absoluteDay, type CalendarState } from "../systems/calendar";
 import { npcBustSource } from "../art/spriteNpc";
-import { drawBust, drawInitialsMedallion, makeBustCanvas } from "../art/bust";
+import { drawFace, makeBustCanvas } from "../art/bust";
 import { wm, toggleWindow } from "./windows/manager";
 import { leftPanelAnchor } from "./windows/setup";
 import type { WindowHandle } from "./windows/window";
@@ -10,12 +10,14 @@ import type { WindowHandle } from "./windows/window";
 /**
  * Relationships window (HUD-A4) — the townsfolk roster the paperdoll's
  * "Relationships" button (and the O key) open; NOT on the taskbar (it hangs off
- * the character, UO-style). One row per NPC: a head-and-shoulders sprite bust
- * (or a code-drawn initials medallion when no sheet has shipped / decoded yet —
- * the zero-PNG dual-path fallback), name + role, Friendship hearts (0-100 → 5
- * hearts with halves), Romance hearts where romance applies, the NPC's birthday,
- * and a "last spoke" hint. Sorted closest-first; unmet NPCs sink to the bottom
- * with an intentional empty-state line.
+ * the character, UO-style). One row per NPC: a face — a shipped portrait photo
+ * first, else a head-and-shoulders sprite bust, else a code-drawn initials
+ * medallion (art/bust.ts drawFace's shared fallback chain; the medallion is the
+ * zero-PNG dual-path fallback when neither a portrait nor a sheet has shipped /
+ * decoded yet) — name + role, Friendship hearts (0-100 → 5 hearts with halves),
+ * Romance hearts where romance applies, the NPC's birthday, and a "last spoke"
+ * hint. Sorted closest-first; unmet NPCs sink to the bottom with an
+ * intentional empty-state line.
  *
  * Gump-skinned (a plain wm window picks up the wood frame), fixed left-zone home
  * (cascaded via leftPanelAnchor), right-click / Esc closable, and it live-updates
@@ -32,7 +34,7 @@ const R_COLOR = "#e8607d";   // romance hearts (rose)
 interface Row {
   root: HTMLElement;
   bustCtx: CanvasRenderingContext2D;
-  bustDrawn: boolean;        // a real sprite bust landed (stop re-medallioning)
+  faceDrawn: boolean;        // a real face (portrait or sprite bust) landed (stop re-medallioning)
   name: HTMLElement;
   hearts: HTMLElement;
   meta: HTMLElement;
@@ -104,7 +106,7 @@ function buildRow(def: NpcDef): Row {
   main.append(name, role, hearts, meta);
 
   root.append(bustWrap, main);
-  return { root, bustCtx: g, bustDrawn: false, name, hearts, meta };
+  return { root, bustCtx: g, faceDrawn: false, name, hearts, meta };
 }
 
 /** 0-100 → five hearts (full / half / empty) of one colour, as HTML. */
@@ -153,12 +155,16 @@ function refresh() {
     const met = !!rels.byId[def.id];
     if (met) anyMet = true;
 
-    // bust (or medallion fallback) — keep the sprite once it's landed
-    if (!row.bustDrawn) {
-      const src = npcBustSource(def.id);
+    // face (portrait → sprite bust → medallion fallback chain, art/bust.ts
+    // drawFace) — keep it once a REAL face has landed.
+    if (!row.faceDrawn) {
       row.bustCtx.clearRect(0, 0, BUST, BUST);
-      if (src) { drawBust(row.bustCtx, src, BUST, BUST, { bustFraction: 0.46, topFrac: 0.02 }); row.bustDrawn = true; }
-      else drawInitialsMedallion(row.bustCtx, def.name[0] ?? "?", BUST, BUST, def.id);
+      const landed = drawFace(
+        row.bustCtx, BUST, BUST,
+        `ui/portraits/${def.id}`, npcBustSource(def.id), def.name[0] ?? "?", def.id,
+        { bustFraction: 0.46, topFrac: 0.02 },
+      );
+      if (landed) row.faceDrawn = true;
     }
 
     let hearts = heartsHtml(v.friendship, F_COLOR, "f");
