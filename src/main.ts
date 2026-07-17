@@ -1,6 +1,8 @@
 import {
   T,
   WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE, CHOP_YIELD,
+  CHOP_TIME, CHOP_TIME_SKILLED_MULT, CHOP_TIME_EXPERT_MULT, CHOP_EXPERT_BONUS_LOG,
+  STOKE_WOOD_COST, STOKE_MOOD_GLOW, EAT_TABLE_HUNGER_BONUS, EAT_TABLE_MOOD_GLOW,
   DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS, AUTOSAVE_SECONDS, NPC_SALE_FRIENDSHIP_BUMP,
   CAM_NORTH_SKY_MARGIN, INTERIOR_ZOOM,
   CUSTOMER_MARKET_START, CUSTOMER_MARKET_END, CUSTOMER_MAX_CONCURRENT, CUSTOMER_SPAWN_GAP_MIN,
@@ -82,7 +84,7 @@ import { initPaperdoll, updatePaperdoll, openPaperdoll } from "./ui/paperdoll";
 import { initRelationships, updateRelationships } from "./ui/relationships";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
 import { removeItem, countItem, addItem, ITEM_NAMES } from "./systems/inventory";
-import { loadSkills, gainSkill, skillValue, getSkill, saveSkills, decaySkills, teachSkill } from "./systems/skills";
+import { loadSkills, gainSkill, skillValue, skillTier, getSkill, saveSkills, decaySkills, teachSkill } from "./systems/skills";
 import {
   loadTeaching, resetTeaching, lessonsTaken, canLearnToday, lessonGain, recordLesson,
 } from "./systems/teaching";
@@ -277,6 +279,10 @@ const farmwork = createFarmWork();
 const busking = createBusking();
 const cooking = createCooking();
 const chores = createChores();   // GF-1: interior wash/sit placed activities
+// AX-2: where the current "sit" is happening — the interior chair (GF-1, glides
+// onto the seat + stands up) vs. an outdoor stump/bench (sit in place, small
+// energy tick). Gates the stand-up + the interior chair-front occluder.
+let sitKind: "chair" | "stump" | "bench" | null = null;
 const chopping = createChop();   // AX-1: tree-chop placed activity
 const skills = loadSkills();
 const garden = loadGarden();
@@ -947,6 +953,47 @@ function eatItem(id: string): boolean {
   return true;
 }
 
+// AX-2: whether the hearth fire is currently stoked — a brighter evening fire
+// glow (drawInteriorScene overlay). Reset each new in-game day (and New Game).
+let hearthStoked = false;
+
+/** AX-2: stoke the hearth fire — burn one wood log for a brighter evening fire +
+ *  a small mood lift. The hearth verb greys out ("Needs wood logs") with no wood;
+ *  this re-checks belt-and-braces. */
+function stokeFire() {
+  if (busyNow()) return;
+  if (countItem(economy.inv, "wood") < STOKE_WOOD_COST) {
+    toast("You need wood logs to build the fire up — fell a tree for some."); return;
+  }
+  removeItem(economy.inv, "wood", STOKE_WOOD_COST);
+  saveEconomy(economy);
+  hearthStoked = true;
+  needs.socialGlow = Math.max(needs.socialGlow, STOKE_MOOD_GLOW);   // a small mood lift
+  saveNeeds(needs);
+  toast("You feed a log to the fire — it flares up warm and bright. 🔥");
+  remember("first_stoke", "You built the evening fire up bright for the first time.");
+}
+
+/** AX-2: eat at the interior table — the most nourishing food in the bag, but the
+ *  sit-down meal restores a bit more hunger and lifts mood vs. eating standing.
+ *  The table verb greys out ("Needs something to eat") when the bag holds no food. */
+function eatAtTable() {
+  if (busyNow()) return;
+  let bestId: string | null = null, bestAmt = 0;
+  for (const s of economy.inv.slots) {
+    if (!s) continue;
+    const amt = edibleHunger(s.id);
+    if (amt > bestAmt) { bestAmt = amt; bestId = s.id; }
+  }
+  if (!bestId) { toast("Nothing to eat in your bag — bring food to the table."); return; }
+  removeItem(economy.inv, bestId, 1);
+  saveEconomy(economy);
+  const gained = Math.round(restore(needs, "hunger", bestAmt * EAT_TABLE_HUNGER_BONUS));
+  needs.socialGlow = Math.max(needs.socialGlow, EAT_TABLE_MOOD_GLOW);   // a proper meal lifts the mood
+  saveNeeds(needs);
+  toast(`You sit and eat the ${(ITEM_NAMES[bestId] ?? bestId).toLowerCase()} properly. (+${gained} hunger) 🍽`);
+}
+
 /** Writes a once-only life event into the Memory Book (+ a quiet toast). */
 function remember(key: string, text: string) {
   if (addMemory(memories, key, text, calendar)) { toast(`✒ ${text}`); logMemory(dayLog, text); }
@@ -1094,8 +1141,20 @@ function beginWash() {
  *  onto a guaranteed-free spot south of the chair — she can never be trapped. */
 function beginSit() {
   if (chores.active || cooking.cooking) return;
+  sitKind = "chair";
   player.x = REST_SEAT[0]; player.y = REST_SEAT[1];
   player.dir = 2;                            // seated, facing out into the room
+  player.moving = false; clearMoveTarget();
+  startChore(chores, "sit");
+}
+/** AX-2: a short outdoor rest — perch on a tree stump or a town bench. Unlike the
+ *  interior chair she sits in PLACE (already within reach on walkable ground, so
+ *  she can't be trapped by the stump/bench collision); the seated pose reads it,
+ *  and the small energy tick + toast land on completion. */
+function beginWorldSit(kind: "stump" | "bench") {
+  if (busyNow()) return;
+  sitKind = kind;
+  player.dir = 2;                            // seated, facing out
   player.moving = false; clearMoveTarget();
   startChore(chores, "sit");
 }
@@ -1115,29 +1174,40 @@ function busyNow(): boolean {
 /** Begin felling WORLD_TREES[treeIndex]: stop moving and run the short swing
  *  state. The tree interactable already faced the player toward the trunk and
  *  checked the axe; the wood yield + stump land on completion (completeChop). */
+/** AX-2: the swing time scales with Woodcutting tier — a Skilled/Expert chopper
+ *  fells a tree faster. */
+function chopDuration(): number {
+  const tier = skillTier(skillValue(skills, "woodcutting"));
+  const mult = tier === "Expert" ? CHOP_TIME_EXPERT_MULT : tier === "Skilled" ? CHOP_TIME_SKILLED_MULT : 1;
+  return CHOP_TIME * mult;
+}
 function beginChop(treeIndex: number) {
   if (busyNow()) return;
   player.moving = false; clearMoveTarget();
-  startChop(chopping, treeIndex);
+  startChop(chopping, treeIndex, chopDuration());
 }
-/** Chop complete: drop wood logs into the bag (as many as fit), turn the tree to
- *  a stump, and persist the stump. No skill gain (a Woodcutting skill is an owner
- *  decision — WORKLOG follow-up). */
+/** Chop complete (AX-2): drop wood logs into the bag (as many as fit — Expert
+ *  Woodcutting drops an extra log), turn the tree to a stump, persist it, and
+ *  train Woodcutting via the usual gain roll. */
 function completeChop(treeIndex: number) {
   const tr = trees[treeIndex];
   if (!tr) return;
+  const yieldLogs = CHOP_YIELD + (skillTier(skillValue(skills, "woodcutting")) === "Expert" ? CHOP_EXPERT_BONUS_LOG : 0);
   let got = 0;
-  for (let n = 0; n < CHOP_YIELD; n++) { if (addItem(economy.inv, "wood", 1)) got++; else break; }
+  for (let n = 0; n < yieldLogs; n++) { if (addItem(economy.inv, "wood", 1)) got++; else break; }
   if (got > 0) saveEconomy(economy);
   chopTree(tr, absoluteDay(calendar));
   saveChoppedTrees(trees);
   burst("chip", tr.x, tr.y - 18);
   remember("first_chop", "You felled your first tree — a stack of logs to sell or build with.");
-  toast(got === CHOP_YIELD
+  toast(got === yieldLogs
     ? `Timber! ${got} wood logs for the bag. 🪵`
     : got > 0
       ? `Timber! ${got} wood logs — the rest wouldn't fit.`
       : "The tree falls, but your bag's too full to carry the wood.");
+  // AX-2: chopping trains Woodcutting (mood-scaled gain roll, like every action)
+  const gained = gainSkill(skills, "woodcutting", moodPerfMult(needs));
+  if (gained > 0) onSkillGain("woodcutting", gained);
 }
 
 // ---- stall trade windows: which rect the player must stay near to keep the
@@ -1492,6 +1562,7 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     if (isFestivalDay(calendar)) setWorldFlag(worldFlags, "festival_today", 1, absoluteDay(calendar));
     // ---- AI daily hooks (Part D) — all no-ops with their features off --------
     const abs = absoluteDay(calendar);
+    hearthStoked = false;   // AX-2: last night's fire has burned down by morning
     if (regrowTrees(trees, abs)) saveChoppedTrees(trees);   // AX-1: stumps grow back after TREE_REGROW_DAYS
     rolloverDay(customerLedger, abs);   // v2: reset the day's customer-sales count
     decayReputation(reputation, abs);   // v2 block #2: gentle Fame drift after long inactivity (floored at tier)
@@ -1567,7 +1638,7 @@ function minutesUntilMorning(): number {
  *  fade-to-black covers the transition (no lying-down pose is built — the fade
  *  does the work). Only indoors; collapse has its own path. */
 function faceBedForSleep() {
-  cancelChore(chores);   // never fall asleep mid-sit
+  cancelChore(chores); sitKind = null;   // never fall asleep mid-sit
   if (scene !== "interior") return;
   player.x = BED_SIDE[0]; player.y = BED_SIDE[1];
   player.dir = 3;        // facing west, toward the bed on the west wall
@@ -2064,6 +2135,8 @@ function makeCtx(): InteractCtx {
     relationships, calendar, player,
     toast, openShop: openPlayerStall, enterHouse, leaveHouse,
     startWash: beginWash, startSit: beginSit,
+    sitOutdoors: beginWorldSit,   // AX-2: stump/bench "Sit"
+    stokeFire, eatAtTable,        // AX-2: hearth "Stoke the fire" + table "Eat at the table"
     sleep: sleepUntilMorning, nap: napAnHour,
     skillPopup: skillGainPopup,
     memory: remember,
@@ -2210,6 +2283,7 @@ function newGameReset(character: Character, mode: Guidance) {
   saveChoppedTrees(trees);   // clear any persisted stumps (clearSavedGame also drops TREES_KEY)
   resetFarm(farm, farmManifestForPath(character.path));   // FARM-START-1: the path's starting farm
   syncFarmManifest();        // collision + interactions follow the new manifest
+  hearthStoked = false; sitKind = null;   // AX-2: a fresh life's hearth is cold, no sit in progress
   resetCalendar(calendar);
   resetWeather(weather);
   resetWorldFlags(worldFlags);
@@ -2496,7 +2570,7 @@ function tick(now: number) {
     if (cooking.cooking) cancelCook(cooking);
     // GF-1: moving stands her up first (she's already stepping off the seat via
     // updatePlayer this frame — no reposition, just drop the state so she's free).
-    if (chores.active) cancelChore(chores);
+    if (chores.active) { cancelChore(chores); sitKind = null; }
     if (chopping.active) cancelChop(chopping);   // AX-1: walking off abandons the chop (no wood, no stump)
   }
 
@@ -2690,7 +2764,15 @@ function tick(now: number) {
   // her up onto the guaranteed-free spot south of the chair.
   const choreDone = updateChore(chores, dt);
   if (choreDone === "wash") { wash(needs); toast("You scrub up in cold basin water. Better. 🫧"); }
-  else if (choreDone === "sit") { rest(needs); standUpFromSeat(); toast("You sink into the wobbly chair a while. A small comfort."); }
+  else if (choreDone === "sit") {
+    rest(needs);
+    // AX-2: the interior chair stands her up onto a free spot; an outdoor perch
+    // just ends in place with its own line.
+    if (sitKind === "stump") toast("You perch on the stump a while. A small rest.");
+    else if (sitKind === "bench") toast("You rest on the bench a while, watching the world go by.");
+    else { standUpFromSeat(); toast("You sink into the wobbly chair a while. A small comfort."); }
+    sitKind = null;
+  }
   // emit splash/steam over the basin/pot while the action runs (interior only)
   if (scene === "interior" && (cooking.cooking || (chores.active && chores.kind === "wash"))) {
     interiorFxAccum += dt;
@@ -3045,6 +3127,7 @@ function drawInteriorScene(dt: number) {
   applyCamera(ctx, cv, player.x, player.y, ROOM, 0, INTERIOR_ZOOM);
   ctx.imageSmoothingEnabled = false;
   drawInterior(ctx, time, currentPhase(calendar));
+  if (hearthStoked) drawHearthGlow(ctx, time);   // AX-2: the stoked evening fire
   // interim wash/cook feedback: advance + draw the burst particles (steam/splash)
   // BEFORE the farmer so steam rises behind her at the north-wall hearth. Bursts
   // only — no seasonal drift indoors (it would leak outdoor petals into the room).
@@ -3054,13 +3137,37 @@ function drawInteriorScene(dt: number) {
   // GF-1 sit: a small code seat-front drawn OVER her lower legs so she reads as
   // sitting IN the chair (the interior isn't depth-sorted; the chair sprite is
   // drawn before her, so this is the pragmatic occlusion until W3 seated frames).
-  if (chores.active && chores.kind === "sit") drawSeatFront(ctx);
+  if (chores.active && chores.kind === "sit" && sitKind === "chair") drawSeatFront(ctx);
   if (hovered) hovered.drawHover(ctx, time);
   // Day/night tint indoors: the same continuous clock, milder (DECISIONS-
   // grounded call: a room with a fire/lamp shouldn't go as dark as the yard).
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   paintDayNightTint(ctx, cv.width, cv.height, calendar.hour, calendar.minute, true);
   drawVignette("rgba(60,45,25,0)", "rgba(15,10,5,.42)");   // dimmer indoors
+}
+
+/** AX-2: a warm, flickering fire glow over the hearth firebox when it's been
+ *  stoked (drawn in world space, inside the interior camera transform). A code
+ *  overlay — zero gens, sits over both the hearth sprite and its code fallback. */
+function drawHearthGlow(g: CanvasRenderingContext2D, t: number) {
+  const cx = R_HEARTH.x + R_HEARTH.w * 0.5, cy = R_HEARTH.y + R_HEARTH.h * 0.58;
+  const flick = 0.82 + 0.18 * (0.5 + 0.5 * Math.sin(t * 8.5) * Math.sin(t * 4.7));
+  const rad = R_HEARTH.w * 1.7 * flick;
+  g.save();
+  g.globalCompositeOperation = "lighter";
+  const grd = g.createRadialGradient(cx, cy, 2, cx, cy, rad);
+  grd.addColorStop(0, `rgba(255,186,92,${0.5 * flick})`);
+  grd.addColorStop(0.5, `rgba(240,120,44,${0.22 * flick})`);
+  grd.addColorStop(1, "rgba(200,80,20,0)");
+  g.fillStyle = grd;
+  g.beginPath(); g.arc(cx, cy, rad, 0, 7); g.fill();
+  // a couple of bright flame licks dancing in the firebox
+  g.fillStyle = `rgba(255,214,128,${0.72 * flick})`;
+  g.beginPath(); g.ellipse(cx, cy, R_HEARTH.w * 0.15, R_HEARTH.h * 0.24 * flick, 0, 0, 7); g.fill();
+  g.fillStyle = `rgba(255,168,70,${0.6 * flick})`;
+  g.beginPath(); g.ellipse(cx - R_HEARTH.w * 0.14, cy + 2, R_HEARTH.w * 0.08, R_HEARTH.h * 0.16 * flick, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(cx + R_HEARTH.w * 0.14, cy + 2, R_HEARTH.w * 0.08, R_HEARTH.h * 0.17 * flick, 0, 0, 7); g.fill();
+  g.restore();
 }
 
 /** GF-1: the seat slab + front legs of the chair, painted OVER the seated

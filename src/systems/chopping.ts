@@ -23,11 +23,13 @@ export function createChop(): ChopState {
   return { active: false, timer: 0, total: 0, treeIndex: -1 };
 }
 
-export function startChop(c: ChopState, treeIndex: number) {
+/** `duration` lets the caller scale the swing time by Woodcutting tier (AX-2);
+ *  it defaults to the base CHOP_TIME. */
+export function startChop(c: ChopState, treeIndex: number, duration: number = CHOP_TIME) {
   if (c.active) return;
   c.active = true;
   c.treeIndex = treeIndex;
-  c.total = CHOP_TIME;
+  c.total = duration;
   c.timer = c.total;
 }
 

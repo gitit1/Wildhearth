@@ -1,11 +1,11 @@
 import {
-  POND, STALL, BARN, COOP, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
+  POND, STALL, BARN, COOP, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_TABLE, R_DOOR, FLOWER_BEDS,
   FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot, type StallDef,
   TOWN_MERCHANTS, INN, TOWN_HOMES, STABLE, DOCK, TOWN_DOCK, TOWN_BUSK_SPOT, type MerchantKind,
   WORLD_PROPS,
 } from "../world/zones";
 import { type FarmManifest, LEGACY_FARM_MANIFEST } from "../data/farmStart";
-import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
+import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH, STOKE_WOOD_COST } from "../config";
 import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
 import { saveFarm, repairsLeft, type FarmState, type FarmPart } from "./renovation";
@@ -25,7 +25,7 @@ import type { FishLocation } from "../data/fish";
 import { FLOWERS, flowerById, flowerBySeed } from "../data/flowers";
 import { currentSeason, absoluteDay } from "./calendar";
 import {
-  drink, useOuthouse, moodPerfMult, type NeedsState,
+  drink, useOuthouse, moodPerfMult, isEdible, type NeedsState,
 } from "./needs";
 import { cropBySeed } from "../data/crops";
 import type { Season, CalendarState } from "./calendar";
@@ -80,6 +80,9 @@ export interface InteractCtx {
   nap: () => void;                               // "Nap an hour"
   startWash: () => void;                         // GF-1: begin the placed wash activity at the basin
   startSit: () => void;                          // GF-1: sit down in the rest chair (placed activity)
+  sitOutdoors: (kind: "stump" | "bench") => void; // AX-2: perch on a tree stump / town bench (small energy tick)
+  stokeFire: () => void;                          // AX-2: hearth "Stoke the fire" (burns a wood log)
+  eatAtTable: () => void;                          // AX-2: interior table "Eat at the table"
   skillPopup: (id: string, amount: number) => void;
   memory: (key: string, text: string) => void;   // once-only Memory Book events
   expandFarm: () => void;                        // materialize a just-bought plot tier
@@ -404,6 +407,25 @@ const notableProps: Interactable[] = WORLD_PROPS
     };
   });
 
+// AX-2: the market/town benches (props/bench) become sit-able — a short outdoor
+// rest (small energy tick, same placed-sit mechanic as the stump). Sit + Look.
+const benches: Interactable[] = WORLD_PROPS
+  .filter((p) => p.id === "props/bench")
+  .map((p, i) => ({
+    id: `bench-${i}`,
+    name: "Bench",
+    menuOnActivate: true,   // Sit / Look → action menu
+    anchor: [p.x, p.y + 22] as [number, number],
+    defaultActionId: "sit",
+    hit: (wx: number, wy: number) => Math.abs(wx - p.x) <= 24 && Math.abs(wy - (p.y - 6)) <= 14,
+    inReach: (px: number, py: number) => Math.hypot(px - p.x, py - p.y) < 46,
+    actions: () => [
+      { id: "sit", label: "Sit", run: (c: InteractCtx) => c.sitOutdoors("bench") },
+      { id: "look", label: "Look", run: (c: InteractCtx) => c.toast("A weathered wooden bench — a good place to rest a while and watch the day.") },
+    ],
+    drawHover: (g: CanvasRenderingContext2D, t: number) => glowRect(g, p.x - 26, p.y - 20, 52, 28, t),
+  }));
+
 // The drawn stall is bigger than the STALL logic rect: the awning rises above
 // it (to y - 0.4h) and the legs drop below it (to ~y + 1.05h). Use those true
 // visible bounds so hover + highlight cover the whole structure, not just the
@@ -645,6 +667,14 @@ const hearthSpot: Interactable = {
         run: (c) => { if (busy(c)) return; c.player.dir = 0; startCook(c.cooking, r.id); },  // GF-1: face the hearth while cooking
       });
     });
+    // AX-2: build the evening fire up — greyed with its reason until she has wood
+    // logs to burn (teaches the wood chain: fell a tree with the axe → logs).
+    const hasWood = countItem(c.economy.inv, "wood") >= STOKE_WOOD_COST;
+    list.push({
+      id: "stoke", label: "Stoke the fire",
+      disabled: !hasWood, reason: hasWood ? undefined : "Needs wood logs",
+      run: (c) => c.stokeFire(),
+    });
     list.push({
       id: "look", label: "Look",
       run: (c) => c.toast(cookable.length
@@ -697,6 +727,29 @@ const restSpot: Interactable = {
   ],
   drawHover: (g, t) => glowRect(g, R_REST.x - 3, R_REST.y - 3, R_REST.w + 6, R_REST.h + 6, t),
 };
+// AX-2: the living-area table — "Eat at the table" (a sit-down meal off the best
+// food in the bag, better mood/food than eating standing), greyed with its
+// reason ("Needs something to eat") when the bag holds no food.
+const tableSpot: Interactable = {
+  id: "table", name: "Table", scene: "interior",
+  menuOnActivate: true,   // Eat at the table / Look → action menu
+  anchor: [R_TABLE.x + R_TABLE.w / 2, R_TABLE.y + R_TABLE.h + 18],
+  defaultActionId: "eat",
+  hit: (wx, wy) => wx >= R_TABLE.x - 4 && wx <= R_TABLE.x + R_TABLE.w + 4 && wy >= R_TABLE.y - 10 && wy <= R_TABLE.y + R_TABLE.h + 4,
+  inReach: (px, py) => nearRect(px, py, R_TABLE, 30),
+  actions: (c) => {
+    const hasFood = c.economy.inv.slots.some((s) => !!s && isEdible(s.id));
+    return [
+      {
+        id: "eat", label: "Eat at the table",
+        disabled: !hasFood, reason: hasFood ? undefined : "Needs something to eat",
+        run: (c) => { if (busy(c)) return; c.eatAtTable(); },
+      },
+      { id: "look", label: "Look", run: (c) => c.toast("A rough plank table with a crate for a stool — a place to sit down to a proper meal.") },
+    ];
+  },
+  drawHover: (g, t) => glowRect(g, R_TABLE.x - 3, R_TABLE.y - 3, R_TABLE.w + 6, R_TABLE.h + 6, t),
+};
 
 // the outhouse behind the farmhouse (Needs engine): the bathroom need's spot
 const outhouseSpot: Interactable = {
@@ -734,7 +787,8 @@ export const INTERACTABLES: Interactable[] = [
   ...fishSpots, ...dockRowboats, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
   ...townMerchants, townInn, ...townHomes, stable, townBuskSpot,   // coastal town (v2 BLOCK #3 + stable, BLOCK #5; townBuskSpot V2-B1)
   ...notableProps,   // IX-1 fix #3: signposts/scarecrow/wheelbarrow/birdhouse/barn barrel+crate
-  hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
+  ...benches,        // AX-2: market/town benches you can Sit on
+  hearthSpot, basinSpot, bedSpot, doorMat, restSpot, tableSpot,   // door before rest: it wins the overlap by the mat
 ];
 
 export type AnimalKind = "cow" | "hen" | "duck" | "pig" | "sheep";
@@ -1072,8 +1126,10 @@ export function registerTrees(trees: WorldTreeState[]) {
       inReach: (px, py) => Math.hypot(px - tr.x, py - tr.y) < 50,
       actions: (c) => {
         const list: MenuAction[] = [];
-        // a stump offers nothing but a Look until it regrows (Gather/Chop hidden)
+        // a felled tree is a stump: you can Sit on it (AX-2 — a short rest, small
+        // energy tick) or Look, until it regrows (Gather/Chop hidden while stumped).
         if (tr.chopped) {
+          list.push({ id: "sit", label: "Sit", run: (c) => c.sitOutdoors("stump") });
           list.push({
             id: "look", label: "Look",
             run: (c) => c.toast("A fresh stump, pale rings on the sawn top. It'll grow back in a few days."),
@@ -1141,21 +1197,28 @@ export function registerPlots(cells: PlotCell[], all: PlotCell[], currentSeason:
     INTERACTABLES.push({
       id: `plot-${plotIdSeq++}`,
       name: "Plot",
+      menuOnActivate: true,   // AX-2: till/plant/water/harvest live in the verb menu (greyed tool gates)
       anchor: [cell.x, cell.y + 24],
       defaultActionId: "work",
       hit: (wx, wy) => all.includes(cell) && Math.abs(wx - cell.x) <= 16 && Math.abs(wy - cell.y) <= 16,
       inReach: (px, py) => all.includes(cell) && Math.hypot(px - cell.x, py - cell.y) < 46,
       actions: (c) => {
         const list: MenuAction[] = [];
-        if (cell.state === "wild")
+        if (cell.state === "wild") {
+          // AX-2: Till is greyed "Needs a hoe" until she owns one (teaches the
+          // buy-your-tools loop); Water needs no tool (a watering-can is
+          // forward-content only — no mechanic yet — so it is NOT gated).
+          const hasHoe = countItem(c.economy.inv, "hoe") > 0;
           list.push({
             id: "work", label: "Till",
+            disabled: !hasHoe, reason: hasHoe ? undefined : "Needs a hoe",
             run: (c) => {
               if (busy(c)) return;
               if (countItem(c.economy.inv, "hoe") === 0) { c.toast("You need a hoe — the stall sells one."); return; }
               startWork(c.farmwork, cell, "till");
             },
           });
+        }
         else if (cell.state === "tilled") {
           // one entry per distinct seed packet in the bag ("Plant corn seeds", ...)
           const seedIds = [...new Set(
@@ -1178,8 +1241,10 @@ export function registerPlots(cells: PlotCell[], all: PlotCell[], currentSeason:
             });
           }
           if (seedIds.length === 0)
+            // AX-2: greyed "Plant — Needs seeds" (teaches the seed-buy loop)
             list.push({
-              id: "work", label: "Plant seeds",
+              id: "work", label: "Plant",
+              disabled: true, reason: "Needs seeds",
               run: (c) => c.toast("You need seeds — the stall sells what's in season."),
             });
         } else if (cell.state === "growing" && !cell.watered)

@@ -44,6 +44,11 @@ export const SKILL_NAMES: Record<string, string> = {
   cooking: "Cooking",
   building: "Building",
   gardening: "Gardening",
+  // AX-2: the 10th skill — trained by chopping trees (the wood chain). Higher
+  // tiers chop a touch faster and Expert drops an extra log (see config.ts).
+  // Auto-listed by the skills window (it reads this map); a pre-AX-2 save simply
+  // starts it at 0 (loadSkills seeds every id in SKILL_IDS, merges stored values).
+  woodcutting: "Woodcutting",
 };
 
 const SKILL_IDS = Object.keys(SKILL_NAMES);

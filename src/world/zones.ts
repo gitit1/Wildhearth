@@ -85,6 +85,8 @@ export const R_BASIN: Rect = furnitureRect(furnitureById("basin"));    // kitche
 export const R_BED: Rect = furnitureRect(furnitureById("bed"));        // bedroom: sleep spot
 /** The "rest corner" now binds to THE chair instance — sit targets it. */
 export const R_REST: Rect = furnitureRect(furnitureById("chair"));
+/** The living-area table (AX-2 "Eat at the table" spot). */
+export const R_TABLE: Rect = furnitureRect(furnitureById("table"));
 /** The south exit door + worn mat (the interior's "Go outside" spot). */
 export const R_DOOR: Rect = { ...HOME_DOOR };
 /** Spawn on the door mat, facing north into the room — NEVER on furniture

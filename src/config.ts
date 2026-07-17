@@ -75,6 +75,13 @@ export const WOOD_PRICE = 5;                // coins per wood log at the stall (
 export const CHOP_YIELD = 3;                // wood logs one chopped tree drops
 export const CHOP_TIME = 2.4;              // seconds of swinging to fell a tree (interim busy state, like WASH/COOK)
 export const TREE_REGROW_DAYS = 3;          // in-game days a stump takes to grow back into a tree
+// AX-2: the Woodcutting skill makes the swing pay off. Skilled/Expert tiers
+// shave the chop time; Expert also drops an extra log. Kept modest — the wood
+// chain stays a light economy, not a grind. (Chopping trains Woodcutting via the
+// usual gainSkill roll.)
+export const CHOP_TIME_SKILLED_MULT = 0.85; // chop time × this once Woodcutting is Skilled (33+)
+export const CHOP_TIME_EXPERT_MULT = 0.7;   // …and × this once Expert (66+)
+export const CHOP_EXPERT_BONUS_LOG = 1;     // extra logs a chop drops at Expert Woodcutting
 
 export const HOE_PRICE = 12;            // shop: first tool (unlocks farming, Step 5)
 // (per-crop seed prices live in data/crops.ts)
@@ -186,6 +193,15 @@ export const EXERTION = {
 export const WALK_ENERGY_PER_1000PX = 1.2; // slight energy cost of covering distance on foot
 // restoration
 export const EAT_DISH = 40, EAT_CROP = 18, EAT_FORAGE = 10; // hunger restored by cooked / crop / wild edibles
+// AX-2: "Eat at the table" (interior table verb) — the SAME food as eating from
+// the bag standing, but sitting to a meal restores a touch more hunger and lifts
+// mood (tops up the good-moment glow, like a short rest).
+export const EAT_TABLE_HUNGER_BONUS = 1.25; // hunger restore × this when eaten at the table
+export const EAT_TABLE_MOOD_GLOW = 0.55;    // good-moment glow a table meal tops up to (rest = 0.5)
+// AX-2: "Stoke the fire" (hearth verb) — burns one wood log for a brighter fire
+// through the evening (a code glow overlay) + a small mood lift.
+export const STOKE_WOOD_COST = 1;           // wood logs one stoke consumes
+export const STOKE_MOOD_GLOW = 0.6;         // good-moment glow a stoke tops up to
 export const DRINK_RESTORE = 100;          // the well / basin bucket — free, fills thirst
 export const WASH_RESTORE = 100;           // a wash at the basin fills hygiene
 export const OUTHOUSE_RESTORE = 100;       // relief at the outhouse

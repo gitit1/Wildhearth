@@ -29,6 +29,60 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## AX-2 — the verb matrix: Woodcutting, stoke the fire, eat at the table, teach-by-grey
+- **Date:** 2026-07-17 (v1-foundation). GP-1 commit 2. Builds on the AX-1 verb
+  framework (`menuOnActivate` + greyed/`reason` locked verbs). Adds the 10th
+  skill, three new verbs, and migrates the field-plot actions into the greyed
+  verb menu so locked verbs teach the buy-your-tools loop.
+- **Woodcutting (10th skill)** — `woodcutting: "Woodcutting"` added to
+  `SKILL_NAMES` (`src/systems/skills.ts`); it auto-flows into `SKILL_IDS` →
+  `createSkills`, and `loadSkills` seeds it at 0 for a pre-AX-2 save (no
+  migration). `SKILL_CAP` unchanged (250). The Skills window lists it
+  automatically; bumped `#skillsList` max-height 326→366px in `index.html` so all
+  10 rows show without scrolling (scroll stays the fallback for an 11th).
+- **Chopping trains Woodcutting** (`completeChop` in `src/main.ts`): a felled tree
+  now rolls `gainSkill(skills, "woodcutting", …)`. New tuning in
+  `src/config.ts`: `CHOP_TIME_SKILLED_MULT` 0.85 / `CHOP_TIME_EXPERT_MULT` 0.7
+  (Skilled/Expert chop faster — `chopDuration()` scales `startChop`'s new
+  `duration` arg), `CHOP_EXPERT_BONUS_LOG` +1 log at Expert.
+- **Three new verbs (all greyed with their reason when locked):**
+  - **Stump / bench "Sit"** — a short outdoor rest (small energy tick, tops the
+    good-moment glow). New `beginWorldSit("stump"|"bench")` + a `sitKind`
+    discriminator so the interior chair still glides-onto-seat / stands-up while
+    an outdoor perch sits in place (can't be trapped by stump/bench collision).
+    Tree stumps offer Look + **Sit**; the market/town benches (`props/bench`) are
+    now `bench-N` interactables with **Sit** + Look.
+  - **Hearth "Stoke the fire"** — greyed "Needs wood logs" until she owns wood;
+    `stokeFire()` burns 1 log (`STOKE_WOOD_COST`) → a brighter evening fire
+    (`hearthStoked` flag → `drawHearthGlow` warm flicker overlay in
+    `drawInteriorScene`, reset each new in-game day) + a small mood lift
+    (`STOKE_MOOD_GLOW`).
+  - **Table "Eat at the table"** — new interior `tableSpot` interactable (bound
+    to the `table` furniture via new `R_TABLE` in `zones.ts`); greyed "Needs
+    something to eat" until the bag holds an edible; `eatAtTable()` eats the most
+    nourishing food with a hunger bonus (`EAT_TABLE_HUNGER_BONUS`) + mood lift
+    (`EAT_TABLE_MOOD_GLOW`) over eating standing.
+- **Field plots → greyed verb menu** (`registerPlots`): plots are now
+  `menuOnActivate`; **Till** is greyed "Needs a hoe" when unowned, **Plant** is
+  greyed "Needs seeds" when the bag has none, harvest/water/clear unchanged.
+  **Water is NOT gated** — the "watering-can" item is forward-content only (no
+  mechanic, not obtainable), so per the "skip verbs whose unlock item doesn't
+  exist" rule it stays ungated.
+- **Wiring:** new `InteractCtx` callbacks `sitOutdoors` / `stokeFire` /
+  `eatAtTable` (`src/systems/interact.ts` + `makeCtx` in `main.ts`). NPC
+  merchants / notable-prop Looks unchanged (they already present Trade/Look and
+  Look through the same menu path).
+- **Verification:** `npm run build` green; `verify:smoke` + `verify:save` green;
+  new `verify/gp2-verbs.mjs` (14 checks, zero console errors) drives the wood
+  chain end-to-end — Till greyed "Needs a hoe" → un-greys with a hoe; hearth
+  Stoke greyed "Needs wood logs"; buy axe → chop tree → Woodcutting 0→0.3 + 3
+  logs; stump offers Sit; bench offers Sit; hearth Stoke un-greys + burns a log;
+  table "Eat at the table" enabled with berries. 1920×1080 screenshots confirmed:
+  the greyed "Till / Needs a hoe" menu, the Skills window listing Woodcutting,
+  and the stoked-hearth glow indoors.
+- **Follow-ups:** none new. (The FARM-START-1 keeper-produce follow-up still
+  stands.)
+
 ## FARM-START-1 — the farm you start with depends on the path you chose
 - **Date:** 2026-07-17 (v1-foundation). GP-1 commit 1. Owner rule: a new life
   starts nearly broke, so only PATH-RELEVANT farm infrastructure pre-exists. The
