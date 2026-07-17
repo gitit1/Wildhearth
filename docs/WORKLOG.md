@@ -29,6 +29,64 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## COHESION-1b — lighten & restrain worn dirt: paths read packed-earth, not mud
+- **Date:** 2026-07-18 (v1-foundation). Follow-up to COHESION-1 (be26496). The
+  owner verified by eye on the live midday+dusk shots that the nature grounding and
+  building base-weave look great and must stay — but the WORN-DIRT / PATH /
+  TILLED-FIELD *fills* baked far too DARK (near-black soil even at MIDDAY, measured
+  ~54 luma vs grass ~124) and read as a muddy mass dominating the frame, exactly
+  the "dark patch" problem killed elsewhere, bigger. **ZERO PixelLab generations —
+  one file (`src/world/ground.ts`), fill TONE + amount only.** The SDF finger
+  EDGES, nature grounding, building base-weave chevrons, water banks and plaza
+  moss-grout are all UNTOUCHED.
+- **Root cause:** the base soil/tilled PixelLab tiles are dark (measured mean
+  ~(60,53,38), luma ~53), and `paintTerrainTiles` then only *darkened* them further
+  (wear gradient `dk=1-0.12·depth` + a shift toward `BARE=[78,65,44]`, itself luma
+  66); the tilled field used the raw tile texel with NO lift at all. The midday
+  grade is a dusky-olive `[64,68,54]`@0.1 that *mutes* ~10% — it never brightens —
+  so a dark bake stays dark on screen.
+- **Fix (all in `src/world/ground.ts`, `paintTerrainTiles` + `wearSeg` + the
+  painterly fallback):**
+  - **Worn-dirt / path / road FILL** — replaced the darken-toward-`BARE` block with
+    a blend of the (dark) soil texel (kept at `tex=0.22` for grain) toward a WARM
+    PACKED-EARTH palette: `PACK_CENTER=[204,174,126]` at the traffic centre grading
+    to `PACK_SHOULDER=[172,146,106]` at the grass shoulder (lighter/barer dust in
+    the middle, warm worn earth at the edge — the reverse of the old "barer =
+    darker mud"). `BARE` removed.
+  - **Tilled field** — the raw tilled texel is now lifted by a linear map
+    `texel*1.5 + [73,52,37]` (mean → ~[166,132,92]), a MID-TONE brown that
+    PRESERVES the furrow banding (contrast scaled by the gain, not flattened), so
+    the big field rectangle reads as tilled earth with visible furrow rhythm
+    instead of the frame's darkest mass.
+  - **Plaza edge** — the worn-dirt `SEAM` lightened `[74,64,48]`→`[140,118,86]`; the
+    dirt-seam-onto-grass now blends toward `PACK_SHOULDER`, not the raw dark texel.
+    Moss-grout untouched.
+  - **Farm wear trails/aprons** (`wearSeg`) — target lightened `[96,84,58]` (still
+    muddy, luma 85) → `[164,138,100]` warm packed earth, so the door/barn/pond
+    trails + doorstep aprons read as light packed paths (overlaps now converge
+    LIGHT, not dark).
+  - **Zero-PNG painterly fallback** — its darkest element, the tilled-field base
+    `#6e4f33` (luma 84) → `#8a6a45` mid-brown, for path/fallback consistency.
+  - **Extent** unchanged by construction: worn ground stays the same fixed
+    regions/organic-finger edges (roads + narrow farm path + door/gate aprons);
+    grass stays dominant. Lightening removed the *read* of a muddy mass; verified
+    the legacy/aged fixture save shows grass-dominant ground with light packed
+    trails, no broad dark region.
+- **Measured (baked luma → midday on-screen luma), before → after:**
+  farm-path centre 53.2/54.4 → **147.9/139.7**; main road centre 51.6/53.0 →
+  **147.8/139.5**; tilled-field centre 53.9/55.0 → **137.4/130.2**; grass control
+  124.1/118.2 (unchanged). Path/field centres now sit clearly above mid-grey
+  (128) in the warm-brown range at midday, a touch above grass (a real packed
+  path), nowhere near the old dark #362d21.
+- **Verified:** `npm run build` green; `verify:smoke`, `verify:save`,
+  `gp1-farmstart` (all 15 checks incl. FARMER tilled field + legacy fixture),
+  zero-PNG boot (1122 sprite PNGs blocked, no errors) all GREEN. Looked at 1920×1080
+  shots at BOTH 11:00 midday and 18:00 dusk (throwaway `verify/shot-cohesion1b.mjs`
+  → `verify/out/cohesion1b/`): farm-day/dusk, path-junction (+dusk), tilled-field
+  (+3× furrow crop), market (+dusk). The dark muddy mass is gone — grass-dominant,
+  light warm packed paths, mid-brown tilled field with clear furrow rhythm, organic
+  edges + nature/building/water/plaza grounding intact.
+
 ## COHESION-1 — the world connects: nature grounded, organic transitions, worn paths, real water banks, grounded buildings
 - **Date:** 2026-07-18 (v1-foundation). Implements the OWNER-APPROVED cohesion
   probe grounding (scratchpad/cohesion/COHESION-BOARD.png + HOUSE-BOARD.png) in

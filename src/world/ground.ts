@@ -217,8 +217,14 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
   const waterRects = [RIVER, LAKE, TOWN_SEA];
 
   // COHESION-1 (B/C/D) tuning — wear/bank palettes (FING/FING_FIELD module-level).
-  const BARE = [78, 65, 44];    // barer packed earth toward path traffic centre
-  const SEAM = [74, 64, 48];    // worn-dirt seam under the plaza edge cobbles
+  // COHESION-1b — worn soil now reads WARM PACKED EARTH (was near-black mud, luma
+  // ~54). Barer/lighter dust toward the traffic centre, a touch more olive-earth
+  // at the shoulders where it meets grass; the centre sits clearly above mid-grey
+  // at midday. Only the worn-dirt/path/field FILL tone changed here — the SDF
+  // finger EDGES, plaza moss-grout and water banks are untouched.
+  const PACK_CENTER = [204, 174, 126];   // barer packed dust at the traffic centre
+  const PACK_SHOULDER = [172, 146, 106]; // worn earth where the path meets grass
+  const SEAM = [140, 118, 86];  // worn packed-earth seam under the plaza edge cobbles (lightened)
   const MOSS = [63, 90, 44];    // moss grown into the plaza grout near grass
   const WETMUD = [43, 40, 32], DAMP = [61, 54, 38];   // water bank: wet mud -> damp earth
 
@@ -263,13 +269,16 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
           if (-sd > depthPx) depthPx = -sd;
         }
         if (depthPx > 0) {
-          let [pr, pg, pb] = soilTexel(x, y);
+          const [pr, pg, pb] = soilTexel(x, y);
           const depth = Math.min(1, depthPx / (1.3 * T));
-          const dk = 1 - 0.12 * depth, toBare = 0.10 * depth;   // gentle: packed dust, not mud
-          pr = pr * dk * (1 - toBare) + BARE[0]! * toBare;
-          pg = pg * dk * (1 - toBare) + BARE[1]! * toBare;
-          pb = pb * dk * (1 - toBare) + BARE[2]! * toBare;
-          r = pr; gg = pg; b = pb;
+          // COHESION-1b: blend the (dark) soil tile toward warm PACKED earth —
+          // lighter/barer dust toward the traffic centre, warm worn earth at the
+          // shoulders. Keep a little tile GRAIN (tex) so it isn't flat paint.
+          const tex = 0.22;
+          const cr = PACK_SHOULDER[0]! + (PACK_CENTER[0]! - PACK_SHOULDER[0]!) * depth;
+          const cg = PACK_SHOULDER[1]! + (PACK_CENTER[1]! - PACK_SHOULDER[1]!) * depth;
+          const cb = PACK_SHOULDER[2]! + (PACK_CENTER[2]! - PACK_SHOULDER[2]!) * depth;
+          r = pr * tex + cr * (1 - tex); gg = pg * tex + cg * (1 - tex); b = pb * tex + cb * (1 - tex);
         }
       }
 
@@ -278,7 +287,11 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
         const sd = sdRect(x, y, field) + (fbm(x, y, 7, 13) - 0.5) * 2 * FING_FIELD;
         if (sd < 0) {
           const tb = buf.soil![pickTile(SOIL_TILLED_BAG, cx, cy, 4)]!;
-          r = texel(tb, x, y, 0); gg = texel(tb, x, y, 1); b = texel(tb, x, y, 2);
+          // COHESION-1b: the tilled tiles bake near-black (mean luma ~54); this
+          // linear lift (gain 1.5 + warm add) raises them to a MID-TONE brown while
+          // PRESERVING the furrow banding (contrast scaled, not flattened), so the
+          // big field reads as tilled earth, not the frame's darkest mass.
+          r = texel(tb, x, y, 0) * 1.5 + 73; gg = texel(tb, x, y, 1) * 1.5 + 52; b = texel(tb, x, y, 2) * 1.5 + 37;
         }
       }
 
@@ -301,10 +314,9 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
             pr = pr * (1 - k) + SEAM[0]! * k; pg = pg * (1 - k) + SEAM[1]! * k; pb = pb * (1 - k) + SEAM[2]! * k;
           }
           r = pr; gg = pg; b = pb;
-        } else if (sd < 0.55 * T) {                            // dirt seam onto grass
-          const [sr, sg, sb] = soilTexel(x, y);
-          const k = 0.55 * (1 - sd / (0.55 * T));
-          r = r * (1 - k) + sr * k; gg = gg * (1 - k) + sg * k; b = b * (1 - k) + sb * k;
+        } else if (sd < 0.55 * T) {                            // packed-earth seam onto grass
+          const k = 0.5 * (1 - sd / (0.55 * T));               // COHESION-1b: warm packed earth, not a dark smear
+          r = r * (1 - k) + PACK_SHOULDER[0]! * k; gg = gg * (1 - k) + PACK_SHOULDER[1]! * k; b = b * (1 - k) + PACK_SHOULDER[2]! * k;
         }
       }
 
@@ -686,9 +698,9 @@ function wearSeg(
     if (fall < 0.55 && nz > fall / 0.55) a = 0;   // dither the outer edge
     if (a <= 0) continue;
     const i = ((y - y0) * iw + (x - x0)) * 4;
-    d[i]     = d[i]     * (1 - a) + 96 * a;         // COHESION-1(E): lightened worn track (was dark 60,47,31)
-    d[i + 1] = d[i + 1] * (1 - a) + 84 * a;
-    d[i + 2] = d[i + 2] * (1 - a) + 58 * a;
+    d[i]     = d[i]     * (1 - a) + 164 * a;        // COHESION-1b: packed-earth track (was dark 96,84,58 → muddy)
+    d[i + 1] = d[i + 1] * (1 - a) + 138 * a;
+    d[i + 2] = d[i + 2] * (1 - a) + 100 * a;
   }
   g.putImageData(img, x0, y0);
 }
@@ -806,9 +818,9 @@ export function paintGround(manifest: FarmManifest): HTMLCanvasElement {
   // and building rings. Only the house↔field farm path stays baked dirt.
   g.fillStyle = "#b3926a";
   roundR(g, 12.4 * T, 8.6 * T, 7.8 * T, 1.3 * T, 18); g.fill();
-  // tilled field
+  // tilled field (COHESION-1b: mid-tone brown, was the dark #6e4f33 near-black mud)
   roundR(g, FIELD.x0 * T, FIELD.y0 * T, (FIELD.x1 - FIELD.x0) * T, (FIELD.y1 - FIELD.y0) * T, 14);
-  g.fillStyle = "#6e4f33"; g.fill();
+  g.fillStyle = "#8a6a45"; g.fill();
   g.save(); g.clip();
   for (let ry = FIELD.y0 * T + 10; ry < FIELD.y1 * T; ry += 16) {
     g.fillStyle = "rgba(60,40,24,.55)"; g.fillRect(FIELD.x0 * T, ry, (FIELD.x1 - FIELD.x0) * T, 5);
