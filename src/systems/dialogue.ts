@@ -117,7 +117,7 @@ function matchSpecificity(c: LineConditions, wc: WorldContext): number {
   }
   if (c.flag !== undefined) { if (!wc.flags[c.flag]) return -1; n++; }
   if (c.farmRepaired !== undefined) {
-    const done = !!(wc.farm.roof && wc.farm.window && wc.farm.barn && wc.farm.fence);
+    const done = !!(wc.farm.roof && wc.farm.window && wc.farm.barn);
     if (done !== c.farmRepaired) return -1; n++;
   }
   return n;

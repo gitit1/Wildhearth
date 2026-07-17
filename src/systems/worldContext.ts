@@ -45,7 +45,6 @@ export interface FarmSlice {
   roof: boolean;
   window: boolean;
   barn: boolean;
-  fence: boolean;
 }
 
 export interface CalendarSlice {
@@ -106,7 +105,6 @@ export function getWorldContext(
       roof: sources.farm.roof,
       window: sources.farm.window,
       barn: sources.farm.barn,
-      fence: sources.farm.fence,
     },
     calendar: sources.calendar
       ? { season: currentSeason(sources.calendar), day: sources.calendar.day,

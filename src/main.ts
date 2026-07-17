@@ -24,7 +24,7 @@ import {
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
-  drawTree, drawFence, drawHedge, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
+  drawTree, drawHedge, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
   drawFlowerBed, drawBuskSpot, drawMusicNotes, drawWaterShimmer,
   drawOpenWaterShimmer, drawDock, drawBuskSign, drawProp,
 } from "./art/props";
@@ -618,7 +618,7 @@ if (import.meta.env.DEV)
       dialogueBump(relationships, def, v - cur, calendar);
     },
     flag: (key: string, days = 4) => setWorldFlag(worldFlags, key, days, absoluteDay(calendar)),
-    repairFarm: () => { farm.roof = true; farm.window = true; farm.barn = true; farm.fence = true; },
+    repairFarm: () => { farm.roof = true; farm.window = true; farm.barn = true; },
     begin: () => beginPlay(),                     // skip the title screens into live play
     newGame: () => { newGameReset(meta.character ?? characterForPath("fisher"), guidanceMode()); beginPlay(); startGuidanceForNewGame(guidanceMode()); },
     // start a fresh life on a chosen path + guidance mode without the creation screens
@@ -667,6 +667,11 @@ if (import.meta.env.DEV)
     // stable via their REAL interactable path, not a shortcut).
     interactLabel: (id: string) => { const o = byId(id); return o ? defaultActionLabel(o, makeCtx()) : null; },
     runInteract: (id: string, actionId: string) => { const o = byId(id); if (o) runAction(o, actionId, makeCtx()); },
+    // the verb list an object offers right now (id + label) via its real
+    // actions(makeCtx()) — lets a headless check confirm the renovation menu
+    // dropped "Mend the fence" (FENCE-1) without synthesizing canvas clicks.
+    // AX-1 enriches this with each verb's greyed/locked state.
+    objActions: (id: string) => byId(id)?.actions(makeCtx()).map((a) => ({ id: a.id, label: a.label })),
     // save-system verification bridge — force the two save paths and shrink
     // the autosave interval instead of waiting 10 real minutes
     saveNow: manualSave,
@@ -2699,11 +2704,13 @@ function draw(dt: number) {
   drawOpenWaterShimmer(ctx, time);       // river + lake surface + fishing-spot ripples
   drawDock(ctx, time);                    // walkable, drawn at ground level under entities
   drawDock(ctx, time, TOWN_DOCK);         // the coastal town's dock (v2 BLOCK #3)
-  drawFence(ctx, farm.fence, fieldBounds(farm.plotTiers));
+  // FENCE-1: her farm no longer ships a pre-placed field fence (fencing is
+  // something she builds later, via buy+place). The drawFence painter is kept
+  // in art/props.ts for that future feature + the town's own fences.
   for (const h of HEDGES) drawHedge(ctx, h, time);   // farm's east natural bound
 
   // Festival engine: decorations only paint on the festival's date, 09:00-21:00.
-  // Bunting reads as an overhead layer (like the fence/hedges, not depth-sorted —
+  // Bunting reads as an overhead layer (like the hedges, not depth-sorted —
   // it sits well above head height); lantern poles + harvest clusters are
   // ground-level props, so they join the depth-sorted ents below instead.
   const festival = activeFestival(calendar);

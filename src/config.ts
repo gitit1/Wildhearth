@@ -72,7 +72,7 @@ export const BUSK_TIP_BASE_MAX = 3;
 export const BUSK_TIP_SKILL_BONUS = 5;  // extra random tip range unlocked at Busking 100
 export const HAGGLE_MAX_DISCOUNT = 0.25; // shop discount at Haggling 100
 
-export const REPAIR_COST = { roof: 25, window: 15, barn: 30, fence: 10 } as const; // farm renovation, Step 8
+export const REPAIR_COST = { roof: 25, window: 15, barn: 30 } as const; // farm renovation, Step 8 (fence dropped FENCE-1: fencing is player-built, not pre-placed/mended)
 
 export const HEN_PRICE = 45;            // livestock (price anchor: first hen 40-50)
 export const COW_PRICE = 175;           // livestock (price anchor: first cow 150-200)

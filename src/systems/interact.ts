@@ -460,11 +460,13 @@ const townBuskSpot: Interactable = {
 // broken part offers a paid repair that flips its rundown flag and swaps the
 // painter output. Kept on the house (not per-structure) so the whole
 // tillable field stays clickable — a fence hitbox would overlap the plots.
+// FENCE-1: the "Mend the fence" task was removed — her farm no longer ships a
+// pre-placed field fence to repair. Renovation completion (repairsLeft / the
+// farm_whole memory) now resolves on these three parts.
 const REPAIRS: Array<{ part: FarmPart; label: string; done: string }> = [
   { part: "roof",   label: "Patch the roof",     done: "The roof is whole again." },
   { part: "window", label: "Reglaze the window", done: "Clean glass lets the light back in." },
   { part: "barn",   label: "Mend the barn",      done: "The barn stands square again." },
-  { part: "fence",  label: "Mend the fence",     done: "The field fence is sound again." },
 ];
 
 function doRepair(c: InteractCtx, part: FarmPart) {

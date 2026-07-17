@@ -29,6 +29,55 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## FENCE-1 — her farm starts unfenced: fencing becomes something she builds
+- **Date:** 2026-07-17 (v1-foundation). Owner decision behind it: *"why is
+  there a fence at all? the USER builds it if she wants."* Her farm no longer
+  ships a pre-placed field fence to see (or a "Mend the fence" chore to pay
+  for). Zero PixelLab generations. NPC-owned fences elsewhere (town, neighbour
+  farm, stable — all hedges/sprite-baked, never the `drawFence` painter) are
+  untouched.
+- **The pre-placed fence was purely visual, with NO collision.** It was never
+  a `zones.ts` rect — it was one overhead render, `drawFence(ctx, farm.fence,
+  fieldBounds(...))`, in `src/main.ts`'s `draw()`. `collision.ts` never
+  referenced a fence (the field was always walk-through), so there were **no
+  collision entries to remove**. Removed that single `drawFence` call + its now-
+  unused import; the field reads as open ground.
+- **`drawFence` / `drawFenceSprite` / `drawFenceDamageOverlay` kept** in
+  `src/art/props.ts` (unused for now) for the committed future buy+place
+  fencing feature and any town fence.
+- **Renovation flow — the "Mend the fence" task removed** so completion still
+  resolves:
+  - `src/systems/renovation.ts`: dropped `"fence"` from `FarmPart`, the
+    `FarmState.fence` field, `fresh()`, `resetFarm()`, and the
+    `repairsLeft()` count (now roof+window+barn = 3 parts). `loadFarm()` no
+    longer reads `p.fence` — a pre-FENCE-1 save's `fence` flag is simply
+    ignored (stale flag, no crash, **no key bump** — `RENOVATION_KEY` stays
+    `wildhearth-farm-v1`).
+  - `src/systems/interact.ts`: removed the `{ part: "fence", … "Mend the
+    fence" }` row from `REPAIRS`. The farmhouse menu now offers Patch the roof
+    / Reglaze the window / Mend the barn / Expand the field / Look.
+  - `src/config.ts`: `REPAIR_COST` dropped its `fence: 10` entry.
+  - `src/systems/worldContext.ts`: `FarmSlice` + `getWorldContext()` dropped
+    the `fence` field (world-context farm slice is now roof/window/barn).
+  - `src/systems/dialogue.ts`: the `farmRepaired` condition no longer ANDs
+    `wc.farm.fence` (it counted the fence toward "farm whole" — completion
+    logic that had to stop counting a task that can't be done).
+  - `src/main.ts`: the `repairFarm()` dev hook no longer sets `farm.fence`.
+- **New dev/verify hook:** `window.__wh.objActions(id)` returns an
+  interactable's live verb list (id+label) via its real `actions(makeCtx())`
+  — used to assert the renovation menu dropped Mend-the-fence without
+  synthesizing canvas clicks (AX-1 will enrich it with greyed/locked state).
+- **Verified:** `npm run build` green; `npm run verify:smoke` +
+  `npm run verify:save` green — the save fixture (`verify/fixtures/v1-save.json`)
+  literally carries `"fence":false`, so verify:save is the old-fence-save
+  regression: it loads clean, resumes day 2 / 50 coins, a live minute runs,
+  zero console errors. Farm screenshot at new game: field open, no rail/post/
+  gate. `objActions("house")` confirmed no fence row.
+- **Follow-ups:** the minimap's field-outline marker (`ui/minimap.ts`, a brown
+  rect over `fieldBounds`) is intentionally kept — it marks the tillable plot
+  on the map, it is not a world fence. Player-built fencing (buy + place)
+  arrives with the Sims-home buy+place decorating feature.
+
 ## docs — the pivot constitution frozen: style anchors, 25 composition rules, wave scope updates, owner decisions recorded
 - **Date:** 2026-07-17 (v1-foundation) — docs-only block, freezing the
   2026-07-15..17 art-pivot calibration + owner decisions into the repo so
