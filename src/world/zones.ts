@@ -416,6 +416,14 @@ export const WORLD_PROPS: PropDef[] = [
   { x: 50.6 * T, y: 34.6 * T, id: "props/cart", solid: true, cw: 24 },    // by the inn
   { x: 58.8 * T, y: 33.2 * T, id: "props/crate", solid: true, cw: 12 },   // by the general store
   { x: 50.4 * T, y: 38.5 * T, id: "props/barrel", solid: true, cw: 12 },  // by the fishmonger
+  // --- W2b nature/props wave: mossy-granite boulders (baked dirt+grass apron) in
+  //     the open meadow / forest edge, and a farm water trough in the west yard.
+  //     Boulders read as landmarks, off paths/footprints; the trough joins the
+  //     west-yard water cluster (bucket/pot). All base-on-ground with own scale.
+  { x: 30.0 * T, y: 18.6 * T, id: "props/boulder-small", scale: 0.5, solid: true, cw: 13 },
+  { x: 33.0 * T, y: 6.9 * T, id: "props/boulder-med", scale: 0.5, solid: true, cw: 18 },
+  { x: 44.2 * T, y: 6.4 * T, id: "props/boulder-large", scale: 0.55, solid: true, cw: 24 },
+  { x: 9.4 * T, y: 11.4 * T, id: "props/trough", scale: 0.5, solid: true, cw: 24 },
 ];
 
 /** Collision blockers for the SOLID props (small base boxes) — read by

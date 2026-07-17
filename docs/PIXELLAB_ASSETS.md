@@ -338,6 +338,43 @@ buildings at native pixel density matching the ground exactly, regenerate at
 bigger canvases — but that is a fidelity nicety, NOT needed for proportion; the
 ~100-gen budget stays unspent.
 
+### W2b ledger — nature/props/furniture + the fidelity match (2026-07-17)
+
+The last cozy-era holdouts (trees, bushes/flowers, world props, interior
+furniture) restyled to UO-mood + the owner's "still not connected to the ground"
+fidelity note answered. **Cost: 48 generations** (`create_map_object`; balance
+6762 → **6714**, Tier 3). The dual-path wiring for all four categories already
+existed — the on-disk PNGs were pre-pivot cozy art — so this was a drop-in
+restyle + re-anchor + two 0-gen code fixes. See `docs/WORKLOG.md`'s W2b entry.
+
+- **The fidelity match (Part 0, 0 gens, TWO one-shot committed scripts):**
+  - `scripts/pixel-grid-unify.mjs` — nearest-neighbour resample of every building
+    PNG to `native × its W2c scale`, then `SPRITE_*_SCALE = 1.0` (config) so each
+    building's pixel grid is 1:1 with the 32px ground. `buildings.ts` ×-scales
+    every hard-coded sprite-px (sheet anchors, `BUILDING_ROOFLINE`, damage coords)
+    so world size/position are unchanged. **This is the "optional future fidelity
+    pass" flagged in the W2c ledger above — now done, at 0 gens (a resample, not a
+    regen).** Re-run guard: skips a PNG already off its native size.
+  - `scripts/ground-microtexture.mjs` — restores subtle within-tile grain the
+    W1.1 normalize over-flattened: `out = macro + (px−macro)×K` per set (grass
+    1.55 / soil 1.25 / water 1.20 / plaza 1.05), macro (tone) preserved so the
+    anti-quilt flatness stays. `.microtex` marker guards re-runs. Soil deliberately
+    only nudged (its source grain is the rejected "planks").
+- **Trees** (10 PNGs, drop-in `trees/`): oak+birch × 4 seasons + pine base/winter,
+  dark gnarled bark, muted canopy, baked apron, 192×256. `drawTreeSprite` switched
+  to `spriteBaseAnchor` (per-sprite apron base); `SPRITE_TREE_SCALE` 0.55→0.82.
+- **Rocks** (3 NEW `props/boulder-*`): mossy granite, baked apron, `WORLD_PROPS`.
+- **World props** (drop-in `props/` + `foliage/`): barrel/crate/hay-bale/firewood/
+  bucket/**trough** REUSED from the approved W0 calibration set (0 gens); sack,
+  wheelbarrow, cart, signpost, scarecrow, birdhouse, bench, well-bucket, flower-pot,
+  lantern, busk-sign, flower-bed-soil + bushes/flowers/fern generated UO-mood.
+- **Interior furniture** (`interior/`): bed+basin regenerated; chair/table/counter/
+  nightstand/rug/crate-table NEW — `interior.ts` gains a sprite dual-path per
+  painter (muted-warm, hearth-consistent; rug centred, rest base-on-ground).
+- **Opaque-bg repair:** 4 tree re-rolls returned fully opaque (failure mode #7) —
+  fixed with the committed `scripts/flood-key-bg.mjs` (border-connected flood-key
+  on the sampled corner colour), NOT re-rolled, keeping the muted look.
+
 ---
 
 ## 1. What's sprite-sourced today (vs code-drawn)

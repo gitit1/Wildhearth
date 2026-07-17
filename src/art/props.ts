@@ -100,11 +100,12 @@ export function drawStump(g: CanvasRenderingContext2D, x: number, y: number) {
   castShadow(g, x, y, 8, 20);
   shadow(g, x + 2, y + 4, 13, 5);
   const w = 15, h = 13;                              // stump footprint (world px)
-  oRect(g, x - w / 2, y - h, w, h, "#6b4a2a");       // bark body
-  oRect(g, x - w / 2, y - h, 3, h, "#57381f");       // shaded west face
-  oRect(g, x + w / 2 - 3, y - h, 3, h, "#7d5836");   // lit east face
+  // W2b: darker UO bark tones to match the new gnarled tree trunks
+  oRect(g, x - w / 2, y - h, w, h, "#4a3320");       // bark body
+  oRect(g, x - w / 2, y - h, 3, h, "#33230f");       // shaded west face
+  oRect(g, x + w / 2 - 3, y - h, 3, h, "#5c4128");   // lit east face
   // sawn top: pale heartwood ellipse + a couple of growth rings
-  g.fillStyle = "#c9a067";
+  g.fillStyle = "#a8895a";
   g.beginPath(); g.ellipse(x, y - h, w / 2, 4.2, 0, 0, Math.PI * 2); g.fill();
   g.strokeStyle = "#a9814c"; g.lineWidth = 1;
   g.beginPath(); g.ellipse(x, y - h, w / 2 - 3, 2.6, 0, 0, Math.PI * 2); g.stroke();
@@ -127,17 +128,6 @@ function treeSpriteId(species: TreeSpecies, season: Season): string {
   return `trees/${s}-${season}`;
 }
 
-// The trunk-base pixel in the 128x160 tree art (alpha-bbox column-density
-// measurement): the trunk centre column + its bottom-contact row. This point is
-// planted exactly on the tree's world (x,y) — the same spot the code trunk meets
-// the ground — so depth-sort + collisions are unchanged. cx is uniform across
-// the set (~63-64); pine-winter's snow base ends a few rows higher, so it keeps
-// its own foot. Everything else shares the default.
-const TREE_ANCHOR_DEFAULT = { cx: 64, foot: 151 } as const;
-const TREE_ANCHOR: Partial<Record<string, { cx: number; foot: number }>> = {
-  "trees/pine-winter": { cx: 64, foot: 144 },
-};
-
 /**
  * Draw a loaded tree sprite with its trunk base planted on world (x,y), at
  * SPRITE_TREE_SCALE, plus per-tree deterministic jitter (seeded from position,
@@ -156,7 +146,10 @@ function drawTreeSprite(
   const flip = jr() < 0.5;
   const s = SPRITE_TREE_SCALE * (1 - SPRITE_TREE_JITTER + jr() * SPRITE_TREE_JITTER * 2);   // uniform per-tree scale
   const vy = 0.97 + jr() * 0.06;                       // subtle vertical stretch (0.97..1.03)
-  const a = TREE_ANCHOR[id] ?? TREE_ANCHOR_DEFAULT;
+  // W2b UO trees are 192x256 with a baked dirt/grass apron whose bottom varies
+  // per sprite — auto-measure the alpha-bbox anchor (trunk-centre col + apron
+  // base row) so each species/season plants its own base on (x,y).
+  const a = spriteBaseAnchor(id, img);
   // contact shadow (the sprites carry no baked shadow) — scaled to the trunk
   const shW = (species === "pine" ? 9 : 13) * (s / SPRITE_TREE_SCALE);
   castShadow(g, x, y, shW, shW * 3);

@@ -14,13 +14,17 @@ import {
 // building-variety batch's flat-front replacements (docs/PIXELLAB_ASSETS.md). ---
 // W2a UO-mood restyle — anchors re-measured (alpha bbox centre + foot row) off
 // the new straight-on sprites (docs/PIXELLAB_ASSETS.md W2a ledger).
-const FARMHOUSE_SHEET = { cx: 95.5, foot: 168 };            // 192x176 — buildings/farmhouse (player farm)
+// W2b PIXEL-GRID UNIFICATION: the sprites are pre-baked to native×W2c-scale (see
+// scripts/pixel-grid-unify.mjs + config.ts), so every SPRITE_*_SCALE is now 1.0 and
+// each anchor below is the W2a value × that building's old scale (world position
+// unchanged, pixel grid now 1:1 with the ground).
+const FARMHOUSE_SHEET = { cx: 90.73, foot: 159.6 };         // 182x167 (×0.95) — buildings/farmhouse (player farm)
 // The neighbour's OWN farmhouse art (established/prosperous fieldstone+slate
 // variant) — same canvas size, different silhouette, so its own anchor.
-const FARMHOUSE_NEIGHBOR_SHEET = { cx: 95, foot: 150 };     // 192x176 — buildings/farmhouse-neighbor
-const BARN_SHEET = { cx: 103.5, foot: 159 };      // 208x176
-const STALL_SHEET = { cx: 55.5, foot: 99 };       // 112x112 — buildings/market-stall (generic)
-const WELL_SHEET = { cx: 40, foot: 84 };          // 80x96
+const FARMHOUSE_NEIGHBOR_SHEET = { cx: 90.25, foot: 142.5 };// 182x167 (×0.95) — buildings/farmhouse-neighbor
+const BARN_SHEET = { cx: 122.13, foot: 187.62 };  // 245x208 (×1.18)
+const STALL_SHEET = { cx: 53.28, foot: 95.04 };   // 108x108 (×0.96) — buildings/market-stall (generic)
+const WELL_SHEET = { cx: 36, foot: 75.6 };        // 72x86 (×0.90)
 // The stall sprite's own baked-in awning fabric (a candy red/cream stripe) —
 // its hue band, measured from the generated PNG (see docs/PIXELLAB_ASSETS.md),
 // recolored per stall via recolorSprite(); the alternating cream stripe sits
@@ -42,34 +46,36 @@ const STALL_AWNING_BAND: HueBand = { hueMin: 328, hueMax: 22, satMin: 0.32 };
  * the measured values from the W2a generation (docs/PIXELLAB_ASSETS.md W2a
  * ledger). Keyed by sprite id (as passed to `sprite()`).
  */
+// W2b: every band ×its building's old scale (pixel-grid unification, sprites
+// pre-baked, scale now 1.0) so the roofline stays in the sprite's new pixel space.
 export const BUILDING_ROOFLINE: Record<string, [number, number]> = {
-  "buildings/farmhouse": [8, 89],
-  "buildings/farmhouse-neighbor": [17, 73],
-  "buildings/barn": [5, 90],
-  "buildings/cottage-01_thatch-plank-porch": [3, 55],
-  "buildings/cottage-02_slate-plaster-ivy": [5, 53],
-  "buildings/cottage-03_redtile-stone-flowerbox": [7, 65],
-  "buildings/cottage-04_shingle-timber-leanto": [16, 65],
-  "buildings/cottage-05_thatch-plaster-flowerbox": [15, 64],
-  "buildings/cottage-07_redtile-timber-ivy": [6, 58],
-  "buildings/spare/cottage-06_slate-stone-porch": [14, 56],
-  "buildings/spare/cottage-08_shingle-plank-leanto": [17, 59],
-  "buildings/cottage-09_slate-whitewash-shutters": [4, 51],
-  "buildings/cottage-10_shingle-bluetimber-buoys": [9, 61],
-  "buildings/cottage-11_slate-brick-lantern": [4, 50],
+  "buildings/farmhouse": [8, 85],
+  "buildings/farmhouse-neighbor": [16, 69],
+  "buildings/barn": [6, 106],
+  "buildings/cottage-01_thatch-plank-porch": [4, 69],
+  "buildings/cottage-02_slate-plaster-ivy": [6, 66],
+  "buildings/cottage-03_redtile-stone-flowerbox": [9, 81],
+  "buildings/cottage-04_shingle-timber-leanto": [20, 81],
+  "buildings/cottage-05_thatch-plaster-flowerbox": [19, 80],
+  "buildings/cottage-07_redtile-timber-ivy": [8, 73],
+  "buildings/spare/cottage-06_slate-stone-porch": [18, 70],
+  "buildings/spare/cottage-08_shingle-plank-leanto": [21, 74],
+  "buildings/cottage-09_slate-whitewash-shutters": [5, 64],
+  "buildings/cottage-10_shingle-bluetimber-buoys": [11, 76],
+  "buildings/cottage-11_slate-brick-lantern": [5, 63],
   "buildings/inn": [3, 83],
-  "buildings/stable": [19, 67],
-  "buildings/outhouse": [10, 27],
-  "buildings/well": [3, 19],
-  "buildings/market-stall": [7, 35],
-  "buildings/stall-fish": [7, 44],
-  "buildings/stall-produce": [9, 35],
-  "buildings/stall-goods": [2, 29],
-  "buildings/stall-empty": [11, 20],
-  "buildings/spare/stall-general-01": [4, 35],
-  "buildings/spare/stall-fish-02": [10, 38],
-  "buildings/spare/stall-produce-02": [8, 34],
-  "buildings/spare/stall-empty-01": [4, 30],
+  "buildings/stable": [23, 80],
+  "buildings/outhouse": [12, 31],
+  "buildings/well": [3, 17],
+  "buildings/market-stall": [7, 34],
+  "buildings/stall-fish": [7, 42],
+  "buildings/stall-produce": [9, 34],
+  "buildings/stall-goods": [2, 28],
+  "buildings/stall-empty": [11, 19],
+  "buildings/spare/stall-general-01": [4, 34],
+  "buildings/spare/stall-fish-02": [10, 36],
+  "buildings/spare/stall-produce-02": [8, 33],
+  "buildings/spare/stall-empty-01": [4, 29],
 };
 
 /** sprite-pixel (sx,sy) -> world point, through a drawGroundSprite placement. */
@@ -301,30 +307,32 @@ export function drawCoop(g: CanvasRenderingContext2D, r: Rect = COOP) {
 function drawHouseRoofDamageSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
   const s = p.scale;
   g.fillStyle = "#241207";
-  const poly: Array<[number, number]> = [[116, 76], [146, 72], [152, 96], [126, 106], [112, 94]];
+  // W2b: sprite-px coords ×0.95 (pixel-grid unification — farmhouse pre-baked ×0.95)
+  const poly: Array<[number, number]> = [[110.2, 72.2], [138.7, 68.4], [144.4, 91.2], [119.7, 100.7], [106.4, 89.3]];
   g.beginPath();
   poly.forEach(([sx, sy], i) => { const [wx, wy] = sw(p, sx, sy); i ? g.lineTo(wx, wy) : g.moveTo(wx, wy); });
   g.closePath(); g.fill();
   g.strokeStyle = "rgba(18,9,4,.7)"; g.lineWidth = 1.6; g.stroke();   // the hole's own dark rim
   // a mismatched patch plank hastily nailed over part of it
-  const [cx, cy] = sw(p, 132, 86);
+  const [cx, cy] = sw(p, 125.4, 81.7);
   g.save(); g.translate(cx, cy); g.rotate(-0.32);
-  const pw = 30 * s, ph = 8 * s;
-  g.fillStyle = "#a6844f"; roundR(g, -pw / 2, -ph / 2, pw, ph, 1.5 * s); g.fill();
+  const pw = 28.5 * s, ph = 7.6 * s;
+  g.fillStyle = "#a6844f"; roundR(g, -pw / 2, -ph / 2, pw, ph, 1.425 * s); g.fill();
   g.strokeStyle = "rgba(58,40,18,.65)"; g.lineWidth = 1.4; g.stroke();
   g.fillStyle = "#3a2c18";   // two nail heads
-  g.beginPath(); g.arc(-pw / 2 + 3 * s, 0, 1.1 * s, 0, 7); g.arc(pw / 2 - 3 * s, 0, 1.1 * s, 0, 7); g.fill();
+  g.beginPath(); g.arc(-pw / 2 + 2.85 * s, 0, 1.045 * s, 0, 7); g.arc(pw / 2 - 2.85 * s, 0, 1.045 * s, 0, 7); g.fill();
   g.restore();
 }
 
 /** Boarded-shut window: brown boards over the right pane + an X of planks. */
 function drawHouseWindowBoardSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
-  const [x0, y0] = sw(p, 119, 112);
-  const [x1, y1] = sw(p, 146, 137);
+  // W2b: sprite-px coords ×0.95 (pixel-grid unification)
+  const [x0, y0] = sw(p, 113.05, 106.4);
+  const [x1, y1] = sw(p, 138.7, 130.15);
   const bw = x1 - x0, bh = y1 - y0;
   g.fillStyle = "#4a3a26"; g.fillRect(x0, y0, bw, bh);
   g.strokeStyle = "rgba(28,18,9,.6)"; g.lineWidth = 1.4; g.strokeRect(x0, y0, bw, bh);
-  g.strokeStyle = "#8a6a42"; g.lineWidth = 4.5 * p.scale; g.lineCap = "round";
+  g.strokeStyle = "#8a6a42"; g.lineWidth = 4.275 * p.scale; g.lineCap = "round";
   g.beginPath(); g.moveTo(x0 - 2, y0 + 2); g.lineTo(x1 + 2, y1 - 2); g.stroke();
   g.beginPath(); g.moveTo(x1 + 2, y0 + 2); g.lineTo(x0 - 2, y1 - 2); g.stroke();
 }
@@ -332,18 +340,19 @@ function drawHouseWindowBoardSprite(g: CanvasRenderingContext2D, p: SpritePlacem
 /** Broken barn: a loose plank hung across the doors + a missing wall plank. */
 function drawBarnDamageSprite(g: CanvasRenderingContext2D, p: SpritePlacement) {
   const s = p.scale;
-  const [cx, cy] = sw(p, 104, 132);
+  // W2b: sprite-px coords ×1.18 (pixel-grid unification — barn pre-baked ×1.18)
+  const [cx, cy] = sw(p, 122.72, 155.76);
   g.save(); g.translate(cx, cy); g.rotate(0.42);
-  const pw = 92 * s, ph = 9 * s;
-  g.fillStyle = "#8a6a42"; roundR(g, -pw / 2, -ph / 2, pw, ph, 1.5 * s); g.fill();
+  const pw = 108.56 * s, ph = 10.62 * s;
+  g.fillStyle = "#8a6a42"; roundR(g, -pw / 2, -ph / 2, pw, ph, 1.77 * s); g.fill();
   g.strokeStyle = "rgba(48,32,15,.62)"; g.lineWidth = 1.4; g.stroke();
   g.fillStyle = "#3a2c18";
-  g.beginPath(); g.arc(-pw / 2 + 4 * s, 0, 1.2 * s, 0, 7); g.arc(pw / 2 - 4 * s, 0, 1.2 * s, 0, 7); g.fill();
+  g.beginPath(); g.arc(-pw / 2 + 4.72 * s, 0, 1.416 * s, 0, 7); g.arc(pw / 2 - 4.72 * s, 0, 1.416 * s, 0, 7); g.fill();
   g.restore();
-  // a missing wall plank: a dark vertical gap on the right timber wall
-  const [gx, gy] = sw(p, 167, 118);
-  g.fillStyle = "#2a1510"; g.fillRect(gx, gy, 11 * s, 38 * s);
-  g.strokeStyle = "rgba(14,7,4,.7)"; g.lineWidth = 1.2; g.strokeRect(gx, gy, 11 * s, 38 * s);
+  // a missing wall plank: a dark vertical gap on the right timber wall (×1.18)
+  const [gx, gy] = sw(p, 197.06, 139.24);
+  g.fillStyle = "#2a1510"; g.fillRect(gx, gy, 12.98 * s, 44.84 * s);
+  g.strokeStyle = "rgba(14,7,4,.7)"; g.lineWidth = 1.2; g.strokeRect(gx, gy, 12.98 * s, 44.84 * s);
 }
 
 export type StallSign = "fish" | "produce" | "goods" | "empty";
@@ -359,11 +368,12 @@ interface StallThemeSprite { id: string; cx: number; foot: number }
  * theme's art) and for any FUTURE stall (v2 town) that doesn't have its own
  * themed art yet — see docs/PIXELLAB_ASSETS.md for the picks + spares.
  */
+// W2b: anchors ×0.96 (pixel-grid unification; sprites pre-baked, scale now 1.0).
 const STALL_THEMES: Record<StallSign, StallThemeSprite> = {
-  fish:    { id: "buildings/stall-fish",    cx: 55.5, foot: 104 },
-  produce: { id: "buildings/stall-produce", cx: 55,   foot: 107 },
-  goods:   { id: "buildings/stall-goods",   cx: 55.5, foot: 107 },
-  empty:   { id: "buildings/stall-empty",   cx: 54.5, foot: 91 },
+  fish:    { id: "buildings/stall-fish",    cx: 53.28, foot: 99.84 },
+  produce: { id: "buildings/stall-produce", cx: 52.8,  foot: 102.72 },
+  goods:   { id: "buildings/stall-goods",   cx: 53.28, foot: 102.72 },
+  empty:   { id: "buildings/stall-empty",   cx: 52.32, foot: 87.36 },
 };
 
 /** The market/farm stall. Awning colour + goods vary by stall so the four
@@ -484,14 +494,16 @@ interface CottageSpriteInfo { id: string; cx?: number; foot?: number }
  * buildings/spare/) omit theirs and let spriteBaseAnchor measure the alpha bbox
  * at draw time (same base-on-ground result, no manual measuring pass).
  */
+// W2b: hand-measured anchors ×1.25 (pixel-grid unification; sprites pre-baked to
+// 140x160, scale now 1.0). Variants 6/8/9/10/11 auto-measure (spriteBaseAnchor).
 const COTTAGE_SPRITES: Record<number, CottageSpriteInfo> = {
-  1: { id: "buildings/cottage-01_thatch-plank-porch", cx: 55.5, foot: 103 },
-  2: { id: "buildings/cottage-02_slate-plaster-ivy", cx: 55.5, foot: 119 },
-  3: { id: "buildings/cottage-03_redtile-stone-flowerbox", cx: 55.5, foot: 118 },
-  4: { id: "buildings/cottage-04_shingle-timber-leanto", cx: 54.5, foot: 120 },
-  5: { id: "buildings/cottage-05_thatch-plaster-flowerbox", cx: 55.5, foot: 118 },
+  1: { id: "buildings/cottage-01_thatch-plank-porch", cx: 69.38, foot: 128.75 },
+  2: { id: "buildings/cottage-02_slate-plaster-ivy", cx: 69.38, foot: 148.75 },
+  3: { id: "buildings/cottage-03_redtile-stone-flowerbox", cx: 69.38, foot: 147.5 },
+  4: { id: "buildings/cottage-04_shingle-timber-leanto", cx: 68.13, foot: 150 },
+  5: { id: "buildings/cottage-05_thatch-plaster-flowerbox", cx: 69.38, foot: 147.5 },
   6: { id: "buildings/spare/cottage-06_slate-stone-porch" },
-  7: { id: "buildings/cottage-07_redtile-timber-ivy", cx: 55.5, foot: 121 },
+  7: { id: "buildings/cottage-07_redtile-timber-ivy", cx: 69.38, foot: 151.25 },
   8: { id: "buildings/spare/cottage-08_shingle-plank-leanto" },
   // V2-B1b — 3 coastal-flavored town-home variants (everything-pixels rule:
   // the 3 code-painter town homes clashed against sprite neighbors). Same

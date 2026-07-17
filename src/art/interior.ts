@@ -1,4 +1,8 @@
-import { T, SPRITE_HEARTH_SCALE, SPRITE_BASIN_SCALE, SPRITE_BED_SCALE } from "../config";
+import {
+  T, SPRITE_HEARTH_SCALE, SPRITE_BASIN_SCALE, SPRITE_BED_SCALE, SPRITE_CHAIR_SCALE,
+  SPRITE_TABLE_SCALE, SPRITE_COUNTER_SCALE, SPRITE_NIGHTSTAND_SCALE,
+  SPRITE_CRATE_TABLE_SCALE, SPRITE_RUG_SCALE,
+} from "../config";
 import { ROOM } from "../world/zones";
 import {
   HOME_FURNITURE, HOME_WINDOWS, HOME_DOOR, DIVIDER_SEGMENTS, DIVIDER_GAP,
@@ -9,10 +13,18 @@ import type { Rect } from "../world/zones";
 import { sprite, drawGroundSprite } from "./sprites";
 import type { DayPhase } from "../systems/calendar";
 
-// measured sprite-sheet anchors (alpha bbox: centre col, base/foot row)
-const HEARTH_SHEET = { cx: 32, foot: 78 };   // 64x80
-const BASIN_SHEET = { cx: 24, foot: 57 };    // 48x64
-const BED_SHEET = { cx: 31.5, foot: 66 };    // 64x80
+// measured sprite-sheet anchors (alpha bbox: centre col, base/foot row).
+// W2b interior furniture wave — every piece a UO-mood muted-warm sprite (dual-
+// path over the code painters below), anchors measured off the new PNGs.
+const HEARTH_SHEET = { cx: 32, foot: 78 };       // 64x80 (unchanged)
+const BASIN_SHEET = { cx: 23.5, foot: 57 };      // 48x64
+const BED_SHEET = { cx: 31.5, foot: 69 };        // 64x80
+const CHAIR_SHEET = { cx: 23.5, foot: 58 };      // 48x64
+const TABLE_SHEET = { cx: 31.5, foot: 57 };      // 64x64
+const COUNTER_SHEET = { cx: 40, foot: 60 };      // 80x64
+const NIGHTSTAND_SHEET = { cx: 23.5, foot: 51 }; // 48x56
+const CRATE_TABLE_SHEET = { cx: 27, foot: 50 };  // 56x56
+const RUG_SHEET = { cx: 40, cy: 27 };            // 80x56 — flat decal: centred on its rect (cy = content vertical centre)
 
 /**
  * The house interior — HOME-1: a real little cottage, drawn ENTIRELY from data.
@@ -230,6 +242,8 @@ function paintBed(g: CanvasRenderingContext2D, r: Rect) {
 }
 
 function paintChair(g: CanvasRenderingContext2D, r: Rect) {
+  const cimg = sprite("interior/chair");
+  if (cimg) { drawGroundSprite(g, cimg, r.x + r.w / 2, r.y + r.h, CHAIR_SHEET.cx, CHAIR_SHEET.foot, SPRITE_CHAIR_SCALE); return; }
   const cx = r.x + r.w * 0.5, cy = r.y + r.h * 0.55;
   g.save(); g.translate(cx, cy); g.rotate(-0.05);                            // leans on the short leg
   g.fillStyle = "#8a6a42";
@@ -243,6 +257,8 @@ function paintChair(g: CanvasRenderingContext2D, r: Rect) {
 }
 
 function paintTable(g: CanvasRenderingContext2D, r: Rect) {
+  const timg = sprite("interior/table");
+  if (timg) { drawGroundSprite(g, timg, r.x + r.w / 2, r.y + r.h, TABLE_SHEET.cx, TABLE_SHEET.foot, SPRITE_TABLE_SCALE); return; }
   g.fillStyle = "#6f5334";                                                   // legs
   g.fillRect(r.x + r.w * 0.14, r.y + r.h * 0.42, T * 0.12, r.h * 0.5);
   g.fillRect(r.x + r.w * 0.72, r.y + r.h * 0.42, T * 0.12, r.h * 0.5);
@@ -254,6 +270,8 @@ function paintTable(g: CanvasRenderingContext2D, r: Rect) {
 }
 
 function paintCrateTable(g: CanvasRenderingContext2D, r: Rect) {
+  const cimg = sprite("interior/crate-table");
+  if (cimg) { drawGroundSprite(g, cimg, r.x + r.w / 2, r.y + r.h, CRATE_TABLE_SHEET.cx, CRATE_TABLE_SHEET.foot, SPRITE_CRATE_TABLE_SCALE); return; }
   g.fillStyle = "#7a5f3e";                                                   // body (darker than the floor)
   g.fillRect(r.x, r.y + r.h * 0.14, r.w, r.h * 0.82);
   g.fillStyle = "#9c7d52";                                                   // lit top surface
@@ -269,6 +287,8 @@ function paintCrateTable(g: CanvasRenderingContext2D, r: Rect) {
 }
 
 function paintCounter(g: CanvasRenderingContext2D, r: Rect) {
+  const cimg = sprite("interior/counter");
+  if (cimg) { drawGroundSprite(g, cimg, r.x + r.w / 2, r.y + r.h, COUNTER_SHEET.cx, COUNTER_SHEET.foot, SPRITE_COUNTER_SCALE); return; }
   g.fillStyle = "#7a5836";                                                   // cabinet body
   g.fillRect(r.x, r.y + r.h * 0.35, r.w, r.h * 0.65);
   g.fillStyle = "#9c8256";                                                   // worktop
@@ -284,6 +304,8 @@ function paintCounter(g: CanvasRenderingContext2D, r: Rect) {
 }
 
 function paintNightstand(g: CanvasRenderingContext2D, r: Rect) {
+  const nimg = sprite("interior/nightstand");
+  if (nimg) { drawGroundSprite(g, nimg, r.x + r.w / 2, r.y + r.h, NIGHTSTAND_SHEET.cx, NIGHTSTAND_SHEET.foot, SPRITE_NIGHTSTAND_SCALE); return; }
   g.fillStyle = "#7a5836";
   g.fillRect(r.x, r.y + r.h * 0.2, r.w, r.h * 0.8);
   g.strokeStyle = "#4e3a24"; g.lineWidth = 1.5;
@@ -295,6 +317,12 @@ function paintNightstand(g: CanvasRenderingContext2D, r: Rect) {
 }
 
 function paintRug(g: CanvasRenderingContext2D, r: Rect) {
+  const rimg = sprite("interior/rug");
+  if (rimg) {
+    // a flat floor decal — CENTRE the sprite on the rug rect (not base-on-ground)
+    drawGroundSprite(g, rimg, r.x + r.w / 2, r.y + r.h / 2, RUG_SHEET.cx, RUG_SHEET.cy, SPRITE_RUG_SCALE);
+    return;
+  }
   g.save();
   g.fillStyle = "#7c4a46"; roundRect(g, r.x, r.y, r.w, r.h, 8); g.fill();
   g.strokeStyle = "#a9756a"; g.lineWidth = 4; roundRect(g, r.x + 6, r.y + 6, r.w - 12, r.h - 12, 6); g.stroke();

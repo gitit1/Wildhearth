@@ -29,6 +29,97 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## W2b — nature, props & the furnished home + the fidelity match: the world completes the pivot
+- **Date:** 2026-07-17 (v1-foundation). Art-pivot wave W2b. Replaces the last
+  cozy-era holdouts (trees, bushes/flowers, world props, interior furniture) with
+  UO-mood pixel art, AND answers the owner's post-W2c note — *"better, but still
+  not connected to the ground — maybe because one looks too 'drawn' and the other
+  (the ground) doesn't."* **48 PixelLab generations** (balance 6762 → 6714, Tier
+  3; the 130-gen budget held with 82 to spare). The dual-path sprite wiring for
+  all four categories already existed (the PNGs on disk were pre-pivot cozy art),
+  so this is largely a drop-in restyle + re-anchor, plus two 0-gen code fixes.
+- **PART 0 — the fidelity match (0 gens, the owner's top complaint):**
+  - **Pixel-grid unification** (`scripts/pixel-grid-unify.mjs`, committed): the
+    W2c building scales (0.9–1.25) meant each building's on-screen pixel density
+    differed from the 32px ground's 1.0 — finer/coarser pixels reading as a
+    different level of "drawnness". Fixed by a one-shot offline nearest-neighbour
+    resample of every building PNG to `native_px × its W2c scale`, then setting
+    every `SPRITE_<building>_SCALE` to **1.0** (`src/config.ts`) so every
+    building's pixel grid is now 1:1 with the ground. World SIZE + anchor
+    world-POSITION are byte-identical: `src/art/buildings.ts` multiplies every
+    hard-coded sprite-px value by the same factor — the sheet anchors
+    (`FARMHOUSE_SHEET`/`FARMHOUSE_NEIGHBOR_SHEET`/`BARN_SHEET`/`STALL_SHEET`/
+    `WELL_SHEET`, `STALL_THEMES`, `COTTAGE_SPRITES`), the whole `BUILDING_ROOFLINE`
+    table, and the renovation damage-overlay coords (`drawHouseRoofDamageSprite`/
+    `drawHouseWindowBoardSprite` ×0.95, `drawBarnDamageSprite` ×1.18). inn.png was
+    already 1.0 → untouched. Verified: the rundown farmhouse's roof-hole/patch +
+    boarded-window X land exactly on the sprite; the neighbour barn plants
+    correctly on the ground.
+  - **Ground micro-texture restore** (`scripts/ground-microtexture.mjs`,
+    committed): the W1.1 tone-normalize over-flattened the tiles' painterly grain
+    (measured committed micro-stdev grass 3.0 / soil 4.0 vs rich sources 6.6 /
+    16.1). A one-shot mean-preserving amplification per tile — `macro =
+    toroidal-lowpass(r6); out = macro + (px−macro)×K` (grass 1.55, soil 1.25,
+    water 1.20, plaza 1.05) — restores subtle within-tile grain while keeping the
+    macro tone flat (the anti-quilt normalization stays). "Macro flat, micro
+    alive." (Deliberately does NOT restore soil to source level — that busy
+    vertical wood-grain is the owner-rejected "planks".) Idempotency-guarded with
+    a `.microtex` marker per set.
+- **PART 1 — trees** (`src/assets/pixellab/trees/*.png`, drop-in): oak + birch ×
+  4 seasons + pine (base/winter) regenerated UO-mood — dark gnarled bark, muted
+  deep-shadow canopy (NOT bright green), baked dirt+grass apron. `src/art/props.ts`
+  `drawTreeSprite` now auto-measures the anchor (`spriteBaseAnchor`) since the new
+  192×256 sprites have a per-sprite apron base (removed the old hard-coded
+  `TREE_ANCHOR`); `SPRITE_TREE_SCALE` 0.55 → **0.82** (mature canopy ~3u, whole
+  tree ~4.6u — taller than the farmhouse, per COMPOSITION_RULES Part 3). Species
+  mapping unchanged (Gather/chop states survive). `drawStump` bark darkened to
+  match the new trunks.
+- **PART 2 — rocks/boulders** (`props/boulder-{small,med,large}.png`, NEW): mossy
+  granite, 3 sizes, baked apron. Placed as new `WORLD_PROPS` in `src/world/zones.ts`
+  (meadow / forest edge) with per-prop scale + collision.
+- **PART 3 — world props** (`props/*.png`, drop-in + NEW `trough.png`): barrel,
+  crate, sack, hay-bale, firewood(woodpile), wheelbarrow, cart, signpost,
+  scarecrow, birdhouse, bench, well-bucket, bucket, flower-pot, lantern, busk-sign,
+  flower-bed-soil all UO-mood (barrel/crate/hay-bale/firewood/bucket/trough REUSED
+  from the approved W0 calibration set, 0 gens). Bushes + flower clumps + fern
+  (`foliage/*.png`, drop-in) regenerated muted deep-shadow. A farm water `trough`
+  added to `WORLD_PROPS`. `drawProp` already auto-anchors — no per-prop wiring
+  beyond scale.
+- **PART 4 — interior furniture** (`interior/*.png`): bed + basin regenerated;
+  chair, table, counter, nightstand, rug, crate-table NEW. `src/art/interior.ts`
+  gains a sprite dual-path per painter (the code painters stay the zero-PNG
+  fallback), with measured `*_SHEET` anchors + new `SPRITE_*_SCALE` knobs in
+  `config.ts`; the rug is centred (flat floor decal), the rest base-on-ground.
+  Muted-warm, consistent with the hearth.
+- **Fix during the run:** 4 tree re-rolls came back with an OPAQUE flat background
+  (PIXELLAB failure mode #7) — repaired with a committed border-flood transparency
+  tool (`scripts/flood-key-bg.mjs`) rather than re-rolled, keeping the muted look.
+- **Files:** `src/config.ts` (building scales → 1.0, tree scale, interior scales),
+  `src/art/buildings.ts` (anchors/roofline/damage ×scale), `src/art/props.ts`
+  (tree anchor auto-measure, stump tones), `src/art/interior.ts` (6 furniture
+  dual-paths + anchors), `src/world/zones.ts` (4 nature props), 3 new committed
+  scripts under `scripts/`, ~45 replaced/new PNGs under `src/assets/pixellab/`.
+- **Verify (all green):** `npm run build`, `verify:smoke`, `verify:save`,
+  `verify/gp1-farmstart.mjs` (4 paths + legacy), zero-PNG boot (1122 PNGs blocked,
+  code painters render, no errors). 1920×1080 tour: farmhouse fidelity closeup,
+  farm × 4 seasons + dusk, forest (boulders + mature trees), market, interior,
+  heroine beside a mature tree, neighbour barn.
+- **Mock verdict (farm-dusk / forest vs `uo-mock-screen-v3.png`):** per-element
+  the game now matches or beats the mock — trees with baked aprons, mossy
+  boulders, muted props and micro-textured ground under one dusk grade read as one
+  cohesive medium, no longer "placed on top of" the ground.
+- **Follow-ups:**
+  - A few small scatter foliage sprites were NOT in scope and remain cozy-era:
+    `foliage/{grass-tuft,mushrooms,reeds,lily-pad,hedge-a,hedge-b,mossy-rock}.png`.
+    grass-tuft reads acceptably muted at size; the red mushroom cap is the
+    brightest holdout. Regenerate in a small follow-up if the owner wants them muted.
+  - The interior rug renders a touch bright-red vs the muted room — an easy
+    `SPRITE_RUG_SCALE`/re-gen tweak if flagged.
+  - The player's OWN broken barn damage overlay (×1.18) wasn't separately
+    screenshotted — it doesn't appear on the default new-game farmer path (no
+    barn); it uses the identical `sw()` mechanism as the verified farmhouse.
+  - `cart` came back as a 4-wheel wagon (spec asked 2-wheel); clean UO-mood, kept.
+
 ## W2c — the proportion pass: buildings at human scale (+ farm grounding)
 - **Date:** 2026-07-17 (v1-foundation). Art-pivot wave W2c. Fixes the owner's
   verdict on the W2a buildings — *"the buildings aren't proportional to the

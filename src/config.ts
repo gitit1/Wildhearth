@@ -605,31 +605,48 @@ export const SPRITE_NPC_SCALES: Record<string, number> = {
 // barn (4.69u) out-tops it; cottages/stalls/outhouse/stable lifted out of the
 // "playhouse" range; well trimmed. Pixel density stays ~0.9-1.25 (≈ ground 1.0 /
 // chars 0.82) so nothing reads softer than its neighbours. No generations spent.
-export const SPRITE_HOUSE_SCALE = 0.95;   // farmhouse 161px→153 = 3.92u (≤4.0 focal cap); neighbor 134→127 = 3.26u
-export const SPRITE_BARN_SCALE = 1.18;    // barn 155px→183 = 4.69u (law 4.5-5u; > farmhouse)
+// W2b PIXEL-GRID UNIFICATION (fidelity match, 2026-07-17): the W2c scales are now
+// BAKED into the sprite PNGs (scripts/pixel-grid-unify.mjs resampled each building
+// to native_px × its W2c scale), so every building renders at scale 1.0 — its pixel
+// grid aligns 1:1 with the 32px ground tiles, killing the "buildings look more
+// 'drawn' than the ground" density mismatch. World size + anchors are unchanged
+// (buildings.ts × the same factor into the sheet anchors / roofline / damage coords).
+export const SPRITE_HOUSE_SCALE = 1.0;    // farmhouse+neighbor pre-baked ×0.95 (was 0.95)
+export const SPRITE_BARN_SCALE = 1.0;     // barn pre-baked ×1.18 (was 1.18)
 export const SPRITE_HEARTH_SCALE = 1.0;
 // --- Wave 2: interior room backdrop, furniture, market stalls + well. Same
 //     "measure the alpha bbox, scale footprint ≈ zone rect" recipe; the room
 //     backdrop is a full-bleed background (not a footprint sprite), so it's
 //     placed by offset only (SPRITE_ROOM_SCALE stays 1.0 — see art/interior.ts). ---
 export const SPRITE_ROOM_SCALE = 1.0;
-export const SPRITE_BASIN_SCALE = 0.92;
-export const SPRITE_CHAIR_CRATE_SCALE = 1.12;
-export const SPRITE_BED_SCALE = 1.21;
-export const SPRITE_STALL_SCALE = 0.96;   // W2c: stalls 76-108px→73-104 = 1.9-2.7u (canopy law 2.2-2.6u)
-export const SPRITE_WELL_SCALE = 0.90;    // W2c: well 82px→74 = 1.9u (was 2.21u, a touch tall)
+// W2b interior furniture wave: every piece now has its own UO-mood muted-warm
+// sprite (dual-path over the code painters). Scales map each sprite's content
+// width onto its furniture.ts footprint rect (measured contentW; see the
+// FURNITURE_SHEET anchors in art/interior.ts). Retune here if a piece reads
+// too big/small in the room. Verified by an interior screenshot.
+export const SPRITE_BASIN_SCALE = 1.0;
+export const SPRITE_CHAIR_CRATE_SCALE = 1.12;   // legacy combined chair+crate sprite (superseded; kept for the zero-PNG A/B)
+export const SPRITE_BED_SCALE = 1.0;
+export const SPRITE_CHAIR_SCALE = 0.94;
+export const SPRITE_TABLE_SCALE = 0.82;
+export const SPRITE_COUNTER_SCALE = 1.15;
+export const SPRITE_NIGHTSTAND_SCALE = 0.78;
+export const SPRITE_CRATE_TABLE_SCALE = 0.94;
+export const SPRITE_RUG_SCALE = 1.7;             // rug is a flat floor decal — centred on its rect, not base-on-ground
+export const SPRITE_STALL_SCALE = 1.0;    // W2b: stalls pre-baked ×0.96 (was 0.96)
+export const SPRITE_WELL_SCALE = 1.0;     // W2b: well pre-baked ×0.90 (was 0.90)
 // --- "Everything-pixels" audit batch: code-drawn holdouts the owner caught on
 //     sight get PixelLab sprites (dual-path over the existing painters). Each
 //     scale maps the downloaded PNG onto its zone rect: outhouse 64x96 -> the
 //     ~35x54 OUTHOUSE rect; hedge segment 64x48 -> the ~1.4-tile-wide HEDGES
 //     band, tiled down each strip. ---
-export const SPRITE_OUTHOUSE_SCALE = 1.15;  // W2c: outhouse 72px→83 = 2.13u (was 1.03u — the worst mis-scale)
+export const SPRITE_OUTHOUSE_SCALE = 1.0;   // W2b: outhouse pre-baked ×1.15 (was 1.15)
 export const SPRITE_HEDGE_SCALE = 0.7;
 // Town buildings: inn art is sized to its 6-tile-wide (192px) rect -> scale 1.0
 // (roof/upper storey overhang above, same recipe as the house/barn); stable art
 // (160px) maps onto its ~3.8-tile (122px) rect.
 export const SPRITE_INN_SCALE = 1.0;      // W2c: inn 162px = 4.15u (between house 3.92u & barn 4.69u — keep)
-export const SPRITE_STABLE_SCALE = 1.2;   // W2c: stable 104px→125 = 3.2u (low+broad; bigger than a cottage, was 2.03u)
+export const SPRITE_STABLE_SCALE = 1.0;   // W2b: stable pre-baked ×1.2 (was 1.2)
 // Props: busk signpost (48x64 art onto the small post+board), base-on-ground.
 // The dock is a top-down flat deck drawn stretched to fill its DOCK/TOWN_DOCK
 // rect (posts baked in at the south end), so it needs no scale knob.
@@ -647,7 +664,7 @@ export const SPRITE_FESTIVAL_LANTERN_SCALE = 0.62;
 //     COTTAGE_SPRITES), one scale for every variant (all cottage canvases are
 //     the same 112x128 size, same "footprint <= zone rect" recipe as above;
 //     each variant's own cx/foot anchor is what actually differs per art). ---
-export const SPRITE_COTTAGE_SCALE = 1.25;   // W2c: cottages 99-120px→124-150 = 3.18-3.85u (homes law 3.2-3.8u; was 2.0-2.5u — THE playhouse fix)
+export const SPRITE_COTTAGE_SCALE = 1.0;    // W2b: cottages pre-baked ×1.25 (was 1.25)
 // --- Farm-animal sprites (art/spriteAnimal.ts). Each livestock species has its
 //     OWN packed sheet (animals/<kind>.sheet.png, scripts/packsheets.mjs).
 //     Quadrupeds (cow/pig/sheep) carry a full walk cycle (frame count read off
@@ -690,7 +707,11 @@ export const SPRITE_BIRD_WADDLE_STRIDE = 10;  // px of travel per waddle cycle
 //     multiplies this so a forest never looks like stamped clones. The trunk
 //     base stays planted on the tree's (x,y) depth/collision anchor through the
 //     jitter. TREE_SPRITE_JITTER bounds the per-tree uniform-scale spread. ---
-export const SPRITE_TREE_SCALE = 0.55;        // world px per sprite px
+// W2b: UO-mood trees are 192x256 (content ~230px) with a baked dirt/grass apron
+// (was 128x160 cozy). 0.82 lands a mature canopy at ~3.0-3.3u and the whole tree
+// ~4.6-5u — the COMPOSITION_RULES Part-3 mature-canopy law (3-4.5u), taller than
+// the farmhouse (3.9u) as a mature tree should be. Verified beside the heroine.
+export const SPRITE_TREE_SCALE = 0.82;        // world px per sprite px
 export const SPRITE_TREE_JITTER = 0.12;       // +/- uniform-scale variation (0.88..1.12)
 
 // --- Crop sprites (52-sprite-px plants on 32-px tiles). The PLANT is a sprite
