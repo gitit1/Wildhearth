@@ -29,6 +29,49 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## W1.1 — ground quality pass: de-quilt, coherent furrows, organic edges
+- **Date:** 2026-07-17 (v1-foundation). Follow-up to W1 after the
+  orchestrator's eyeball review flagged 3 ground defects. **Zero PixelLab
+  generations** — all three fixed by deterministic tile post-processing +
+  code, no re-rolls.
+- **1) Grass/soil "quilt" (macro tone patches, worst at dusk):** new
+  post-process (`scratchpad normalize.mjs flatten`, recipe recorded in
+  `docs/PIXELLAB_ASSETS.md`'s ground checklist) applied in place to the tile
+  PNGs — toroidal low-pass removal + a common per-set mean (out = px −
+  lowpass(px) + target; wrapped blur so tiles stay seamless). Grass ×16 →
+  mean (128,129,89) (post-check: every tile dist 0.0 from the pool mean; was
+  spread up to 36); soil smooth pool ×11 → (64,57,44) (was bright 31–74 —
+  the measured yard quilt). Kills macro tone steps AND within-tile gradients,
+  keeps micro-texture.
+- **2) Tilled field read as a dark noisy mass, not furrows:** measured against
+  the W0.5 mock's tilled bed (mean rgb 60,51,33, row-amplitude 8.7). Root
+  causes: tile_10 was a near-black outlier (bright 33 vs 43-46), and each
+  furrow tile had its OWN row phase/noise so rows broke at every tile border.
+  Fix (`normalize.mjs furrow`): per furrow tile, strip its own row profile +
+  x-speckle ([1,2,1] wrap-blur ×2), dampen residual texture ×0.65, then add
+  ONE shared y-aligned 8px band profile (broad lit ridge / narrow groove,
+  warm-scaled) + common mean (62,53,37 — slightly above the mock so the day
+  grade lands it on target). Because period 8 divides the 32px tile, furrow
+  rows now continue seamlessly across every tile border — the field reads as
+  a calm horizontal rhythm at both zooms and at dusk. `SOIL_TILLED_BAG` also
+  dropped smooth tile 12 (a bare patch broke the rhythm).
+- **3) Chunky/mechanical dither edges:** `src/world/ground.ts` — the 4x4
+  ordered Bayer threshold (read as a dot lattice at gameplay zoom) replaced by
+  `edgeThr(x,y)`: 3 octaves of deterministic positional hash noise (4px/2px/
+  1px features, `noise01`) → irregular torn-paper edges; grass↔soil /
+  field / plaza / forest-tint fade ramps widened to ~1.5 tiles (soil
+  (e+1)/1.5, field (e+0.8)/1.15, plaza (e+1.1)/1.6, forest (e+0.75)/1.5).
+  Water ramps untouched (physical shore rings); they pick up the organic
+  threshold automatically. The module-local BAYER const is gone (art/vista.ts
+  has its own copy — untouched).
+- **Verification (by LOOKING, per the review):** re-shot farm-day, farm-dusk,
+  field, field-dusk, junction, junction-dusk at 1920×1080 — no visible macro
+  patches at either zoom or time of day; furrows legible + calm + brown-earth
+  at dusk; edges soft/organic at closest zoom. `npm run build` +
+  `verify:smoke` green.
+- **Follow-ups:** none new (W1's stand — commit erode+normalize as a repo
+  script under `scripts/` — now covers both post-process steps).
+
 ## W1 — the ground wave: UO-mood terrain, pixel scatter, moody grade
 - **Date:** 2026-07-17 (v1-foundation). The first full art-pivot WAVE
   (`docs/ART_PIVOT_UO.md` W1) after the W0 mock sign-off: restyle the GROUND to

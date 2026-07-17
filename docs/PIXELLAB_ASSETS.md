@@ -234,9 +234,15 @@ is worst-case). Balance 6936 → **6796** (Tier 3).
 
 ### The GROUND generation checklist (append to, per new set)
 `create_tiles_pro` **outline / square_topdown / top-down / 32 / seed 7777** →
-download → **erode border B=2** → drop in `ground/<set>/` → re-derive the bag
-from the new tiles' roles, dominant pool = tight same-tone cluster (measure
-with a mean-RGB dump), features/off-tone sparse.
+download → **erode border B=2** → **tone-NORMALIZE the pool** (W1.1: toroidal
+low-pass removal + a common per-set mean — kills the several-tile "quilt" of
+macro tone patches while keeping micro-texture; furrow tiles instead get the
+furrow pipeline: strip each tile's own row profile + speckle, dampen residual
+×0.65, add ONE shared y-aligned 8px band profile + common warm-earth mean so
+rows continue across every tile border) → drop in `ground/<set>/` → re-derive
+the bag from the new tiles' roles. Edge dithering in `world/ground.ts` is
+multi-octave positional hash noise (`edgeThr`, W1.1 — the 4x4 Bayer read as a
+mechanical dot lattice at gameplay zoom) with ~1.5-tile fades.
 
 ---
 

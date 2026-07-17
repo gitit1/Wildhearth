@@ -26,9 +26,20 @@ const AREA_K = (WORLD_W * WORLD_H) / (1088 * 768);
 //  async after boot, main.ts re-bakes a single time once groundTilesAvailable().
 // ===========================================================================
 
-/** 4x4 Bayer matrix, normalised to (0,1) thresholds — the dither edge kernel. */
-const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
-  .map((r) => r.map((v) => (v + 0.5) / 16));
+/** Deterministic per-pixel hash noise in (0,1) — one octave of the edge kernel. */
+function noise01(x: number, y: number, salt: number): number {
+  let h = ((x * 374761393) ^ (y * 668265263) ^ (salt * 1274126177)) >>> 0;
+  h ^= h >>> 13; h = (h * 1274126177) >>> 0; h ^= h >>> 16;
+  return h / 4294967296;
+}
+/** Multi-octave organic dither threshold (W1.1 — replaces the 4x4 Bayer).
+ *  The ordered Bayer read as a mechanical dot lattice at gameplay zoom
+ *  (coordinator review); three octaves of positional hash noise (4px / 2px /
+ *  1px features) give an irregular torn-paper edge instead, still fully
+ *  deterministic per world pixel. */
+function edgeThr(x: number, y: number): number {
+  return 0.45 * noise01(x >> 2, y >> 2, 11) + 0.35 * noise01(x >> 1, y >> 1, 22) + 0.2 * noise01(x, y, 33);
+}
 
 /** Expand a weighted spec [[tileIndex, weight], ...] into a flat pick bag. */
 function bag(spec: Array<[number, number]>): number[] {
@@ -55,10 +66,13 @@ const SOIL_PATH_BAG = bag([[0, 10], [1, 10], [2, 9], [3, 8], [5, 9], [6, 10], [7
 /** Tilled-soil furrow tiles (the plot + freshly-hoed cells). Exported so the
  *  per-cell tilled painter (art/props.ts drawTilledTile) draws the SAME soil
  *  base as the baked field — seamless, no tone clash. */
-// The soft HORIZONTAL crumbly-furrow tiles (8,9,10,11,15) dominate so the field
-// reads as evenly tilled dark rows — NOT the old vertical-plank read the owner
-// rejected; one smooth tile (12) sprinkled in for the odd bare patch.
-export const SOIL_TILLED_BAG = bag([[8, 10], [9, 9], [10, 9], [11, 9], [15, 9], [12, 2]]);
+// The soft HORIZONTAL crumbly-furrow tiles (8,9,10,11,15) — NOT the old
+// vertical-plank read the owner rejected. W1.1: the furrow tiles were
+// post-processed to share ONE y-aligned 8px band profile + a common warm-earth
+// mean (62,53,37), so furrow rows continue seamlessly across every tile border
+// and the field reads as a calm horizontal rhythm instead of a dark noisy
+// mass; the smooth bare-patch tile (12) was dropped — it broke the rhythm.
+export const SOIL_TILLED_BAG = bag([[8, 10], [9, 9], [10, 9], [11, 9], [15, 9]]);
 // WATER deep cold interior: tiles 0 & 12 are near-identical dark cold water
 // (bright ~44, measured) and carry the field; 1/14 (bright ~58) are mild
 // secondaries and 2/5 (darkest) rare accents. The green/light outliers
@@ -172,7 +186,9 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
   for (let y = 0; y < WORLD_H; y++) {
     for (let x = 0; x < WORLD_W; x++) {
       const cx = (x / T) | 0, cy = (y / T) | 0;
-      const thr = BAYER[y & 3]![x & 3]!;
+      // W1.1: organic noise threshold + WIDER fades (~1.5 tiles) — the old
+      // 4x4 Bayer + ~0.8-tile ramps read as a mechanical dot lattice.
+      const thr = edgeThr(x, y);
 
       // --- grass base (+ darker, greener forest-floor tint, dithered edge so
       //     the shaded floor blends into the open meadow instead of a hard line) ---
@@ -181,7 +197,7 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
       let r = texel(gb, x, y, 0), gg = texel(gb, x, y, 1), b = texel(gb, x, y, 2);
       {
         const e = rectInsetTiles(x, y, forest);
-        const fa = e > 0.5 ? 1 : e > -0.5 ? e + 0.5 : 0;
+        const fa = e > 0.75 ? 1 : e > -0.75 ? (e + 0.75) / 1.5 : 0;
         if (fa > 0 && (fa >= 1 || fa > thr)) {
           r = (r * 0.78) | 0; gg = (gg * 0.86) | 0; b = (b * 0.70) | 0;
         }
@@ -191,7 +207,7 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
       let sa = 0;
       for (const rr of soilRegions) {
         const e = rectInsetTiles(x, y, rr);
-        const a = e > 0.28 ? 1 : e > -0.5 ? (e + 0.5) / 0.78 : 0;
+        const a = e > 0.5 ? 1 : e > -1 ? (e + 1) / 1.5 : 0;
         if (a > sa) sa = a;
       }
       if (sa > 0 && (sa >= 1 || sa > thr)) {
@@ -200,10 +216,11 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
         r = texel(sb, x, y, 0); gg = texel(sb, x, y, 1); b = texel(sb, x, y, 2);
       }
 
-      // --- TILLED field: furrowed soil with a ragged edge ---
+      // --- TILLED field: furrowed soil with a soft ragged edge ---
       {
         const e = rectInsetTiles(x, y, field);
-        if (e > -0.15 && (e > 0.12 || e > thr - 0.5)) {
+        const a = e > 0.35 ? 1 : e > -0.8 ? (e + 0.8) / 1.15 : 0;
+        if (a > 0 && (a >= 1 || a > thr)) {
           const ti = pickTile(SOIL_TILLED_BAG, cx, cy, 4);
           const tb = buf.soil![ti]!;
           r = texel(tb, x, y, 0); gg = texel(tb, x, y, 1); b = texel(tb, x, y, 2);
@@ -213,7 +230,7 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
       // --- PLAZA: warm-grey cobble across the market square AND the town street ---
       for (const pz of [plaza, townPlaza]) {
         const e = rectInsetTiles(x, y, pz);
-        const a = e > 0.28 ? 1 : e > -0.6 ? (e + 0.6) / 0.88 : 0;
+        const a = e > 0.5 ? 1 : e > -1.1 ? (e + 1.1) / 1.6 : 0;
         if (a > 0 && (a >= 1 || a > thr)) {
           const zi = pickTile(PLAZA_BAG, cx, cy, 5);
           const zb = buf.plaza![zi]!;
