@@ -1,5 +1,5 @@
 import { HOUSE, BARN, COOP, STALL, type Rect } from "../world/zones";
-import { shadow, oRect, outline, OUTLINE, OUTLINE_W, castShadow, roundR } from "./shapes";
+import { oRect, outline, OUTLINE, OUTLINE_W, contactShadow, baseGrounding, roundR } from "./shapes";
 import { mulberry32 } from "../engine/rng";
 import { sprite, drawGroundSprite, spriteBaseAnchor, recolorSprite, type SpritePlacement, type HueBand } from "./sprites";
 import {
@@ -156,16 +156,16 @@ export function drawHouse(
   const img = sprite(spriteId);
   if (img) {
     const gx = x + w / 2, gy = y + h;
-    castShadow(g, gx, gy, w * 0.5, h * 1.3);   // keep the cast shadow; the sprite carries its own outline
+    contactShadow(g, gx, gy, w * 0.5);   // W2c: soft short contact shadow (was the hard diagonal polygon)
     const anchor = spriteId === "buildings/farmhouse" ? FARMHOUSE_SHEET : FARMHOUSE_NEIGHBOR_SHEET;
     const p = drawGroundSprite(g, img, gx, gy, anchor.cx, anchor.foot, SPRITE_HOUSE_SCALE);
     if (!roofOk) drawHouseRoofDamageSprite(g, p);      // renovation overlays land on the sprite's roof / window
     if (!windowOk) drawHouseWindowBoardSprite(g, p);
+    baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0);   // W2c: tufts + tint break the base line
     return;
   }
-  // ---- code-drawn fallback (painter path, unchanged) ----
-  castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.3);
-  shadow(g, x + w / 2 + 8, y + h + 8, w * 0.55, 12);
+  // ---- code-drawn fallback (painter path) ----
+  contactShadow(g, x + w / 2, y + h, w * 0.5);
   drawPlankWall(g, x, y + h * 0.35, w, h * 0.65, "#c9a06a", 101);
   oRect(g, x + w * 0.44, y + h * 0.55, w * 0.13, h * 0.45, "#7a5230");
   g.fillStyle = "#5d3e22"; g.fillRect(x + w * 0.44, y + h * 0.55, w * 0.13, 4);
@@ -203,6 +203,7 @@ export function drawHouse(
     g.beginPath(); g.moveTo(wx - 3, wy + 3); g.lineTo(wx + ww + 3, wy + wh - 3); g.stroke();
     g.beginPath(); g.moveTo(wx + ww + 3, wy + 3); g.lineTo(wx - 3, wy + wh - 3); g.stroke();
   }
+  baseGrounding(g, x + w / 2, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
 }
 
 export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = BARN) {
@@ -211,14 +212,14 @@ export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = B
   const img = sprite("buildings/barn");
   if (img) {
     const gx = x + w / 2, gy = y + h;
-    castShadow(g, gx, gy, w * 0.5, h * 1.2);
+    contactShadow(g, gx, gy, w * 0.52);   // W2c
     const p = drawGroundSprite(g, img, gx, gy, BARN_SHEET.cx, BARN_SHEET.foot, SPRITE_BARN_SCALE);
     if (!barnOk) drawBarnDamageSprite(g, p);
+    baseGrounding(g, gx, gy, w * 0.52, (x * 3 + y * 7) | 0);   // W2c
     return;
   }
-  // ---- code-drawn fallback (painter path, unchanged) ----
-  castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.2);
-  shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
+  // ---- code-drawn fallback (painter path) ----
+  contactShadow(g, x + w / 2, y + h, w * 0.52);
   drawPlankWall(g, x, y + h * 0.3, w, h * 0.7, "#b24a3e", 303);
   // the barn roof shares the shingle treatment (weathered until mended)
   drawShingleRoof(g, x + w / 2, y - h * 0.18, x - 8, x + w + 8, y + h * 0.34,
@@ -238,6 +239,7 @@ export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = B
     g.fillStyle = "#8a6a42"; g.fillRect(-w * 0.22, -3, w * 0.44, 6);
     g.restore();
   }
+  baseGrounding(g, x + w / 2, y + h, w * 0.52, (x * 3 + y * 7) | 0);   // W2c
 }
 
 /**
@@ -251,8 +253,7 @@ export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = B
  */
 export function drawCoop(g: CanvasRenderingContext2D, r: Rect = COOP) {
   const { x, y, w, h } = r;
-  castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.1);
-  shadow(g, x + w / 2 + 5, y + h + 6, w * 0.55, 9);
+  contactShadow(g, x + w / 2, y + h, w * 0.5);   // W2c
   // stubby raised base the hut sits on (a coop is off the ground)
   g.fillStyle = "#6b4e30";
   g.fillRect(x + w * 0.08, y + h * 0.86, w * 0.84, h * 0.2);
@@ -278,6 +279,7 @@ export function drawCoop(g: CanvasRenderingContext2D, r: Rect = COOP) {
   g.moveTo(x + w * 0.46, y + h * 0.9);
   g.lineTo(x + w * 0.5, y + h * 0.52);
   g.stroke();
+  baseGrounding(g, x + w / 2, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
 }
 
 // ===========================================================================
@@ -386,9 +388,10 @@ export function drawStall(
       const gx = x + w / 2, gy = y + h;
       const a = theme.cx !== undefined && theme.foot !== undefined
         ? { cx: theme.cx, foot: theme.foot } : spriteBaseAnchor(theme.id, timg);
-      castShadow(g, gx, gy, w * 0.5, h * 0.9);
+      contactShadow(g, gx, gy, w * 0.5);   // W2c
       drawGroundSprite(g, timg, gx, gy, a.cx, a.foot, SPRITE_STALL_SCALE);
       drawStallGoods(g, r, accent, sign);
+      baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
       return;
     }
     // this stall's themed sprite hasn't decoded yet (or is missing) -> fall
@@ -403,15 +406,15 @@ export function drawStall(
   const img = sprite("buildings/market-stall");
   if (img) {
     const gx = x + w / 2, gy = y + h;
-    castShadow(g, gx, gy, w * 0.5, h * 0.9);
+    contactShadow(g, gx, gy, w * 0.5);   // W2c
     const tinted = recolorSprite("buildings/market-stall", img, awning, STALL_AWNING_BAND);
     drawGroundSprite(g, tinted ?? img, gx, gy, STALL_SHEET.cx, STALL_SHEET.foot, SPRITE_STALL_SCALE);
     drawStallGoods(g, r, accent, sign);
+    baseGrounding(g, gx, gy, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
     return;
   }
-  // ---- code-drawn fallback (painter path, unchanged) ----
-  castShadow(g, x + w / 2, y + h, w * 0.5, h * 0.9);
-  shadow(g, x + w / 2 + 4, y + h + 6, w * 0.55, 8);
+  // ---- code-drawn fallback (painter path) ----
+  contactShadow(g, x + w / 2, y + h, w * 0.5);
   // counter
   oRect(g, x, y + h * 0.45, w, h * 0.55, "#9a7245");
   g.fillStyle = "rgba(0,0,0,.15)"; g.fillRect(x, y + h * 0.45, w, 4);
@@ -438,6 +441,7 @@ export function drawStall(
   g.strokeStyle = OUTLINE; g.lineWidth = OUTLINE_W;
   g.strokeRect(x - 6, y - h * 0.4, w + 12, h * 0.35 + fl);
   drawStallGoods(g, r, accent, sign);
+  baseGrounding(g, x + w / 2, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
 }
 
 /** Goods on the counter — a little different per stall type (fish buyer /
@@ -509,7 +513,7 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, 
   const img = info ? sprite(info.id) : null;
   if (img && info) {
     const gx = x + w / 2, gy = y + h;
-    castShadow(g, gx, gy, w * 0.5, h * 1.2);
+    contactShadow(g, gx, gy, w * 0.5);   // W2c
     // anchor: hand-measured when present, else measured off the alpha bbox
     const a = info.cx !== undefined && info.foot !== undefined
       ? { cx: info.cx, foot: info.foot } : spriteBaseAnchor(info.id, img);
@@ -526,13 +530,13 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, 
     } else {
       drawGroundSprite(g, img, gx, gy, a.cx, a.foot, SPRITE_COTTAGE_SCALE);
     }
+    baseGrounding(g, gx, gy, w * 0.5, seed);   // W2c (drawn upright, outside the flip)
     return;
   }
-  // ---- code-drawn fallback (painter path, unchanged) ----
+  // ---- code-drawn fallback (painter path) ----
   const rnd = mulberry32(seed);
   const wall = ["#d8b483", "#cca878", "#c9b98f", "#d3a06e"][(rnd() * 4) | 0]!;
-  castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.2);
-  shadow(g, x + w / 2 + 6, y + h + 7, w * 0.55, 10);
+  contactShadow(g, x + w / 2, y + h, w * 0.5);   // W2c
   drawPlankWall(g, x, y + h * 0.36, w, h * 0.64, wall, (seed * 7) | 0);
   // door
   oRect(g, x + w * 0.4, y + h * 0.58, w * 0.2, h * 0.42, "#7a5230");
@@ -545,6 +549,7 @@ export function drawCottage(g: CanvasRenderingContext2D, r: Rect, seed: number, 
   drawShingleRoof(g, x + w / 2, y - h * 0.18, x - 7, x + w + 7, y + h * 0.4, roof, false, (seed * 13) | 0);
   // a little chimney
   oRect(g, x + w * 0.68, y - h * 0.1, w * 0.1, h * 0.28, "#8c8c94");
+  baseGrounding(g, x + w / 2, y + h, w * 0.5, seed);   // W2c
 }
 
 /** The town inn (v2 BLOCK #3) — the coastal town's largest building. A two-
@@ -563,14 +568,13 @@ export function drawInn(g: CanvasRenderingContext2D, r: Rect) {
   const inn = sprite("buildings/inn");
   if (inn) {
     const a = spriteBaseAnchor("buildings/inn", inn);
-    castShadow(g, cx, y + h, w * 0.5, h * 1.1);
-    shadow(g, cx + 8, y + h + 8, w * 0.6, 12);
+    contactShadow(g, cx, y + h, w * 0.5);   // W2c
     drawGroundSprite(g, inn, cx, y + h, a.cx, a.foot, SPRITE_INN_SCALE);
+    baseGrounding(g, cx, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
     return;
   }
-  // ---- code-drawn fallback (painter path, unchanged) ----
-  castShadow(g, cx, y + h, w * 0.5, h * 1.1);
-  shadow(g, cx + 8, y + h + 8, w * 0.6, 12);
+  // ---- code-drawn fallback (painter path) ----
+  contactShadow(g, cx, y + h, w * 0.5);   // W2c
   // two-storey plaster-and-timber wall, rising above r.y for the upper storey
   const wallTop = y - h * 0.35, wallH = h * 1.35;
   drawPlankWall(g, x, wallTop, w, wallH, "#d9c7a2", 4241);
@@ -606,6 +610,7 @@ export function drawInn(g: CanvasRenderingContext2D, r: Rect) {
   g.fillStyle = "#3a2614"; g.font = "bold 9px serif"; g.textAlign = "center"; g.textBaseline = "middle";
   g.fillText("INN", x - 12, y + h * 0.16 + 8);
   g.textAlign = "start"; g.textBaseline = "alphabetic";
+  baseGrounding(g, cx, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
 }
 
 /** The town STABLE (v2 BLOCK #5 — the transport vendor). A low, broad timber
@@ -623,14 +628,13 @@ export function drawStable(g: CanvasRenderingContext2D, r: Rect) {
   const stbl = sprite("buildings/stable");
   if (stbl) {
     const a = spriteBaseAnchor("buildings/stable", stbl);
-    castShadow(g, cx, y + h, w * 0.5, h * 1.05);
-    shadow(g, cx + 7, y + h + 7, w * 0.58, 11);
+    contactShadow(g, cx, y + h, w * 0.5);   // W2c
     drawGroundSprite(g, stbl, cx, y + h, a.cx, a.foot, SPRITE_STABLE_SCALE);
+    baseGrounding(g, cx, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
     return;
   }
-  // ---- code-drawn fallback (painter path, unchanged) ----
-  castShadow(g, cx, y + h, w * 0.5, h * 1.05);
-  shadow(g, cx + 7, y + h + 7, w * 0.58, 11);
+  // ---- code-drawn fallback (painter path) ----
+  contactShadow(g, cx, y + h, w * 0.5);   // W2c
   // weathered plank body
   const wallTop = y - h * 0.06, wallH = h * 1.06;
   drawPlankWall(g, x, wallTop, w, wallH, "#a9713c", 6217);
@@ -671,6 +675,7 @@ export function drawStable(g: CanvasRenderingContext2D, r: Rect) {
   for (const py of [ry0, ry0 + 9]) { g.beginPath(); g.moveTo(px0, py); g.lineTo(px1, py); g.stroke(); }
   g.fillStyle = "#5d3c1f";
   for (const pp of [px0, px1]) g.fillRect(pp - 1.5, ry0 - 4, 3, 18);
+  baseGrounding(g, cx, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
 }
 
 /** A rickety wooden outhouse (Needs engine): weathered planks, a mono-pitch
@@ -685,14 +690,13 @@ export function drawOuthouse(g: CanvasRenderingContext2D, r: Rect) {
   const img = sprite("buildings/outhouse");
   if (img) {
     const a = spriteBaseAnchor("buildings/outhouse", img);
-    castShadow(g, x + w / 2, y + h, w * 0.45, h);
-    shadow(g, x + w / 2 + 4, y + h + 5, w * 0.5, 7);
+    contactShadow(g, x + w / 2, y + h, w * 0.5);   // W2c
     drawGroundSprite(g, img, x + w / 2, y + h, a.cx, a.foot, SPRITE_OUTHOUSE_SCALE);
+    baseGrounding(g, x + w / 2, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
     return;
   }
-  // ---- code-drawn fallback (painter path, unchanged) ----
-  castShadow(g, x + w / 2, y + h, w * 0.45, h);
-  shadow(g, x + w / 2 + 4, y + h + 5, w * 0.5, 7);
+  // ---- code-drawn fallback (painter path) ----
+  contactShadow(g, x + w / 2, y + h, w * 0.5);   // W2c
   // slightly leaning body (it IS rickety)
   g.save();
   g.translate(x + w / 2, y + h);
@@ -719,6 +723,7 @@ export function drawOuthouse(g: CanvasRenderingContext2D, r: Rect) {
   g.lineTo(x - 3, y + h * 0.32);
   g.closePath(); g.fill(); outline(g);
   g.restore();
+  baseGrounding(g, x + w / 2, y + h, w * 0.5, (x * 3 + y * 7) | 0);   // W2c
 }
 
 /** The market square's stone well: a round wall, a little peaked roof on posts,
@@ -729,13 +734,13 @@ export function drawWell(g: CanvasRenderingContext2D, cx: number, cy: number, r:
   // (keyed to WELL's cx/cy/r, not to this painter). ----
   const img = sprite("buildings/well");
   if (img) {
-    castShadow(g, cx, cy + r * 0.6, r * 0.9, r * 2.2);
+    contactShadow(g, cx, cy + r, r * 0.95);   // W2c
     drawGroundSprite(g, img, cx, cy + r, WELL_SHEET.cx, WELL_SHEET.foot, SPRITE_WELL_SCALE);
+    baseGrounding(g, cx, cy + r, r * 0.95, (cx * 3 + cy * 7) | 0);   // W2c
     return;
   }
-  // ---- code-drawn fallback (painter path, unchanged) ----
-  castShadow(g, cx, cy + r * 0.6, r * 0.9, r * 2.2);
-  shadow(g, cx + 4, cy + r + 4, r * 1.1, r * 0.4);
+  // ---- code-drawn fallback (painter path) ----
+  contactShadow(g, cx, cy + r, r * 0.95);   // W2c
   // stone rim
   g.fillStyle = "#9a938a";
   g.beginPath(); g.ellipse(cx, cy, r, r * 0.7, 0, 0, 7); g.fill(); outline(g);
@@ -762,4 +767,5 @@ export function drawWell(g: CanvasRenderingContext2D, cx: number, cy: number, r:
   g.strokeStyle = "#8a7a5a"; g.lineWidth = 1.4;
   g.beginPath(); g.moveTo(cx, cy - r * 1.5); g.lineTo(cx, cy - r * 0.2); g.stroke();
   oRect(g, cx - 3, cy - r * 0.2, 6, 6, "#7a5230");
+  baseGrounding(g, cx, cy + r, r * 0.95, (cx * 3 + cy * 7) | 0);   // W2c
 }

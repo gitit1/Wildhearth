@@ -176,3 +176,64 @@ not just "does it fit the grid cell."
 - The mock composer must implement: path-first layout, Bayer grass↔dirt
   blending, wear aprons, plain-tile dominance, cluster placement, tree
   clumps, global grade.
+
+---
+
+## PART 3 — Proportion law (W2c addendum, 2026-07-17)
+
+Added after the owner's verdict on the W2a buildings: *"the buildings aren't
+proportional to the overall scale — that's why it still looks like you just
+threw them"* (a farmhouse read like a playhouse; the market cottages were half
+the farmhouse's height — inconsistent ratios, not one uniform size). The GF-1
+zoom-in made the character a large, close reference (~39–42 world px tall), so
+buildings must now hold a believable HUMAN scale relative to her, and be
+consistent WITH EACH OTHER. This section is BINDING for every building scale +
+world-geometry change; it is the placement-law companion to
+`PIXELLAB_ASSETS.md`'s per-object generation recipe.
+
+**The measuring stick:** the character = **1u ≈ 39 world px** (she renders ~42px
+in practice — targets sit mid-band so they stay in-band against the real height).
+Building sprites render at `silhouette_px × config scale` world px (verified:
+`drawGroundSprite`, `SPRITE_*_SCALE`), anchored base-on-ground at the zone rect's
+bottom-centre. **The reliable lever for a building's world size is its SCALE
+multiplier + its zone rect — NOT the PixelLab canvas size** (`create_map_object`
+auto-trims and decides subject size, so a bigger canvas usually yields the same
+silhouette; W2c proved the W2a sprites were MIS-SCALED, not under-resolutioned).
+
+26. **Per-class world-height bands (ridge/top, world px @1u=39):**
+    - Door (baked into the facade): **1.3–1.5u** (~51–59px) — always taller than
+      the heroine; a door she'd have to stoop through is the "playhouse" tell.
+    - One-story facade to the eaves: **2.2–2.6u**.
+    - Farmhouse / cottage / any home ridge: **3.2–3.8u** (~125–148px). The FOCAL
+      home (the player's farmhouse) may sit at the band top **+5% (≤~4.0u)** but
+      **never above**, and **never ≥ the barn**.
+    - Barn ridge: **4.5–5u** (~176–195px) — the tallest farm structure; it must
+      out-top the farmhouse.
+    - Inn / stable: between house and barn in prominence (inn ~4.1u two-storey;
+      the stable is low+broad — a substantial ~3.0–3.3u ridge over a wide
+      footprint, reading bigger than a cottage, not as tall as the inn).
+    - Outhouse ~2.2u; coop ~1.8u; well structure ~1.8u; market/merchant stall
+      canopy **2.2–2.6u**.
+27. **Consistency beats any single number.** Two homes on one screen must read at
+    the same scale; a barn must tower over a cottage. Ratios that fight each
+    other ("threw them") are the failure, even if each is individually plausible.
+28. **Pixel-density sanity.** A building's on-screen pixel size = `scale` world-px
+    per source-px. Keep every building's scale in **~0.9–1.25** so its pixels
+    read no coarser than the ground (1.0) or characters (0.82) at gameplay zoom.
+    If a class needs a scale past that to hit its band, it earns a native-res
+    regeneration (a bigger PixelLab canvas) rather than a soft upscale — that is
+    the ONLY reason to regenerate for size (fidelity, not sizing).
+29. **Geometry follows the sprite.** When a building's world size changes, grow
+    its zone rect (keeping the door/foot anchor — bottom-centre — fixed, expanding
+    up/sideways) so collision, the code-painter fallback (zero-PNG proportionality),
+    the grounding decal, and the minimap blob all track the new size; re-space so
+    nothing overlaps and circulation (rules 9–11) still holds.
+30. **Grounding is part of scale.** A bigger building needs stronger integration or
+    it reads pasted: soft SHORT contact shading at the base (no long hard cast
+    polygon — rule 5), a worn path + doorstep apron to every door (rules 9–14),
+    and grass/dirt tufts + a 2–4px dithered ground-tint climb breaking the
+    base-line (both render paths, uniform across buildings).
+
+Future waves obey this law too: trees (mature canopy 3–4.5u), animals and
+characters (the 1u stick itself) — measure `silhouette × scale ÷ 39` and land it
+in-band before shipping.

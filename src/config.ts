@@ -598,8 +598,15 @@ export const SPRITE_NPC_SCALES: Record<string, number> = {
 //     centred on its zone rect. The 192x176 / 208x176 / 64x80 sheets were sized
 //     to the HOUSE / BARN / R_HEARTH rects, so ~1.0 fits with a little roof
 //     overhang (as the painter already overhangs today). ---
-export const SPRITE_HOUSE_SCALE = 1.0;
-export const SPRITE_BARN_SCALE = 1.0;
+// W2c PROPORTION PASS (2026-07-17): the W2a sprites were MIS-SCALED, not under-
+// resolutioned (measured silhouette×scale ÷39px char = the "u" per COMPOSITION_RULES
+// Part 3). Every building scale below is retuned so it lands in its law band and
+// stays consistent with its neighbours. Farmhouse pulled just under 4.0u so the
+// barn (4.69u) out-tops it; cottages/stalls/outhouse/stable lifted out of the
+// "playhouse" range; well trimmed. Pixel density stays ~0.9-1.25 (≈ ground 1.0 /
+// chars 0.82) so nothing reads softer than its neighbours. No generations spent.
+export const SPRITE_HOUSE_SCALE = 0.95;   // farmhouse 161px→153 = 3.92u (≤4.0 focal cap); neighbor 134→127 = 3.26u
+export const SPRITE_BARN_SCALE = 1.18;    // barn 155px→183 = 4.69u (law 4.5-5u; > farmhouse)
 export const SPRITE_HEARTH_SCALE = 1.0;
 // --- Wave 2: interior room backdrop, furniture, market stalls + well. Same
 //     "measure the alpha bbox, scale footprint ≈ zone rect" recipe; the room
@@ -609,20 +616,20 @@ export const SPRITE_ROOM_SCALE = 1.0;
 export const SPRITE_BASIN_SCALE = 0.92;
 export const SPRITE_CHAIR_CRATE_SCALE = 1.12;
 export const SPRITE_BED_SCALE = 1.21;
-export const SPRITE_STALL_SCALE = 0.77;
-export const SPRITE_WELL_SCALE = 1.05;
+export const SPRITE_STALL_SCALE = 0.96;   // W2c: stalls 76-108px→73-104 = 1.9-2.7u (canopy law 2.2-2.6u)
+export const SPRITE_WELL_SCALE = 0.90;    // W2c: well 82px→74 = 1.9u (was 2.21u, a touch tall)
 // --- "Everything-pixels" audit batch: code-drawn holdouts the owner caught on
 //     sight get PixelLab sprites (dual-path over the existing painters). Each
 //     scale maps the downloaded PNG onto its zone rect: outhouse 64x96 -> the
 //     ~35x54 OUTHOUSE rect; hedge segment 64x48 -> the ~1.4-tile-wide HEDGES
 //     band, tiled down each strip. ---
-export const SPRITE_OUTHOUSE_SCALE = 0.56;
+export const SPRITE_OUTHOUSE_SCALE = 1.15;  // W2c: outhouse 72px→83 = 2.13u (was 1.03u — the worst mis-scale)
 export const SPRITE_HEDGE_SCALE = 0.7;
 // Town buildings: inn art is sized to its 6-tile-wide (192px) rect -> scale 1.0
 // (roof/upper storey overhang above, same recipe as the house/barn); stable art
 // (160px) maps onto its ~3.8-tile (122px) rect.
-export const SPRITE_INN_SCALE = 1.0;
-export const SPRITE_STABLE_SCALE = 0.76;
+export const SPRITE_INN_SCALE = 1.0;      // W2c: inn 162px = 4.15u (between house 3.92u & barn 4.69u — keep)
+export const SPRITE_STABLE_SCALE = 1.2;   // W2c: stable 104px→125 = 3.2u (low+broad; bigger than a cottage, was 2.03u)
 // Props: busk signpost (48x64 art onto the small post+board), base-on-ground.
 // The dock is a top-down flat deck drawn stretched to fill its DOCK/TOWN_DOCK
 // rect (posts baked in at the south end), so it needs no scale knob.
@@ -640,7 +647,7 @@ export const SPRITE_FESTIVAL_LANTERN_SCALE = 0.62;
 //     COTTAGE_SPRITES), one scale for every variant (all cottage canvases are
 //     the same 112x128 size, same "footprint <= zone rect" recipe as above;
 //     each variant's own cx/foot anchor is what actually differs per art). ---
-export const SPRITE_COTTAGE_SCALE = 0.8;
+export const SPRITE_COTTAGE_SCALE = 1.25;   // W2c: cottages 99-120px→124-150 = 3.18-3.85u (homes law 3.2-3.8u; was 2.0-2.5u — THE playhouse fix)
 // --- Farm-animal sprites (art/spriteAnimal.ts). Each livestock species has its
 //     OWN packed sheet (animals/<kind>.sheet.png, scripts/packsheets.mjs).
 //     Quadrupeds (cow/pig/sheep) carry a full walk cycle (frame count read off
@@ -869,6 +876,21 @@ export const CAST_SHADOW_LEN_EDGE = 1.6;       // longest — dawn/dusk (low sun
 export const CAST_SHADOW_LEN_NIGHT = 0.3;      // moot — alpha fades to ~0 anyway
 export const CAST_SHADOW_ALPHA_NIGHT = 0.05;   // near-invisible at night
 export const CAST_SHADOW_ALPHA_DAY = 0.9;      // full strength by day (× CAST_SHADOW_ALPHA)
+
+// ---- W2c building CONTACT grounding (2026-07-17) — BUILDINGS drop the long
+// diagonal cast polygon (it read "pasted / just placed"; the approved mock has
+// no projected building shadows, only soft base shading — COMPOSITION_RULES
+// rule 5 + 30). Every building instead gets: a soft, short, dark-at-the-base
+// CONTACT shadow hugging the footprint (slightly SE, sun upper-left), a dithered
+// tint climbing a few px up the foundation, and grass/weed TUFTS breaking the
+// crisp base line — uniform across all buildings, both render paths. Trees /
+// characters / animals keep the diagonal castShadow (they move; a long soft
+// shadow reads right for them).
+export const CONTACT_SHADOW_ALPHA = 0.34;      // darkest (centre-base) alpha of a building's contact shadow, × sun
+export const CONTACT_SHADOW_SE = 0.55;         // south-east offset (fraction of the contact ry)
+export const BASE_TINT_ALPHA = 0.36;           // dark tint climbing ~4px up the foundation base
+export const BASE_TUFT_MIN = 4;                // fewest grass/weed tufts along a building base
+export const BASE_TUFT_MAX = 8;                // most tufts along a building base
 
 // ---- Title-screen vista (art/vista.ts) — the PIXEL-ART dawn scene ----
 // Primary path draws the PixelLab landscape (ui/title-vista.png) scaled-to-

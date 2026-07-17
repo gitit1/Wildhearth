@@ -5,13 +5,18 @@ import { HOME_ROOM, HOME_DOOR, furnitureById, furnitureRect } from "./furniture"
 export const FIELD = { x0: 20, y0: 5, x1: 31, y1: 15 };      // tiles
 export const YARD  = { x0: 6,  y0: 4, x1: 18, y1: 15 };      // tiles
 export const HOUSE = { x: 7.5 * T, y: 5 * T,    w: 5 * T,   h: 3.4 * T };
-export const BARN  = { x: 14 * T,  y: 10.4 * T, w: 3.6 * T, h: 2.8 * T };
+// W2c PROPORTION PASS: rects grown to track the retuned sprite scales
+// (COMPOSITION_RULES Part 3, rule 29 — bottom-centre kept fixed so the door/foot
+// anchor and all interactions stay put; the rect grows up + sideways). This
+// keeps collision matched to the bigger sprite AND keeps the zero-PNG code-painter
+// fallback proportional. HOUSE stays (farmhouse only trimmed 5% via scale).
+export const BARN  = { x: 13.7 * T, y: 9.9 * T, w: 4.25 * T, h: 3.3 * T };  // was 14/10.4/3.6/2.8 — grown ×1.18 (barn 4.69u)
 // FARM-START-1: a small rundown chicken coop — the Animal-Keeper's starting
 // structure (a visible goal marker while she saves for her first hen). Sits in
 // the barn-side yard, just north of the animal night-shelter spot (animals.ts
 // BARN_SHELTER 15.8,13.6) so a bought hen roosts by it. Present only when the
 // farm manifest says so (keeper path / never a new fisher-musician-farmer farm).
-export const COOP  = { x: 14.4 * T, y: 10.8 * T, w: 2.3 * T, h: 1.9 * T };
+export const COOP  = { x: 14.26 * T, y: 10.57 * T, w: 2.58 * T, h: 2.13 * T };  // W2c: grown ×1.12 (coop ~1.85u), foot kept at 12.7T
 // The player's OWN buy/sell stall. Relocated into the coastal TOWN — the game's
 // commercial heart, where VISION has NPCs come to her shop (owner directive
 // "move the farm-side stall to the town"; supersedes the earlier market-WEST-
@@ -23,7 +28,7 @@ export const COOP  = { x: 14.4 * T, y: 10.8 * T, w: 2.3 * T, h: 1.9 * T };
 // dock or sea. The buy-tools + sell-goods + customers mechanic is unchanged;
 // only the location moved (collision/ground/minimap/interact/customers all
 // derive from this rect, so they follow it). */
-export const STALL = { x: 63.5 * T, y: 33.4 * T, w: 2.4 * T, h: 1.6 * T };
+export const STALL = { x: 63.38 * T, y: 33.24 * T, w: 2.64 * T, h: 1.76 * T };  // W2c: grown ×1.1 (foot y35 kept; top clears the spur mouth y33.2)
 export const POND  = { cx: 9 * T, cy: 19.4 * T, rx: 3.6 * T, ry: 2.2 * T };
 // The two trees south of the field sit below tile row 20.5 so the tier-2
 // plot expansion's fence (bottom row 19) never swallows them.
@@ -67,7 +72,7 @@ export const HOUSE_DOOR = {
 
 /** A rickety little outhouse just west of the farmhouse (Needs engine): the
  *  bathroom need's restore spot. Small, charming, code-drawn, collidable. */
-export const OUTHOUSE = { x: 5.2 * T, y: 5.5 * T, w: 1.1 * T, h: 1.7 * T };
+export const OUTHOUSE = { x: 4.95 * T, y: 4.7 * T, w: 1.6 * T, h: 2.5 * T };  // W2c: grown to track outhouse scale 0.56→1.15 (2.13u), foot y7.2 kept, clears the house (right 6.55T < 7.5T)
 
 // ===========================================================================
 //  House interior (HOME-1) — the room is now DATA. Its layout, walls, divider,
@@ -145,17 +150,19 @@ export const HEDGES: Rect[] = [
  *  as-is (no distinct "established" barn art this wave). */
 export const NEIGHBOR = {
   house: rect(39, 15, 5, 3.4),
-  barn: rect(45.2, 17.4, 3.6, 2.8),
+  barn: rect(44.88, 16.9, 4.25, 3.3),   // W2c: grown ×1.18 like the player barn (shares barn.png at scale 1.18); foot y20.2 kept, clears the house (left 44.88 > 44)
 };
 
 export interface StallDef extends Rect { awning: string; accent: string; sign: "fish" | "produce" | "goods" | "empty"; }
 /** Four distinct market stalls (variants of the farm stall painter). No trading
  *  here yet — decorative until the NPC/shop blocks land. */
+// W2c: stall rects grown ×1.18 (foot y17.6 kept) to track the stall scale
+// 0.77→0.96; ~1.17T gaps between them stay clear.
 export const MARKET_STALLS: StallDef[] = [
-  { ...rect(62.5, 16, 2.4, 1.6), awning: "#3f86a0", accent: "#7fb0c8", sign: "fish" },
-  { ...rect(66.5, 16, 2.4, 1.6), awning: "#5a9a48", accent: "#e2c24a", sign: "produce" },
-  { ...rect(70.5, 16, 2.4, 1.6), awning: "#b5843c", accent: "#cbb28a", sign: "goods" },
-  { ...rect(74.5, 16, 2.4, 1.6), awning: "#a89e8a", accent: "#8a8172", sign: "empty" },
+  { ...rect(62.29, 15.71, 2.83, 1.89), awning: "#3f86a0", accent: "#7fb0c8", sign: "fish" },
+  { ...rect(66.29, 15.71, 2.83, 1.89), awning: "#5a9a48", accent: "#e2c24a", sign: "produce" },
+  { ...rect(70.29, 15.71, 2.83, 1.89), awning: "#b5843c", accent: "#cbb28a", sign: "goods" },
+  { ...rect(74.29, 15.71, 2.83, 1.89), awning: "#a89e8a", accent: "#8a8172", sign: "empty" },
 ];
 
 /** The square's stone-well centrepiece. */
@@ -181,13 +188,15 @@ export interface CottageDef extends Rect { variant: number }
  *  (building-variety batch; variants 6 and 8 sit unused/spare, see
  *  docs/PIXELLAB_ASSETS.md). Falls back to the code painter's own random wall/
  *  roof tone (keyed off `seed` at the call site) when no sprite is present. */
+// W2c: cottage rects grown ×1.25 (foot kept) to track the cottage scale
+// 0.8→1.25 (the playhouse fix); re-checked for no overlap (min ~0.5T gaps).
 export const COTTAGES: CottageDef[] = [
-  { ...rect(61, 19.5, 2.8, 2.3), variant: 2 },
-  { ...rect(60.5, 24, 2.8, 2.3), variant: 4 },
-  { ...rect(64.5, 25.5, 2.8, 2.3), variant: 6 },   // R4: newly-wired spare variant
-  { ...rect(69, 25.8, 2.8, 2.3), variant: 3 },
-  { ...rect(73.5, 25.3, 2.8, 2.3), variant: 8 },   // R4: newly-wired spare variant
-  { ...rect(76, 19, 2.8, 2.3), variant: 7 },
+  { ...rect(60.65, 18.925, 3.5, 2.875), variant: 2 },
+  { ...rect(60.15, 23.425, 3.5, 2.875), variant: 4 },
+  { ...rect(64.15, 24.925, 3.5, 2.875), variant: 6 },   // R4: newly-wired spare variant
+  { ...rect(68.65, 25.225, 3.5, 2.875), variant: 3 },
+  { ...rect(73.15, 24.725, 3.5, 2.875), variant: 8 },   // R4: newly-wired spare variant
+  { ...rect(75.65, 18.425, 3.5, 2.875), variant: 7 },
 ];
 
 /** Dense tree-lined trunks flanking the forest passage + filling the grove. */
@@ -282,7 +291,7 @@ export const INN = rect(43.5, 31.7, 6, 3.4);
  *  of the town street, clear of the merchant fronts and homes, with a little
  *  paddock rail. Code-drawn (drawStable) for now; a PixelLab stable sprite is a
  *  logged wanted follow-up. Sells the rowboat / horse / carriage (VISION §9). */
-export const STABLE = rect(86.5, 32, 3.8, 2.9);
+export const STABLE = rect(86.03, 31.28, 4.75, 3.63);   // W2c: grown ×1.25 to track stable scale 0.76→1.2 (3.2u, low+broad); foot y34.9 kept, right 90.78 < street edge 91
 
 export interface TownHomeDef extends Rect { variant?: number; seed: number }
 /** NPC homes ringing the street. `variant` picks a cottage sprite: 1/5 are the
@@ -292,12 +301,14 @@ export interface TownHomeDef extends Rect { variant?: number; seed: number }
  *  cottage, and no two homes read alike (the owner's hard "no two buildings
  *  alike" rule). `seed` still keys drawCottage's code-painter FALLBACK (the
  *  zero-PNG dual path). */
+// W2c: town-home rects grown ×1.25 (foot kept) to track the cottage scale
+// 0.8→1.25; homes are widely spaced (5-7T gaps) so no overlap.
 export const TOWN_HOMES: TownHomeDef[] = [
-  { ...rect(51.5, 32, 2.8, 2.3), variant: 1, seed: 5101 },
-  { ...rect(60, 32, 2.8, 2.3), variant: 5, seed: 5205 },
-  { ...rect(70.5, 32, 2.8, 2.3), variant: 9, seed: 5303 },
-  { ...rect(80, 32, 2.8, 2.3), variant: 10, seed: 5407 },
-  { ...rect(84.5, 37.4, 2.8, 2.3), variant: 11, seed: 5509 },
+  { ...rect(51.15, 31.425, 3.5, 2.875), variant: 1, seed: 5101 },
+  { ...rect(59.65, 31.425, 3.5, 2.875), variant: 5, seed: 5205 },
+  { ...rect(70.15, 31.425, 3.5, 2.875), variant: 9, seed: 5303 },
+  { ...rect(79.65, 31.425, 3.5, 2.875), variant: 10, seed: 5407 },
+  { ...rect(84.15, 36.825, 3.5, 2.875), variant: 11, seed: 5509 },
 ];
 
 export type MerchantKind = "general" | "fishmonger" | "greengrocer" | "tailor";
@@ -312,11 +323,12 @@ export interface MerchantDef extends Rect {
  *  systems/shop.ts. General store sells (tools/seeds); fishmonger + greengrocer
  *  BUY their speciality at a reputation-scaled premium; the tailor is a
  *  "wardrobe coming soon" counter (open owner question — see the handoff). */
+// W2c: merchant-stall rects grown ×1.15 (foot kept) to track the stall scale 0.77→0.96.
 export const TOWN_MERCHANTS: MerchantDef[] = [
-  { ...rect(55.5, 32.3, 2.4, 1.6), kind: "general", spriteId: "buildings/spare/stall-general-01", sign: "goods", awning: "#b5843c", accent: "#cbb28a" },
-  { ...rect(47.5, 37.6, 2.4, 1.6), kind: "fishmonger", spriteId: "buildings/spare/stall-fish-02", sign: "fish", awning: "#3f86a0", accent: "#7fb0c8" },
-  { ...rect(52.5, 37.6, 2.4, 1.6), kind: "greengrocer", spriteId: "buildings/spare/stall-produce-02", sign: "produce", awning: "#5a9a48", accent: "#e2c24a" },
-  { ...rect(75, 32, 2.4, 1.6), kind: "tailor", spriteId: "buildings/spare/stall-empty-01", sign: "empty", awning: "#a07ab0", accent: "#d8c4e0" },
+  { ...rect(55.32, 32.06, 2.76, 1.84), kind: "general", spriteId: "buildings/spare/stall-general-01", sign: "goods", awning: "#b5843c", accent: "#cbb28a" },
+  { ...rect(47.32, 37.36, 2.76, 1.84), kind: "fishmonger", spriteId: "buildings/spare/stall-fish-02", sign: "fish", awning: "#3f86a0", accent: "#7fb0c8" },
+  { ...rect(52.32, 37.36, 2.76, 1.84), kind: "greengrocer", spriteId: "buildings/spare/stall-produce-02", sign: "produce", awning: "#5a9a48", accent: "#e2c24a" },
+  { ...rect(74.82, 31.76, 2.76, 1.84), kind: "tailor", spriteId: "buildings/spare/stall-empty-01", sign: "empty", awning: "#a07ab0", accent: "#d8c4e0" },
 ];
 
 export function onTownDock(x: number, y: number): boolean {

@@ -307,6 +307,37 @@ failure mode (#7) never triggered this wave.
   ≈(167,118). The generic stall's `STALL_AWNING_BAND` was widened to 328-22° (the
   new terracotta cloth) so the player-stall recolour still catches it.
 
+### W2c ledger — the proportion pass (2026-07-17)
+
+**Cost: 0 generations. Balance 6762 → 6762 (unchanged, measured before/after).**
+The owner's verdict on the fresh W2a buildings — *"the buildings aren't
+proportional to the overall scale... it still looks like you just threw them"* —
+was NOT under-resolution. Measuring every W2a sprite (alpha-bbox silhouette ×
+its config scale ÷ 39px char unit) showed the sprites were **mis-scaled**, not
+under-resolutioned: farmhouse 4.13u (over the 3.2-3.8 law), cottages/homes
+2.0-2.5u (the "playhouse"), stalls 1.6-2.1u, outhouse 1.03u, barn 3.97u (under
+4.5-5u), stable 2.03u. Since `create_map_object` auto-trims and picks subject
+size, a bigger CANVAS is an unreliable lever anyway — the reliable levers are the
+`SPRITE_*_SCALE` multipliers + the `zones.ts` rects. So W2c fixed proportion with
+**zero generations**, retuning scales into `COMPOSITION_RULES.md` Part 3's bands:
+farmhouse 0.95 (3.92u, ≤ the 4.0 focal cap, < barn), barn 1.18 (4.69u), cottages
+1.25 (3.2-3.85u), stalls 0.96 (~2.3u), outhouse 1.15 (2.13u), stable 1.2 (3.2u),
+well 0.90 (1.9u), inn kept 1.0 (4.15u). Pixel density stayed ~0.9-1.25 (≈ ground
+1.0 / chars 0.82) — verified by eye at gameplay zoom that no building reads
+softer than its neighbours, so no surgical regen was needed. **Dependent art
+followed for free** because the scale/rect changes propagate through existing
+scale-aware code: damage overlays use `sw(p,…)` (auto-scale with placement),
+`BUILDING_ROOFLINE` is sprite-px (unchanged), the grounding decals + code-painter
+fallbacks read the rects (grown to match, bottom-centre kept fixed). W2c also
+shipped three GROUNDING fixes in the same commit (not generations — code):
+buildings dropped the hard diagonal cast polygon for a soft `contactShadow` +
+`baseGrounding` (tint climb + weed tufts) uniform on both render paths, and the
+farm yard became grass with baked worn-dirt circulation (`paintFarmWear`,
+manifest-driven). **Optional future fidelity pass:** if the owner later wants
+buildings at native pixel density matching the ground exactly, regenerate at
+bigger canvases — but that is a fidelity nicety, NOT needed for proportion; the
+~100-gen budget stays unspent.
+
 ---
 
 ## 1. What's sprite-sourced today (vs code-drawn)

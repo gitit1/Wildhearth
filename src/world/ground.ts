@@ -1,12 +1,13 @@
 import { T, WORLD_W, WORLD_H } from "../config";
 import {
-  FIELD, YARD, POND, HOUSE, BARN, STALL, BUSHES, FLOWER_BEDS, BUSK_SPOT, TOWN_BUSK_SPOT, OLD_BUSK_SIGN,
+  FIELD, YARD, POND, HOUSE, BARN, COOP, STALL, BUSHES, FLOWER_BEDS, BUSK_SPOT, TOWN_BUSK_SPOT, OLD_BUSK_SIGN,
   fieldBounds, PLOT_EXPANSIONS,
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, WELL, STRUCTURES, HEDGES, MARKET_STALLS, COTTAGES,
   FOREST_BUSHES, WORLD_TREES, regionAt, onRoad, inWater, type Rect,
   TOWN_STREET, TOWN_SEA, TOWN_DOCK,
   OUTHOUSE, NEIGHBOR, INN, STABLE, TOWN_HOMES, TOWN_MERCHANTS,
 } from "./zones";
+import type { FarmManifest } from "../data/farmStart";
 import { mulberry32 } from "../engine/rng";
 import { roundR } from "../art/shapes";
 import { sprite } from "../art/sprites";
@@ -170,13 +171,18 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
   }
   // Terrain regions (world px). Soil = packed-dirt paths + farmyard; the field is
   // furrowed tilled soil; the market square is cobble; pond/river/lake are water.
-  const yard = { x: 6 * T, y: 4 * T, w: 12 * T, h: 11 * T };
+  // W2c: the farm YARD is no longer a flat all-dirt field (the owner's
+  // "featureless dirt" — a path can't read on uniform dirt). The farmstead now
+  // sits on GRASS; the DIRT is the circulation — the house↔field farm path (kept
+  // below), the worn trails + doorstep aprons baked by paintFarmWear, and the
+  // warm worn-dirt rings scuffOne bakes around each farm building. Reads as a
+  // lived-in farmstead with real paths instead of a brown void.
   const farmPath = { x: 12.4 * T, y: 8.6 * T, w: 7.8 * T, h: 1.3 * T };
   const field = { x: FIELD.x0 * T, y: FIELD.y0 * T, w: (FIELD.x1 - FIELD.x0) * T, h: (FIELD.y1 - FIELD.y0) * T };
   const plaza = { x: 59.5 * T, y: 14.5 * T, w: 21 * T, h: 13.5 * T };
   const townPlaza = { x: TOWN_STREET.x, y: TOWN_STREET.y, w: TOWN_STREET.w, h: TOWN_STREET.h };
   const forest = { x: 46 * T, y: 0, w: 18 * T, h: 17.5 * T };
-  const soilRegions = [...ROAD_SEGMENTS, yard, farmPath];
+  const soilRegions = [...ROAD_SEGMENTS, farmPath];
 
   const img = g.getImageData(0, 0, WORLD_W, WORLD_H);
   const out = img.data;
@@ -371,7 +377,85 @@ function paintBuildingGrounding(g: CanvasRenderingContext2D) {
   for (const f of buildingFootprints()) scuffOne(g, f);
 }
 
-export function paintGround(): HTMLCanvasElement {
+// ===========================================================================
+//  W2c farm CIRCULATION wear — the scene-grammar fix for "the house stands in
+//  featureless dirt with no circulation" (COMPOSITION_RULES rules 9-11). A worn,
+//  compacted, dithered-edged dirt trail links the farm's meaningful endpoints:
+//  the world/road entry → the farmhouse door (with a widened doorstep apron),
+//  a spur to the pond (the farm's water), and — PER MANIFEST — spurs to the barn,
+//  the coop, and the garden beds when the chosen path has them. Baked into the
+//  ground (re-baked on every New Game via syncFarmManifest, so path switches +
+//  legacy all get the right trails). Reuses the scuff dither idea, on a segment.
+// ===========================================================================
+
+/** Darken the ground along a segment A→B (a worn trail) or, when A==B, a round
+ *  apron — toward compacted warm earth, with a dithered outer edge so it blends
+ *  into the yard instead of a hard cut. Reads+writes the ground in place. */
+function wearSeg(
+  g: CanvasRenderingContext2D, ax: number, ay: number, bx: number, by: number,
+  hw: number, strength: number,
+) {
+  const x0 = Math.max(0, Math.floor(Math.min(ax, bx) - hw - 2));
+  const x1 = Math.min(WORLD_W, Math.ceil(Math.max(ax, bx) + hw + 2));
+  const y0 = Math.max(0, Math.floor(Math.min(ay, by) - hw - 2));
+  const y1 = Math.min(WORLD_H, Math.ceil(Math.max(ay, by) + hw + 2));
+  if (x1 <= x0 || y1 <= y0) return;
+  const img = g.getImageData(x0, y0, x1 - x0, y1 - y0);
+  const d = img.data, iw = x1 - x0;
+  const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy || 1;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    let t = ((x - ax) * dx + (y - ay) * dy) / len2;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const px = ax + dx * t, py = ay + dy * t;
+    const dist = Math.hypot(x - px, y - py);
+    if (dist > hw) continue;
+    const fall = 1 - dist / hw;
+    let a = strength * fall * fall;
+    const nz = scuffNoise(x, y);
+    if (fall < 0.55 && nz > fall / 0.55) a = 0;   // dither the outer edge
+    if (a <= 0) continue;
+    const i = ((y - y0) * iw + (x - x0)) * 4;
+    d[i]     = d[i]     * (1 - a) + 60 * a;        // compacted warm earth
+    d[i + 1] = d[i + 1] * (1 - a) + 47 * a;
+    d[i + 2] = d[i + 2] * (1 - a) + 31 * a;
+  }
+  g.putImageData(img, x0, y0);
+}
+const wearApron = (g: CanvasRenderingContext2D, cx: number, cy: number, r: number, s: number) =>
+  wearSeg(g, cx, cy, cx, cy, r, s);
+
+/** Bake the farm's worn circulation into the ground (manifest-driven). */
+function paintFarmWear(g: CanvasRenderingContext2D, m: FarmManifest) {
+  const doorX = HOUSE.x + HOUSE.w * 0.5, doorY = HOUSE.y + HOUSE.h;   // farmhouse door foot
+  const yardSx = 11 * T, yardSy = 14.5 * T;                            // yard's south "you walk in here"
+  // main trail: world/road entry → yard → doorstep, + a stub reaching toward the road
+  wearSeg(g, 13 * T, 19.4 * T, yardSx, yardSy, 0.55 * T, 0.34);
+  wearSeg(g, yardSx, yardSy, doorX, doorY, 0.62 * T, 0.42);
+  wearApron(g, doorX, doorY + 4, 1.35 * T, 0.5);                       // widened doorstep apron
+  // spur to the pond (the farm's water source)
+  wearSeg(g, doorX, 13.5 * T, POND.cx, POND.cy - POND.ry - 6, 0.5 * T, 0.3);
+  wearApron(g, POND.cx, POND.cy - POND.ry - 4, 0.9 * T, 0.3);
+  // --- manifest-driven spurs (no path to a structure the farm doesn't have) ---
+  if (m.barn) {
+    const bx = BARN.x + BARN.w * 0.5, by = BARN.y + BARN.h;
+    wearSeg(g, 11.6 * T, 9.1 * T, bx, 9.3 * T, 0.55 * T, 0.36);
+    wearSeg(g, bx, 9.3 * T, bx, by, 0.6 * T, 0.4);
+    wearApron(g, bx, by + 2, 1.3 * T, 0.46);
+  }
+  if (m.coop) {
+    const cx = COOP.x + COOP.w * 0.5, cy = COOP.y + COOP.h;
+    wearSeg(g, 11.6 * T, 9.4 * T, cx, cy, 0.5 * T, 0.34);
+    wearApron(g, cx, cy + 1, 0.95 * T, 0.4);
+  }
+  if (m.beds > 0) {
+    for (let i = 0; i < Math.min(m.beds, FLOWER_BEDS.length); i++) {
+      const [bx, by] = FLOWER_BEDS[i]!;
+      wearApron(g, bx, by + 6, 0.7 * T, 0.28);
+    }
+  }
+}
+
+export function paintGround(manifest: FarmManifest): HTMLCanvasElement {
   const ground = document.createElement("canvas");
   ground.width = WORLD_W; ground.height = WORLD_H;
   const g = ground.getContext("2d")!;
@@ -384,6 +468,7 @@ export function paintGround(): HTMLCanvasElement {
     // and add life; their rejection zones keep them off water/plaza/paths.
     scatterAmbientProps(g);
     paintBuildingGrounding(g);
+    paintFarmWear(g, manifest);
     return ground;
   }
 
@@ -442,20 +527,10 @@ export function paintGround(): HTMLCanvasElement {
   paintTownGround(g);
   paintWater(g);
 
-  // ---- the farm (unchanged) ----
-  // dirt yard
-  roundR(g, YARD.x0 * T, YARD.y0 * T, (YARD.x1 - YARD.x0) * T, (YARD.y1 - YARD.y0) * T, 26);
-  g.fillStyle = "#a58254"; g.fill();
-  const rnd2 = mulberry32(21);
-  g.save(); g.clip();
-  for (let i = 0; i < 900; i++) {
-    const x = YARD.x0 * T + rnd2() * (YARD.x1 - YARD.x0) * T;
-    const y = YARD.y0 * T + rnd2() * (YARD.y1 - YARD.y0) * T;
-    g.fillStyle = ["#9a7749", "#b08a58", "#8f6f44", "#ab8355"][(rnd2() * 4) | 0]!;
-    g.beginPath(); g.ellipse(x, y, 2 + rnd2() * 5, 1.5 + rnd2() * 3, 0, 0, 7); g.fill();
-  }
-  g.restore();
-  // path
+  // ---- the farm ----
+  // W2c: no all-dirt yard here either (see the tiled path) — the farmstead sits
+  // on the grass painted above; paintFarmWear + scuffOne supply the dirt paths
+  // and building rings. Only the house↔field farm path stays baked dirt.
   g.fillStyle = "#b3926a";
   roundR(g, 12.4 * T, 8.6 * T, 7.8 * T, 1.3 * T, 18); g.fill();
   // tilled field
@@ -477,6 +552,7 @@ export function paintGround(): HTMLCanvasElement {
 
   scatterAmbientProps(g);
   paintBuildingGrounding(g);
+  paintFarmWear(g, manifest);
   return ground;
 }
 

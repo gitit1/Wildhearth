@@ -1,5 +1,9 @@
 /** Tiny shared drawing primitives. */
-import { CAST_SHADOW_ALPHA, CAST_SHADOW_SKEW_X, CAST_SHADOW_SKEW_Y } from "../config";
+import {
+  CAST_SHADOW_ALPHA, CAST_SHADOW_SKEW_X, CAST_SHADOW_SKEW_Y,
+  CONTACT_SHADOW_ALPHA, CONTACT_SHADOW_SE, BASE_TINT_ALPHA, BASE_TUFT_MIN, BASE_TUFT_MAX,
+} from "../config";
+import { mulberry32 } from "../engine/rng";
 
 export function roundR(
   g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number
@@ -101,4 +105,74 @@ export function castShadow(
   g.lineTo(footX - halfW * 0.65 + dx, footY + dy);
   g.closePath();
   g.fill();
+}
+
+// ===========================================================================
+//  W2c building grounding — the "does it look BUILT here" pair. BUILDINGS use
+//  these two instead of the diagonal castShadow polygon above (which read
+//  "pasted"): a soft SHORT contact shadow that hugs the base (contactShadow),
+//  and a base-line integration pass (baseGrounding: a dithered tint climbing
+//  the foundation + grass/weed tufts breaking the crisp cut). Both are called
+//  from every building painter, on BOTH the sprite and the code-fallback path,
+//  so the treatment is uniform and zero-PNG safe. See COMPOSITION_RULES rule 30.
+// ===========================================================================
+
+/** A soft, short, dark-at-the-base contact shadow hugging a building footprint,
+ *  offset slightly toward the lower-right (sun upper-left). Sun-aware alpha
+ *  (fades at night) but — unlike castShadow — never elongates. Draw BEFORE the
+ *  building sprite (it sits under the base). */
+export function contactShadow(
+  g: CanvasRenderingContext2D, footX: number, footY: number, halfW: number,
+) {
+  const a = CONTACT_SHADOW_ALPHA * sunAlphaMult;
+  if (a <= 0.004) return;
+  const rx = Math.max(8, halfW * 1.02);
+  const ry = Math.max(6, halfW * 0.32);
+  const cx = footX + ry * CONTACT_SHADOW_SE, cy = footY - ry * 0.12;
+  g.save();
+  g.translate(cx, cy);
+  g.scale(1, ry / rx);
+  const grad = g.createRadialGradient(0, 0, 0, 0, 0, rx);
+  grad.addColorStop(0, `rgba(16,12,8,${a.toFixed(3)})`);
+  grad.addColorStop(0.55, `rgba(16,12,8,${(a * 0.5).toFixed(3)})`);
+  grad.addColorStop(1, "rgba(16,12,8,0)");
+  g.fillStyle = grad;
+  g.beginPath(); g.arc(0, 0, rx, 0, 7); g.fill();
+  g.restore();
+}
+
+/** Base-line integration: a dithered tint climbing ~4px up the foundation +
+ *  irregular grass/weed tufts (pixel blocks, like the ground scatter) breaking
+ *  the crisp line where the base meets the ground. Deterministic per building
+ *  (`seed`). Draw AFTER the building sprite (it sits in front of the base). */
+export function baseGrounding(
+  g: CanvasRenderingContext2D, footX: number, footY: number, halfW: number, seed: number,
+) {
+  // (a) dark dithered tint climbing the foundation base (a bit stays at dusk)
+  const ta = BASE_TINT_ALPHA * (0.45 + 0.55 * sunAlphaMult);
+  const climb = 4;
+  const grad = g.createLinearGradient(0, footY, 0, footY - climb);
+  grad.addColorStop(0, `rgba(22,17,10,${ta.toFixed(3)})`);
+  grad.addColorStop(1, "rgba(22,17,10,0)");
+  g.fillStyle = grad;
+  g.fillRect(footX - halfW, footY - climb, halfW * 2, climb);
+  // (b) grass/weed tufts breaking the base line at irregular intervals — some
+  //     green, some dry, reading as weeds grown up against the wall foot.
+  const rnd = mulberry32((seed ^ 0x2c1b3a7d) >>> 0);
+  const n = BASE_TUFT_MIN + ((rnd() * (BASE_TUFT_MAX - BASE_TUFT_MIN + 1)) | 0);
+  for (let i = 0; i < n; i++) {
+    const tx = Math.round(footX + (rnd() * 2 - 1) * halfW * 0.94);
+    const ty = Math.round(footY - ((rnd() * 2) | 0));
+    const green = rnd() < 0.72;
+    const c = green
+      ? ["#3f5a2e", "#4a6a34", "#557f36"][(rnd() * 3) | 0]!
+      : ["#7a6a30", "#8a7a3a", "#66693b"][(rnd() * 3) | 0]!;
+    const blades = 2 + ((rnd() * 3) | 0);
+    for (let b = 0; b < blades; b++) {
+      const lean = Math.round((b - (blades - 1) / 2) * 1.3);
+      const bh = 2 + ((rnd() * 4) | 0);
+      g.fillStyle = c;
+      g.fillRect(tx + lean, ty - bh, 1, bh);
+    }
+  }
 }

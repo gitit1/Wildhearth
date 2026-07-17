@@ -90,7 +90,7 @@ import {
 } from "./systems/teaching";
 import { saveSettings, guidanceMode, setGuidance, dayLengthSeconds, endOfDaySummaryMode, type Guidance } from "./systems/settings";
 import { loadFarm, resetFarm, saveFarm } from "./systems/renovation";
-import { farmManifestForPath } from "./data/farmStart";
+import { farmManifestForPath, LEGACY_FARM_MANIFEST } from "./data/farmStart";
 import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather, isRaining, saveWeather } from "./systems/weather";
 import { loadWorldFlags, resetWorldFlags, pruneExpired, setFlag as setWorldFlag, saveWorldFlags } from "./systems/worldFlags";
@@ -258,7 +258,12 @@ loadSprites();
 // asynchronously after boot — so the first bake is the painterly fallback. We
 // re-bake a SINGLE time in the loop once the ground tiles have decoded (dual-
 // path: stays painterly forever if the ground folder is empty). See world/ground.
-let ground = paintGround();
+// The first bake uses the legacy manifest as a placeholder (the real farm loads
+// at `const farm` below, and syncFarmManifest() re-bakes with its manifest — and
+// again on every New Game, so the W2c farm circulation wear always matches the
+// live path). This boot bake is the cheap painterly fallback anyway (tiles decode
+// async), so the placeholder is immediately superseded.
+let ground = paintGround(LEGACY_FARM_MANIFEST);
 let groundRebaked = groundIsTiled();
 // Ambient foliage scatter (foliage + props batch): built once, deterministic —
 // pushed into the depth-sorted ents each frame (non-colliding decoration).
@@ -331,6 +336,10 @@ function syncFarmManifest() {
   setFarmCollisionManifest(farm.manifest);
   setInteractFarmManifest(farm.manifest);
   setMinimapFarm(farm.manifest.barn, farm.manifest.coop);
+  // W2c: re-bake the ground so the farm circulation wear (barn/coop/bed spurs)
+  // matches the live manifest — on boot AND after every New Game / path switch.
+  ground = paintGround(farm.manifest);
+  groundRebaked = groundIsTiled();
 }
 syncFarmManifest();   // boot: the loaded save's manifest (legacy for old saves)
 
@@ -2930,7 +2939,7 @@ function tick(now: number) {
   updateToast(dt);
   // One-time ground re-bake once the pixel tiles have decoded (see boot note).
   if (!groundRebaked && groundTilesAvailable()) {
-    ground = paintGround();
+    ground = paintGround(farm.manifest);
     groundRebaked = groundIsTiled();
   }
   // skip the world render when the viewport window is minimized/closed (its

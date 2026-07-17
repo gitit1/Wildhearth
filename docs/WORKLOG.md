@@ -29,6 +29,73 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## W2c — the proportion pass: buildings at human scale (+ farm grounding)
+- **Date:** 2026-07-17 (v1-foundation). Art-pivot wave W2c. Fixes the owner's
+  verdict on the W2a buildings — *"the buildings aren't proportional to the
+  overall scale... it still looks like you just threw them"* — plus a mid-run
+  owner escalation (*"the house STILL doesn't look part of the scene — just
+  pasted"*). **0 PixelLab generations** (balance 6762 → 6762): the diagnosis was
+  MIS-SCALING, not under-resolution, so the fix is scale + geometry, not regen.
+- **Diagnosis (measured, not assumed):** every W2a building sprite's silhouette
+  (alpha bbox) × its config scale ÷ 39px char-unit gave the on-screen "u":
+  farmhouse 4.13u (over the 3.2-3.8 law), cottages/homes 2.03-2.46u (the
+  "playhouse"), stalls 1.60-2.09u, outhouse 1.03u, barn 3.97u (under 4.5-5u),
+  stable 2.03u, well 2.21u. Inconsistent ratios, not uniform undersize.
+- **Proportion law** — new **Part 3 (rules 26-30)** in
+  `docs/COMPOSITION_RULES.md`: per-class world-height bands (door 1.3-1.5u,
+  home ridge 3.2-3.8u, barn 4.5-5u, stall canopy 2.2-2.6u, etc.), the focal-home
+  +5% cap, the pixel-density sanity rule (~0.9-1.25), and geometry/grounding
+  follow-through.
+- **Scales retuned** in `src/config.ts`: `SPRITE_HOUSE_SCALE` 1.0→0.95 (3.92u,
+  ≤4.0 cap, < barn), `SPRITE_BARN_SCALE` 1.0→1.18 (4.69u), `SPRITE_COTTAGE_SCALE`
+  0.8→1.25 (3.2-3.85u), `SPRITE_STALL_SCALE` 0.77→0.96 (~2.3u),
+  `SPRITE_OUTHOUSE_SCALE` 0.56→1.15 (2.13u), `SPRITE_STABLE_SCALE` 0.76→1.2
+  (3.2u), `SPRITE_WELL_SCALE` 1.05→0.90 (1.9u); inn kept 1.0. Density stayed
+  ~0.9-1.25 (verified by eye — no building reads softer than neighbours).
+- **Geometry followed** in `src/world/zones.ts`: `BARN`, `NEIGHBOR.barn`, `COOP`,
+  `OUTHOUSE`, `STALL`, all 6 `COTTAGES`, 5 `TOWN_HOMES`, `STABLE`, 4
+  `MARKET_STALLS`, 4 `TOWN_MERCHANTS` rects grown to track their sprite's new
+  world size, **bottom-centre kept fixed** (door/foot anchor + interactions
+  unchanged; rect grows up/sideways) so collision, the zero-PNG code-painter
+  fallback, the grounding decals and the minimap blobs all track — re-spaced,
+  no overlaps. `HOUSE`/`INN` rects untouched (their scales barely/didn't change).
+  Dependent art needed NO manual re-work: renovation damage overlays scale via
+  `sw(p,…)`, `BUILDING_ROOFLINE` is sprite-px, both auto-correct.
+- **Grounding fix #1 (soft contact shadow):** new `contactShadow()` +
+  `baseGrounding()` in `src/art/shapes.ts` (knobs `CONTACT_SHADOW_ALPHA/_SE`,
+  `BASE_TINT_ALPHA`, `BASE_TUFT_MIN/MAX` in `config.ts`). Every building painter
+  in `src/art/buildings.ts` (drawHouse/Barn/Coop/Stall/Cottage/Inn/Stable/
+  Outhouse/Well, **both** the sprite and code-fallback paths) dropped the long
+  diagonal `castShadow` polygon (kept for moving trees/chars/animals) for a soft
+  short contact shadow.
+- **Grounding fix #3 (base-line integration):** `baseGrounding()` draws a
+  dithered tint climbing ~4px up the foundation + irregular grass/weed pixel
+  tufts breaking the crisp base line, called after every building draw (both
+  paths, uniform).
+- **Grounding fix #2 (farm circulation):** the farm YARD is no longer a flat
+  all-dirt field (the "featureless dirt") — in `src/world/ground.ts` the yard
+  soil region was removed from `paintTerrainTiles`' `soilRegions` (and the
+  painterly-fallback dirt-yard fill removed), so the farmstead sits on GRASS;
+  new `paintFarmWear(g, manifest)` + `wearSeg`/`wearApron` bake worn compacted-
+  dirt trails with dithered edges: world-entry→farmhouse-door (widened doorstep
+  apron), a spur to the pond, and **manifest-driven** spurs to the barn, coop,
+  and garden beds (only when the path has them). `paintGround()` now takes the
+  `FarmManifest`; `src/main.ts` re-bakes the ground in `syncFarmManifest()` (boot
+  + every New Game) so the wear always matches the live path + legacy.
+- **Verified:** `npm run build` green; `verify/smoke.mjs`, `verify/save-compat.mjs`,
+  `verify/gp1-farmstart.mjs` (all 4 paths + the legacy fixture) green; a new
+  zero-PNG boot check (block every sprite PNG → code painters only) green with
+  0 console errors; 1920×1080 before/after screenshots of the heroine beside the
+  farmhouse/barn/cottage/stall/well + full farm-day/dusk/market/town confirm the
+  bands, no overlaps, soft shadows, worn paths, and the "does it look BUILT here"
+  test. (Throwaway shot scripts `verify/shot-w2c-*.mjs` are gitignored per repo
+  convention.)
+- **Follow-ups:** (1) OPTIONAL native-res regen — if the owner ever wants
+  building pixels exactly as fine as the ground, regenerate at bigger canvases;
+  purely a fidelity nicety, not needed for proportion, ~100 gens still unspent.
+  (2) The barn's worn-dirt yard ring reads a touch heavy on grass — could soften
+  `scuffOne`'s farm-building `worn` alpha if the owner finds it strong.
+
 ## AX-2 — the verb matrix: Woodcutting, stoke the fire, eat at the table, teach-by-grey
 - **Date:** 2026-07-17 (v1-foundation). GP-1 commit 2. Builds on the AX-1 verb
   framework (`menuOnActivate` + greyed/`reason` locked verbs). Adds the 10th
