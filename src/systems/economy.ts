@@ -17,6 +17,8 @@ import {
  *  — the stall doesn't buy seeds back. */
 export const GOOD_PRICES: Record<string, number> = {
   fish: FISH_PRICE,
+  twigs: 1,   // IX-1: tree Gather's common find — kept OUT of data/forage.ts on purpose (see systems/trees.ts)
+              // so it never leaks into bush-forage odds, customer "wants", or the eating/gift tables.
   ...Object.fromEntries(FISH.map((s) => [s.id, s.price])),
   ...Object.fromEntries(JUNK.map((j) => [j.id, j.price])),
   ...Object.fromEntries(CROPS.map((c) => [c.id, c.price])),

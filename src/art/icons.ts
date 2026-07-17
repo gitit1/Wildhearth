@@ -803,6 +803,9 @@ const PAINTERS: Record<string, IconPainter> = {
   "straw-hat": paintStrawHat,
   boots: paintBoots,
   "gift-box": paintGiftBox,
+  // IX-1: tree Gather's common find — reuses the wild-forage "sprig" silhouette
+  // (tinted bark-brown) rather than adding a data/forage.ts entry (see systems/trees.ts).
+  twigs: ((g, s) => paintForage(g, s, { color: "#8a6a42", kind: "sprig" })) as IconPainter,
   // every fish species shares the tinted silhouette painter
   ...Object.fromEntries(FISH.map((sp) => [sp.id, ((g, s) => paintFishSpecies(g, s, sp.palette)) as IconPainter])),
   "glass-gem-corn": paintGlassGemCorn,

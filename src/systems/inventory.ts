@@ -48,6 +48,7 @@ export const ITEM_NAMES: Record<string, string> = {
   boots: "Boots",
   "gift-box": "Gift box",
   "flower-seeds": "Flower seeds",
+  twigs: "Twigs",           // IX-1: tree Gather's common find (acorns reuse the existing forage item)
   ...Object.fromEntries(FISH.map((s) => [s.id, s.name])),
   ...Object.fromEntries(JUNK.map((j) => [j.id, j.name])),
   ...Object.fromEntries(CROPS.map((c) => [c.id, c.name])),

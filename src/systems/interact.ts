@@ -2,6 +2,7 @@ import {
   POND, STALL, BARN, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
   FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot, type StallDef,
   TOWN_MERCHANTS, INN, TOWN_HOMES, STABLE, DOCK, TOWN_DOCK, TOWN_BUSK_SPOT, type MerchantKind,
+  WORLD_PROPS,
 } from "../world/zones";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
 import { nearPond, nearRect } from "../world/collision";
@@ -10,6 +11,7 @@ import { saveFarm, repairsLeft, type FarmState, type FarmPart } from "./renovati
 import { startCast, type FishingState } from "./fishing";
 import { computeCastGear, ownsAnyRod } from "./fishinggear";
 import { startPick, type ForagingState, type Bush } from "./foraging";
+import { gatherTree, treeGatherable, type WorldTreeState } from "./trees";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
 import { startBusk, type BuskingState } from "./busking";
 import { startCook, cookableRecipes, type CookingState } from "./cooking";
@@ -19,7 +21,7 @@ import { countItem, removeItem, addItem, ITEM_NAMES } from "./inventory";
 import { skillValue, gainSkill, type Skills } from "./skills";
 import type { FishLocation } from "../data/fish";
 import { FLOWERS, flowerById, flowerBySeed } from "../data/flowers";
-import { currentSeason } from "./calendar";
+import { currentSeason, absoluteDay } from "./calendar";
 import {
   drink, useOuthouse, moodPerfMult, type NeedsState,
 } from "./needs";
@@ -327,6 +329,44 @@ const buskSign: Interactable = lookProp(
   "'Buskers play at the market now.' The square is the place to earn coin with a tune.",
 );
 
+// ---- IX-1 audit fix #3: notable props get a minimal "Look" -------------------
+// A curated handful of WORLD_PROPS (zones.ts tags them with `notable`) near
+// player paths — signposts, the scarecrow, the wheelbarrow, the birdhouse, and
+// the barn's barrel/crate — so clicking an obvious object never feels dead.
+// Deliberately NOT every prop in the world: `notable` opts a specific instance
+// in, one at a time, in zones.ts.
+const PROP_LOOK: Record<string, string> = {
+  wheelbarrow: "Your wheelbarrow, paint chipped from years of hauling. Useful, the day there's more to carry than your arms can manage.",
+  "birdhouse-yard": "A little birdhouse on its post by the house. Something's nested there this season.",
+  "crate-barn": "A sturdy crate by the barn — empty, for now.",
+  "barrel-barn": "An old barrel, the hoops rusted but holding. Smells faintly of last year's harvest.",
+  scarecrow: "A lopsided scarecrow, straw poking through its shirt. Keeps the crows guessing, mostly.",
+  "signpost-market": "\"Market Square\" — carved plain, pointing the way in.",
+  "signpost-town": "\"Tidewater\" — the coastal town's name, weathered into the wood.",
+};
+const NOTABLE_NAMES: Record<string, string> = {
+  wheelbarrow: "Wheelbarrow", "birdhouse-yard": "Birdhouse", "crate-barn": "Crate",
+  "barrel-barn": "Barrel", scarecrow: "Scarecrow", "signpost-market": "Signpost", "signpost-town": "Signpost",
+};
+const notableProps: Interactable[] = WORLD_PROPS
+  .filter((p) => !!p.notable)
+  .map((p) => {
+    const key = p.notable!;
+    return {
+      id: `prop-${key}`,
+      name: NOTABLE_NAMES[key] ?? "Prop",
+      anchor: [p.x, p.y + 20] as [number, number],
+      defaultActionId: "look",
+      hit: (wx: number, wy: number) => {
+        const dx = (wx - p.x) / 20, dy = (wy - (p.y - 8)) / 20;
+        return dx * dx + dy * dy <= 1;
+      },
+      inReach: (px: number, py: number) => Math.hypot(px - p.x, py - p.y) < 44,
+      actions: () => [{ id: "look", label: "Look", run: (c) => c.toast(PROP_LOOK[key] ?? "Just a prop.") }],
+      drawHover: (g: CanvasRenderingContext2D, t: number) => glowEllipse(g, p.x, p.y - 8, 24, 24, t),
+    };
+  });
+
 // The drawn stall is bigger than the STALL logic rect: the awning rises above
 // it (to y - 0.4h) and the legs drop below it (to ~y + 1.05h). Use those true
 // visible bounds so hover + highlight cover the whole structure, not just the
@@ -628,6 +668,7 @@ export const INTERACTABLES: Interactable[] = [
   pond, stall, barn, buskSpot, houseDoor, house, outhouseSpot,
   ...fishSpots, ...dockRowboats, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
   ...townMerchants, townInn, ...townHomes, stable, townBuskSpot,   // coastal town (v2 BLOCK #3 + stable, BLOCK #5; townBuskSpot V2-B1)
+  ...notableProps,   // IX-1 fix #3: signposts/scarecrow/wheelbarrow/birdhouse/barn barrel+crate
   hearthSpot, basinSpot, bedSpot, doorMat, restSpot,   // door before rest: it wins the overlap by the mat
 ];
 
@@ -911,6 +952,80 @@ export function registerBushes(bushes: Bush[]) {
         return list;
       },
       drawHover: (g, t) => glowEllipse(g, b.x, b.y - 4, 22, 18, t),
+    });
+  });
+}
+
+/** Look flavor for a tree (IX-1 fix #1) — a handful of short variants tied to
+ *  species + season, picked at random each click so repeat Looks don't read
+ *  as one canned line. */
+function treeLookLine(species: WorldTreeState["species"], season: Season): string {
+  const seasonLine =
+    season === "winter" ? "Its bare branches creak in the cold." :
+    season === "autumn" ? "Leaves drift down around its roots, gold and rust-colored." :
+    season === "spring" ? "New leaves are unfurling, pale green in the morning light." :
+    "Full summer leaves cast a deep patch of shade.";
+  const speciesLine =
+    species === "oak" ? "A broad old oak, acorns scattered in the grass beneath it." :
+    species === "pine" ? "A tall evergreen — needles and cones carpet the ground below." :
+    species === "birch" ? "A slim birch, its pale bark peeling in papery curls." :
+    "A sturdy tree, its roots knotted deep into the earth.";
+  const variants = [
+    seasonLine, speciesLine,
+    "Rough bark, worn smooth in patches where something's climbed it.",
+    "Sunlight filters down through the branches overhead.",
+  ];
+  return variants[Math.floor(Math.random() * variants.length)]!;
+}
+
+/**
+ * Every world tree (farm, forest, roadside — WORLD_TREES, via createTrees())
+ * becomes clickable (IX-1 audit fix #1: they used to draw-only, clicking was
+ * dead). "Look" always works; broadleaf species also offer a light "Gather"
+ * (systems/trees.ts) — a small chance at a twig or an acorn, capped per tree
+ * per day. Deliberately NOT a wood economy: no chopping, no timber, modest
+ * yields only. Runtime state is session-only, same as the berry bushes above.
+ */
+export function registerTrees(trees: WorldTreeState[]) {
+  trees.forEach((tr, i) => {
+    INTERACTABLES.push({
+      id: `tree-${i}`,
+      name: "Tree",
+      anchor: [tr.x, tr.y + 22],
+      defaultActionId: "gather",
+      hit: (wx, wy) => {
+        const dx = (wx - tr.x) / 24, dy = (wy - (tr.y - 22)) / 34;
+        return dx * dx + dy * dy <= 1;
+      },
+      inReach: (px, py) => Math.hypot(px - tr.x, py - tr.y) < 50,
+      actions: (c) => {
+        const list: MenuAction[] = [];
+        if (treeGatherable(tr.species))
+          list.push({
+            id: "gather", label: "Gather",
+            run: (c) => {
+              if (busy(c)) return;
+              const res = gatherTree(tr, absoluteDay(c.calendar));
+              if (!res.ok) {
+                c.toast(res.reason === "cap"
+                  ? "This tree's given up what it can for today."
+                  : "Just leaves and bark — nothing worth taking this time.");
+                return;
+              }
+              if (!addItem(c.economy.inv, res.itemId, 1)) { c.toast("Backpack full — no room for the find!"); return; }
+              saveEconomy(c.economy);
+              c.toast(`Picked ${(ITEM_NAMES[res.itemId] ?? res.itemId).toLowerCase()}!`);
+              const gained = gainSkill(c.skills, "foraging", moodPerfMult(c.needs));
+              if (gained > 0) c.skillPopup("foraging", gained);
+            },
+          });
+        list.push({
+          id: "look", label: "Look",
+          run: (c) => c.toast(treeLookLine(tr.species, currentSeason(c.calendar))),
+        });
+        return list;
+      },
+      drawHover: (g, t) => glowEllipse(g, tr.x, tr.y - 22, 28, 36, t),
     });
   });
 }

@@ -17,6 +17,20 @@ import { flowerById } from "../data/flowers";
  *  reload-stable, no persistence needed). Fruitless visual variety only. */
 export type TreeSpecies = "default" | "oak" | "pine" | "birch";
 
+/** The SAME per-tree species roll drawTree uses below (seeded off world
+ *  position) — exported so the Gather interaction (systems/trees.ts) knows
+ *  exactly which species is drawn at a given tree, without duplicating the
+ *  formula. A fresh rng instance from an identical seed draws the identical
+ *  sequence, so calling this instead of inlining the roll never changes what
+ *  drawTree paints (verified: draw #1 here is drawTree's discarded hueShift
+ *  draw, draw #2 is the species roll — bit-identical either way). */
+export function treeSpeciesAt(x: number, y: number): TreeSpecies {
+  const rnd = mulberry32(((x * 31) ^ (y * 17)) | 0);
+  rnd();   // burn the same first draw drawTree spends on hueShift
+  const speciesRoll = rnd();
+  return speciesRoll < 0.45 ? "default" : speciesRoll < 0.65 ? "oak" : speciesRoll < 0.85 ? "pine" : "birch";
+}
+
 type RGB = readonly [number, number, number];
 
 /**
@@ -36,9 +50,8 @@ type RGB = readonly [number, number, number];
 export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: number, season: Season = "summer") {
   const rnd = mulberry32(((x * 31) ^ (y * 17)) | 0);
   const hueShift = (rnd() - 0.5) * 0.15;           // subtle per-tree variation
-  const speciesRoll = rnd();
-  const species: TreeSpecies =
-    speciesRoll < 0.45 ? "default" : speciesRoll < 0.65 ? "oak" : speciesRoll < 0.85 ? "pine" : "birch";
+  rnd();   // burn the species draw — treeSpeciesAt (below) recomputes it from its own instance, kept in lockstep
+  const species: TreeSpecies = treeSpeciesAt(x, y);
   const blossomRoll = rnd();
   const patchyRoll = rnd();
 
@@ -292,8 +305,10 @@ export function drawHedge(g: CanvasRenderingContext2D, r: { x: number; y: number
 
 /** Tile the fence PNG along the field perimeter, base planted on the rail line.
  *  Non-rotated segments on all four sides (a picket run receding down the sides
- *  reads fine in 3/4). Only used for an intact fence — a rundown one keeps the
- *  code painter's broken/leaning look. */
+ *  reads fine in 3/4). Used for BOTH fence states (IX-1 fix): a rundown fence
+ *  used to fall all the way back to thin code-drawn rails just to show damage,
+ *  which read as "not pixel-art" — now the sprite always tiles the perimeter,
+ *  and drawFenceDamageOverlay (below) paints the rundown look on TOP of it. */
 function drawFenceSprite(
   g: CanvasRenderingContext2D, img: HTMLImageElement,
   bounds: { x0: number; y0: number; x1: number; y1: number },
@@ -309,6 +324,48 @@ function drawFenceSprite(
     for (let xx = fx0; xx <= fx1; xx += step) drawGroundSprite(g, img, Math.min(xx, fx1), yy, a.cx, a.foot, s);
   for (const xx of [fx0, fx1])
     for (let yy = fy0 + step; yy < fy1; yy += step) drawGroundSprite(g, img, xx, yy, a.cx, a.foot, s);
+}
+
+/** Renovation DAMAGE overlay for the fence's SPRITE path (IX-1 audit fix #2):
+ *  the pixel fence sprite is now ALWAYS drawn (CLAUDE.md rule #1 — never gate
+ *  the pixel art behind the repair flag), so a rundown fence gets its rundown
+ *  read painted ON TOP in code — a gap in the top rail with the fallen plank
+ *  tipped into the grass, a leaning post along the bottom rail, and a light
+ *  weathering tint the length of both long rails — the same "sprite + code
+ *  damage overlay" pattern the farmhouse/barn renovation art already uses
+ *  (drawHouseRoofDamageSprite / drawBarnDamageSprite below). Repairing the
+ *  fence (the same `farm.fence` flag as before) drops this overlay. */
+function drawFenceDamageOverlay(
+  g: CanvasRenderingContext2D,
+  bounds: { x0: number; y0: number; x1: number; y1: number },
+) {
+  const fx0 = bounds.x0 * T - 14, fy0 = bounds.y0 * T - 14;
+  const fx1 = bounds.x1 * T + 14, fy1 = bounds.y1 * T + 14;
+
+  // a light weathering wash the length of both long rails — grime/age over
+  // the crisp new-looking sprite, without hiding the pixel art underneath
+  g.fillStyle = "rgba(55,40,22,.22)";
+  for (const yy of [fy0, fy1]) g.fillRect(fx0, yy - 10, fx1 - fx0, 20);
+
+  // a broken-plank gap in the top rail: a dark gap plus the fallen plank
+  // tipped into the grass beside it (same siting the old code-fallback used)
+  const gapAt = fx0 + (fx1 - fx0) * 0.38, gapW = T * 1.6;
+  g.fillStyle = "rgba(18,12,6,.62)";
+  g.fillRect(gapAt, fy0 - 9, gapW, 18);
+  g.save();
+  g.translate(gapAt + gapW / 2, fy0 + 12); g.rotate(0.35);
+  g.strokeStyle = "#6f5334"; g.lineWidth = 5; g.lineCap = "round";
+  g.beginPath(); g.moveTo(-T * 0.7, 0); g.lineTo(T * 0.7, 0); g.stroke();
+  g.strokeStyle = "rgba(0,0,0,.35)"; g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(-T * 0.7, 2); g.lineTo(T * 0.7, 2); g.stroke();
+  g.restore();
+
+  // a leaning post along the bottom rail
+  const leanX = fx0 + (fx1 - fx0) * 0.68;
+  g.save();
+  g.translate(leanX, fy1 + 2); g.rotate(0.3);
+  oRect(g, -3, -8, 6, 16, "#6f5334");
+  g.restore();
 }
 
 /** Draw any world prop base-on-ground on (x,y) from its foliage/props sprite,
@@ -329,9 +386,17 @@ export function drawFence(
   bounds: { x0: number; y0: number; x1: number; y1: number } = FIELD,
 ) {
   const rundown = !fenceOk;   // broken until the field fence is mended (Step 8)
-  // sprite path (CLAUDE.md hard rule #1): an intact fence tiles the fence PNG;
-  // a rundown fence + a missing PNG both fall through to the code painter below.
-  if (!rundown) { const fimg = sprite("props/fence"); if (fimg) { drawFenceSprite(g, fimg, bounds); return; } }
+  // sprite path (CLAUDE.md hard rule #1): the pixel fence ALWAYS draws when the
+  // PNG is present, repaired or not (IX-1 fix — it used to gate behind fenceOk,
+  // so a new game only ever saw thin code-drawn rails); a rundown fence gets
+  // its code-drawn damage overlay painted on top. Only a missing PNG falls
+  // through to the fully code-drawn painter below (already rundown-aware).
+  const fimg = sprite("props/fence");
+  if (fimg) {
+    drawFenceSprite(g, fimg, bounds);
+    if (rundown) drawFenceDamageOverlay(g, bounds);
+    return;
+  }
   g.strokeStyle = "#8a6a42"; g.lineWidth = 4; g.lineCap = "round";
   const fx0 = bounds.x0 * T - 14, fy0 = bounds.y0 * T - 14;
   const fx1 = bounds.x1 * T + 14, fy1 = bounds.y1 * T + 14;

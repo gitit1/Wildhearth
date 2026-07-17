@@ -57,6 +57,12 @@ export const FORAGE_TIME = 1.2;         // seconds to pick a bush (per-item pric
 export const BUSH_RESPAWN = 25;         // seconds until a picked bush regrows
 export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds a bonus chance)
 
+// Trees become interactable (IX-1): a light, deliberately modest "Gather" —
+// NOT a wood economy (no chopping/timber). Chance-based per attempt, with a
+// tiny daily cap per tree so it can't be ground for a farm-load of goods.
+export const TREE_GATHER_CHANCE = 0.6;      // odds one Gather attempt finds anything
+export const TREE_GATHER_DAILY_CAP = 2;     // Gather attempts one tree allows per in-game day
+
 export const HOE_PRICE = 12;            // shop: first tool (unlocks farming, Step 5)
 // (per-crop seed prices live in data/crops.ts)
 

@@ -57,6 +57,7 @@ import {
 } from "./systems/transport";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
+import { createTrees } from "./systems/trees";
 import {
   loadPlots, savePlots, resetPlots, expansionCells, createFarmWork, updateFarmWork,
   updatePlots, rollPlotsDay, cancelWork,
@@ -139,7 +140,7 @@ import type { GiftRating } from "./data/traitPreferences";
 import type { ThresholdEvent } from "./systems/relationships";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
-  registerBushes, registerPlots, registerAnimal, registerFlowerBeds, registerNpc, registerNpcStall,
+  registerBushes, registerTrees, registerPlots, registerAnimal, registerFlowerBeds, registerNpc, registerNpcStall,
   type Interactable, type InteractCtx,
 } from "./systems/interact";
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
@@ -258,6 +259,7 @@ const economy = loadEconomy();
 const fishing = createFishing();
 const foraging = createForaging();
 const bushes = createBushes();
+const trees = createTrees();   // IX-1: per-tree Gather state (farm + forest + roadside)
 const farm = loadFarm();       // loaded before the plots — the field's size depends on plotTiers
 const plots = loadPlots(farm.plotTiers);   // the field persists: crops, watering, wilt, expansions
 const farmwork = createFarmWork();
@@ -299,6 +301,7 @@ setPlayerLook(meta.character?.gender ?? "female", meta.character?.appearance ?? 
 /** The Starting Path drives which guidance content applies. */
 const curPath = (): Path => meta.character?.path ?? "fisher";
 registerBushes(bushes);
+registerTrees(trees);
 registerPlots(plots, plots, () => currentSeason(calendar));
 registerFlowerBeds(garden);
 setMinimapField(fieldBounds(farm.plotTiers));
@@ -2042,6 +2045,7 @@ function newGameReset(character: Character, mode: Guidance) {
   resetCollections(collections);
   resetMemories(memories);
   for (const b of bushes) { b.full = true; b.regrow = 0; }
+  for (const t of trees) { t.gathered = 0; t.day = -1; }   // IX-1: a fresh life's trees haven't been gathered today
   resetFarm(farm);
   resetCalendar(calendar);
   resetWeather(weather);

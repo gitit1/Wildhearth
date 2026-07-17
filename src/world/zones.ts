@@ -335,27 +335,33 @@ export interface PropDef {
   scale?: number;          // world px per sprite px override (else SPRITE_PROP_SCALE)
   solid?: boolean;         // gets a collision blocker
   cw?: number;             // collision half-width (px) when solid
+  /** IX-1 audit fix #3: a stable per-instance key marking this ONE prop
+   *  instance as "Look"-registered (systems/interact.ts's PROP_LOOK) — kept
+   *  separate from `id` (the sprite path, shared across many instances) so
+   *  tagging a prop never touches which sprite it draws. Only a curated
+   *  handful near player paths carry one; most props stay silent decoration. */
+  notable?: string;
 }
 export const WORLD_PROPS: PropDef[] = [
   // --- Farmhouse yard (west): firewood + wheelbarrow + bucket + a pot, tucked
   //     around the house front, clear of the door, flower beds and the pond.
   { x: 6.6 * T, y: 8.4 * T, id: "props/firewood" },
-  { x: 6.4 * T, y: 9.4 * T, id: "props/wheelbarrow", solid: true, cw: 20 },
+  { x: 6.4 * T, y: 9.4 * T, id: "props/wheelbarrow", solid: true, cw: 20, notable: "wheelbarrow" },
   { x: 7.2 * T, y: 9.3 * T, id: "props/bucket" },
   { x: 7.8 * T, y: 8.3 * T, id: "props/flower-pot" },
-  { x: 12.8 * T, y: 8.6 * T, id: "props/birdhouse" },     // on its post, SE of the house
+  { x: 12.8 * T, y: 8.6 * T, id: "props/birdhouse", notable: "birdhouse-yard" },   // on its post, SE of the house
   // --- Barn (crates, a barrel, a sack) + field edge (hay-bale, scarecrow).
-  { x: 13.1 * T, y: 12.8 * T, id: "props/crate", solid: true, cw: 12 },
-  { x: 13.4 * T, y: 13.4 * T, id: "props/barrel", solid: true, cw: 12 },
+  { x: 13.1 * T, y: 12.8 * T, id: "props/crate", solid: true, cw: 12, notable: "crate-barn" },
+  { x: 13.4 * T, y: 13.4 * T, id: "props/barrel", solid: true, cw: 12, notable: "barrel-barn" },
   { x: 12.7 * T, y: 13.2 * T, id: "props/sack" },
   { x: 19.0 * T, y: 12.25 * T, id: "props/hay-bale", solid: true, cw: 17 },
-  { x: 19.4 * T, y: 14.0 * T, id: "props/scarecrow", solid: true, cw: 8 },
+  { x: 19.4 * T, y: 14.0 * T, id: "props/scarecrow", solid: true, cw: 8, notable: "scarecrow" },
   // --- Market square: lanterns flanking the well, a bench, a cart, a signpost.
   { x: 66.5 * T, y: 19.2 * T, id: "props/lantern", solid: true, cw: 6 },
   { x: 71.5 * T, y: 19.2 * T, id: "props/lantern", solid: true, cw: 6 },
   { x: 68.0 * T, y: 21.6 * T, id: "props/bench", solid: true, cw: 22 },
   { x: 63.5 * T, y: 18.6 * T, id: "props/cart", solid: true, cw: 24 },
-  { x: 58.5 * T, y: 20.6 * T, id: "props/signpost" },     // market entrance marker
+  { x: 58.5 * T, y: 20.6 * T, id: "props/signpost", notable: "signpost-market" },     // market entrance marker
   // Where the player's stall used to stand (now moved to the town): a delivery
   // cart + a crate keep the market's west entrance from reading empty. Neutral
   // clutter, not a building — clear of the road (y 21.3+) and the signpost below.
@@ -368,7 +374,7 @@ export const WORLD_PROPS: PropDef[] = [
   //     lanterns flanking the dock mouth + along the promenade, seafront benches,
   //     and a cart/crate/barrel giving the merchant end some life. All clear of
   //     building fronts, the dock decking and the merchant counters.
-  { x: 67.4 * T, y: 33.1 * T, id: "props/signpost" },       // "Tidewater" town marker
+  { x: 67.4 * T, y: 33.1 * T, id: "props/signpost", notable: "signpost-town" },       // "Tidewater" town marker
   { x: 62.4 * T, y: 39.3 * T, id: "props/lantern", solid: true, cw: 6 },  // dock mouth W
   { x: 67.6 * T, y: 39.3 * T, id: "props/lantern", solid: true, cw: 6 },  // dock mouth E
   { x: 54.0 * T, y: 34.4 * T, id: "props/lantern", solid: true, cw: 6 },  // street lamp

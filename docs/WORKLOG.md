@@ -29,6 +29,83 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## IX-1 — the world answers clicks: trees look/gather, pixel rundown fence, prop flavor
+- **Date:** 2026-07-17 (v1-foundation) — an owner-hit audit found three
+  interaction/visual gaps. Zero PixelLab generations used (art pivot in
+  progress).
+- **Fix #1 — trees become interactable.** New `src/systems/trees.ts`:
+  `WorldTreeState { x, y, species, gathered, day }`, `createTrees()` (builds
+  one per `WORLD_TREES` entry — farm + forest + roadside, 40 trees total),
+  `treeGatherable(species)` (true for every species but pine — no
+  pinecone/pine-nut prop exists yet, so pine stays Look-only), and
+  `gatherTree(tree, today)`: resets the tree's daily tally on a new
+  `absoluteDay`, refuses past `TREE_GATHER_DAILY_CAP` (2, `config.ts`), else
+  spends one of the day's tries and rolls `TREE_GATHER_CHANCE` (0.6) for a
+  weighted twig/acorn find — session-only state, mirrors the berry bushes
+  (never persisted). `src/art/props.ts` gained an exported `treeSpeciesAt(x,y)`
+  — the SAME per-tree species roll `drawTree` already used, factored out so
+  Gather eligibility always matches what's actually drawn (verified
+  bit-identical: `drawTree` now calls it instead of inlining the roll).
+  `src/systems/interact.ts`: new `registerTrees(trees)` pushes one
+  Interactable per tree (`tree-0..tree-39`), default action "Gather" when
+  eligible falling back to "Look" (same resolveDefault pattern as bushes);
+  Gather checks `busy()`, calls `gatherTree`, `addItem`/`saveEconomy` on a
+  hit, `gainSkill(skills, "foraging", moodPerfMult(needs))`, and toasts
+  "Picked twigs!"/"Picked acorns!" (bush-style wording) or a cap/miss line;
+  Look shows one of 4 species+season flavor variants (`treeLookLine`). Wired
+  into `src/main.ts`: `const trees = createTrees()`, `registerTrees(trees)`
+  alongside `registerBushes`, and New Game resets `t.gathered/t.day` like the
+  bushes' `full/regrow`. New item **"twigs"** (`ITEM_NAMES` in
+  `src/systems/inventory.ts`, `GOOD_PRICES.twigs = 1` in
+  `src/systems/economy.ts`, a reused-`paintForage("sprig")` icon in
+  `src/art/icons.ts`) — deliberately kept OUT of `data/forage.ts` so it can
+  never leak into bush-forage odds, the "Wild finds" collection, customer
+  "wants", or the eat/gift tables; "acorns" (already a `data/forage.ts` item)
+  is handed out directly, bypassing its bush-only season/skill-floor gate.
+- **Fix #2 — the rundown fence is pixel art, not vector rails.**
+  `src/art/props.ts`: `drawFence` now ALWAYS calls `drawFenceSprite` when
+  `props/fence` is loaded (repaired or not — it used to gate the sprite
+  behind `fenceOk`, so a new game only ever showed thin code-drawn rails);
+  a rundown fence gets a new `drawFenceDamageOverlay(g, bounds)` painted on
+  top — a dark gap + a fallen plank tipped into the grass on the top rail, a
+  leaning post on the bottom rail, and a light weathering tint the length of
+  both long rails — the same "sprite + code damage overlay" pattern
+  `drawHouseRoofDamageSprite`/`drawBarnDamageSprite` already use. Only a
+  missing PNG still falls through to the fully code-drawn painter (unchanged,
+  already rundown-aware). The 10-coin repair flow (`farm.fence`,
+  `src/systems/interact.ts`'s `doRepair`) is untouched — repairing just stops
+  the overlay from being drawn.
+- **Fix #3 — notable props get "Look".** `src/world/zones.ts`: `PropDef`
+  gained an optional `notable?: string` tag (a stable per-instance key,
+  separate from `id`/the sprite path, so tagging never touches which sprite
+  draws); tagged 7 `WORLD_PROPS` entries near player paths: `wheelbarrow`,
+  `birdhouse-yard`, `crate-barn` + `barrel-barn` (the barn cluster),
+  `scarecrow`, `signpost-market` (market entrance), `signpost-town`
+  ("Tidewater" marker). `src/systems/interact.ts`: `PROP_LOOK` (1-2 line
+  flavor per key) + `notableProps` builds one Look-only Interactable per
+  tagged prop (ellipse hit-test, 44px reach, `glowEllipse` hover), pushed into
+  `INTERACTABLES`.
+- **Verification:** `npm run build`, `npm run verify:smoke`, `npm run
+  verify:save` all green. A throwaway headless script (Edge, 1920×1080, the
+  repo's `verify/lib.mjs` harness) drove the REAL interactable path end to
+  end (no shortcuts): positioned the player at a farm tree and confirmed the
+  HUD prompt reads "Gather"; drove real `Gather` attempts (rolling in-game
+  days on cap/miss) until a twig or acorn landed in the backpack, screenshot
+  with "Picked twigs!" showing; confirmed a pine tree offers Look only;
+  confirmed the scarecrow/market-signpost/wheelbarrow/birdhouse/barn-crate/
+  barn-barrel/town-signpost all offer "Look" with the right flavor text
+  (toast-queue races fixed with poll-until-idle/poll-for-pattern helpers, not
+  fixed delays); screenshotted the rundown fence (pixel sprite + gap/fallen-
+  plank/leaning-post/weathering visible) vs. the repaired fence (overlay
+  gone, via the existing `repairFarm()` dev bridge) side by side; reloaded +
+  clicked Continue mid-run to reconfirm an existing save still loads. All
+  screenshots reviewed directly (Read tool) before writing this entry.
+- **Follow-ups:** `TREE_GATHER_CHANCE`/`TREE_GATHER_DAILY_CAP` (config.ts) are
+  a first-pass tuning guess, open to owner retuning once she's played it.
+  Pine trees staying Look-only is a scoped call (no pinecone/pine-nut prop
+  exists yet) — worth a PixelLab pinecone icon + a `treeGatherable` update in
+  a future art-generation pass, once the art-pivot restyle settles.
+
 ## HUD A1+A2 — the anchored UO desk: taskbar, readable needs, one info box, fixed window homes
 - **Date:** 2026-07-17 (v1-foundation) — HUD Proposal A "the tidied UO desk", first half.
 - **Why:** the owner's window-feedback arc — floating gumps that "throw every
