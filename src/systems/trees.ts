@@ -1,24 +1,35 @@
 import { WORLD_TREES } from "../world/zones";
-import { TREE_GATHER_CHANCE, TREE_GATHER_DAILY_CAP } from "../config";
+import { TREE_GATHER_CHANCE, TREE_GATHER_DAILY_CAP, TREE_REGROW_DAYS, TREES_KEY } from "../config";
 import { treeSpeciesAt, type TreeSpecies } from "../art/props";
 
 /**
  * Trees become interactable (IX-1 audit fix #1: they used to be draw-only,
  * clicking was dead). "Look" always works; broadleaf trees (anything but the
  * evergreen pine — see treeGatherable) also offer a light "Gather" for a
- * twig or an acorn. This is deliberately NOT a wood economy (no chopping, no
- * timber) — a small, chance-based forage top-up with its own tiny daily cap
- * per tree, reusing the existing item/inventory/skill plumbing
- * (systems/inventory.ts addItem, systems/skills.ts gainSkill).
+ * twig or an acorn.
  *
- * State is session-only, mirroring systems/foraging.ts's berry bushes (they
- * also reset to "full" on every reload, never persisted) — a tree's daily
- * gather tally isn't worth a save-file entry.
+ * AX-1 adds the real wood economy on top: with an axe owned, ANY tree can be
+ * "Chop"ped — it drops wood logs and becomes a STUMP, which regrows after
+ * TREE_REGROW_DAYS so the world never permanently deforests.
+ *
+ * Two kinds of runtime state, split by persistence need:
+ *  - `gathered`/`day`: the daily gather tally — SESSION-only, mirroring
+ *    systems/foraging.ts's berry bushes (reset to "full" on every reload).
+ *  - `chopped`/`choppedDay`: the stump state — PERSISTED additively under
+ *    TREES_KEY, so a felled tree stays a stump across a reload and regrows on
+ *    schedule. A save WITHOUT the key (any pre-AX-1 save) = every tree intact
+ *    (loadChoppedTrees applies nothing), so there is NO save-key bump.
  */
-export interface WorldTreeState { x: number; y: number; species: TreeSpecies; gathered: number; day: number }
+export interface WorldTreeState {
+  x: number; y: number; species: TreeSpecies;
+  gathered: number; day: number;      // session-only daily gather tally
+  chopped: boolean; choppedDay: number;   // persisted stump state (choppedDay = absolute day it was felled)
+}
 
 export function createTrees(): WorldTreeState[] {
-  return WORLD_TREES.map(([x, y]) => ({ x, y, species: treeSpeciesAt(x, y), gathered: 0, day: -1 }));
+  return WORLD_TREES.map(([x, y]) => ({
+    x, y, species: treeSpeciesAt(x, y), gathered: 0, day: -1, chopped: false, choppedDay: -1,
+  }));
 }
 
 /** Pine is the one species with nothing in this game's item set to plausibly
@@ -26,6 +37,56 @@ export function createTrees(): WorldTreeState[] {
  *  species (default/oak/birch) gets the light Gather action. */
 export function treeGatherable(species: TreeSpecies): boolean {
   return species !== "pine";
+}
+
+/** Every tree can be chopped for wood — evergreens included (prime timber). The
+ *  gate is the AXE, not the species (unlike Gather, which is fruit-bearing only). */
+export function treeChoppable(_species: TreeSpecies): boolean {
+  return true;
+}
+
+/** Fell a tree: mark it a stump, stamped with the absolute day so regrowth can
+ *  time itself. The caller (main.ts) yields the wood + persists. */
+export function chopTree(t: WorldTreeState, today: number) {
+  t.chopped = true;
+  t.choppedDay = today;
+}
+
+/** Day-rollover hook: regrow any stump that has stood TREE_REGROW_DAYS. Returns
+ *  true if anything changed (so the caller can persist). */
+export function regrowTrees(trees: WorldTreeState[], today: number): boolean {
+  let changed = false;
+  for (const t of trees) {
+    if (t.chopped && today - t.choppedDay >= TREE_REGROW_DAYS) {
+      t.chopped = false; t.choppedDay = -1; changed = true;
+    }
+  }
+  return changed;
+}
+
+/** Persist only the felled trees (index → day), keyed by their WORLD_TREES
+ *  order — compact, and a missing entry simply means "intact". */
+export function saveChoppedTrees(trees: WorldTreeState[]) {
+  const felled = trees
+    .map((t, i) => (t.chopped ? { i, d: t.choppedDay } : null))
+    .filter((e): e is { i: number; d: number } => e !== null);
+  try { localStorage.setItem(TREES_KEY, JSON.stringify(felled)); } catch { /* private mode */ }
+}
+
+/** Apply persisted stump state onto a fresh tree array. A pre-AX-1 save has no
+ *  TREES_KEY, so nothing is applied and every tree stays intact (no key bump,
+ *  no crash). */
+export function loadChoppedTrees(trees: WorldTreeState[]) {
+  try {
+    const raw = localStorage.getItem(TREES_KEY);
+    if (!raw) return;
+    const felled = JSON.parse(raw) as Array<{ i: number; d: number }>;
+    if (!Array.isArray(felled)) return;
+    for (const e of felled) {
+      const t = trees[e.i];
+      if (t && typeof e.d === "number") { t.chopped = true; t.choppedDay = e.d; }
+    }
+  } catch { /* corrupt → every tree intact */ }
 }
 
 /** A tree's own tiny find table — twigs common, an acorn now and then. Kept

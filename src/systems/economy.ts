@@ -1,4 +1,4 @@
-import { FISH_PRICE, SAVE_KEY } from "../config";
+import { FISH_PRICE, WOOD_PRICE, SAVE_KEY } from "../config";
 import { FISH } from "../data/fish";
 import { JUNK } from "../data/junk";
 import { CROPS } from "../data/crops";
@@ -19,6 +19,8 @@ export const GOOD_PRICES: Record<string, number> = {
   fish: FISH_PRICE,
   twigs: 1,   // IX-1: tree Gather's common find — kept OUT of data/forage.ts on purpose (see systems/trees.ts)
               // so it never leaks into bush-forage odds, customer "wants", or the eating/gift tables.
+  wood: WOOD_PRICE,   // AX-1: chopped wood logs — an unclaimed good, so it sells at the player's own stall
+                      // (like twigs). Deliberately not in a SellCategory: wood is neither fish nor produce.
   ...Object.fromEntries(FISH.map((s) => [s.id, s.price])),
   ...Object.fromEntries(JUNK.map((j) => [j.id, j.price])),
   ...Object.fromEntries(CROPS.map((c) => [c.id, c.price])),

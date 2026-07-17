@@ -1,5 +1,5 @@
 import {
-  HOE_PRICE, ROD_PRICE, HEN_PRICE, COW_PRICE, DUCK_PRICE, PIG_PRICE, SHEEP_PRICE,
+  HOE_PRICE, ROD_PRICE, AXE_PRICE, HEN_PRICE, COW_PRICE, DUCK_PRICE, PIG_PRICE, SHEEP_PRICE,
   FLOWER_SEEDS_PRICE, HAGGLE_MAX_DISCOUNT,
 } from "../config";
 import { CROPS } from "../data/crops";
@@ -30,6 +30,7 @@ export interface ShopEntry {
 export const SHOP_STOCK: ShopEntry[] = [
   { id: "hoe", price: HOE_PRICE, unique: true },
   { id: "rod", price: ROD_PRICE, unique: true },   // fishing is a hard tool gate — the rod must be buyable
+  { id: "axe", price: AXE_PRICE, unique: true },    // AX-1: the axe — gates chopping (buy-your-tools loop)
   // one packet per crop, stocked in the seasons it can actually be planted —
   // the stall doesn't sell what would only wilt in the bag
   ...CROPS.map((c): ShopEntry => ({ id: c.seedId, price: c.seedPrice, seasons: c.seasons })),
@@ -55,6 +56,7 @@ export const SHOP_STOCK: ShopEntry[] = [
 export const MERCHANT_STOCK: ShopEntry[] = [
   { id: "hoe", price: HOE_PRICE, unique: true },
   { id: "rod", price: ROD_PRICE, unique: true },
+  { id: "axe", price: AXE_PRICE, unique: true },    // AX-1: the town general store stocks the axe too
   ...CROPS.map((c): ShopEntry => ({ id: c.seedId, price: c.seedPrice })),   // year-round, no `seasons` gate
   { id: "flower-seeds", price: FLOWER_SEEDS_PRICE },
   ...FLOWERS.map((f): ShopEntry => ({ id: f.seedId, price: f.seedPrice })),

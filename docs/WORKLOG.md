@@ -29,6 +29,91 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## AX-1 — the action menu: Sims-pie verbs on the world + the axe/chop/wood chain
+- **Date:** 2026-07-17 (v1-foundation). Owner decision behind it: *"there
+  should be an action menu — e.g. on a tree, if I have an axe I can also chop
+  it — think Sims × Ultima Online × farming."* Zero PixelLab generations
+  (the stump is a code painter, chips are code particles). Two parts: a verb
+  ACTION MENU framework, and the wood chain (axe → chop → logs → stump →
+  regrow → sell).
+- **The ACTION MENU (Sims-pie × UO-context).**
+  - `src/systems/interact.ts`: `MenuAction` gained optional `disabled` +
+    `reason` (a LOCKED verb, shown greyed with its reason); `Interactable`
+    gained `menuOnActivate?`. When an opted-in object with ≥2 verbs is
+    activated (E / left-click / tap), a DOM menu opens near it; a single-verb
+    object still acts instantly (no friction on doors/beds/pond/NPCs — they
+    don't opt in). Verbs that are conceptually hidden are just left off the
+    list; locked ones are shown greyed to teach the buy-your-tools loop.
+  - Migrated to `menuOnActivate: true`: the **well** (Drink/Look), **bushes**
+    (Forage/Look), **trees** (Gather/Chop/Look), and the **hearth** (Cook…/
+    Look). Everything else keeps primary-on-activate unchanged.
+  - `src/main.ts`: new `activateObject` / `openObjMenu` / `buildMenuItems` /
+    `worldToClient` (inverts `screenToWorld` via the live canvas rect + last
+    camera, so the menu opens near the object even for keyboard/tap, which
+    carry no click point). Rewired all four input paths — left-click, tap,
+    E/action, and the walk-to-then-act `pending` (a `MENU_ACTION` sentinel
+    opens the menu on arrival). Right-click routes through the same
+    `buildMenuItems`, so both surfaces show greyed verbs.
+  - `src/ui/contextmenu.ts` + `index.html`: `MenuItem` gained `disabled` +
+    `reason`; disabled items render as a greyed, non-clickable button with the
+    reason muted on the right. `.ctx-item` now `min-height:40px` (touch target).
+- **The wood chain.**
+  - `src/config.ts`: `AXE_PRICE = 20` (above the rod's 12 — a purchase she
+    earns toward from 50 starting coins), `WOOD_PRICE = 5`, `CHOP_YIELD = 3`,
+    `CHOP_TIME = 2.4`, `TREE_REGROW_DAYS = 3`, `TREES_KEY`, and a `chip`
+    entry in `PARTICLE_BURST_COUNTS`.
+  - **Axe purchasable** (`src/systems/shop.ts`): `{ id: "axe", price:
+    AXE_PRICE, unique: true }` added to both `SHOP_STOCK` (her own stall) and
+    `MERCHANT_STOCK` (town general store). `axe` was already in `ITEM_NAMES`.
+  - **Wood item** (`src/systems/inventory.ts` `ITEM_NAMES.wood = "Wood logs"`;
+    `src/systems/economy.ts` `GOOD_PRICES.wood = WOOD_PRICE`) — an unclaimed
+    good, so it sells at her own stall like twigs (not fish/produce, so it
+    stays out of the fishmonger/greengrocer baskets).
+  - **Chop verb** (`src/systems/interact.ts` tree registration): every tree is
+    choppable (`treeChoppable`, evergreens included); the verb is gated on the
+    axe — enabled with it, else greyed with `reason: "Needs an axe"`. Running
+    it faces the player at the trunk and calls `startChop`.
+  - **Chop busy state** (`src/systems/chopping.ts`, new — mirrors `chores.ts`):
+    a flag + countdown carrying the felled tree's index. `src/main.ts`'s
+    `beginChop`/`completeChop` own it: a `"chopping"` swing pose
+    (`art/rig.ts` `PoseName` + `art/spriteChar.ts` down-swing bob) + throttled
+    wood-`chip` particles (`art/particles.ts` new `chip` BurstKind — tan
+    splinters that arc + drop) while it runs; on completion it drops up to
+    `CHOP_YIELD` logs (as many as fit), turns the tree to a stump, persists,
+    and fires the `first_chop` memory. **No skill gain** (see Follow-ups).
+  - **Stump** (`src/art/props.ts` `drawStump` — code overlay, no PNG): a bark
+    cylinder with a pale sawn top + rings + axe notch + chips, on the tree's
+    own depth/collision anchor. `src/main.ts`'s tree draw loop now iterates the
+    tree STATE (was `WORLD_TREES`) and draws the stump when `chopped`.
+  - **Regrow + persistence** (`src/systems/trees.ts`): `WorldTreeState` gained
+    `chopped` + `choppedDay`; `chopTree`, `regrowTrees` (day-rollover hook in
+    `stepGameMinute`), and `loadChoppedTrees`/`saveChoppedTrees` under the new
+    `TREES_KEY` (added to `saves.ts` `GAME_KEYS`). **Additive**: a pre-AX-1
+    save has no `TREES_KEY`, so every tree loads intact — no crash, **no
+    SAVE_KEY bump**. Gather caps stay session-only (unchanged); only chop state
+    persists. New Game clears in-memory chop state + the key.
+  - **New dev/verify hooks** (`src/main.ts`): `tp`, `openMenu`, `giveCoins`,
+    `buyDev`, `treesState`, and `objActions` enriched with `disabled`/`reason`.
+- **Verified** (headless Edge, 1920×1080, real flows): `npm run build`,
+  `npm run verify:smoke`, `npm run verify:save` all green; a driven AX-1
+  script confirmed — (a) tree menu = Gather + **greyed "Chop — Needs an axe"**
+  + Look, DOM greyed, every item ≥40px; well=Drink/Look, bush=Forage/Look
+  intact; (b) shop shows the axe, bought via the real path (50→30 coins, axe
+  in bag); (c) Chop enables, chips emit (14 live), 3 logs in the bag, stump
+  drawn; (d) logs sold for 15 coins; (e) stump on day 0/1, **regrown by day
+  3** (Day-4 screenshot shows the tree back). Zero page/console errors. Every
+  screenshot was viewed.
+- **Follow-ups (owner decisions):**
+  - **Should chopping train a skill?** A Woodcutting/Logging skill isn't in
+    the v1 8-skill set (DECISIONS lists Fishing/Farming/Foraging/Music/Cooking/
+    Animal-Keeping/Renovation/Ornamental-Gardening). Chopping grants NO skill
+    for now, per the AX-1 brief. If wanted, it's a one-line `gainSkill` in
+    `completeChop` + a skill-set entry — owner's call.
+  - Firewood-burning and furniture-crafting are recorded roadmap items and were
+    deliberately NOT built here.
+  - Player-built fencing (buy + place) — the FENCE-1 sequel — reuses this same
+    verb/placeable groundwork once the Sims-home buy+place system lands.
+
 ## FENCE-1 — her farm starts unfenced: fencing becomes something she builds
 - **Date:** 2026-07-17 (v1-foundation). Owner decision behind it: *"why is
   there a fence at all? the USER builds it if she wants."* Her farm no longer

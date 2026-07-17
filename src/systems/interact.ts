@@ -11,11 +11,12 @@ import { saveFarm, repairsLeft, type FarmState, type FarmPart } from "./renovati
 import { startCast, type FishingState } from "./fishing";
 import { computeCastGear, ownsAnyRod } from "./fishinggear";
 import { startPick, type ForagingState, type Bush } from "./foraging";
-import { gatherTree, treeGatherable, type WorldTreeState } from "./trees";
+import { gatherTree, treeGatherable, treeChoppable, type WorldTreeState } from "./trees";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
 import { startBusk, type BuskingState } from "./busking";
 import { startCook, cookableRecipes, type CookingState } from "./cooking";
 import { type ChoreState } from "./chores";
+import { type ChopState } from "./chopping";
 import { saveGarden, plantBed, harvestBed, type Garden } from "./gardening";
 import { countItem, removeItem, addItem, ITEM_NAMES } from "./inventory";
 import { skillValue, gainSkill, type Skills } from "./skills";
@@ -54,6 +55,7 @@ export interface InteractCtx {
   busking: BuskingState;
   cooking: CookingState;
   chores: ChoreState;                            // GF-1: interior wash/sit placed activities
+  chopping: ChopState;                           // AX-1: tree-chop placed activity
   skills: Skills;
   farm: FarmState;
   garden: Garden;
@@ -79,6 +81,7 @@ export interface InteractCtx {
   openNpcTrade: (trade: NpcStallTrade) => void;   // opens the sell-only window for an NPC-specialty stall
   openTownMerchant: (kind: MerchantKind) => void; // opens a coastal-town merchant (v2 BLOCK #3)
   openStable: () => void;                         // opens the town stable's transport shop (v2 BLOCK #5)
+  startChop: (treeIndex: number) => void;         // AX-1: begin felling WORLD_TREES[treeIndex] (main owns the busy state)
   ownsRowboat: () => boolean;                     // whether she owns the rowboat (dock interaction, v2 BLOCK #5)
   guidanceEvent: (ev: GuidanceEvent) => void;    // advance Guidance Mode (repair/expand) — main owns the engine
 }
@@ -86,7 +89,7 @@ export interface InteractCtx {
 /** True while any timed activity is running (they are mutually exclusive). */
 function busy(c: InteractCtx): boolean {
   return c.fishing.casting || c.foraging.picking || c.farmwork.working || c.busking.playing
-    || c.cooking.cooking || c.chores.active;
+    || c.cooking.cooking || c.chores.active || c.chopping.active;
 }
 
 /** Start a cast with the player's current gear (v2 BLOCK #6 slice 2): resolve the
@@ -102,7 +105,20 @@ function beginCast(c: InteractCtx, location: FishLocation) {
   if (gear.baitName) c.toast(`You bait the line with ${gear.baitName.toLowerCase()}.`);
 }
 
-export interface MenuAction { id: string; label: string; run: (c: InteractCtx) => void; }
+/**
+ * A verb an interactable exposes (the Sims-pie × UO-context registry, AX-1).
+ * `run` performs it; `disabled`+`reason` mark a LOCKED verb (tool not owned,
+ * skill/state/daily-cap unmet) so the action menu can show it GREYED with the
+ * reason ("Needs an axe") — teaching the buy-your-tools loop. Verbs that are
+ * conceptually hidden (not merely locked) are simply left out of the list.
+ */
+export interface MenuAction {
+  id: string;
+  label: string;
+  run: (c: InteractCtx) => void;
+  disabled?: boolean;   // AX-1: a locked verb — greyed, not runnable
+  reason?: string;      // AX-1: why it's locked (shown beside the greyed label)
+}
 
 export type InteractScene = "world" | "interior";
 
@@ -116,6 +132,12 @@ export interface Interactable {
   actions: (c: InteractCtx) => MenuAction[];// available actions right now
   drawHover: (g: CanvasRenderingContext2D, time: number) => void;
   scene?: InteractScene;                    // where it lives (default: world)
+  // AX-1: when true, activating this object (E / left-click / tap) with ≥2 verbs
+  // opens the ACTION MENU near it instead of firing the primary verb; with a
+  // single verb it still acts instantly. Off by default, so doors/beds/pond/NPCs
+  // keep their frictionless primary-on-activate — only the migrated multi-verb
+  // world spots (well, bushes, trees, hearth) opt in.
+  menuOnActivate?: boolean;
 }
 
 const pond: Interactable = {
@@ -311,6 +333,7 @@ const dockRowboats: Interactable[] = [
 ];
 const wellProp: Interactable = {
   id: "well", name: "Well",
+  menuOnActivate: true,   // AX-1: Drink / Look → action menu
   anchor: [WELL.cx, WELL.cy + WELL.r + 26],
   defaultActionId: "drink",
   hit: (wx, wy) => Math.hypot(wx - WELL.cx, (wy - WELL.cy) * 1.3) < WELL.r * 2,
@@ -567,6 +590,7 @@ const houseDoor: Interactable = {
 // recipe whose ingredients are in the bag and whose skill floor is met
 const hearthSpot: Interactable = {
   id: "hearth", name: "Hearth", scene: "interior",
+  menuOnActivate: true,   // AX-1: Cook <recipe…> / Look → action menu (already builds a list)
   anchor: [R_HEARTH.x + R_HEARTH.w / 2, R_HEARTH.y + R_HEARTH.h + 26],
   defaultActionId: "cook",
   hit: (wx, wy) => wx >= R_HEARTH.x - 4 && wx <= R_HEARTH.x + R_HEARTH.w + 4 &&
@@ -931,6 +955,7 @@ export function registerBushes(bushes: Bush[]) {
     INTERACTABLES.push({
       id: `bush-${i}`,
       name: "Forage bush",
+      menuOnActivate: true,   // AX-1: Forage / Look → action menu (a full bush; a picked one has only Look → instant)
       anchor: [b.x, b.y + 22],
       defaultActionId: "pick",
       hit: (wx, wy) => {
@@ -993,15 +1018,27 @@ export function registerTrees(trees: WorldTreeState[]) {
     INTERACTABLES.push({
       id: `tree-${i}`,
       name: "Tree",
+      menuOnActivate: true,   // AX-1: Gather / Chop / Look → action menu (a stump has only Look → instant)
       anchor: [tr.x, tr.y + 22],
       defaultActionId: "gather",
       hit: (wx, wy) => {
-        const dx = (wx - tr.x) / 24, dy = (wy - (tr.y - 22)) / 34;
+        // a felled tree is a low stump: a smaller hitbox hugging the ground
+        const cy = tr.chopped ? tr.y - 6 : tr.y - 22;
+        const rx = 24, ry = tr.chopped ? 12 : 34;
+        const dx = (wx - tr.x) / rx, dy = (wy - cy) / ry;
         return dx * dx + dy * dy <= 1;
       },
       inReach: (px, py) => Math.hypot(px - tr.x, py - tr.y) < 50,
       actions: (c) => {
         const list: MenuAction[] = [];
+        // a stump offers nothing but a Look until it regrows (Gather/Chop hidden)
+        if (tr.chopped) {
+          list.push({
+            id: "look", label: "Look",
+            run: (c) => c.toast("A fresh stump, pale rings on the sawn top. It'll grow back in a few days."),
+          });
+          return list;
+        }
         if (treeGatherable(tr.species))
           list.push({
             id: "gather", label: "Gather",
@@ -1021,13 +1058,33 @@ export function registerTrees(trees: WorldTreeState[]) {
               if (gained > 0) c.skillPopup("foraging", gained);
             },
           });
+        // Chop (AX-1): gated on owning the axe — greyed with its reason otherwise,
+        // so the menu teaches the buy-your-tools loop.
+        if (treeChoppable(tr.species)) {
+          const hasAxe = countItem(c.economy.inv, "axe") > 0;
+          list.push({
+            id: "chop", label: "Chop",
+            disabled: !hasAxe,
+            reason: hasAxe ? undefined : "Needs an axe",
+            run: (c) => {
+              if (busy(c)) return;
+              if (countItem(c.economy.inv, "axe") === 0) { c.toast("You need an axe — the stall sells one."); return; }
+              // face the tree, then start the swing (main owns the busy state + yield)
+              const ddx = tr.x - c.player.x, ddy = tr.y - c.player.y;
+              c.player.dir = Math.abs(ddx) > Math.abs(ddy) ? (ddx > 0 ? 1 : 3) : (ddy > 0 ? 2 : 0);
+              c.startChop(i);
+            },
+          });
+        }
         list.push({
           id: "look", label: "Look",
           run: (c) => c.toast(treeLookLine(tr.species, currentSeason(c.calendar))),
         });
         return list;
       },
-      drawHover: (g, t) => glowEllipse(g, tr.x, tr.y - 22, 28, 36, t),
+      drawHover: (g, t) => tr.chopped
+        ? glowEllipse(g, tr.x, tr.y - 6, 16, 12, t)
+        : glowEllipse(g, tr.x, tr.y - 22, 28, 36, t),
     });
   });
 }

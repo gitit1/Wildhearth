@@ -28,7 +28,7 @@ import {
 export type Season = "spring" | "summer" | "autumn" | "winter";
 export type DayPhase = "dawn" | "day" | "dusk" | "night";
 export type DriftKind = "petal" | "mote" | "firefly" | "leaf" | "snow";
-export type BurstKind = "splash" | "leafpuff" | "glint" | "steam";
+export type BurstKind = "splash" | "leafpuff" | "glint" | "steam" | "chip";
 type Kind = DriftKind | BurstKind;
 
 export interface Viewport { camx: number; camy: number; vw: number; vh: number }
@@ -67,12 +67,13 @@ const DRIFT_COLORS: Record<DriftKind, string[]> = {
   leaf: ["#c9722f", "#a85a24", "#d99a3a"],
   snow: ["#ffffff", "#eef6ff"],
 };
-const BURST_SPEED: Record<BurstKind, [number, number]> = { splash: [30, 60], leafpuff: [18, 38], glint: [22, 46], steam: [7, 16] };
-const BURST_SIZE: Record<BurstKind, [number, number]> = { splash: [1.4, 2.4], leafpuff: [2, 3.2], glint: [1.2, 2], steam: [2.8, 4.8] };
-const BURST_LIFE: Record<BurstKind, number> = { splash: 0.5, leafpuff: 0.65, glint: 0.4, steam: 1.2 };
+const BURST_SPEED: Record<BurstKind, [number, number]> = { splash: [30, 60], leafpuff: [18, 38], glint: [22, 46], steam: [7, 16], chip: [26, 52] };
+const BURST_SIZE: Record<BurstKind, [number, number]> = { splash: [1.4, 2.4], leafpuff: [2, 3.2], glint: [1.2, 2], steam: [2.8, 4.8], chip: [1.4, 2.6] };
+const BURST_LIFE: Record<BurstKind, number> = { splash: 0.5, leafpuff: 0.65, glint: 0.4, steam: 1.2, chip: 0.6 };
 const BURST_COLORS: Record<BurstKind, string[]> = {
   splash: ["#bfe6f5", "#e8f7ff"], leafpuff: ["#6fae3e", "#8a6a3a", "#4a7a2a"], glint: ["#ffe27a", "#fff2c0"],
   steam: ["#eae7df", "#d8d2c6"],   // soft warm-grey wisps rising off the pot
+  chip: ["#c69a5e", "#a3743f", "#e0c088"],   // AX-1: pale-to-tan wood splinters flying off the trunk
 };
 
 /** Which drift kind is active right now, if any (one at a time). */
@@ -159,6 +160,7 @@ function stepBurst(p: Particle, dt: number) {
   switch (p.kind) {
     case "splash": p.vy += 90 * dt; p.x += p.vx * dt; p.y += p.vy * dt; break;
     case "leafpuff": p.vy += 55 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt; break;
+    case "chip": p.vy += 150 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt; break;   // heavier: splinters arc + drop fast
     case "glint": p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.88; p.vy *= 0.88; break;
     case "steam": p.x += (p.vx + Math.sin(p.phase * 3) * 5) * dt; p.y += p.vy * dt; p.vy *= 0.99; break;   // slow, swaying rise
     default: break;
@@ -285,6 +287,18 @@ export function drawParticles(g: CanvasRenderingContext2D, burstsOnly = false) {
         g.translate(p.x, p.y); g.rotate(p.rot);
         g.fillStyle = BURST_COLORS.leafpuff[p.colorIdx]!;
         g.beginPath(); g.ellipse(0, 0, p.size, p.size * 0.6, 0, 0, Math.PI * 2); g.fill();
+        g.restore();
+        break;
+      }
+      case "chip": {
+        // a small chunky wood splinter — a short rotated rectangle (nearest-
+        // neighbour feel), fading as it falls
+        const a = Math.max(0, p.life / p.maxLife);
+        g.save();
+        g.globalAlpha = a;
+        g.translate(p.x, p.y); g.rotate(p.rot);
+        g.fillStyle = BURST_COLORS.chip[p.colorIdx]!;
+        g.fillRect(-p.size, -p.size * 0.5, p.size * 2, p.size);
         g.restore();
         break;
       }

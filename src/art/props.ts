@@ -90,6 +90,33 @@ export function drawTree(g: CanvasRenderingContext2D, x: number, y: number, t: n
   if (season === "spring" && blossomRoll < (species === "birch" ? 0.3 : 0.5)) drawBlossoms(g, sx, y, rnd);
 }
 
+/** A felled tree's STUMP (AX-1) — a pure code overlay, no PNG (dual-path rule
+ *  doesn't apply: a stump is a transient world STATE, not a catalogued sprite).
+ *  A short bark cylinder with a pale sawn top (growth rings), a fresh axe notch,
+ *  and a couple of chips in the grass. Drawn on the tree's own (x,y) depth /
+ *  collision anchor so the stump sorts exactly where its tree stood; regrows
+ *  after TREE_REGROW_DAYS. */
+export function drawStump(g: CanvasRenderingContext2D, x: number, y: number) {
+  castShadow(g, x, y, 8, 20);
+  shadow(g, x + 2, y + 4, 13, 5);
+  const w = 15, h = 13;                              // stump footprint (world px)
+  oRect(g, x - w / 2, y - h, w, h, "#6b4a2a");       // bark body
+  oRect(g, x - w / 2, y - h, 3, h, "#57381f");       // shaded west face
+  oRect(g, x + w / 2 - 3, y - h, 3, h, "#7d5836");   // lit east face
+  // sawn top: pale heartwood ellipse + a couple of growth rings
+  g.fillStyle = "#c9a067";
+  g.beginPath(); g.ellipse(x, y - h, w / 2, 4.2, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = "#a9814c"; g.lineWidth = 1;
+  g.beginPath(); g.ellipse(x, y - h, w / 2 - 3, 2.6, 0, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.ellipse(x, y - h, Math.max(0.5, w / 2 - 6), 1.2, 0, 0, Math.PI * 2); g.stroke();
+  // a fresh axe notch bitten out of the rim
+  g.fillStyle = "#8a5a2e";
+  g.beginPath(); g.moveTo(x - 3, y - h - 1); g.lineTo(x + 1, y - h - 3); g.lineTo(x + 1, y - h + 1); g.closePath(); g.fill();
+  // a couple of chips scattered in the grass at the base
+  oRect(g, x - w / 2 - 4, y + 1, 4, 2, "#b98a4f");
+  oRect(g, x + w / 2 - 1, y - 1, 3, 2, "#a3743f");
+}
+
 /** Resolve a tree's (species, season) to a sprite manifest id under trees/.
  *  "default" reuses the oak art (keeps the code species mix ~oak-heavy); pine is
  *  an evergreen so it uses one base sprite for spring/summer/autumn and a

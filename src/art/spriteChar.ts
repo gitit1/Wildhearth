@@ -224,6 +224,8 @@ const ACTION_POSES = new Set<PoseName>([
   // GF-1: interior actions keep her matrix sprite + a code-driven rhythm (no
   // sprite frames yet — W3). Particles (splash/steam) are emitted by main.ts.
   "washing", "cooking", "sitting",
+  // AX-1: chopping — a firmer down-swing bob; wood-chip particles from main.ts.
+  "chopping",
 ]);
 const TOOL_S = 1.0;              // tool painters were tuned at rig scale 1; the sprite footprint matches closely
 // GF-1 sit: how far the seated sprite sinks (world px) so she reads as sitting
@@ -259,6 +261,7 @@ function drawActionSprite(
     case "washing":  dx = fwd * (1.0 + Math.sin(t * 6) * 0.7); dy = Math.max(0, Math.sin(t * 3)) * 2.4; break;  // lean to the basin + scrub dip
     case "cooking":  dx = Math.sin(t * 3.4) * 0.8; dy = Math.max(0, Math.sin(t * 3.4)) * 1.8; break;            // stir-bob over the pot
     case "sitting":  dy = SEAT_SINK + Math.sin(t * 1.6) * 0.6; break;         // sunk into the seat + slow breathing sway
+    case "chopping": dy = Math.max(0, Math.sin(t * 5)) * 3.2; dx = fwd * 0.7; break;  // hard down-chop dip, leaning into the trunk
   }
   const bx = p.x + dx;
   blitMatrix(g, fr, sheetId, bx, footY + dy, 1);

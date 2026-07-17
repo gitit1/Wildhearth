@@ -63,6 +63,19 @@ export const FORAGE_BASE_YIELD = 1;     // berries per pick (Foraging skill adds
 export const TREE_GATHER_CHANCE = 0.6;      // odds one Gather attempt finds anything
 export const TREE_GATHER_DAILY_CAP = 2;     // Gather attempts one tree allows per in-game day
 
+// ---- The wood chain (AX-1) — chopping is a REAL wood economy, gated on owning
+//      the axe (a tool she must buy, feeling the spend). One chop yields logs,
+//      turns the tree to a stump, and the stump regrows after a few days so the
+//      world never permanently deforests. NO skill gain yet (a Woodcutting skill
+//      is an owner decision — see the WORKLOG follow-up). Prices sit on the
+//      VISION anchor scale: the axe above the fishing rod (12), wood a modest
+//      sell good above twigs (1). -------------------------------------------
+export const AXE_PRICE = 20;                // shop: the axe (above the rod's 12 — a purchase she must earn toward)
+export const WOOD_PRICE = 5;                // coins per wood log at the stall (modest, above twigs 1)
+export const CHOP_YIELD = 3;                // wood logs one chopped tree drops
+export const CHOP_TIME = 2.4;              // seconds of swinging to fell a tree (interim busy state, like WASH/COOK)
+export const TREE_REGROW_DAYS = 3;          // in-game days a stump takes to grow back into a tree
+
 export const HOE_PRICE = 12;            // shop: first tool (unlocks farming, Step 5)
 // (per-crop seed prices live in data/crops.ts)
 
@@ -718,6 +731,7 @@ export const REPUTATION_KEY = "wildhearth-reputation-v1"; // town-wide Fame 0-10
 export const DISCOVERY_KEY = "wildhearth-discovery-v1"; // fast-travel nodes reached on foot (v2 block #4)
 export const TRANSPORT_KEY = "wildhearth-transport-v1"; // owned transport: rowboat/horse/carriage (v2 block #5)
 export const TEACHING_KEY = "wildhearth-teaching-v1"; // paid lessons taken per teacher NPC (v2 block #6 slice 3)
+export const TREES_KEY = "wildhearth-trees-v1"; // chopped-tree / stump state (AX-1) — additive; a save without it = all trees intact
 
 // ===========================================================================
 //  Quest system (R6) — authored quests + AI dynamic offers → one quest log.
@@ -810,7 +824,7 @@ export const PARALLAX_FACTOR = 0.3;        // background band scroll speed vs. t
 export const PARTICLE_POOL_MAX = 160;          // total pool size (ambient + bursts share it)
 export const PARTICLE_AMBIENT_MAX = 22;        // sparse cap for the active seasonal drift kind
 export const PARTICLE_FIREFLY_MAX = 10;        // summer dusk/night only
-export const PARTICLE_BURST_COUNTS = { splash: 8, leafpuff: 7, glint: 6, steam: 3 } as const;
+export const PARTICLE_BURST_COUNTS = { splash: 8, leafpuff: 7, glint: 6, steam: 3, chip: 7 } as const; // chip = AX-1 wood chops
 export const PARTICLE_VIEWPORT_PAD = 40;       // px beyond the viewport edge before a drift particle recycles
 
 // ---- Diagonal cast shadows (commit 3, item 3) — distinct from the under-

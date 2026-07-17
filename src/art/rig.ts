@@ -47,8 +47,9 @@ export type PoseName =
   // GF-1: interior action poses. The sprite path (spriteChar.ts) gives each an
   // interim bob/lean + code overlay; the rig fallback has no bespoke limb case
   // (poseLimbs' `default` → neutral standing), which is a safe non-crashing
-  // stand-in until real W3 frames arrive.
-  | "washing" | "cooking" | "sitting";
+  // stand-in until real W3 frames arrive. AX-1's "chopping" is the same pattern
+  // (a sprite-path swing bob + wood-chip particles from main.ts).
+  | "washing" | "cooking" | "sitting" | "chopping";
 
 /**
  * 8 distinct outfit-style SILHOUETTES (not just colour swaps) layered onto the

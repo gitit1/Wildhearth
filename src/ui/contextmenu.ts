@@ -1,6 +1,14 @@
-/** UO-style right-click context menu: a small DOM list positioned at the cursor. */
+/** UO-style context menu: a small DOM list positioned near the object. Doubles
+ *  as the Sims-pie ACTION MENU (AX-1) — verbs that are locked (a tool not owned,
+ *  a skill/state not met) render GREYED with their reason so the menu teaches the
+ *  buy-your-tools loop rather than just hiding the option. */
 
-export interface MenuItem { label: string; onClick: () => void; }
+export interface MenuItem {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;   // AX-1: a locked verb — shown greyed, not runnable
+  reason?: string;      // AX-1: why it's locked (e.g. "Needs an axe"), shown beside the label
+}
 
 let menuEl: HTMLElement | null = null;
 
@@ -14,9 +22,23 @@ export function openContextMenu(sx: number, sy: number, items: MenuItem[]) {
   el.style.top = `${sy}px`;
   for (const it of items) {
     const b = document.createElement("button");
-    b.className = "ctx-item";
-    b.textContent = it.label;
-    b.addEventListener("click", (e) => { e.stopPropagation(); it.onClick(); closeContextMenu(); });
+    b.className = "ctx-item" + (it.disabled ? " disabled" : "");
+    if (it.disabled) {
+      // greyed + non-runnable: label on the left, the lock reason on the right
+      b.disabled = true;
+      const lab = document.createElement("span");
+      lab.textContent = it.label;
+      b.appendChild(lab);
+      if (it.reason) {
+        const r = document.createElement("span");
+        r.className = "ctx-reason";
+        r.textContent = it.reason;
+        b.appendChild(r);
+      }
+    } else {
+      b.textContent = it.label;
+      b.addEventListener("click", (e) => { e.stopPropagation(); it.onClick(); closeContextMenu(); });
+    }
     el.appendChild(b);
   }
   document.body.appendChild(el);

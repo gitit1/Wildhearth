@@ -1,6 +1,6 @@
 import {
   T,
-  WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE,
+  WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE, CHOP_YIELD,
   DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS, AUTOSAVE_SECONDS, NPC_SALE_FRIENDSHIP_BUMP,
   CAM_NORTH_SKY_MARGIN, INTERIOR_ZOOM,
   CUSTOMER_MARKET_START, CUSTOMER_MARKET_END, CUSTOMER_MAX_CONCURRENT, CUSTOMER_SPAWN_GAP_MIN,
@@ -16,7 +16,7 @@ import {
 import { applyCamera, screenToWorld, adjustZoom, getLastCam } from "./engine/camera";
 import { paintGround, groundIsTiled, groundTilesAvailable } from "./world/ground";
 import {
-  HOUSE, BARN, STALL, WORLD_TREES, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
+  HOUSE, BARN, STALL, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
   FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, WORLD_PROPS, type Rect,
   INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK, STABLE, TOWN_BUSK_SPOT, type MerchantKind,
@@ -24,7 +24,7 @@ import {
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
-  drawTree, drawHedge, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
+  drawTree, drawStump, drawHedge, drawBush, drawTilledTile, drawCropTile, drawWiltedTile,
   drawFlowerBed, drawBuskSpot, drawMusicNotes, drawWaterShimmer,
   drawOpenWaterShimmer, drawDock, drawBuskSign, drawProp,
 } from "./art/props";
@@ -57,7 +57,7 @@ import {
 } from "./systems/transport";
 import { createFishing, updateFishing, cancelCast, resolveCatch } from "./systems/fishing";
 import { createBushes, createForaging, updateForaging, resolveForage, cancelPick } from "./systems/foraging";
-import { createTrees } from "./systems/trees";
+import { createTrees, chopTree, regrowTrees, loadChoppedTrees, saveChoppedTrees } from "./systems/trees";
 import {
   loadPlots, savePlots, resetPlots, expansionCells, createFarmWork, updateFarmWork,
   updatePlots, rollPlotsDay, cancelWork,
@@ -66,6 +66,7 @@ import { cropById, cropBySeed } from "./data/crops";
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
 import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
 import { createChores, startChore, cancelChore, updateChore } from "./systems/chores";
+import { createChop, startChop, cancelChop, updateChop } from "./systems/chopping";
 import { recipeById } from "./data/recipes";
 import { loadGarden, resetGarden, saveGarden, updateGarden, rollGardenDay } from "./systems/gardening";
 import { loadStorage, resetStorage, type Storage } from "./systems/storage";
@@ -74,7 +75,7 @@ import {
 } from "./systems/animalProduce";
 import { loadCollections, resetCollections, discover, discoveredName, saveCollections } from "./systems/collections";
 import { sellableGoodIds } from "./systems/sellCategories";
-import { NPC_STALL_TRADES, MERCHANT_STOCK, type NpcStallTrade } from "./systems/shop";
+import { NPC_STALL_TRADES, MERCHANT_STOCK, SHOP_STOCK, tryBuy, type NpcStallTrade } from "./systems/shop";
 import { loadMemories, resetMemories, addMemory, saveMemories, attachMemoryFlavor } from "./systems/memories";
 import { initMemoryBook, updateMemoryBook } from "./ui/memorybook";
 import { initDebugPanel, updateDebugPanel } from "./ui/debugpanel";
@@ -260,12 +261,14 @@ const fishing = createFishing();
 const foraging = createForaging();
 const bushes = createBushes();
 const trees = createTrees();   // IX-1: per-tree Gather state (farm + forest + roadside)
+loadChoppedTrees(trees);       // AX-1: apply persisted stump state (no-op for a pre-AX-1 save)
 const farm = loadFarm();       // loaded before the plots — the field's size depends on plotTiers
 const plots = loadPlots(farm.plotTiers);   // the field persists: crops, watering, wilt, expansions
 const farmwork = createFarmWork();
 const busking = createBusking();
 const cooking = createCooking();
 const chores = createChores();   // GF-1: interior wash/sit placed activities
+const chopping = createChop();   // AX-1: tree-chop placed activity
 const skills = loadSkills();
 const garden = loadGarden();
 const storage: Storage = loadStorage();   // R5: the barn's storage chest
@@ -483,6 +486,7 @@ if (import.meta.env.DEV)
     washNow: () => { player.x = R_BASIN.x + R_BASIN.w / 2; player.y = R_BASIN.y + R_BASIN.h + 20; beginWash(); },
     sitNow: () => beginSit(),
     clickMove: (wx: number, wy: number) => { setMoveTarget(wx, wy); },   // GF-1 trap test: drive click-to-move headlessly
+    tp: (wx: number, wy: number) => { player.x = wx; player.y = wy; player.moving = false; clearMoveTarget(); },   // AX-1 verify: place her exactly (no walk)
     cookNow: () => {
       player.x = R_HEARTH.x + R_HEARTH.w / 2; player.y = R_HEARTH.y + R_HEARTH.h + 24; player.dir = 0;
       cooking.cooking = true; cooking.recipeId = null; cooking.timer = 9999;   // held cook for a stable shot (no ingredients needed)
@@ -667,11 +671,17 @@ if (import.meta.env.DEV)
     // stable via their REAL interactable path, not a shortcut).
     interactLabel: (id: string) => { const o = byId(id); return o ? defaultActionLabel(o, makeCtx()) : null; },
     runInteract: (id: string, actionId: string) => { const o = byId(id); if (o) runAction(o, actionId, makeCtx()); },
-    // the verb list an object offers right now (id + label) via its real
-    // actions(makeCtx()) — lets a headless check confirm the renovation menu
-    // dropped "Mend the fence" (FENCE-1) without synthesizing canvas clicks.
-    // AX-1 enriches this with each verb's greyed/locked state.
-    objActions: (id: string) => byId(id)?.actions(makeCtx()).map((a) => ({ id: a.id, label: a.label })),
+    // the verb list an object offers right now (id + label + greyed/locked
+    // state) via its real actions(makeCtx()) — lets a headless check confirm the
+    // renovation menu dropped "Mend the fence" (FENCE-1) and the tree menu shows
+    // a greyed "Chop … Needs an axe" (AX-1) without synthesizing canvas clicks.
+    objActions: (id: string) => byId(id)?.actions(makeCtx())
+      .map((a) => ({ id: a.id, label: a.label, disabled: !!a.disabled, reason: a.reason ?? null })),
+    // AX-1 verification bridge — the wood chain end-to-end without canvas clicks:
+    openMenu: (id: string) => { const o = byId(id); if (o) openObjMenu(o, makeCtx()); },   // open the REAL action menu near an object
+    giveCoins: (n: number) => { economy.coins += n; saveEconomy(economy); return economy.coins; },
+    buyDev: (id: string) => { const e = SHOP_STOCK.find((s) => s.id === id); return e ? tryBuy(economy, e, skillValue(skills, "haggling")) : "no-entry"; },
+    treesState: () => trees.map((t, i) => ({ i, x: t.x, y: t.y, chopped: t.chopped, choppedDay: t.choppedDay })),
     // save-system verification bridge — force the two save paths and shrink
     // the autosave interval instead of waiting 10 real minutes
     saveNow: manualSave,
@@ -985,6 +995,7 @@ const smoke: Puff[] = [];
 // ---- scenes: the world, and the house interior (tier-1 bare/broken) ----
 let scene: Scene = "world";
 let interiorFxAccum = 0;   // GF-1: throttles wash/cook particle emission indoors
+let chopFxAccum = 0;       // AX-1: throttles wood-chip particle emission while chopping
 
 function enterHouse() {
   scene = "interior";
@@ -1029,6 +1040,41 @@ function beginSit() {
 function standUpFromSeat() {
   player.x = REST_STAND[0]; player.y = REST_STAND[1];
   player.dir = 2; player.moving = false; clearMoveTarget();
+}
+
+/** True while any timed activity is running (mirrors interact.ts's busy()). */
+function busyNow(): boolean {
+  return fishing.casting || foraging.picking || farmwork.working || busking.playing
+    || cooking.cooking || chores.active || chopping.active;
+}
+
+// ---- AX-1: tree chopping (outdoor placed activity) --------------------------
+/** Begin felling WORLD_TREES[treeIndex]: stop moving and run the short swing
+ *  state. The tree interactable already faced the player toward the trunk and
+ *  checked the axe; the wood yield + stump land on completion (completeChop). */
+function beginChop(treeIndex: number) {
+  if (busyNow()) return;
+  player.moving = false; clearMoveTarget();
+  startChop(chopping, treeIndex);
+}
+/** Chop complete: drop wood logs into the bag (as many as fit), turn the tree to
+ *  a stump, and persist the stump. No skill gain (a Woodcutting skill is an owner
+ *  decision — WORKLOG follow-up). */
+function completeChop(treeIndex: number) {
+  const tr = trees[treeIndex];
+  if (!tr) return;
+  let got = 0;
+  for (let n = 0; n < CHOP_YIELD; n++) { if (addItem(economy.inv, "wood", 1)) got++; else break; }
+  if (got > 0) saveEconomy(economy);
+  chopTree(tr, absoluteDay(calendar));
+  saveChoppedTrees(trees);
+  burst("chip", tr.x, tr.y - 18);
+  remember("first_chop", "You felled your first tree — a stack of logs to sell or build with.");
+  toast(got === CHOP_YIELD
+    ? `Timber! ${got} wood logs for the bag. 🪵`
+    : got > 0
+      ? `Timber! ${got} wood logs — the rest wouldn't fit.`
+      : "The tree falls, but your bag's too full to carry the wood.");
 }
 
 // ---- stall trade windows: which rect the player must stay near to keep the
@@ -1383,6 +1429,7 @@ function stepGameMinute(sleeping: boolean): DayEndSnapshot | null {
     if (isFestivalDay(calendar)) setWorldFlag(worldFlags, "festival_today", 1, absoluteDay(calendar));
     // ---- AI daily hooks (Part D) — all no-ops with their features off --------
     const abs = absoluteDay(calendar);
+    if (regrowTrees(trees, abs)) saveChoppedTrees(trees);   // AX-1: stumps grow back after TREE_REGROW_DAYS
     rolloverDay(customerLedger, abs);   // v2: reset the day's customer-sales count
     decayReputation(reputation, abs);   // v2 block #2: gentle Fame drift after long inactivity (floored at tier)
     // Quest offers (#3, D3): maybe surface one validated AI offer (scripted
@@ -1950,7 +1997,7 @@ function offerOption(questId: string, title: string, ask: string): QuestDialogue
  *  `guidanceEvent` seam lets interactables (repair / expand) advance guidance. */
 function makeCtx(): InteractCtx {
   return {
-    economy, fishing, foraging, farmwork, busking, cooking, chores, skills, farm, garden, needs,
+    economy, fishing, foraging, farmwork, busking, cooking, chores, chopping, skills, farm, garden, needs,
     relationships, calendar, player,
     toast, openShop: openPlayerStall, enterHouse, leaveHouse,
     startWash: beginWash, startSit: beginSit,
@@ -1961,11 +2008,56 @@ function makeCtx(): InteractCtx {
     openNpcTrade: openNpcStallTrade,
     openTownMerchant,
     openStable,
+    startChop: beginChop,   // AX-1: the tree Chop verb calls this
     ownsRowboat: () => ownsTransport(transport, "rowboat"),
     openStorage: openBarnStorage,
     feedAnimal: (kind) => markFed(animalProduce, kind),   // barn loop: species fed today → produces overnight
     guidanceEvent: fireGuidance,
   };
+}
+
+// ---- AX-1: the ACTION MENU (Sims-pie × UO-context) --------------------------
+// An interactable that opts in (menuOnActivate) and offers ≥2 verbs opens a
+// small DOM menu near it on ACTIVATE (E / left-click / tap) instead of firing
+// its primary verb; a single-verb object still acts instantly. Locked verbs
+// render GREYED with their reason. Both this and right-click route through
+// buildMenuItems, so both surfaces show the same greyed-verb affordance.
+const MENU_ACTION = "__wh_menu__";   // pending sentinel: "open the menu on arrival"
+
+/** Map a world point to a client (CSS) position — inverts screenToWorld via the
+ *  live canvas rect + last camera, so the menu can open near the object even for
+ *  keyboard/tap activations (which carry no click position). */
+function worldToClient(wx: number, wy: number): [number, number] {
+  const { camx, camy, scale } = getLastCam();
+  const r = cv.getBoundingClientRect();
+  return [r.left + (wx - camx) * scale * (r.width / cv.width),
+          r.top + (wy - camy) * scale * (r.height / cv.height)];
+}
+
+/** DOM items for an object's verbs (greyed for locked ones). Enabled verbs
+ *  walk-to-then-run when out of reach; disabled verbs do nothing. */
+function buildMenuItems(obj: Interactable, ictx: InteractCtx) {
+  return obj.actions(ictx).map((a) => ({
+    label: a.label, disabled: a.disabled, reason: a.reason,
+    onClick: () => {
+      if (a.disabled) return;
+      if (obj.inReach(player.x, player.y)) runAction(obj, a.id, ictx);
+      else { setMoveTarget(obj.anchor[0], obj.anchor[1]); pending = { objId: obj.id, actionId: a.id }; }
+    },
+  }));
+}
+
+/** Open the action menu near an object (client coords from its anchor). */
+function openObjMenu(obj: Interactable, ictx: InteractCtx) {
+  const [sx, sy] = worldToClient(obj.anchor[0], obj.anchor[1]);
+  openContextMenu(sx, sy, buildMenuItems(obj, ictx));
+}
+
+/** Activate an in-reach object: open its action menu when it opts in AND offers
+ *  ≥2 verbs; otherwise fire its primary verb instantly (no friction). */
+function activateObject(obj: Interactable, ictx: InteractCtx) {
+  if (obj.menuOnActivate && obj.actions(ictx).length >= 2) openObjMenu(obj, ictx);
+  else runDefault(obj, ictx);
 }
 
 /** Per-frame: coins-threshold aspiration steps + the pill's live counter. */
@@ -2050,7 +2142,9 @@ function newGameReset(character: Character, mode: Guidance) {
   resetCollections(collections);
   resetMemories(memories);
   for (const b of bushes) { b.full = true; b.regrow = 0; }
-  for (const t of trees) { t.gathered = 0; t.day = -1; }   // IX-1: a fresh life's trees haven't been gathered today
+  // IX-1: a fresh life's trees haven't been gathered today; AX-1: none felled
+  for (const t of trees) { t.gathered = 0; t.day = -1; t.chopped = false; t.choppedDay = -1; }
+  saveChoppedTrees(trees);   // clear any persisted stumps (clearSavedGame also drops TREES_KEY)
   resetFarm(farm);
   resetCalendar(calendar);
   resetWeather(weather);
@@ -2339,6 +2433,7 @@ function tick(now: number) {
     // GF-1: moving stands her up first (she's already stepping off the seat via
     // updatePlayer this frame — no reposition, just drop the state so she's free).
     if (chores.active) cancelChore(chores);
+    if (chopping.active) cancelChop(chopping);   // AX-1: walking off abandons the chop (no wood, no stump)
   }
 
   // world time: the day-length setting sets the pace; a full in-game day takes
@@ -2383,8 +2478,12 @@ function tick(now: number) {
   // "stopped short" before it ever got to walk anywhere.
   if (pending) {
     const obj = byId(pending.objId);
-    if (obj && obj.inReach(player.x, player.y)) { runAction(obj, pending.actionId, ictx); pending = null; }
-    else if (!player.moving) pending = null;   // stopped short (blocked / unreachable)
+    if (obj && obj.inReach(player.x, player.y)) {
+      // AX-1: a menuOnActivate object walked-to opens its action menu on arrival
+      if (pending.actionId === MENU_ACTION) openObjMenu(obj, ictx);
+      else runAction(obj, pending.actionId, ictx);
+      pending = null;
+    } else if (!player.moving) pending = null;   // stopped short (blocked / unreachable)
   }
 
   const ps = getPointerScreen();
@@ -2405,41 +2504,37 @@ function tick(now: number) {
   else if (busking.playing) setPrompt("Playing a tune...");
   else if (cooking.cooking) setPrompt("Cooking...");
   else if (chores.active) setPrompt(chores.kind === "wash" ? "Washing..." : "Resting...");
+  else if (chopping.active) setPrompt("Chopping...");
   else if (near) setPrompt(defaultActionLabel(near, ictx));
   else setPrompt(null);
 
-  // left-click: act on a clicked object (walking to it first), else walk to the point
+  // left-click / tap: activate a clicked object (walking to it first, opening its
+  // action menu on arrival if it's a menu object), else walk to the point.
   const lc = consumeLeftClick();
   if (lc) {
     const obj = hitTest(lc.wx, lc.wy, scene);
     if (obj) {
-      if (obj.inReach(player.x, player.y)) { runDefault(obj, ictx); pending = null; }
-      else { setMoveTarget(obj.anchor[0], obj.anchor[1]); pending = { objId: obj.id, actionId: obj.defaultActionId }; }
+      if (obj.inReach(player.x, player.y)) { activateObject(obj, ictx); pending = null; }
+      else { setMoveTarget(obj.anchor[0], obj.anchor[1]); pending = { objId: obj.id, actionId: obj.menuOnActivate ? MENU_ACTION : obj.defaultActionId }; }
     } else {
       setMoveTarget(lc.wx, lc.wy);
       pending = null;
     }
   }
 
-  // right-click: open a context menu of the object's actions
+  // right-click: the same action menu (also reachable this way for every object,
+  // whether or not it opts into menu-on-activate) — greyed verbs shown.
   const rc = consumeRightClick();
   if (rc) {
     const obj = hitTest(rc.wx, rc.wy, scene);
-    if (obj) {
-      const items = obj.actions(ictx).map((a) => ({
-        label: a.label,
-        onClick: () => {
-          if (obj.inReach(player.x, player.y)) runAction(obj, a.id, ictx);
-          else { setMoveTarget(obj.anchor[0], obj.anchor[1]); pending = { objId: obj.id, actionId: a.id }; }
-        },
-      }));
-      openContextMenu(rc.sx, rc.sy, items);
-    } else closeContextMenu();
+    if (obj) openContextMenu(rc.sx, rc.sy, buildMenuItems(obj, ictx));
+    else closeContextMenu();
   }
 
-  // action button / E key: use whatever is in reach
-  if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working && !busking.playing && !cooking.cooking && !chores.active)
-    runDefault(near, ictx);
+  // action button / E key: activate whatever is in reach (opens the menu for a
+  // menu object, else fires its primary verb).
+  if (consumeAction() && near && !busyNow())
+    activateObject(near, ictx);
 
   if (updateFishing(fishing, dt)) {
     player.fishing = false;
@@ -2543,6 +2638,18 @@ function tick(now: number) {
         burst("splash", R_BASIN.x + R_BASIN.w * 0.42, R_BASIN.y + R_BASIN.h * 0.28);      // droplets over the basin
     }
   } else interiorFxAccum = 0;
+  // AX-1: tree chopping — wood-chip particles fly off the trunk while the swing
+  // runs (outdoor equivalent of the wash/cook interim feedback), then the wood +
+  // stump land on completion.
+  if (chopping.active) {
+    const ctr = trees[chopping.treeIndex];
+    if (ctr) {
+      chopFxAccum += dt;
+      if (chopFxAccum >= 0.2) { chopFxAccum = 0; burst("chip", ctr.x, ctr.y - 16); }
+    }
+  } else chopFxAccum = 0;
+  const choppedIdx = updateChop(chopping, dt);
+  if (choppedIdx !== null) completeChop(choppedIdx);
   if (updateGarden(garden, dt, dayLengthSeconds())) {
     saveGarden(garden);
     toast("The flower bed is in bloom! 🌸");
@@ -2652,6 +2759,7 @@ function tick(now: number) {
     cooking.cooking  ? "cooking" :                          // GF-1: stir-bob at the hearth
     chores.active && chores.kind === "wash" ? "washing" :   // GF-1: scrub at the basin
     chores.active && chores.kind === "sit"  ? "sitting" :   // GF-1: seated in the chair
+    chopping.active  ? "chopping" :                         // AX-1: axe down-swing at the tree
     player.moving    ? "walking" : "idle");
 
   updateHud(economy, wc.calendar, wc.weather, isFestivalDay(calendar)?.name);
@@ -2777,7 +2885,9 @@ function draw(dt: number) {
   // on-ground, depth-sorted alongside trees/bushes/entities)
   for (const it of foliageScatter) ents.push({ y: it.y, f: () => drawScatterItem(ctx, it) });
   for (const p of WORLD_PROPS) ents.push({ y: p.y, f: () => drawProp(ctx, p.x, p.y, p.id, p.scale) });
-  for (const [tx, ty] of WORLD_TREES) ents.push({ y: ty + 6, f: () => drawTree(ctx, tx, ty, time, currentSeason(calendar)) });
+  // AX-1: a felled tree draws as a code STUMP until it regrows; otherwise the
+  // tree sprite/painter. Iterate the tree STATE (index-matched to WORLD_TREES).
+  for (const tr of trees) ents.push({ y: tr.y + 6, f: () => tr.chopped ? drawStump(ctx, tr.x, tr.y) : drawTree(ctx, tr.x, tr.y, time, currentSeason(calendar)) });
   for (const b of bushes) ents.push({ y: b.y + 8, f: () => drawBush(ctx, b.x, b.y, b.full, time, currentSeason(calendar)) });
   for (const c of cows) ents.push({ y: c.y + 14, f: () => drawCow(ctx, c, time) });
   for (const h of hens) ents.push({ y: h.y + 6, f: () => drawHen(ctx, h, time) });
