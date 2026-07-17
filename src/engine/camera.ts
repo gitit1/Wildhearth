@@ -31,14 +31,17 @@ export function applyCamera(
   ctx: CanvasRenderingContext2D, cv: HTMLCanvasElement, fx: number, fy: number,
   bounds: { w: number; h: number } = { w: WORLD_W, h: WORLD_H },
   northMargin = 0,
+  zoomBoost = 1,
 ): { camx: number; camy: number; vw: number; vh: number; scale: number } {
   canvas = cv;
   // zoom is the on-screen size of a world px (CSS px); the backing-store
   // scale multiplies by dpr so hi-dpi displays keep the same framing, crisp.
   // Derived from the play window's own width (the canvas), not the screen.
+  // `zoomBoost` (GF-1) lets the interior scene pull the camera in past the
+  // outdoor auto-fit so the small room fills most of the view (1 elsewhere).
   const cssW = cv.width / devicePixelRatio;
   const autoZoom = Math.min(CAM_ZOOM_MAX, Math.max(CAM_ZOOM_MIN, (cssW / CAM_ZOOM_REF_W) * devicePixelRatio));
-  const zoom = autoZoom * userZoom;   // the player's wheel/buttons scale the automatic fit
+  const zoom = autoZoom * userZoom * zoomBoost;   // the player's wheel/buttons scale the automatic fit
   const scale = zoom * devicePixelRatio;
   const vw = cv.width / scale, vh = cv.height / scale;
   let camx = bounds.w < vw ? (bounds.w - vw) / 2 : Math.max(0, Math.min(bounds.w - vw, fx - vw / 2));

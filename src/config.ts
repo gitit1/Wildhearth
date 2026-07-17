@@ -92,6 +92,11 @@ export const WATER_TIME = 0.6;          // seconds to water a growing tile
 export const CLEAR_TIME = 0.8;          // seconds to clear a wilted crop
 export const WILT_DRY_DAYS = 3;         // consecutive unwatered days before a crop wilts
 export const COOK_TIME = 1.2;           // seconds to cook a dish at the hearth
+// Interior "chore" activities that used to be an instant stat+toast (GF-1): now
+// short placed states with interim motion (lean/bob + code-drawn particles), so
+// wash/sit read as real actions. The need restore + toast fire on COMPLETION.
+export const WASH_TIME = 2.0;           // seconds scrubbing at the basin
+export const SIT_TIME = 2.6;            // seconds resting in the chair
 export const FLOWER_SEEDS_PRICE = 3;    // shop: a packet of mixed flower seeds
 export const FLOWER_GROW_DAYS = 0.5;    // in-game days for a flower bed to bloom
 export const FEED_GAIN_ITEM = "corn";   // what feeding an animal consumes (a crop of your own)
@@ -308,12 +313,24 @@ export const DIALOGUE_TOPIC_FLAG_DAYS = 3;   // how long a "we talked about X" t
 export const CLICK_ARRIVE = 5;          // px: close enough to a click-to-move target
 export const DRAG_THRESHOLD = 10;       // px of travel before a press is a joystick drag, not a tap
 
-export const CAM_ZOOM_MIN = 1.4;        // camera zoom (CSS px per world px) bounds
-export const CAM_ZOOM_MAX = 2.2;
-export const CAM_ZOOM_REF_W = 900;      // window width where zoom starts growing past min
+// Camera zoom (CSS px per world px). Retuned for a CLOSER, UO-like framing
+// (GF-1): the old 1.4–2.2 / ref-900 band showed ~16–17 tiles vertically and the
+// heroine read as ~7–8% of viewport height — the world felt distant. The band
+// below lands ~9–12 tiles visible vertically on a 1920×1080 desktop at the
+// standard 88% viewport (heroine ≈11–13% of viewport height, ≈UO's ~12.5%).
+// Effective autoZoom = clamp(canvasBackingWidth / CAM_ZOOM_REF_W, MIN, MAX); the
+// MIN floor keeps a shrunk window / phone from zooming out to a distant dollhouse.
+export const CAM_ZOOM_MIN = 2.0;        // camera zoom (CSS px per world px) bounds
+export const CAM_ZOOM_MAX = 3.3;
+export const CAM_ZOOM_REF_W = 620;      // window width where zoom starts growing past min
 export const CAM_USER_ZOOM_MIN = 0.6;   // player zoom factor bounds (wheel / +− buttons)...
-export const CAM_USER_ZOOM_MAX = 2.4;
-export const CAM_USER_ZOOM_STEP = 0.15; // ...changed by this much per wheel notch / button press
+export const CAM_USER_ZOOM_MAX = 1.8;
+export const CAM_USER_ZOOM_STEP = 0.12; // ...changed by this much per wheel notch / button press
+// Interior camera boost (GF-1): the 320×224 ROOM floated as a small lit island
+// in a black void at the outdoor zoom. This multiplies the auto-zoom while
+// inside so the room fills most of the view (~70–80% of viewport height); the
+// hard-black surround is replaced by a warm-dark vignette (see drawInteriorScene).
+export const INTERIOR_ZOOM = 1.22;
 
 // ===========================================================================
 //  Save system (Part A #11) — continuous per-store saves already happen on
@@ -780,7 +797,7 @@ export const PARALLAX_FACTOR = 0.3;        // background band scroll speed vs. t
 export const PARTICLE_POOL_MAX = 160;          // total pool size (ambient + bursts share it)
 export const PARTICLE_AMBIENT_MAX = 22;        // sparse cap for the active seasonal drift kind
 export const PARTICLE_FIREFLY_MAX = 10;        // summer dusk/night only
-export const PARTICLE_BURST_COUNTS = { splash: 8, leafpuff: 7, glint: 6 } as const;
+export const PARTICLE_BURST_COUNTS = { splash: 8, leafpuff: 7, glint: 6, steam: 3 } as const;
 export const PARTICLE_VIEWPORT_PAD = 40;       // px beyond the viewport edge before a drift particle recycles
 
 // ---- Diagonal cast shadows (commit 3, item 3) — distinct from the under-

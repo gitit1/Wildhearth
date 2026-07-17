@@ -28,7 +28,7 @@ import {
 export type Season = "spring" | "summer" | "autumn" | "winter";
 export type DayPhase = "dawn" | "day" | "dusk" | "night";
 export type DriftKind = "petal" | "mote" | "firefly" | "leaf" | "snow";
-export type BurstKind = "splash" | "leafpuff" | "glint";
+export type BurstKind = "splash" | "leafpuff" | "glint" | "steam";
 type Kind = DriftKind | BurstKind;
 
 export interface Viewport { camx: number; camy: number; vw: number; vh: number }
@@ -67,11 +67,12 @@ const DRIFT_COLORS: Record<DriftKind, string[]> = {
   leaf: ["#c9722f", "#a85a24", "#d99a3a"],
   snow: ["#ffffff", "#eef6ff"],
 };
-const BURST_SPEED: Record<BurstKind, [number, number]> = { splash: [30, 60], leafpuff: [18, 38], glint: [22, 46] };
-const BURST_SIZE: Record<BurstKind, [number, number]> = { splash: [1.4, 2.4], leafpuff: [2, 3.2], glint: [1.2, 2] };
-const BURST_LIFE: Record<BurstKind, number> = { splash: 0.5, leafpuff: 0.65, glint: 0.4 };
+const BURST_SPEED: Record<BurstKind, [number, number]> = { splash: [30, 60], leafpuff: [18, 38], glint: [22, 46], steam: [7, 16] };
+const BURST_SIZE: Record<BurstKind, [number, number]> = { splash: [1.4, 2.4], leafpuff: [2, 3.2], glint: [1.2, 2], steam: [2.8, 4.8] };
+const BURST_LIFE: Record<BurstKind, number> = { splash: 0.5, leafpuff: 0.65, glint: 0.4, steam: 1.2 };
 const BURST_COLORS: Record<BurstKind, string[]> = {
   splash: ["#bfe6f5", "#e8f7ff"], leafpuff: ["#6fae3e", "#8a6a3a", "#4a7a2a"], glint: ["#ffe27a", "#fff2c0"],
+  steam: ["#eae7df", "#d8d2c6"],   // soft warm-grey wisps rising off the pot
 };
 
 /** Which drift kind is active right now, if any (one at a time). */
@@ -159,7 +160,23 @@ function stepBurst(p: Particle, dt: number) {
     case "splash": p.vy += 90 * dt; p.x += p.vx * dt; p.y += p.vy * dt; break;
     case "leafpuff": p.vy += 55 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.spin * dt; break;
     case "glint": p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.88; p.vy *= 0.88; break;
+    case "steam": p.x += (p.vx + Math.sin(p.phase * 3) * 5) * dt; p.y += p.vy * dt; p.vy *= 0.99; break;   // slow, swaying rise
     default: break;
+  }
+}
+
+/** Advance + expire only the ACTIVE BURST particles (GF-1): the interior scene
+ *  uses this instead of the full updateParticles so wash/cook feedback bursts
+ *  live and fade indoors WITHOUT spawning outdoor seasonal drift inside the room.
+ *  Stale outdoor drift particles (world coords far outside the 320×224 room) are
+ *  left untouched and simply render off-screen; they resume outside. */
+export function stepBursts(dt: number) {
+  for (const p of pool) {
+    if (!p.active || DRIFT_KINDS.has(p.kind)) continue;
+    p.phase += dt;
+    stepBurst(p, dt);
+    p.life -= dt;
+    if (p.life <= 0) p.active = false;
   }
 }
 
@@ -210,10 +227,14 @@ export function debugParticleCounts(): Record<string, number> {
 }
 
 /** Paints every active particle. World space, depth-agnostic: call after the
- *  entity pass, before the day/night tint. */
-export function drawParticles(g: CanvasRenderingContext2D) {
+ *  entity pass, before the day/night tint. `burstsOnly` (GF-1) skips the
+ *  seasonal drift — the interior scene shares this pool but the room's 0..320
+ *  coord window overlaps the farm's world coords, so leftover outdoor petals
+ *  would otherwise drift INSIDE the house. */
+export function drawParticles(g: CanvasRenderingContext2D, burstsOnly = false) {
   for (const p of pool) {
     if (!p.active) continue;
+    if (burstsOnly && DRIFT_KINDS.has(p.kind)) continue;
     switch (p.kind) {
       case "petal":
       case "leaf": {
@@ -270,6 +291,16 @@ export function drawParticles(g: CanvasRenderingContext2D) {
       case "glint": {
         const a = Math.max(0, p.life / p.maxLife);
         drawSparkle(g, p.x, p.y, p.size * 2.2, BURST_COLORS.glint[p.colorIdx]!, a);
+        break;
+      }
+      case "steam": {
+        const frac = Math.max(0, p.life / p.maxLife);
+        // rises and swells as it fades — a soft warm wisp, brightest mid-life
+        g.globalAlpha = Math.sin(frac * Math.PI) * 0.5;
+        g.fillStyle = BURST_COLORS.steam[p.colorIdx]!;
+        g.beginPath();
+        g.ellipse(p.x, p.y, p.size * (1.6 - frac * 0.6), p.size * (2.1 - frac * 0.7), 0, 0, Math.PI * 2);
+        g.fill();
         break;
       }
     }

@@ -29,6 +29,69 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## interior feel — hearth off the window, real sit/wash/cook motion, closer UO camera
+- **Date:** 2026-07-17 (v1-foundation) — GF-1 "the house feels alive" block.
+- **Owner reports fixed (four game-feel failures):**
+  1. **Hearth sat on the window.** `R_HEARTH` moved WEST from `x 3.2*T` →
+     `x 1.1*T` in `src/world/zones.ts` (room-x ≈35–99, a ~26px gap left of the
+     backdrop window at room-x ≈125–195). Everything keyed to the rect follows
+     it: the interior painter (sprite + code fallback, both centred on the rect,
+     `src/art/interior.ts`), the full-width north-wall collision band
+     (`src/world/collision.ts`, still covers it), and the cook interaction's
+     hit/reach/anchor (`src/systems/interact.ts`).
+  2. **Entry spawn wedged her on the chair + collision trap.** `ROOM_ENTRY`
+     moved to the door-mat area (`5*T, 5.9*T`, clear of `R_REST`), facing north
+     (`src/world/zones.ts`). Added a **gentle unstick** to
+     `updatePlayer` (`src/entities/player.ts`): on a click-to-move with both
+     axes blocked, it tries a small PERPENDICULAR slip step (deterministic, no
+     physics) before abandoning the target — she walks around a corner instead
+     of freezing. Verified headlessly: after hammering click-to-move onto the
+     crate table + every wall she still reaches a free floor spot.
+  3. **Actions had no movement (wash/sit/cook/sleep).** New `PoseName`s
+     `washing`/`cooking`/`sitting` (`src/art/rig.ts`; rig `poseLimbs` default →
+     safe neutral stand, non-crashing fallback). The sprite path
+     (`src/art/spriteChar.ts`) gives each an interim code rhythm (wash: lean +
+     scrub-dip; cook: stir-bob; sit: sink into the seat + breathing sway) over
+     her matrix sprite, matching the existing outdoor-action technique. New
+     `src/systems/chores.ts` (`ChoreState`: wash/sit as short PLACED timed
+     states; `WASH_TIME 2.0`, `SIT_TIME 2.6` in config) — need restore + toast
+     now fire on COMPLETION, not on start. `beginWash`/`beginSit`/
+     `standUpFromSeat`/`faceBedForSleep` in `src/main.ts`: sit glides her onto a
+     defined seat point (`REST_SEAT`) and stands her onto a guaranteed-free spot
+     south of the chair (`REST_STAND`); moving cancels the sit (never trapped);
+     sleep/nap place her beside the bed (`BED_SIDE`) facing it before the
+     existing fade. Code-drawn particles: `steam` burst kind added
+     (`src/art/particles.ts`) rising over the pot while cooking; `splash`
+     droplets over the basin while washing (emitted from the tick, throttled by
+     `interiorFxAccum`). Interior now steps + draws BURSTS ONLY
+     (`stepBursts`/`drawParticles(g,true)`) so no outdoor petals leak into the
+     room. A small code seat-front (`drawSeatFront`) occludes her shins so she
+     reads as sitting IN the chair (the interior isn't depth-sorted). `busy()`,
+     the pose derivation, prompt text (`Washing…`/`Resting…`) and the
+     action-button guard all include the new states.
+  4. **Everything felt distant (camera).** Retuned `src/config.ts`:
+     `CAM_ZOOM_MIN 1.4→2.0`, `CAM_ZOOM_MAX 2.2→3.3`, `CAM_ZOOM_REF_W 900→620`
+     (user wheel range tightened to `0.6–1.8`, step `0.12`). At 1920×1080 / 88%
+     viewport this shows **~10.6 tiles vertically** (was ~16–17) with the
+     heroine at **~12.7% of viewport height** (was ~7–8%, UO ≈12.5%). Interior:
+     new `INTERIOR_ZOOM 1.22` (passed through a new `zoomBoost` arg on
+     `applyCamera`, `src/engine/camera.ts`) so the 320×224 room fills ~78% of
+     viewport height; the hard-black surround is replaced by a warm-dark radial
+     vignette (`drawInteriorScene`, `src/main.ts`) — a lit room at night, not a
+     void.
+- **Files:** `src/world/zones.ts`, `src/entities/player.ts`,
+  `src/systems/chores.ts` (new), `src/systems/interact.ts`, `src/art/rig.ts`,
+  `src/art/spriteChar.ts`, `src/art/particles.ts`, `src/engine/camera.ts`,
+  `src/config.ts`, `src/main.ts`.
+- **Zero PixelLab generations** (art-pivot rule; real action frames are W3).
+- **Verification:** `npm run build` green; `verify:smoke` + `verify:save`
+  green (old saves load unchanged — no save-shape / `SAVE_KEY` changes; chore
+  state is transient). 1920×1080 puppeteer screenshots reviewed for all five
+  states (outdoors near the farmhouse, interior, mid-wash, seated, mid-cook) and
+  the stuck-trap walk-test.
+- **Follow-ups:** real sprite-frame animations for wash/cook/sit land in wave
+  W3 — the new states are wired as trivially-replaceable pose/activity cases.
+
 ## docs — ART PIVOT decision recorded: full restyle to the UO-mood look
 - **Date:** 2026-07-15 (v1-foundation) — docs only, no code/behavior change.
 - **Owner decision (after a 4-gen probe she reviewed side-by-side):** FULL

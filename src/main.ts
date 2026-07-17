@@ -2,7 +2,7 @@ import {
   T,
   WORLD_W, FORAGE_BASE_YIELD, STARTER_SKILL_SEED, STARTING_COINS, COLLAPSE_FEE,
   DIALOGUE_FRIENDSHIP_BUMP, DIALOGUE_TOPIC_FLAG_DAYS, AUTOSAVE_SECONDS, NPC_SALE_FRIENDSHIP_BUMP,
-  CAM_NORTH_SKY_MARGIN,
+  CAM_NORTH_SKY_MARGIN, INTERIOR_ZOOM,
   CUSTOMER_MARKET_START, CUSTOMER_MARKET_END, CUSTOMER_MAX_CONCURRENT, CUSTOMER_SPAWN_GAP_MIN,
   CUSTOMER_SPAWN_CHANCE, CUSTOMER_PATIENCE_MIN, CUSTOMER_TEND_TILES, CUSTOMER_FRIENDSHIP_BUMP,
   REP_GAIN_SALE, REP_GAIN_QUEST, REP_GAIN_FESTIVAL, REP_GAIN_GIFT,
@@ -20,6 +20,7 @@ import {
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
   FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, WORLD_PROPS, type Rect,
   INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK, STABLE, TOWN_BUSK_SPOT, type MerchantKind,
+  R_HEARTH, R_BASIN, REST_SEAT, REST_STAND, BED_SIDE,
 } from "./world/zones";
 import { drawInterior } from "./art/interior";
 import {
@@ -63,6 +64,7 @@ import {
 import { cropById, cropBySeed } from "./data/crops";
 import { createBusking, updateBusking, cancelBusk, rollTip } from "./systems/busking";
 import { createCooking, updateCooking, cancelCook } from "./systems/cooking";
+import { createChores, startChore, cancelChore, updateChore } from "./systems/chores";
 import { recipeById } from "./data/recipes";
 import { loadGarden, resetGarden, saveGarden, updateGarden, rollGardenDay } from "./systems/gardening";
 import { loadStorage, resetStorage, type Storage } from "./systems/storage";
@@ -197,7 +199,7 @@ import { paintDayNightTint, shadowFactors } from "./art/daynight";
 import { setSunFactors, getSunFactors } from "./art/shapes";
 import { updateWeatherFx, drawWeatherFx } from "./art/weatherfx";
 import { drawParallaxBand } from "./art/parallax";
-import { updateParticles, drawParticles, burst, debugParticleCounts } from "./art/particles";
+import { updateParticles, drawParticles, burst, stepBursts, debugParticleCounts } from "./art/particles";
 import { loadSprites, spriteLoadProgress, spritesReady } from "./art/sprites";
 import { spriteCoversCharacter, setSpriteMode, spriteModeOn, setPlayerLook } from "./art/spriteChar";
 import { setNpcSpriteMode, npcSpriteModeOn, npcHasSprite } from "./art/spriteNpc";
@@ -261,6 +263,7 @@ const plots = loadPlots(farm.plotTiers);   // the field persists: crops, waterin
 const farmwork = createFarmWork();
 const busking = createBusking();
 const cooking = createCooking();
+const chores = createChores();   // GF-1: interior wash/sit placed activities
 const skills = loadSkills();
 const garden = loadGarden();
 const storage: Storage = loadStorage();   // R5: the barn's storage chest
@@ -472,6 +475,15 @@ if (import.meta.env.DEV)
     outhouse: () => useOuthouse(needs), sitRest: () => rest(needs),
     sleep: sleepUntilMorning, nap: napAnHour,
     scene: () => scene, leave: () => leaveHouse(), enter: () => enterHouse(),
+    // GF-1 verification: drive the placed interior actions so the harness can
+    // screenshot the interim motion (splash/steam/seated) without staging spots.
+    washNow: () => { player.x = R_BASIN.x + R_BASIN.w / 2; player.y = R_BASIN.y + R_BASIN.h + 20; beginWash(); },
+    sitNow: () => beginSit(),
+    clickMove: (wx: number, wy: number) => { setMoveTarget(wx, wy); },   // GF-1 trap test: drive click-to-move headlessly
+    cookNow: () => {
+      player.x = R_HEARTH.x + R_HEARTH.w / 2; player.y = R_HEARTH.y + R_HEARTH.h + 24; player.dir = 0;
+      cooking.cooking = true; cooking.recipeId = null; cooking.timer = 9999;   // held cook for a stable shot (no ingredients needed)
+    },
     particleCounts: () => debugParticleCounts(),
     // sprite-integration bridge: force the rig path for A/B alignment shots,
     // read whether this Character uses the sprite, and poll load progress.
@@ -964,6 +976,7 @@ const smoke: Puff[] = [];
 
 // ---- scenes: the world, and the house interior (tier-1 bare/broken) ----
 let scene: Scene = "world";
+let interiorFxAccum = 0;   // GF-1: throttles wash/cook particle emission indoors
 
 function enterHouse() {
   scene = "interior";
@@ -983,6 +996,31 @@ function leaveHouse() {
   player.moving = false; player.dir = 2;     // stepping out, facing the yard
   clearMoveTarget(); closeContextMenu(); closeGiftChooser();
   pending = null;
+}
+
+// ---- GF-1: interior placed chores (wash / sit) --------------------------------
+/** Start washing at the basin: face it (she's already in reach) and run the
+ *  short placed state. The hygiene restore + toast fire on completion. */
+function beginWash() {
+  if (chores.active || cooking.cooking) return;
+  player.dir = 0;                            // face the basin on the north-east wall
+  player.moving = false; clearMoveTarget();
+  startChore(chores, "wash");
+}
+/** Sit down: glide onto the chair's seat, face out, run the placed rest state.
+ *  Movement input cancels it (stand-up first); on natural completion she stands
+ *  onto a guaranteed-free spot south of the chair — she can never be trapped. */
+function beginSit() {
+  if (chores.active || cooking.cooking) return;
+  player.x = REST_SEAT[0]; player.y = REST_SEAT[1];
+  player.dir = 2;                            // seated, facing out into the room
+  player.moving = false; clearMoveTarget();
+  startChore(chores, "sit");
+}
+/** Stand up from the seat onto the free spot just south of the chair. */
+function standUpFromSeat() {
+  player.x = REST_STAND[0]; player.y = REST_STAND[1];
+  player.dir = 2; player.moving = false; clearMoveTarget();
 }
 
 // ---- stall trade windows: which rect the player must stay near to keep the
@@ -1407,10 +1445,22 @@ function minutesUntilMorning(): number {
   return d <= 0 ? 24 * 60 : d;
 }
 
+/** GF-1: place her beside the bed, facing it, for the split second before the
+ *  fade-to-black covers the transition (no lying-down pose is built — the fade
+ *  does the work). Only indoors; collapse has its own path. */
+function faceBedForSleep() {
+  cancelChore(chores);   // never fall asleep mid-sit
+  if (scene !== "interior") return;
+  player.x = BED_SIDE[0]; player.y = BED_SIDE[1];
+  player.dir = 3;        // facing west, toward the bed on the west wall
+  player.moving = false; clearMoveTarget();
+}
+
 /** Sleep in the bed until morning: fade to black, drive the REAL minute loop
  *  (energy recovers, other needs drain slowly), fade back at 06:00. */
 function sleepUntilMorning() {
   if (timeSkipping) return;
+  faceBedForSleep();
   timeSkipping = true;
   clearAllCustomers();   // v2: no one waits at the stall overnight
   const mins = minutesUntilMorning();
@@ -1429,6 +1479,7 @@ function sleepUntilMorning() {
 /** A one-hour nap: the same skip, an hour long. */
 function napAnHour() {
   if (timeSkipping) return;
+  faceBedForSleep();
   timeSkipping = true;
   clearAllCustomers();   // v2: she steps away from the stall to nap
   let pendingDayEnd: DayEndSnapshot | null = null;
@@ -1891,9 +1942,10 @@ function offerOption(questId: string, title: string, ask: string): QuestDialogue
  *  `guidanceEvent` seam lets interactables (repair / expand) advance guidance. */
 function makeCtx(): InteractCtx {
   return {
-    economy, fishing, foraging, farmwork, busking, cooking, skills, farm, garden, needs,
+    economy, fishing, foraging, farmwork, busking, cooking, chores, skills, farm, garden, needs,
     relationships, calendar, player,
     toast, openShop: openPlayerStall, enterHouse, leaveHouse,
+    startWash: beginWash, startSit: beginSit,
     sleep: sleepUntilMorning, nap: napAnHour,
     skillPopup: skillGainPopup,
     memory: remember,
@@ -2275,6 +2327,9 @@ function tick(now: number) {
     if (farmwork.working) cancelWork(farmwork);
     if (busking.playing) cancelBusk(busking);
     if (cooking.cooking) cancelCook(cooking);
+    // GF-1: moving stands her up first (she's already stepping off the seat via
+    // updatePlayer this frame — no reposition, just drop the state so she's free).
+    if (chores.active) cancelChore(chores);
   }
 
   // world time: the day-length setting sets the pace; a full in-game day takes
@@ -2340,6 +2395,7 @@ function tick(now: number) {
     setPrompt(farmwork.kind === "till" ? "Tilling the soil..." : farmwork.kind === "plant" ? "Planting seeds..." : "Harvesting...");
   else if (busking.playing) setPrompt("Playing a tune...");
   else if (cooking.cooking) setPrompt("Cooking...");
+  else if (chores.active) setPrompt(chores.kind === "wash" ? "Washing..." : "Resting...");
   else if (near) setPrompt(defaultActionLabel(near, ictx));
   else setPrompt(null);
 
@@ -2373,7 +2429,7 @@ function tick(now: number) {
   }
 
   // action button / E key: use whatever is in reach
-  if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working && !busking.playing && !cooking.cooking)
+  if (consumeAction() && near && !fishing.casting && !foraging.picking && !farmwork.working && !busking.playing && !cooking.cooking && !chores.active)
     runDefault(near, ictx);
 
   if (updateFishing(fishing, dt)) {
@@ -2461,6 +2517,23 @@ function tick(now: number) {
       if (gained > 0) onSkillGain("cooking", gained);
     }
   }
+  // GF-1: interior placed chores (wash / sit) + their interim particle feedback.
+  // The need restore + toast fire on COMPLETION (not on start); sit also stands
+  // her up onto the guaranteed-free spot south of the chair.
+  const choreDone = updateChore(chores, dt);
+  if (choreDone === "wash") { wash(needs); toast("You scrub up in cold basin water. Better. 🫧"); }
+  else if (choreDone === "sit") { rest(needs); standUpFromSeat(); toast("You sink into the wobbly chair a while. A small comfort."); }
+  // emit splash/steam over the basin/pot while the action runs (interior only)
+  if (scene === "interior" && (cooking.cooking || (chores.active && chores.kind === "wash"))) {
+    interiorFxAccum += dt;
+    if (interiorFxAccum >= 0.22) {
+      interiorFxAccum = 0;
+      if (cooking.cooking)
+        burst("steam", R_HEARTH.x + R_HEARTH.w * 0.5, R_HEARTH.y + R_HEARTH.h * 0.32);   // wisps rising over the pot into the chimney
+      if (chores.active && chores.kind === "wash")
+        burst("splash", R_BASIN.x + R_BASIN.w * 0.42, R_BASIN.y + R_BASIN.h * 0.28);      // droplets over the basin
+    }
+  } else interiorFxAccum = 0;
   if (updateGarden(garden, dt, dayLengthSeconds())) {
     saveGarden(garden);
     toast("The flower bed is in bloom! 🌸");
@@ -2567,6 +2640,9 @@ function tick(now: number) {
     foraging.picking ? "foraging" :
     farmwork.working ? "hoeing" :
     busking.playing  ? "busking" :
+    cooking.cooking  ? "cooking" :                          // GF-1: stir-bob at the hearth
+    chores.active && chores.kind === "wash" ? "washing" :   // GF-1: scrub at the basin
+    chores.active && chores.kind === "sit"  ? "sitting" :   // GF-1: seated in the chair
     player.moving    ? "walking" : "idle");
 
   updateHud(economy, wc.calendar, wc.weather, isFestivalDay(calendar)?.name);
@@ -2599,7 +2675,7 @@ function tick(now: number) {
 }
 
 function draw(dt: number) {
-  if (scene === "interior") { drawInteriorScene(); return; }
+  if (scene === "interior") { drawInteriorScene(dt); return; }
   // North sky margin (Part B #7): lets the camera pull back past the world's
   // y=0 edge near the top of the map, revealing the parallax band's sky gap.
   const { camx, camy, vw, vh } = applyCamera(ctx, cv, player.x, player.y, undefined, CAM_NORTH_SKY_MARGIN);
@@ -2748,20 +2824,76 @@ function drawVignette(inner = "rgba(255,240,200,0)", outer = "rgba(60,50,20,.18)
   ctx.fillStyle = grd; ctx.fillRect(0, 0, cv.width, cv.height);
 }
 
-/** The house interior: the small room, centred, on a dark surround. */
-function drawInteriorScene() {
-  const { camx, camy, vw, vh } = applyCamera(ctx, cv, player.x, player.y, ROOM);
+/** The house interior: the small room, pulled in close (GF-1: INTERIOR_ZOOM so
+ *  it fills most of the view), on a warm-dark surround instead of a flat black
+ *  void — a lit room at night, not an island. */
+function drawInteriorScene(dt: number) {
+  // warm-dark surround, screen space (behind everything; the opaque room draws
+  // over its centre, so only the border band shows). Replaces the old #171209
+  // flat fill — a soft radial from a warm coal-dark near the room to near-black
+  // at the corners reads as darkness around a lit room, not a hard void.
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const sg = ctx.createRadialGradient(
+    cv.width / 2, cv.height / 2, cv.height * 0.28,
+    cv.width / 2, cv.height / 2, cv.height * 0.95,
+  );
+  sg.addColorStop(0, "#241a10");                 // warm coal-dark hugging the room
+  sg.addColorStop(1, "#0b0805");                 // near-black at the edges
+  ctx.fillStyle = sg;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+
+  applyCamera(ctx, cv, player.x, player.y, ROOM, 0, INTERIOR_ZOOM);
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "#171209";                     // beyond-the-walls darkness
-  ctx.fillRect(camx, camy, vw, vh);
   drawInterior(ctx, time, currentPhase(calendar));
+  // interim wash/cook feedback: advance + draw the burst particles (steam/splash)
+  // BEFORE the farmer so steam rises behind her at the north-wall hearth. Bursts
+  // only — no seasonal drift indoors (it would leak outdoor petals into the room).
+  stepBursts(dt);
+  drawParticles(ctx, true);
   drawFarmer(ctx, player, time, playerRigParams, playerUsesSprite);
+  // GF-1 sit: a small code seat-front drawn OVER her lower legs so she reads as
+  // sitting IN the chair (the interior isn't depth-sorted; the chair sprite is
+  // drawn before her, so this is the pragmatic occlusion until W3 seated frames).
+  if (chores.active && chores.kind === "sit") drawSeatFront(ctx);
   if (hovered) hovered.drawHover(ctx, time);
   // Day/night tint indoors: the same continuous clock, milder (DECISIONS-
   // grounded call: a room with a fire/lamp shouldn't go as dark as the yard).
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   paintDayNightTint(ctx, cv.width, cv.height, calendar.hour, calendar.minute, true);
   drawVignette("rgba(60,45,25,0)", "rgba(15,10,5,.42)");   // dimmer indoors
+}
+
+/** GF-1: the seat slab + front legs of the chair, painted OVER the seated
+ *  heroine's lap/shins so she reads as sitting IN the chair (the interior isn't
+ *  depth-sorted, so the chair sprite is behind her — this is the pragmatic
+ *  occluder until W3 seated frames). Matches the code chair's wood tone. */
+function drawSeatFront(g: CanvasRenderingContext2D) {
+  const cx = REST_SEAT[0], seatY = REST_SEAT[1];
+  g.save();
+  // the seat surface she sits on (a wooden slab across her lap)
+  g.fillStyle = "#8a6a42";
+  roundRectPath(g, cx - 19, seatY + 5, 38, 9, 3);
+  g.fill();
+  g.fillStyle = "#6f5334";                       // shaded front edge
+  g.fillRect(cx - 19, seatY + 12, 38, 3);
+  g.strokeStyle = "rgba(60,44,24,.6)"; g.lineWidth = 1;
+  g.strokeRect(cx - 18.5, seatY + 5.5, 37, 8);
+  // two front legs dropping to the floor, framing her shins
+  g.fillStyle = "#7a5a38";
+  g.fillRect(cx - 16, seatY + 13, 4, 15);
+  g.fillRect(cx + 12, seatY + 13, 4, 15);
+  g.restore();
+}
+
+/** Tiny rounded-rect path helper (interior seat-front). */
+function roundRectPath(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
 }
 
 void WORLD_W;

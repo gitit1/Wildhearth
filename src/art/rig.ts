@@ -43,7 +43,12 @@ export type RigHair = HairStyle;
 
 export type PoseName =
   | "idle" | "walking" | "fishing" | "hoeing"
-  | "foraging" | "busking" | "talking" | "sleeping";
+  | "foraging" | "busking" | "talking" | "sleeping"
+  // GF-1: interior action poses. The sprite path (spriteChar.ts) gives each an
+  // interim bob/lean + code overlay; the rig fallback has no bespoke limb case
+  // (poseLimbs' `default` → neutral standing), which is a safe non-crashing
+  // stand-in until real W3 frames arrive.
+  | "washing" | "cooking" | "sitting";
 
 /**
  * 8 distinct outfit-style SILHOUETTES (not just colour swaps) layered onto the

@@ -64,13 +64,31 @@ export const OUTHOUSE = { x: 5.2 * T, y: 5.5 * T, w: 1.1 * T, h: 1.7 * T };
 
 /** House interior (tier-1, bare/broken): its own small coordinate space. */
 export const ROOM = { w: 10 * T, h: 7 * T };
-export const R_HEARTH = { x: 3.2 * T, y: 0.5 * T, w: 2.0 * T, h: 1.5 * T }; // north wall: hearth + pot + shelf
+// GF-1 fix 1: the hearth used to sit at x 3.2*T (room-x ≈102–166) and overlapped
+// the window baked into the room backdrop (room-x ≈125–195). Moved WEST to x
+// 1.1*T (room-x ≈35–99) so it sits clearly LEFT of the window with a ~26px gap.
+// Everything keyed to this rect follows it: the interior painter (sprite + code
+// fallback, both centred on the rect), the full-width north-wall collision band
+// (still covers it), and the cook interaction's hit/reach/anchor.
+export const R_HEARTH = { x: 1.1 * T, y: 0.5 * T, w: 2.0 * T, h: 1.5 * T }; // north wall: hearth + pot + shelf
 export const R_BASIN  = { x: 8.0 * T, y: 2.3 * T, w: 1.4 * T, h: 1.5 * T }; // east wall: basin + bucket
 export const R_BED    = { x: 0.6 * T, y: 2.2 * T, w: 1.7 * T, h: 2.7 * T }; // west wall: straw bed
 export const R_REST   = { x: 4.6 * T, y: 4.3 * T, w: 2.4 * T, h: 1.5 * T }; // chair + crate table
 export const R_DOOR   = { x: 4.3 * T, y: 6.1 * T, w: 1.4 * T, h: 0.9 * T }; // exit mat, south wall
-/** Where the player stands after walking in / before walking out. */
-export const ROOM_ENTRY: [number, number] = [5 * T, 5.7 * T];
+// GF-1 fix 2: spawn on the door-mat area (just north of R_DOOR), facing north
+// into the room — NEVER on furniture. The old 5*T,5.7*T dropped her wedged onto
+// the walkable chair half of R_REST, ~22px from the crate-table collision wall,
+// so she materialised stuck. R_DOOR spans x 4.3–5.7*T, y 6.1–7.0*T; this sits at
+// its north edge, clear of the rest corner (R_REST bottom ≈5.79*T).
+export const ROOM_ENTRY: [number, number] = [5 * T, 5.9 * T];
+/** GF-1 fix 2/3: the seat point on the chair (west half of R_REST) the player
+ *  glides onto when she sits, and the guaranteed-free spot just SOUTH of the
+ *  chair she stands up onto — so sitting can never trap her on the furniture. */
+export const REST_SEAT: [number, number] = [R_REST.x + R_REST.w * 0.28, R_REST.y + R_REST.h * 0.55];
+export const REST_STAND: [number, number] = [R_REST.x + R_REST.w * 0.28, R_REST.y + R_REST.h + 0.7 * T];
+/** GF-1 fix 3: where the player stands beside the bed (facing it) for the split
+ *  second before the sleep/nap fade-to-black covers the transition. */
+export const BED_SIDE: [number, number] = [R_BED.x + R_BED.w + 0.38 * T, R_BED.y + R_BED.h * 0.5];
 
 /** Ornamental flower beds along the house front (Gardening skill). */
 export const FLOWER_BEDS: Array<[number, number]> = [

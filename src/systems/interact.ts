@@ -13,6 +13,7 @@ import { startPick, type ForagingState, type Bush } from "./foraging";
 import { startWork, type FarmWork, type PlotCell } from "./farming";
 import { startBusk, type BuskingState } from "./busking";
 import { startCook, cookableRecipes, type CookingState } from "./cooking";
+import { type ChoreState } from "./chores";
 import { saveGarden, plantBed, harvestBed, type Garden } from "./gardening";
 import { countItem, removeItem, addItem, ITEM_NAMES } from "./inventory";
 import { skillValue, gainSkill, type Skills } from "./skills";
@@ -20,7 +21,7 @@ import type { FishLocation } from "../data/fish";
 import { FLOWERS, flowerById, flowerBySeed } from "../data/flowers";
 import { currentSeason } from "./calendar";
 import {
-  drink, wash, useOuthouse, rest, moodPerfMult, type NeedsState,
+  drink, useOuthouse, moodPerfMult, type NeedsState,
 } from "./needs";
 import { cropBySeed } from "../data/crops";
 import type { Season, CalendarState } from "./calendar";
@@ -50,6 +51,7 @@ export interface InteractCtx {
   farmwork: FarmWork;
   busking: BuskingState;
   cooking: CookingState;
+  chores: ChoreState;                            // GF-1: interior wash/sit placed activities
   skills: Skills;
   farm: FarmState;
   garden: Garden;
@@ -63,6 +65,8 @@ export interface InteractCtx {
   leaveHouse: () => void;
   sleep: () => void;                             // "Sleep until morning" (main owns the fade + time skip)
   nap: () => void;                               // "Nap an hour"
+  startWash: () => void;                         // GF-1: begin the placed wash activity at the basin
+  startSit: () => void;                          // GF-1: sit down in the rest chair (placed activity)
   skillPopup: (id: string, amount: number) => void;
   memory: (key: string, text: string) => void;   // once-only Memory Book events
   expandFarm: () => void;                        // materialize a just-bought plot tier
@@ -79,7 +83,8 @@ export interface InteractCtx {
 
 /** True while any timed activity is running (they are mutually exclusive). */
 function busy(c: InteractCtx): boolean {
-  return c.fishing.casting || c.foraging.picking || c.farmwork.working || c.busking.playing || c.cooking.cooking;
+  return c.fishing.casting || c.foraging.picking || c.farmwork.working || c.busking.playing
+    || c.cooking.cooking || c.chores.active;
 }
 
 /** Start a cast with the player's current gear (v2 BLOCK #6 slice 2): resolve the
@@ -532,7 +537,7 @@ const hearthSpot: Interactable = {
       list.push({
         id: i === 0 ? "cook" : `cook-${r.id}`,
         label: `Cook ${r.name.toLowerCase()}`,
-        run: (c) => { if (!busy(c)) startCook(c.cooking, r.id); },
+        run: (c) => { if (busy(c)) return; c.player.dir = 0; startCook(c.cooking, r.id); },  // GF-1: face the hearth while cooking
       });
     });
     list.push({
@@ -553,7 +558,7 @@ const basinSpot: Interactable = {
   hit: (wx, wy) => wx >= R_BASIN.x - 4 && wx <= R_BASIN.x + R_BASIN.w + 4 && wy >= R_BASIN.y - 12 && wy <= R_BASIN.y + R_BASIN.h + 4,
   inReach: (px, py) => nearRect(px, py, R_BASIN, 34),
   actions: () => [
-    { id: "wash", label: "Wash", run: (c) => { if (busy(c)) return; wash(c.needs); c.toast("You scrub up in cold basin water. Better. 🫧"); } },
+    { id: "wash", label: "Wash", run: (c) => { if (busy(c)) return; c.startWash(); } },   // GF-1: placed wash (restore + toast on completion)
     { id: "drink", label: "Drink from the bucket", run: (c) => { if (busy(c)) return; drink(c.needs); c.toast("You drink from the well-bucket. 💧"); } },
     { id: "look", label: "Look", run: (c) => c.toast("A cracked clay basin on a wobbly stand. Water comes from the well, bucket by bucket.") },
   ],
@@ -582,7 +587,7 @@ const restSpot: Interactable = {
   hit: (wx, wy) => wx >= R_REST.x - 4 && wx <= R_REST.x + R_REST.w + 4 && wy >= R_REST.y - 12 && wy <= R_REST.y + R_REST.h + 4,
   inReach: (px, py) => nearRect(px, py, R_REST, 18),
   actions: () => [
-    { id: "sit", label: "Sit and rest", run: (c) => { if (busy(c)) return; rest(c.needs); c.toast("You sink into the wobbly chair a while. A small comfort."); } },
+    { id: "sit", label: "Sit and rest", run: (c) => { if (busy(c)) return; c.startSit(); } },   // GF-1: placed sit (rest + toast on completion)
     { id: "look", label: "Look", run: (c) => c.toast("A chair with one short leg and a crate standing in for a table.") },
   ],
   drawHover: (g, t) => glowRect(g, R_REST.x - 3, R_REST.y - 3, R_REST.w + 6, R_REST.h + 6, t),

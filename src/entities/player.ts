@@ -49,12 +49,14 @@ export const DEFAULT_PLAYER_RIG: RigParams = rigFromCharacter(null);
 export function updatePlayer(p: Player, dt: number, speedMult = 1) {
   const [ix, iy] = inputVec();
   let vx = ix, vy = iy, step = PLAYER_SPEED * speedMult * dt;
+  let targeting = false;                      // click-to-move (vs. manual steering)
 
   if (ix || iy) {
     clearMoveTarget();                       // manual steering overrides click-to-move
   } else {
     const t = getMoveTarget();
     if (t) {
+      targeting = true;
       const dx = t[0] - p.x, dy = t[1] - p.y, dist = Math.hypot(dx, dy);
       if (dist <= CLICK_ARRIVE) { clearMoveTarget(); p.moving = false; return; }
       vx = dx / dist; vy = dy / dist;
@@ -71,7 +73,21 @@ export function updatePlayer(p: Player, dt: number, speedMult = 1) {
   const movedX = !blocked(nx, p.y), movedY = !blocked(p.x, ny);
   if (movedX) p.x = nx;
   if (movedY) p.y = ny;
-  if (!movedX && !movedY) clearMoveTarget(); // wall on both axes -> abandon unreachable target
+  if (!movedX && !movedY) {
+    // Gentle unstick (GF-1 fix 2): both axes blocked on a click-to-move. Before
+    // abandoning the target, try slipping a small step PERPENDICULAR to the
+    // desired direction — this walks her around a corner/wall lip instead of
+    // freezing in place (deterministic, no physics). Manual steering just stops.
+    let slipped = false;
+    if (targeting) {
+      const perpX = -vy, perpY = vx;         // unit-ish perpendicular to the move dir
+      for (const sgn of [1, -1]) {
+        const sx = p.x + perpX * sgn * step, sy = p.y + perpY * sgn * step;
+        if (!blocked(sx, sy)) { p.x = sx; p.y = sy; slipped = true; break; }
+      }
+    }
+    if (!slipped) clearMoveTarget();         // truly boxed in -> abandon unreachable target
+  }
   p.dist += Math.hypot(p.x - px, p.y - py); // travel banked for the walk cycle (phase = dist/stride)
   p.dir = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 1 : 3) : vy > 0 ? 2 : 0;
   // hold the normalised movement vector for the 8-direction sprite facing

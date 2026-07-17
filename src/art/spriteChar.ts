@@ -219,8 +219,17 @@ const DIR4: Record<0 | 1 | 2 | 3, "north" | "east" | "south" | "west"> =
 // Anchors are expressed in world px UP from the sprite's foot line (negative y =
 // up, matching the canvas after we translate to the foot). They're tuned to the
 // ~48px-tall matrix silhouette, not the shorter rig, so they read on the sprite.
-const ACTION_POSES = new Set<PoseName>(["fishing", "hoeing", "foraging", "busking", "talking"]);
+const ACTION_POSES = new Set<PoseName>([
+  "fishing", "hoeing", "foraging", "busking", "talking",
+  // GF-1: interior actions keep her matrix sprite + a code-driven rhythm (no
+  // sprite frames yet — W3). Particles (splash/steam) are emitted by main.ts.
+  "washing", "cooking", "sitting",
+]);
 const TOOL_S = 1.0;              // tool painters were tuned at rig scale 1; the sprite footprint matches closely
+// GF-1 sit: how far the seated sprite sinks (world px) so she reads as sitting
+// ON the chair rather than standing in front of it. The interior scene also
+// draws a small code seat-front over her shins (drawInteriorScene) to sell it.
+const SEAT_SINK = 9;
 // hand/anchor heights above the foot line (world px)
 const A_FISH_HAND: [number, number] = [7, -19];    // rod grip: forward, chest height
 const A_HOE_TOP: [number, number]   = [4, -24];    // upper grip (near chest)
@@ -246,6 +255,10 @@ function drawActionSprite(
     case "foraging": dy = 1.8 + Math.sin(t * 3) * 0.4; break;                 // stooped, small dig
     case "busking":  dx = Math.sin(t * 2) * 1.4; break;                       // sway to the tune
     case "talking":  dy = Math.sin(t * 2) * 0.5; break;                       // idle-ish (player never poses this; safe)
+    // GF-1 interior actions ---------------------------------------------------
+    case "washing":  dx = fwd * (1.0 + Math.sin(t * 6) * 0.7); dy = Math.max(0, Math.sin(t * 3)) * 2.4; break;  // lean to the basin + scrub dip
+    case "cooking":  dx = Math.sin(t * 3.4) * 0.8; dy = Math.max(0, Math.sin(t * 3.4)) * 1.8; break;            // stir-bob over the pot
+    case "sitting":  dy = SEAT_SINK + Math.sin(t * 1.6) * 0.6; break;         // sunk into the seat + slow breathing sway
   }
   const bx = p.x + dx;
   blitMatrix(g, fr, sheetId, bx, footY + dy, 1);
