@@ -62,6 +62,16 @@ export function initSkillsUI(skills: Skills) {
     rows.push({ value, lock, float, tier });
   }
 
+  // Populate EVERY runtime-filled line BEFORE the scale window measures the
+  // panel: the Fame line + the Total line are set on open, and measuring them
+  // empty shorted baseH by ~36px — the window then opened with the last row
+  // and a half clipped under the frame (W-UI polish fix). The placeholder rep
+  // line has the exact live markup shape, so the measured height is honest;
+  // updateReputationUI overwrites it with the real value on first open.
+  const rep = document.getElementById("skillsRep");
+  if (rep) rep.innerHTML = `🏛️ <span class="rep-tier">Unknown</span> · <span class="rep-val">0/100</span>`;
+  refresh();
+
   win = createScaleWindow({
     id: "skills", title: "Skills", icon: "📜",
     content: panel,

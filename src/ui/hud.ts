@@ -60,9 +60,36 @@ export function updateNeedsStrip(record: Record<string, number> | undefined, tim
   needsCv.title = ALL_NEEDS.map((id) => `${NEED_LABELS[id]} ${record[id] ?? 0}`).join(" · ");
 }
 
+// The anchored needs plate (a desktop window) floats OVER the viewport's lower
+// band, and its W-UI iron chrome made it taller than the prompt's old fixed
+// bottom:86px — the pill's text got swallowed behind the plate, leaving a blank
+// parchment sliver on screen. The clearance depends on layout/screen size, so
+// compute it from the live needs-window rect whenever the prompt (re)appears:
+// enough bottom offset to sit 10px above the plate, never less than the base 86.
+const PROMPT_BASE_BOTTOM = 86;
+function promptClearance(): number {
+  const area = document.getElementById("gameArea");
+  const needs = document.querySelector<HTMLElement>('[data-win="needs"]');
+  if (!area || !needs) return PROMPT_BASE_BOTTOM;
+  const ar = area.getBoundingClientRect();
+  const nr = needs.getBoundingClientRect();
+  // only matters when the plate actually overlaps the viewport's bottom band
+  if (nr.height === 0 || nr.top >= ar.bottom || nr.bottom <= ar.top) return PROMPT_BASE_BOTTOM;
+  return Math.max(PROMPT_BASE_BOTTOM, Math.round(ar.bottom - nr.top + 10));
+}
+
+let promptText: string | null = null;
 export function setPrompt(text: string | null) {
-  if (text) { promptEl.textContent = text; promptEl.style.display = "block"; }
-  else promptEl.style.display = "none";
+  if (text === promptText) return;   // called per-frame — only act on change
+  promptText = text;
+  if (text) {
+    promptEl.textContent = text;
+    promptEl.style.bottom = `${promptClearance()}px`;
+    promptEl.style.display = "block";
+  } else {
+    promptEl.textContent = "";
+    promptEl.style.display = "none";
+  }
 }
 
 // Toasts queue instead of clobbering each other: one shows at a time for

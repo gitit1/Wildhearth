@@ -15,51 +15,59 @@
 
 // One tuned 24-grid viewBox per glyph; stroke inherits currentColor so a
 // button's normal/hover/active colour drives the icon with no extra assets.
+// Stroke 2.2 — at the 26px render size a 2.0 stroke read too thin on the iron
+// plate (orchestrator review); every silhouette must be identifiable without
+// hovering.
 const S = (body: string): string =>
   `<svg class="wh-ic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
-  `stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ` +
+  `stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" ` +
   `shape-rendering="geometricPrecision" aria-hidden="true">${body}</svg>`;
 
 export const ICONS: Record<string, string> = {
-  // folded traveller's map with panel folds + a route marker
+  // folded traveller's map: zigzag panels + a filled location dot
   map: S(
     `<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/>` +
-    `<path d="M9 4v14M15 6v14"/>`,
+    `<path d="M9 4v14M15 6v14"/>` +
+    `<circle cx="12" cy="11" r="1.6" fill="currentColor" stroke="none"/>`,
   ),
-  // a rolled skills scroll with three ruled lines
+  // a SCROLL: thick rollers top + bottom (wider than the paper), ruled paper
+  // between — the roller bars are what make it read "scroll" not "page"
   skills: S(
-    `<rect x="5" y="4" width="14" height="16" rx="2"/>` +
-    `<path d="M8 9h8M8 12h8M8 15h5"/>`,
+    `<path d="M4.5 5.2h15M4.5 18.8h15" stroke-width="3.2"/>` +
+    `<path d="M7.5 5.2v13.6M16.5 5.2v13.6"/>` +
+    `<path d="M10.5 9.4h3.4M10.5 12h3.4M10.5 14.6h3.4"/>`,
   ),
-  // a closed memory book: cover, spine, ribbon bookmark
+  // a closed memory book: cover, left spine band, ribbon bookmark
   book: S(
     `<rect x="5" y="4" width="14" height="16" rx="1.5"/>` +
-    `<path d="M9 4v16"/>` +
-    `<path d="M13.5 4v6l1.75-1.6L17 10V4"/>`,
+    `<path d="M8.4 4v16"/>` +
+    `<path d="M13 4v6l2-1.8 2 1.8V4"/>`,
   ),
-  // a quest clipboard: clip, ruled lines, a ticked box
+  // a quest clipboard: clip, a ticked step + ruled lines
   quests: S(
     `<rect x="5" y="5" width="14" height="15" rx="2"/>` +
-    `<rect x="9" y="3" width="6" height="3.4" rx="1"/>` +
-    `<path d="M7.5 11l1.3 1.3L11 10M13 11.5h3M13 15.5h3"/>`,
+    `<rect x="9" y="3" width="6" height="3.6" rx="1.2"/>` +
+    `<path d="M7.6 11.2l1.4 1.4 2.5-2.5M13.2 11.8h3.2M7.9 16h8.5"/>`,
   ),
-  // an adventurer's backpack: body, top handle, flap, front pocket
+  // the inventory BAG: a drawstring belt pouch — bulb body, cinched neck, tie
+  // tails. (The old dome-body + top-handle draft read as a PADLOCK at 26px.)
   backpack: S(
-    `<path d="M7 9a5 5 0 0 1 10 0v9a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z"/>` +
-    `<path d="M10 5a2 2 0 0 1 4 0M7 13h10"/>` +
-    `<rect x="10" y="14" width="4" height="6" rx="1"/>`,
+    `<path d="M9.3 8.2C6.5 10 5 12.4 5 15.1 5 18.3 7.8 20 12 20s7-1.7 7-4.9c0-2.7-1.5-5.1-4.3-6.9"/>` +
+    `<path d="M9.3 8.2h5.4"/>` +
+    `<path d="M9.3 8.2 7.7 4.6M14.7 8.2l1.6-3.6"/>`,
   ),
-  // a banded treasure chest with a keyhole clasp (store / save)
+  // a treasure chest: ARCHED lid + body, lid seam, filled clasp (save/store)
   save: S(
-    `<rect x="4" y="9" width="16" height="10" rx="1.5"/>` +
-    `<path d="M4 13h16"/>` +
-    `<path d="M11 12.6h2v2.4h-2z" fill="currentColor" stroke="none"/>`,
+    `<path d="M4.5 19.5v-8.3C4.5 8.4 6.5 6 9.2 6h5.6c2.7 0 4.7 2.4 4.7 5.2v8.3z"/>` +
+    `<path d="M4.5 12.6h15"/>` +
+    `<path d="M10.7 12.6h2.6v3.2h-2.6z" fill="currentColor" stroke="none"/>`,
   ),
-  // a settings cog
+  // a settings cog: toothed RING + filled hub (spokes alone read as a sun)
   settings: S(
-    `<circle cx="12" cy="12" r="3.2"/>` +
-    `<path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3` +
-    `M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M5.6 18.4l2.1-2.1"/>`,
+    `<circle cx="12" cy="12" r="5.6"/>` +
+    `<path d="M12 3.6v2.8M12 17.6v2.8M3.6 12h2.8M17.6 12h2.8` +
+    `M6.1 6.1l2 2M15.9 15.9l2 2M17.9 6.1l-2 2M6.1 17.9l2-2"/>` +
+    `<circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none"/>`,
   ),
   // pause — two bars
   pause: S(

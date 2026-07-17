@@ -29,6 +29,51 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## W-UI polish — prompt clearance, icon clarity, skills window height
+- **Date:** 2026-07-17 (v1-foundation). Orchestrator eyeball review of the
+  W-UI commit found 3 polish defects; fixed in one follow-up. Zero PixelLab
+  generations.
+- **Files:**
+  - `src/ui/hud.ts`: `setPrompt` now computes its bottom offset at show time
+    from the live needs-window rect (`promptClearance()` — 10px above the
+    plate, never under the base 86px) and only acts on text CHANGE (it's
+    called per-frame); clears `textContent` on hide. Root cause of the
+    "floating empty parchment rectangle": the pill wasn't empty — the W-UI
+    iron chrome made the anchored needs plate taller than the old fixed
+    `bottom:86px`, so an ACTIVE prompt ("Patch the roof (25)" at spawn) was
+    occluded to a blank top sliver.
+  - `index.html`: `#prompt:empty{display:none !important}` belt-and-braces
+    guard; `#skillsList` max-height 150→326px (all 9 rows + gaps whole,
+    measured live at 320px); taskbar/zoom glyph contrast raised (default
+    `#d3c5a2`, hover `#f4e7c4`, skinned-active `#f6ecd2` — the old muted-gold
+    default was too dim on the iron plate).
+  - `src/ui/icons.ts`: stroke 2→2.2; FOUR glyphs redrawn after an actual-size
+    look — backpack is now a drawstring POUCH (the dome-body+handle draft
+    read as a padlock at 26px, exactly as the review said), save is an
+    arch-lidded treasure CHEST with a filled clasp, skills is a real SCROLL
+    (thick rollers wider than the paper), settings is a proper toothed-ring
+    GEAR with a filled hub (the spokes-only draft read as a sun); book got a
+    clearer spine band, map a filled location dot, quests a stronger tick.
+  - `src/ui/skills.ts`: the Fame + Total lines are POPULATED before
+    `createScaleWindow` measures the panel — measuring them empty shorted
+    `baseH` by ~36px, which was the real reason the window clipped Busking/
+    Gardening (the list max-height alone didn't fix it; found by comparing
+    `panelH` 389 vs `bodyH` 353 live, now 389 == 389).
+- **Behavior:** the interaction prompt renders as a whole parchment pill 10px
+  above the needs plate, appears on approach and fully disappears away from
+  any interactable (verified live: spawn shows "Patch the roof (25)",
+  teleporting to open ground hides it, `display:none` + empty text); every
+  taskbar icon is identifiable at a glance at actual size; the Skills window
+  opens showing all 9 skill rows + Fame/Total header whole, no mid-row clip.
+- **Build:** `npm run build` — ✅ passing.
+- **Verification:** `verify:smoke` GREEN (zero page/console errors); fresh
+  1920×1080 desk + skills screenshots + actual-size taskbar/prompt crops,
+  each LOOKED at; skills sizing asserted programmatically
+  (rows 9, clipped false, window bodyScrollGap 0).
+- **Follow-ups:** other scale panels that fill lines at runtime (memory book
+  tabs, shop head) could in principle under-measure the same way — none
+  visibly clips today; check if any panel is ever reported short.
+
 ## W-UI — the gump skin: professional frames, pixel icons, typography
 - **Date:** 2026-07-17 (v1-foundation). Owner verdict driving it: the cozy
   menus looked **cheap ("פושטי")** beside a real classic-UO gump. Goal: a

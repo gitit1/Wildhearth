@@ -17,6 +17,9 @@
     #weather{font-size:13px;white-space:nowrap}
     #prompt{position:absolute;bottom:86px;left:50%;transform:translateX(-50%);background:rgba(25,32,18,.9);
       color:#c9a24a;padding:8px 16px;border-radius:12px;font-size:15px;font-weight:700;display:none;z-index:5}
+    /* belt-and-braces: an empty prompt pill must never paint (its bottom offset
+       is set at runtime to clear the anchored needs plate — see ui/hud.ts) */
+    #prompt:empty{display:none !important}
     #toast{position:absolute;top:60px;left:50%;transform:translateX(-50%);background:rgba(46,90,38,.95);
       color:#fff;padding:8px 18px;border-radius:12px;font-size:15px;font-weight:700;display:none;z-index:6}
     #actBtn{position:absolute;bottom:18px;left:18px;width:64px;height:64px;border-radius:50%;border:none;
@@ -98,8 +101,11 @@
       color:#ffd08a;font-variant-numeric:tabular-nums}
     #skillsRep .rep-tier{letter-spacing:.03em;text-transform:uppercase;font-size:calc(10px*var(--s))}
     #skillsRep .rep-val{color:#c9a24a}
+    /* tall enough for all 9 skill rows + gaps whole (measured live: 320px) —
+       clipping a row mid-way read as a bug; the list still scrolls if it ever
+       outgrows this (a future 10th skill). */
     #skillsList{display:flex;flex-direction:column;gap:calc(4px*var(--s));
-      max-height:calc(150px*var(--s));overflow-y:auto}
+      max-height:calc(326px*var(--s));overflow-y:auto}
     .sk-row{position:relative;display:flex;align-items:center;gap:calc(8px*var(--s));
       padding:calc(4px*var(--s)) calc(6px*var(--s));border-radius:8px;background:rgba(240,234,214,.07)}
     .sk-lock{background:transparent;border:1px solid rgba(240,234,214,.25);border-radius:6px;
@@ -318,10 +324,10 @@
     /* buttons: one family — weathered timber plate, aged-brass edge on hover,
        brass fill when active. Icons inherit currentColor so state = colour. */
     .tool-btn,.zoom-btn{background:linear-gradient(180deg,#3d3121,#2a2115);
-      border:2px solid var(--wood);color:var(--muted);
+      border:2px solid var(--wood);color:#d3c5a2;
       border-radius:12px;box-shadow:var(--pill-shadow),inset 0 1px 0 rgba(201,162,74,.10);
       transition:border-color .12s,color .12s,transform .06s}
-    .tool-btn:hover,.zoom-btn:hover{border-color:var(--gold-soft);color:var(--gold)}
+    .tool-btn:hover,.zoom-btn:hover{border-color:var(--gold-soft);color:#f4e7c4}
     .tool-btn:active,.zoom-btn:active{transform:translateY(1px)}
     .tool-btn.active{background:var(--brass-fill);border-color:var(--brass-edge);
       color:var(--brass-ink);box-shadow:var(--pill-shadow)}
@@ -989,11 +995,12 @@
       background:transparent;border:11px solid transparent;border-radius:4px;
       border-image:var(--skin-button) 12 fill / 11px / 0 stretch;
       box-shadow:0 3px 8px rgba(0,0,0,.5);image-rendering:pixelated}
-    /* active tool: a warm brass wash + a lit (brass) glyph over the iron plate */
+    /* active tool: a warm brass wash + a LIT bright glyph over the iron plate
+       (the wash sits over dark iron, so bright warm ink reads strongest) */
     .wh-skinned .tool-btn.active{
       background:linear-gradient(180deg,rgba(179,146,76,.42),rgba(179,146,76,.24));
-      color:var(--gold)}
-    .wh-skinned .tool-btn:hover,.wh-skinned .zoom-btn:hover{color:var(--gold)}
+      color:#f6ecd2}
+    .wh-skinned .tool-btn:hover,.wh-skinned .zoom-btn:hover{color:#f4e7c4}
 
     /* -- ANCHORED HUD chrome (taskbar / needs / info / radar): reads as riveted
           IRON PLATE, clearly distinct from the wood-framed openable windows.
