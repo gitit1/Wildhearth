@@ -1,4 +1,4 @@
-import { HOUSE, BARN, STALL, type Rect } from "../world/zones";
+import { HOUSE, BARN, COOP, STALL, type Rect } from "../world/zones";
 import { shadow, oRect, outline, OUTLINE, OUTLINE_W, castShadow, roundR } from "./shapes";
 import { mulberry32 } from "../engine/rng";
 import { sprite, drawGroundSprite, spriteBaseAnchor, recolorSprite, type SpritePlacement, type HueBand } from "./sprites";
@@ -238,6 +238,46 @@ export function drawBarn(g: CanvasRenderingContext2D, barnOk = true, r: Rect = B
     g.fillStyle = "#8a6a42"; g.fillRect(-w * 0.22, -3, w * 0.44, 6);
     g.restore();
   }
+}
+
+/**
+ * A small rundown chicken coop (FARM-START-1) — the Animal-Keeper's starting
+ * structure. Code-drawn (no sprite; a pure-painter visual is within the art
+ * rule, and it stays zero-PNG-safe by construction): a low weathered plank hut
+ * on a stubby raised base, a mono-pitch shingle roof gone mossy, a dark pop-hole
+ * with a little ramp, and a perch pole — visibly empty and waiting for a hen.
+ * Draws rundown always (there is no coop-repair task yet; mending/upgrading a
+ * coop is future buy+build work this manifest feeds).
+ */
+export function drawCoop(g: CanvasRenderingContext2D, r: Rect = COOP) {
+  const { x, y, w, h } = r;
+  castShadow(g, x + w / 2, y + h, w * 0.5, h * 1.1);
+  shadow(g, x + w / 2 + 5, y + h + 6, w * 0.55, 9);
+  // stubby raised base the hut sits on (a coop is off the ground)
+  g.fillStyle = "#6b4e30";
+  g.fillRect(x + w * 0.08, y + h * 0.86, w * 0.84, h * 0.2);
+  outline(g);
+  // weathered plank body
+  drawPlankWall(g, x + w * 0.06, y + h * 0.34, w * 0.88, h * 0.54, "#a98a5a", 611);
+  // dark pop-hole (the little chicken door) + a ramp down to the yard
+  oRect(g, x + w * 0.16, y + h * 0.52, w * 0.24, h * 0.34, "#2a1c10");
+  g.fillStyle = "#8a6a42";
+  g.beginPath();
+  g.moveTo(x + w * 0.16, y + h * 0.86);
+  g.lineTo(x + w * 0.42, y + h * 0.86);
+  g.lineTo(x + w * 0.30, y + h * 1.06);
+  g.lineTo(x + w * 0.06, y + h * 1.06);
+  g.closePath(); g.fill(); outline(g);
+  // a small shuttered vent on the right
+  oRect(g, x + w * 0.6, y + h * 0.5, w * 0.24, h * 0.2, "#7a5a38");
+  // mono-pitch mossy shingle roof (weathered), overhanging the eave
+  drawShingleRoof(g, x + w / 2, y + h * 0.06, x - 4, x + w + 4, y + h * 0.4, "#6f7a4a", true, 612);
+  // a perch pole leaning by the pop-hole — empty, waiting for a bird
+  g.strokeStyle = "#5d4630"; g.lineWidth = 3; g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(x + w * 0.46, y + h * 0.9);
+  g.lineTo(x + w * 0.5, y + h * 0.52);
+  g.stroke();
 }
 
 // ===========================================================================

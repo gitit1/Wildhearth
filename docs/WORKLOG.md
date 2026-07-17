@@ -29,6 +29,60 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## FARM-START-1 — the farm you start with depends on the path you chose
+- **Date:** 2026-07-17 (v1-foundation). GP-1 commit 1. Owner rule: a new life
+  starts nearly broke, so only PATH-RELEVANT farm infrastructure pre-exists. The
+  universal base for every path is now just the rundown **house + outhouse +
+  well + birdhouse** (plus the world-infra field/pond/trees). The barn, the
+  established-farm prop clutter (woodpile, wheelbarrow, barn barrels/crates/
+  sacks, hay-bale, scarecrow) and the garden beds are no longer on every new
+  farm — they're MANIFEST-driven per path.
+- **New data module `src/data/farmStart.ts`** — the path-dependent starting
+  farm, structured like `world/furniture.ts`'s `HOME_FURNITURE` (a plain data
+  manifest every downstream system reads, so it later feeds buy+place/build
+  projects). `FarmManifest { barn, coop: boolean; beds: number;
+  establishedProps: boolean }`; `FARM_START_MANIFEST` per `Path` (fisher/
+  musician = bare base; **farmer = 3 garden beds**; **keeper = a coop**);
+  `LEGACY_FARM_MANIFEST` (barn + 3 beds + props, coop false); `reviveManifest()`
+  (junk-tolerant), `farmManifestForPath()`.
+- **Persistence with NO SAVE_KEY bump (grandfathering):** the manifest lives on
+  the existing renovation store (`src/systems/renovation.ts`, own
+  `RENOVATION_KEY`) as `FarmState.manifest`. `loadFarm` revives it, and a
+  pre-GP-1 save (no `manifest` field) falls back to `LEGACY_FARM_MANIFEST` — it
+  keeps its barn/beds/props. `resetFarm(f, manifest)` re-seeds it on New Game.
+  `repairsLeft()` counts the barn only when the manifest has one (a barn-less
+  farm reaches "whole" on roof + window).
+- **New code-drawn coop** `drawCoop()` in `src/art/buildings.ts` (+ `COOP` rect
+  in `src/world/zones.ts`) — a small rundown chicken coop, pure painter (zero
+  gens, zero-PNG-safe), the Animal-Keeper's starting goal marker. Sits in the
+  barn-side yard so a bought hen roosts by it. Look-only interactable (`coop` in
+  `interact.ts`).
+- **Manifest wired through zones presence, collision, painters, interactions,
+  minimap:** `WORLD_PROPS` established-farm props tagged `establishedFarm`;
+  `PROP_BLOCKERS` now `PropBlocker[]` carrying the flag. `world/collision.ts`
+  `setFarmCollisionManifest()` gates the barn/coop building blocks + the
+  established-prop blockers. `systems/interact.ts` `setInteractFarmManifest()`
+  gates the barn/coop interactables, the garden-bed Looks (`i < beds`), the
+  established-prop `Look`s, and the house's "Mend the barn" repair option.
+  `ui/minimap.ts` `setMinimapFarm()` gates the barn/coop base blocks (repaints
+  the static layer). `main.ts` `syncFarmManifest()` keeps all four layers in
+  sync on boot + every New Game; farm draw gates barn/coop/beds/established props
+  on `farm.manifest`.
+- **Verification:** `npm run build` green; `verify:smoke` + `verify:save` green;
+  new `verify/gp1-farmstart.mjs` (15 checks, zero console errors) drives real
+  New Games per path and asserts the live manifest + the REAL hit/reach gating
+  (new dev bridges `warp`, `farmManifest`, `reachId`), and proves grandfathering
+  (a manifest-less renovation store loads legacy, barn reachable, storage opens).
+  1920×1080 screenshots confirmed: fisher = base only; farmer = + garden beds;
+  keeper = + coop; legacy fixture = barn + all props + beds.
+- **Follow-ups:** (1) A keeper starts with a coop but no barn, and animal produce
+  is still collected through the barn's storage chest — so a keeper who buys a
+  hen can feed it (Husbandry) but cannot yet COLLECT its produce until she has a
+  barn. Needs the future buy/build-barn (or coop egg-collection) feature this
+  manifest feeds. (2) "wheelbarrow + cart" in the brief: no farm-side cart
+  exists in the world (the carts are market/town props) — interpreted as the
+  wheelbarrow only; market/town carts left untouched.
+
 ## W2a — the buildings wave: every structure in the UO-mood straight-on style, grounded
 - **Date:** 2026-07-17 (v1-foundation). The art-pivot W2 buildings wave (see
   `docs/ART_PIVOT_UO.md`). Replaces every cozy-era building sprite with the

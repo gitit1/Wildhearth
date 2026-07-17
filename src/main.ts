@@ -16,7 +16,7 @@ import {
 import { applyCamera, screenToWorld, adjustZoom, getLastCam } from "./engine/camera";
 import { paintGround, groundIsTiled, groundTilesAvailable } from "./world/ground";
 import {
-  HOUSE, BARN, STALL, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
+  HOUSE, BARN, COOP, STALL, BUSK_SPOT, OLD_BUSK_SIGN, HOUSE_DOOR, ROOM, ROOM_ENTRY,
   FLOWER_BEDS, fieldBounds, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES, OUTHOUSE, regionAt,
   FESTIVAL_LANTERN_SPOTS, FESTIVAL_HARVEST_CLUSTERS, WORLD_PROPS, type Rect,
   INN, TOWN_HOMES, TOWN_MERCHANTS, TOWN_DOCK, STABLE, TOWN_BUSK_SPOT, type MerchantKind,
@@ -32,7 +32,7 @@ import { buildFoliageScatter, drawScatterItem } from "./art/scatter";
 import { drawBunting, drawLanternPole, drawHarvestCluster } from "./art/festival";
 import { activeFestival, isFestivalDay } from "./systems/festival";
 import { FESTIVALS } from "./data/festivals";
-import { drawHouse, drawBarn, drawStall, drawCottage, drawWell, drawOuthouse, drawInn, drawStable } from "./art/buildings";
+import { drawHouse, drawBarn, drawCoop, drawStall, drawCottage, drawWell, drawOuthouse, drawInn, drawStable } from "./art/buildings";
 import { drawFarmer, drawCow, drawHen, drawDuck, drawPig, drawSheep, drawNpc, drawMount, MOUNT_LIFT } from "./art/characters";
 import { createPlayer, updatePlayer } from "./entities/player";
 import { createAnimals, updateAnimals, spawnCow, spawnHen, spawnDuck, spawnPig, spawnSheep } from "./entities/animals";
@@ -88,6 +88,7 @@ import {
 } from "./systems/teaching";
 import { saveSettings, guidanceMode, setGuidance, dayLengthSeconds, endOfDaySummaryMode, type Guidance } from "./systems/settings";
 import { loadFarm, resetFarm, saveFarm } from "./systems/renovation";
+import { farmManifestForPath } from "./data/farmStart";
 import { loadCalendar, resetCalendar, saveCalendar, advanceMinute, currentSeason, currentPhase, absoluteDay } from "./systems/calendar";
 import { loadWeather, resetWeather, rollDailyWeather, isRaining, saveWeather } from "./systems/weather";
 import { loadWorldFlags, resetWorldFlags, pruneExpired, setFlag as setWorldFlag, saveWorldFlags } from "./systems/worldFlags";
@@ -144,6 +145,7 @@ import type { ThresholdEvent } from "./systems/relationships";
 import {
   hitTest, reachable, byId, runAction, runDefault, defaultActionLabel,
   registerBushes, registerTrees, registerPlots, registerAnimal, registerFlowerBeds, registerNpc, registerNpcStall,
+  setInteractFarmManifest,
   type Interactable, type InteractCtx,
 } from "./systems/interact";
 import { openContextMenu, closeContextMenu } from "./ui/contextmenu";
@@ -151,7 +153,7 @@ import { updateHud, updateNeedsStrip, setPrompt, toast, updateToast } from "./ui
 import { initFade, fadeThrough } from "./ui/fade";
 import { initBackpack, updateBackpack } from "./ui/backpack";
 import { initQuestLog, updateQuestLog } from "./ui/questlog";
-import { initMinimap, updateMinimap, setMinimapField, setTravelHooks } from "./ui/minimap";
+import { initMinimap, updateMinimap, setMinimapField, setMinimapFarm, setTravelHooks } from "./ui/minimap";
 import {
   initStableWindow, openStableWindow, closeStableWindow, isStableOpen, updateStableWindow,
 } from "./ui/stablewindow";
@@ -199,7 +201,7 @@ import { questById as questDefById } from "./data/quests";
 import type { QuestDialogueOption, QuestPickResult } from "./ui/dialoguebox";
 import { rigFromCharacter } from "./entities/player";
 import type { RigParams, PoseName } from "./art/rig";
-import { nearRect, setCollisionScene, blocked, type Scene } from "./world/collision";
+import { nearRect, setCollisionScene, setFarmCollisionManifest, blocked, type Scene } from "./world/collision";
 import { paintDayNightTint, shadowFactors } from "./art/daynight";
 import { setSunFactors, getSunFactors } from "./art/shapes";
 import { updateWeatherFx, drawWeatherFx } from "./art/weatherfx";
@@ -315,6 +317,16 @@ registerTrees(trees);
 registerPlots(plots, plots, () => currentSeason(calendar));
 registerFlowerBeds(garden);
 setMinimapField(fieldBounds(farm.plotTiers));
+
+/** FARM-START-1: keep the collision + interaction layers' view of which farm
+ *  structures physically exist (barn/coop/beds/established props) in sync with
+ *  the live farm manifest — called on boot and after every New Game re-seed. */
+function syncFarmManifest() {
+  setFarmCollisionManifest(farm.manifest);
+  setInteractFarmManifest(farm.manifest);
+  setMinimapFarm(farm.manifest.barn, farm.manifest.coop);
+}
+syncFarmManifest();   // boot: the loaded save's manifest (legacy for old saves)
 
 /** A just-bought expansion tier becomes real, tillable field on the spot. */
 function expandFarm() {
@@ -649,6 +661,14 @@ if (import.meta.env.DEV)
     fireQuest: (ev: QuestEvent) => fireQuest(ev),
     heldCountOf: (id: string) => heldCount(id),
     castPond: () => { const o = byId("pond"); if (o) { player.x = o.anchor[0]; player.y = o.anchor[1]; player.moving = false; clearMoveTarget(); runDefault(o, makeCtx()); } },
+    // teleport the player to a tile coordinate (verification aid — lets a headless
+    // screenshot frame a specific area, e.g. the farm yard for FARM-START-1).
+    warp: (tx: number, ty: number) => { player.x = tx * T; player.y = ty * T; player.moving = false; clearMoveTarget(); },
+    // FARM-START-1 verification: the live farm manifest (which structures exist).
+    farmManifest: () => ({ ...farm.manifest }),
+    // the id of the interactable reachable from a tile position (null if none) —
+    // exercises the REAL hit/reach gating (e.g. barn/coop/bed presence).
+    reachId: (tx: number, ty: number) => reachable(tx * T, ty * T, scene)?.id ?? null,
     openStallDev: () => { player.x = STALL.x + STALL.w / 2; player.y = STALL.y + STALL.h + 10; player.moving = false; clearMoveTarget(); openPlayerStall(); },
     // town-merchant verification bridge (v2 BLOCK #3): stand at a merchant and
     // open its window (buy for the general store, sell for fishmonger/greengrocer,
@@ -2188,7 +2208,8 @@ function newGameReset(character: Character, mode: Guidance) {
   // IX-1: a fresh life's trees haven't been gathered today; AX-1: none felled
   for (const t of trees) { t.gathered = 0; t.day = -1; t.chopped = false; t.choppedDay = -1; }
   saveChoppedTrees(trees);   // clear any persisted stumps (clearSavedGame also drops TREES_KEY)
-  resetFarm(farm);
+  resetFarm(farm, farmManifestForPath(character.path));   // FARM-START-1: the path's starting farm
+  syncFarmManifest();        // collision + interactions follow the new manifest
   resetCalendar(calendar);
   resetWeather(weather);
   resetWorldFlags(worldFlags);
@@ -2880,14 +2901,15 @@ function draw(dt: number) {
   drawBuskSpot(ctx, BUSK_SPOT[0], BUSK_SPOT[1], time);
   drawBuskSpot(ctx, TOWN_BUSK_SPOT[0], TOWN_BUSK_SPOT[1], time);   // V2-B1: town-square busking corner
 
-  FLOWER_BEDS.forEach(([fx, fy], i) => drawFlowerBed(ctx, fx, fy, garden.beds[i]!, time));
+  // FARM-START-1: only the garden beds the farm manifest includes are drawn
+  // (the Farmer keeps a few; other paths start with none).
+  FLOWER_BEDS.forEach(([fx, fy], i) => { if (i < farm.manifest.beds) drawFlowerBed(ctx, fx, fy, garden.beds[i]!, time); });
   if (busking.playing) drawMusicNotes(ctx, player.x, player.y - 8, time);
 
   // depth-sorted world objects + entities
   const ents: Array<{ y: number; f: () => void }> = [
     { y: HOUSE.y + HOUSE.h, f: () => drawHouse(ctx, farm.roof, farm.window) },
     { y: OUTHOUSE.y + OUTHOUSE.h, f: () => drawOuthouse(ctx, OUTHOUSE) },
-    { y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) },
     { y: STALL.y + STALL.h, f: () => drawStall(ctx, time) },
     { y: player.y + 13, f: () => {
       // v2 block #5: a code-drawn horse under her when mounted; she rides lifted
@@ -2909,6 +2931,10 @@ function draw(dt: number) {
     { y: WELL.cy + WELL.r, f: () => drawWell(ctx, WELL.cx, WELL.cy, WELL.r) },
     { y: OLD_BUSK_SIGN[1], f: () => drawBuskSign(ctx, OLD_BUSK_SIGN[0], OLD_BUSK_SIGN[1]) },
   ];
+  // FARM-START-1: the player's own barn/coop are path-dependent — depth-sorted
+  // in only when the farm manifest says they physically stand on the farm.
+  if (farm.manifest.barn) ents.push({ y: BARN.y + BARN.h, f: () => drawBarn(ctx, farm.barn) });
+  if (farm.manifest.coop) ents.push({ y: COOP.y + COOP.h, f: () => drawCoop(ctx, COOP) });
   // Each market stall now draws with its OWN themed sprite (fish/produce/
   // goods/empty — building-variety batch), not the generic recolored one.
   MARKET_STALLS.forEach((s) => ents.push({ y: s.y + s.h, f: () => drawStall(ctx, time, s, s.awning, s.accent, s.sign, true) }));
@@ -2929,7 +2955,12 @@ function draw(dt: number) {
   // ambient foliage scatter + curated world props (both non-interactive, base-
   // on-ground, depth-sorted alongside trees/bushes/entities)
   for (const it of foliageScatter) ents.push({ y: it.y, f: () => drawScatterItem(ctx, it) });
-  for (const p of WORLD_PROPS) ents.push({ y: p.y, f: () => drawProp(ctx, p.x, p.y, p.id, p.scale) });
+  // FARM-START-1: the established-farm clutter (woodpile/wheelbarrow/barrels/
+  // crates/sacks/hay/scarecrow) only draws when the manifest includes it.
+  for (const p of WORLD_PROPS) {
+    if (p.establishedFarm && !farm.manifest.establishedProps) continue;
+    ents.push({ y: p.y, f: () => drawProp(ctx, p.x, p.y, p.id, p.scale) });
+  }
   // AX-1: a felled tree draws as a code STUMP until it regrows; otherwise the
   // tree sprite/painter. Iterate the tree STATE (index-matched to WORLD_TREES).
   for (const tr of trees) ents.push({ y: tr.y + 6, f: () => tr.chopped ? drawStump(ctx, tr.x, tr.y) : drawTree(ctx, tr.x, tr.y, time, currentSeason(calendar)) });

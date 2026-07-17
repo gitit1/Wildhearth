@@ -6,6 +6,12 @@ export const FIELD = { x0: 20, y0: 5, x1: 31, y1: 15 };      // tiles
 export const YARD  = { x0: 6,  y0: 4, x1: 18, y1: 15 };      // tiles
 export const HOUSE = { x: 7.5 * T, y: 5 * T,    w: 5 * T,   h: 3.4 * T };
 export const BARN  = { x: 14 * T,  y: 10.4 * T, w: 3.6 * T, h: 2.8 * T };
+// FARM-START-1: a small rundown chicken coop — the Animal-Keeper's starting
+// structure (a visible goal marker while she saves for her first hen). Sits in
+// the barn-side yard, just north of the animal night-shelter spot (animals.ts
+// BARN_SHELTER 15.8,13.6) so a bought hen roosts by it. Present only when the
+// farm manifest says so (keeper path / never a new fisher-musician-farmer farm).
+export const COOP  = { x: 14.4 * T, y: 10.8 * T, w: 2.3 * T, h: 1.9 * T };
 // The player's OWN buy/sell stall. Relocated into the coastal TOWN — the game's
 // commercial heart, where VISION has NPCs come to her shop (owner directive
 // "move the farm-side stall to the town"; supersedes the earlier market-WEST-
@@ -345,21 +351,29 @@ export interface PropDef {
    *  tagging a prop never touches which sprite it draws. Only a curated
    *  handful near player paths carry one; most props stay silent decoration. */
   notable?: string;
+  /** FARM-START-1: "established-farm" clutter (woodpile/wheelbarrow/barrels/
+   *  crates/sacks/hay/scarecrow). Present only when the farm manifest's
+   *  `establishedProps` is set (a legacy save) — a new life hasn't built the
+   *  farm up to this yet, so these are skipped from draw + collision. */
+  establishedFarm?: boolean;
 }
 export const WORLD_PROPS: PropDef[] = [
-  // --- Farmhouse yard (west): firewood + wheelbarrow + bucket + a pot, tucked
-  //     around the house front, clear of the door, flower beds and the pond.
-  { x: 6.6 * T, y: 8.4 * T, id: "props/firewood" },
-  { x: 6.4 * T, y: 9.4 * T, id: "props/wheelbarrow", solid: true, cw: 20, notable: "wheelbarrow" },
+  // --- Farmhouse yard (west): a bucket + a pot are the base homey touch (a broke
+  //     newcomer can have those); the WOODPILE + WHEELBARROW are established-farm
+  //     clutter (FARM-START-1) — present only on a legacy save. The birdhouse is
+  //     universal base infrastructure. All clear of the door, beds and the pond.
+  { x: 6.6 * T, y: 8.4 * T, id: "props/firewood", establishedFarm: true },
+  { x: 6.4 * T, y: 9.4 * T, id: "props/wheelbarrow", solid: true, cw: 20, notable: "wheelbarrow", establishedFarm: true },
   { x: 7.2 * T, y: 9.3 * T, id: "props/bucket" },
   { x: 7.8 * T, y: 8.3 * T, id: "props/flower-pot" },
-  { x: 12.8 * T, y: 8.6 * T, id: "props/birdhouse", notable: "birdhouse-yard" },   // on its post, SE of the house
-  // --- Barn (crates, a barrel, a sack) + field edge (hay-bale, scarecrow).
-  { x: 13.1 * T, y: 12.8 * T, id: "props/crate", solid: true, cw: 12, notable: "crate-barn" },
-  { x: 13.4 * T, y: 13.4 * T, id: "props/barrel", solid: true, cw: 12, notable: "barrel-barn" },
-  { x: 12.7 * T, y: 13.2 * T, id: "props/sack" },
-  { x: 19.0 * T, y: 12.25 * T, id: "props/hay-bale", solid: true, cw: 17 },
-  { x: 19.4 * T, y: 14.0 * T, id: "props/scarecrow", solid: true, cw: 8, notable: "scarecrow" },
+  { x: 12.8 * T, y: 8.6 * T, id: "props/birdhouse", notable: "birdhouse-yard" },   // on its post, SE of the house (universal base)
+  // --- Barn-side piles (crates, a barrel, a sack) + field edge (hay-bale,
+  //     scarecrow) — all established-farm clutter (FARM-START-1), legacy-only.
+  { x: 13.1 * T, y: 12.8 * T, id: "props/crate", solid: true, cw: 12, notable: "crate-barn", establishedFarm: true },
+  { x: 13.4 * T, y: 13.4 * T, id: "props/barrel", solid: true, cw: 12, notable: "barrel-barn", establishedFarm: true },
+  { x: 12.7 * T, y: 13.2 * T, id: "props/sack", establishedFarm: true },
+  { x: 19.0 * T, y: 12.25 * T, id: "props/hay-bale", solid: true, cw: 17, establishedFarm: true },
+  { x: 19.4 * T, y: 14.0 * T, id: "props/scarecrow", solid: true, cw: 8, notable: "scarecrow", establishedFarm: true },
   // --- Market square: lanterns flanking the well, a bench, a cart, a signpost.
   { x: 66.5 * T, y: 19.2 * T, id: "props/lantern", solid: true, cw: 6 },
   { x: 71.5 * T, y: 19.2 * T, id: "props/lantern", solid: true, cw: 6 },
@@ -391,10 +405,13 @@ export const WORLD_PROPS: PropDef[] = [
 ];
 
 /** Collision blockers for the SOLID props (small base boxes) — read by
- *  world/collision.ts, never blocking a door/path/interaction spot. */
-export const PROP_BLOCKERS: Rect[] = WORLD_PROPS
+ *  world/collision.ts, never blocking a door/path/interaction spot. Each carries
+ *  its `establishedFarm` flag (FARM-START-1) so collision can drop the
+ *  established-farm clutter blockers when the manifest omits them. */
+export interface PropBlocker extends Rect { establishedFarm: boolean }
+export const PROP_BLOCKERS: PropBlocker[] = WORLD_PROPS
   .filter((p) => p.solid)
-  .map((p) => { const cw = p.cw ?? 12; return { x: p.x - cw, y: p.y - 13, w: cw * 2, h: 16 }; });
+  .map((p) => { const cw = p.cw ?? 12; return { x: p.x - cw, y: p.y - 13, w: cw * 2, h: 16, establishedFarm: !!p.establishedFarm }; });
 
 export function onRoad(x: number, y: number): boolean {
   for (const s of ROAD_SEGMENTS) if (inRectPx(x, y, s)) return true;

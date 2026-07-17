@@ -1,6 +1,6 @@
 import { T, WORLD_W, WORLD_H, MINIMAP_SCALE, WIN_PANEL_SCALE_MIN, WIN_PANEL_SCALE_MAX, RADAR_W, RADAR_H, RADAR_SCALE } from "../config";
 import {
-  FIELD, YARD, HOUSE, BARN, STALL, POND, WORLD_TREES,
+  FIELD, YARD, HOUSE, BARN, COOP, STALL, POND, WORLD_TREES,
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, NEIGHBOR, MARKET_STALLS, COTTAGES, WELL, HEDGES,
   TOWN_STREET, TOWN_SEA, TOWN_DOCK, INN, TOWN_HOMES, TOWN_MERCHANTS,
 } from "../world/zones";
@@ -10,6 +10,17 @@ let fieldBounds = { x0: FIELD.x0, y0: FIELD.y0, x1: FIELD.x1, y1: FIELD.y1 };
 export function setMinimapField(b: { x0: number; y0: number; x1: number; y1: number }) {
   fieldBounds = b;
   if (base) base = paintBaseAt(scale);   // repaint the static layer with the new field
+  if (radarBase) radarBase = paintBaseAt(RADAR_SCALE);
+}
+
+/** FARM-START-1: which path-dependent farm structures the minimap should plot
+ *  (the player's barn/coop). main keeps this current on boot + every New Game;
+ *  changing it repaints the static base so a barn-less farm shows no barn dot. */
+let farmBarn = true, farmCoop = false;
+export function setMinimapFarm(barn: boolean, coop: boolean) {
+  if (barn === farmBarn && coop === farmCoop) return;
+  farmBarn = barn; farmCoop = coop;
+  if (base) base = paintBaseAt(scale);
   if (radarBase) radarBase = paintBaseAt(RADAR_SCALE);
 }
 import { roundR } from "../art/shapes";
@@ -315,7 +326,9 @@ function paintBaseAt(s: number): HTMLCanvasElement {
   for (const h of HEDGES) rectFill(h, "#37591f", 1);
   // buildings as coloured blocks
   b.fillStyle = "#b5453c"; b.fillRect(HOUSE.x * s, HOUSE.y * s, HOUSE.w * s, HOUSE.h * s);
-  b.fillStyle = "#9c3d34"; b.fillRect(BARN.x * s, BARN.y * s, BARN.w * s, BARN.h * s);
+  // FARM-START-1: the player's own barn/coop plot only when the farm has them.
+  if (farmBarn) { b.fillStyle = "#9c3d34"; b.fillRect(BARN.x * s, BARN.y * s, BARN.w * s, BARN.h * s); }
+  if (farmCoop) { b.fillStyle = "#a89a6a"; b.fillRect(COOP.x * s, COOP.y * s, COOP.w * s, COOP.h * s); }
   b.fillStyle = "#d9d3c0"; b.fillRect(STALL.x * s, STALL.y * s, STALL.w * s, STALL.h * s);
   b.fillStyle = "#c56a4a"; b.fillRect(NEIGHBOR.house.x * s, NEIGHBOR.house.y * s, NEIGHBOR.house.w * s, NEIGHBOR.house.h * s);
   b.fillStyle = "#9c3d34"; b.fillRect(NEIGHBOR.barn.x * s, NEIGHBOR.barn.y * s, NEIGHBOR.barn.w * s, NEIGHBOR.barn.h * s);

@@ -1,9 +1,10 @@
 import {
-  POND, STALL, BARN, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
+  POND, STALL, BARN, COOP, BUSK_SPOT, HOUSE, HOUSE_DOOR, R_HEARTH, R_BASIN, R_BED, R_REST, R_DOOR, FLOWER_BEDS,
   FISH_SPOTS, MARKET_STALLS, COTTAGES, WELL, OUTHOUSE, OLD_BUSK_SIGN, type Rect, type FishSpot, type StallDef,
   TOWN_MERCHANTS, INN, TOWN_HOMES, STABLE, DOCK, TOWN_DOCK, TOWN_BUSK_SPOT, type MerchantKind,
   WORLD_PROPS,
 } from "../world/zones";
+import { type FarmManifest, LEGACY_FARM_MANIFEST } from "../data/farmStart";
 import { REPAIR_COST, FEED_GAIN_ITEM, PLOT_EXPANSION_PRICES, NPC_REACH } from "../config";
 import { nearPond, nearRect } from "../world/collision";
 import { saveEconomy, type Economy } from "./economy";
@@ -39,6 +40,14 @@ import type { Player } from "../entities/player";
 import { NPC_STALL_TRADES, type NpcStallTrade } from "./shop";
 import { categoryById } from "./sellCategories";
 import type { GuidanceEvent } from "./guidance";
+
+// FARM-START-1: which farm structures physically exist on the player's farm
+// (path-driven). main.ts syncs this from farm.manifest on boot + every New Game
+// (like setCollisionScene). hit/inReach have no InteractCtx, so the barn/coop
+// interactables and the garden-bed / established-prop Looks read their presence
+// from this module value; actions (which do have `c`) read c.farm.manifest.
+let farmManifest: FarmManifest = LEGACY_FARM_MANIFEST;
+export function setInteractFarmManifest(m: FarmManifest) { farmManifest = m; }
 
 /**
  * Registry of clickable world objects (UO-style). Each knows how to be
@@ -380,11 +389,16 @@ const notableProps: Interactable[] = WORLD_PROPS
       name: NOTABLE_NAMES[key] ?? "Prop",
       anchor: [p.x, p.y + 20] as [number, number],
       defaultActionId: "look",
+      // FARM-START-1: an established-farm prop (scarecrow/wheelbarrow/barn
+      // barrel+crate) is only clickable when the manifest includes that clutter —
+      // it isn't drawn otherwise, so its Look must go inert too.
       hit: (wx: number, wy: number) => {
+        if (p.establishedFarm && !farmManifest.establishedProps) return false;
         const dx = (wx - p.x) / 20, dy = (wy - (p.y - 8)) / 20;
         return dx * dx + dy * dy <= 1;
       },
-      inReach: (px: number, py: number) => Math.hypot(px - p.x, py - p.y) < 44,
+      inReach: (px: number, py: number) =>
+        (!p.establishedFarm || farmManifest.establishedProps) && Math.hypot(px - p.x, py - p.y) < 44,
       actions: () => [{ id: "look", label: "Look", run: (c) => c.toast(PROP_LOOK[key] ?? "Just a prop.") }],
       drawHover: (g: CanvasRenderingContext2D, t: number) => glowEllipse(g, p.x, p.y - 8, 24, 24, t),
     };
@@ -426,10 +440,13 @@ const barn: Interactable = {
   name: "Barn",
   anchor: [BARN.x + BARN.w / 2, BARN.y + BARN.h + 20],
   defaultActionId: "store",
+  // FARM-START-1: the barn is path-dependent — a new farm has none, so it's
+  // hit/reach-inert unless the manifest says a barn stands here (a legacy save).
   hit: (wx, wy) =>
+    farmManifest.barn &&
     wx >= BARN.x - 4 && wx <= BARN.x + BARN.w + 4 &&
     wy >= BARN.y - BARN.h * 0.4 && wy <= BARN.y + BARN.h,
-  inReach: (px, py) => nearRect(px, py, BARN),
+  inReach: (px, py) => farmManifest.barn && nearRect(px, py, BARN),
   actions: (c) => c.farm.barn
     ? [
         { id: "store", label: "Open storage", run: (c) => c.openStorage() },
@@ -440,6 +457,26 @@ const barn: Interactable = {
         { id: "look", label: "Look", run: (c) => c.toast("A sagging barn. Mend it and it'll shelter your animals and store your goods.") },
       ],
   drawHover: (g, t) => glowRect(g, BARN.x - 4, BARN.y - BARN.h * 0.4, BARN.w + 8, BARN.h * 1.4, t),
+};
+
+// FARM-START-1: the Animal-Keeper's starting chicken coop. Look-only for now (a
+// visible goal marker — her first goal is buying a chicken; feeding/collecting
+// still runs through the animals + barn systems). Present only when the manifest
+// includes a coop (keeper path), so it's hit/reach-inert on every other farm.
+const coop: Interactable = {
+  id: "coop",
+  name: "Chicken coop",
+  anchor: [COOP.x + COOP.w / 2, COOP.y + COOP.h + 18],
+  defaultActionId: "look",
+  hit: (wx, wy) =>
+    farmManifest.coop &&
+    wx >= COOP.x - 4 && wx <= COOP.x + COOP.w + 4 &&
+    wy >= COOP.y - COOP.h * 0.4 && wy <= COOP.y + COOP.h,
+  inReach: (px, py) => farmManifest.coop && nearRect(px, py, COOP),
+  actions: () => [
+    { id: "look", label: "Look", run: (c) => c.toast("A rundown little chicken coop — empty for now. Buy a hen and it'll have someone to roost.") },
+  ],
+  drawHover: (g, t) => glowRect(g, COOP.x - 4, COOP.y - COOP.h * 0.4, COOP.w + 8, COOP.h * 1.4, t),
 };
 
 const buskSpot: Interactable = {
@@ -525,7 +562,9 @@ const house: Interactable = {
   actions: (c) => {
     const list: MenuAction[] = [];
     for (const r of REPAIRS)
-      if (!c.farm[r.part])
+      // FARM-START-1: the "Mend the barn" task only shows when the farm actually
+      // has a barn (a legacy save) — a barn-less farm has roof + window to mend.
+      if (!c.farm[r.part] && (r.part !== "barn" || c.farm.manifest.barn))
         list.push({
           id: `repair-${r.part}`,
           label: `${r.label} (${REPAIR_COST[r.part]})`,
@@ -691,7 +730,7 @@ const doorMat: Interactable = {
 };
 
 export const INTERACTABLES: Interactable[] = [
-  pond, stall, barn, buskSpot, houseDoor, house, outhouseSpot,
+  pond, stall, barn, coop, buskSpot, houseDoor, house, outhouseSpot,
   ...fishSpots, ...dockRowboats, ...marketStalls, ...cottages, wellProp, buskSign,   // new-world clickables
   ...townMerchants, townInn, ...townHomes, stable, townBuskSpot,   // coastal town (v2 BLOCK #3 + stable, BLOCK #5; townBuskSpot V2-B1)
   ...notableProps,   // IX-1 fix #3: signposts/scarecrow/wheelbarrow/birdhouse/barn barrel+crate
@@ -842,8 +881,10 @@ export function registerFlowerBeds(garden: Garden) {
       name: "Flower bed",
       anchor: [bx, by + 20],
       defaultActionId: "plantflowers",
-      hit: (wx, wy) => Math.abs(wx - bx) <= 15 && Math.abs(wy - by) <= 12,
-      inReach: (px, py) => Math.hypot(px - bx, py - by) < 42,
+      // FARM-START-1: a garden bed only exists (and is clickable) when the farm
+      // manifest includes it (the Farmer keeps a few; other paths start with none).
+      hit: (wx, wy) => i < farmManifest.beds && Math.abs(wx - bx) <= 15 && Math.abs(wy - by) <= 12,
+      inReach: (px, py) => i < farmManifest.beds && Math.hypot(px - bx, py - by) < 42,
       actions: (c) => {
         const bed = c.garden.beds[i]!;
         const list: MenuAction[] = [];
