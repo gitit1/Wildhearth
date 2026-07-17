@@ -786,15 +786,24 @@ export const WIN_ANCHOR_GAP = 8;
 //  systems/calendar.ts or systems/weather.ts directly.
 // ===========================================================================
 
-// ---- Day/night tint (commit 1, item 9) — continuous color grade, keyed to
-// hour+minute (not the 4 stepped phases), blended across named keyframes.
-export const DAYNIGHT_NIGHT_COLOR = [8, 14, 42] as const;     // deep blue, dark enough to actually darken
-export const DAYNIGHT_NIGHT_ALPHA = 0.4;                      // ~35-40% darkening (DECISIONS aesthetic)
-export const DAYNIGHT_DAWN_COLOR = [255, 178, 120] as const;  // warm peach lift
-export const DAYNIGHT_DAWN_ALPHA = 0.16;
-export const DAYNIGHT_DUSK_COLOR = [225, 130, 55] as const;   // amber
-export const DAYNIGHT_DUSK_ALPHA = 0.20;
-export const DAYNIGHT_INTERIOR_MULT = 0.45;                   // interiors get a milder version
+// ---- Day/night tint (commit 1, item 9; retuned W1 ground-wave to the UO-mood
+// range) — continuous color grade, keyed to hour+minute (not the 4 stepped
+// phases), blended across named keyframes. The W1 pivot pulls the whole cycle
+// toward the moody bible grade (PIXELLAB_ASSETS.md "Global grade"): noon is no
+// longer un-graded/candy-bright — it carries a persistent dusky-olive mute so
+// the world reads muted even at midday, while dawn/dusk/night deepen further.
+export const DAYNIGHT_NIGHT_COLOR = [10, 14, 34] as const;    // deep cold blue-black
+export const DAYNIGHT_NIGHT_ALPHA = 0.46;                     // ~46% darkening — moodier night
+export const DAYNIGHT_DAWN_COLOR = [206, 158, 120] as const;  // muted peach (desaturated from candy peach)
+export const DAYNIGHT_DAWN_ALPHA = 0.2;
+export const DAYNIGHT_DUSK_COLOR = [176, 108, 60] as const;   // muted amber-brown (was candy amber)
+export const DAYNIGHT_DUSK_ALPHA = 0.3;
+// NEW (W1): a persistent daytime grade — a low dusky-olive wash that mutes and
+// gently dims the midday world (rule 24's "one photograph" pulled across the
+// whole day). Kept modest so noon stays PLAYABLE-bright, just desaturated.
+export const DAYNIGHT_DAY_COLOR = [64, 68, 54] as const;      // dark muted olive-grey
+export const DAYNIGHT_DAY_ALPHA = 0.1;
+export const DAYNIGHT_INTERIOR_MULT = 0.5;                    // interiors get a milder version
 
 // ---- Weather visual layer (commit 1, item 8) — rain/storm/fog. "cloudy" is
 // named in DECISIONS' full weather list but WeatherKind (systems/weather.ts)

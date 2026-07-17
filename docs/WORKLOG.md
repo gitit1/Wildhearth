@@ -29,6 +29,77 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## W1 — the ground wave: UO-mood terrain, pixel scatter, moody grade
+- **Date:** 2026-07-17 (v1-foundation). The first full art-pivot WAVE
+  (`docs/ART_PIVOT_UO.md` W1) after the W0 mock sign-off: restyle the GROUND to
+  the muted "Ultima Online mood" — all four terrain tile sets regenerated, the
+  baked ambient scatter converted to pixel art, and the day/night grade pulled
+  to the moody range. Objects/buildings stay cozy-era (that's W2). **140
+  PixelLab generations** (7 × `create_tiles_pro` @ 20 each; balance 6936 →
+  6796). Judge the GROUND against `scratchpad/uo-w0/uo-mock-screen-v3.png`.
+- **Tile sets (`src/assets/pixellab/ground/{grass,soil,water,plaza}/tile_0..15.png`,
+  drop-in, same ids/paths):** grass (muted olive/khaki mottled turf, killing the
+  pale washed-out cozy grass), soil (dark muted earth — smooth-dirt tiles +
+  soft HORIZONTAL crumbly-furrow tiles), water (muted cold deep water + shallow
+  + muddy/sandy shore, no bright teal), plaza (weathered muted grey cobble).
+  - **Recipe discovered this wave** (documented in `docs/PIXELLAB_ASSETS.md`
+    "W1 ledger"): terrain-fill tiles need `outline_mode: "outline"` +
+    `tile_view: "top-down"` (`segmentation` leaves featureless tiles fully
+    TRANSPARENT — measured); the dark per-tile outline ring `outline` bakes is
+    removed by a deterministic **border-erode** (clamp outer 2px to interior)
+    before commit; ground prompts use FLAT even lighting (not the object suffix's
+    directional dusk light, which bakes a grid when tiled). 3 recipe-finding
+    gens were discarded (segmentation attempts).
+- **`src/world/ground.ts` — bag re-mapping:** every `*_BAG` re-derived from the
+  new sheets' tile roles. `SOIL_TILLED_BAG` now uses ONLY the horizontal-furrow
+  tiles (8,9,10,11,15) → the tilled field reads as **dark rich furrows, NOT the
+  old vertical planks** the owner rejected; `SOIL_PATH_BAG` uses ONLY smooth-dirt
+  tiles → the **"odd dark vertical bars" on the farmyard are gone** (root cause,
+  diagnosed from the before-shots: plank-textured soil tiles were leaking into
+  the yard/path bag). Dominant pools are the tight same-tone tile CLUSTER
+  (measured mean-RGB) so tiling doesn't read as a **checkerboard** (grass mean
+  127,128,88 → within-~4 tiles dominant; water deep → the two near-identical
+  dark tiles 0/12). `SOIL_TILLED_BAG` is still the export the per-cell tilled
+  painter (`art/props.ts drawTilledTile`) reads, so hand-tilled cells match the
+  baked field.
+- **`src/world/ground.ts` — `scatterAmbientProps` + all its helper painters
+  (`drawTinyFlower`/`drawBluebell`/`drawDandelion`/`drawPinecone`/`drawFern`/
+  `drawAcorn`/`scatterWaterEdgeDecor`/`drawLilyPad`/`drawCattail`/`drawReedClump`)
+  reworked to chunky PIXEL-ART:** smooth vector shapes (ellipse/arc/quadratic)
+  → hard-edged `fillRect` blocks on integer coords via a shared `pxDot` helper;
+  the candy palette (bright red poppy, white daisy, blue bluebell, yellow
+  dandelion, purple thistle) → the muted UO ground palette; density lowered
+  ~35% so the scatter reads native and calm on the new tiles. Placement,
+  rejection-zones, deterministic seeds and region logic are UNCHANGED — only
+  the drawing, colour and count changed.
+- **Day/night grade retuned to UO-mood** (`src/config.ts` `DAYNIGHT_*`,
+  `src/art/daynight.ts`, `src/main.ts` `drawVignette`): the former un-graded
+  NEUTRAL/α0 midday plateau becomes a persistent dusky-olive DAY grade
+  (`DAYNIGHT_DAY_COLOR [64,68,54]` α0.10) so noon is muted-but-playable, never
+  candy-bright; dawn/dusk desaturated + deepened (dusk `[176,108,60]` α0.30,
+  night `[10,14,34]` α0.46); the outdoor vignette deepened + cooled to ~40% at
+  the corners (`rgba(16,18,12,.40)`, `COMPOSITION_RULES` rule 24 — "the single
+  biggest one-photograph move"). Interior vignette/grade unchanged.
+- **Verification:** `npm run build` green; `verify:smoke` + `verify:save` green;
+  zero-PNG boot green (painter fallback still renders with the ground folder
+  renamed out); 1920×1080 screenshot tour (farm day+dusk, tilled field, grass↔
+  dirt↔path junction, road, market plaza, lake/shore) + a side-by-side vs the
+  mock — the ground now reads as the same muted world.
+- **Follow-ups:**
+  - The border-erode is currently a scratchpad step (`erode B=2`); commit it as
+    a repo script (`scripts/`) so a future ground regeneration is one command.
+    Its exact op is documented in `PIXELLAB_ASSETS.md` "W1 ledger".
+  - Night "warm light pools" (from `ART_PIVOT_UO` W1's grade note) not done —
+    needs a light-source system (out of this wave; the night is uniformly
+    darker for now).
+  - Sand tiles skipped (budget-comfortable but the water set's mud/sand shore
+    tiles cover the shoreline; a dedicated beach set can come with a future
+    coastal pass).
+  - A true screen-wide DESATURATE (bible ×0.88) isn't possible with the single
+    fill-rect grade overlay (it can dim/tint, not desaturate); the muting is
+    carried at the source (muted tiles) + the day grade. A real desat would
+    need a canvas filter pass — deferred as not worth the per-frame cost now.
+
 ## HOME-1 — a real house: bigger cottage, functional rooms, furniture as data
 - **Date:** 2026-07-17 (v1-foundation). The owner's brief: "the house isn't
   divided right — a real house" and "the house is still too small an area,"

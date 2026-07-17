@@ -8,7 +8,8 @@
  */
 import {
   DAYNIGHT_NIGHT_COLOR, DAYNIGHT_NIGHT_ALPHA, DAYNIGHT_DAWN_COLOR, DAYNIGHT_DAWN_ALPHA,
-  DAYNIGHT_DUSK_COLOR, DAYNIGHT_DUSK_ALPHA, DAYNIGHT_INTERIOR_MULT,
+  DAYNIGHT_DUSK_COLOR, DAYNIGHT_DUSK_ALPHA, DAYNIGHT_DAY_COLOR, DAYNIGHT_DAY_ALPHA,
+  DAYNIGHT_INTERIOR_MULT,
   CAST_SHADOW_LEN_NOON, CAST_SHADOW_LEN_EDGE, CAST_SHADOW_LEN_NIGHT,
   CAST_SHADOW_ALPHA_NIGHT, CAST_SHADOW_ALPHA_DAY,
 } from "../config";
@@ -34,17 +35,18 @@ function sampleAt<T>(frames: Array<{ h: number } & T>, th: number, mix: (a: T, b
 }
 
 type ColorFrame = { h: number; c: readonly [number, number, number]; a: number };
-const NEUTRAL: readonly [number, number, number] = [255, 255, 255];
 
 // Keyframes across the 24h clock. Boundaries roughly track calendar.ts's
 // currentPhase() (night <6, dawn 6-8, day 8-19, dusk 19-21, night >=21), but
-// interpolated continuously rather than stepped, per item 9's spec.
+// interpolated continuously rather than stepped, per item 9's spec. W1: the
+// former un-graded NEUTRAL/a0 midday plateau is replaced by a persistent
+// dusky-olive DAY grade (DAYNIGHT_DAY_*) so noon is muted, never candy-bright.
 const TINT_FRAMES: ColorFrame[] = [
   { h: 0,    c: DAYNIGHT_NIGHT_COLOR, a: DAYNIGHT_NIGHT_ALPHA },
   { h: 5,    c: DAYNIGHT_NIGHT_COLOR, a: DAYNIGHT_NIGHT_ALPHA },
   { h: 7,    c: DAYNIGHT_DAWN_COLOR,  a: DAYNIGHT_DAWN_ALPHA },
-  { h: 8.5,  c: NEUTRAL,              a: 0 },
-  { h: 17,   c: NEUTRAL,              a: 0 },
+  { h: 8.5,  c: DAYNIGHT_DAY_COLOR,   a: DAYNIGHT_DAY_ALPHA },
+  { h: 17,   c: DAYNIGHT_DAY_COLOR,   a: DAYNIGHT_DAY_ALPHA },
   { h: 19,   c: DAYNIGHT_DUSK_COLOR,  a: DAYNIGHT_DUSK_ALPHA },
   { h: 21,   c: DAYNIGHT_NIGHT_COLOR, a: DAYNIGHT_NIGHT_ALPHA },
   { h: 24,   c: DAYNIGHT_NIGHT_COLOR, a: DAYNIGHT_NIGHT_ALPHA },

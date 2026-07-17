@@ -37,20 +37,40 @@ function bag(spec: Array<[number, number]>): number[] {
   return b;
 }
 // Weighted bags (tile roles + weights from ground-prod/LEDGER.md; plain-dominant
-// ~75% so the field never reads as a repeating lattice).
-const GRASS_BAG   = bag([[0, 20], [1, 16], [2, 18], [3, 16], [15, 14], [7, 8], [4, 4], [5, 4], [6, 4], [11, 4], [8, 3], [9, 3], [10, 2], [14, 2], [12, 2], [13, 1]]);
-const SOIL_PATH_BAG = bag([[6, 10], [7, 10], [14, 10], [12, 3]]);   // smooth packed dirt
-/** Furrowed tilled-soil tiles (the plot + freshly-hoed cells). Exported so the
+// ~85% so the field never reads as a repeating lattice).
+// --- W1 UO-mood sets (outline-mode tiles_pro, border-eroded; roles re-mapped
+//     from the new sheets — see docs/PIXELLAB_ASSETS.md generation ledger). ---
+// GRASS: plain mid-olive turf dominates ~85% (rule 23); the darker(2)/lighter
+// (3,13) tone variants stay sparse and the features (9 wildflowers, 11 pebble,
+// 15 twig) rare, so tiling reads as soft mottled meadow, not a patchwork.
+// Dominant pool is the tight same-tone cluster (tiles 0,1,4,5,6,7,8,12 all
+// sit within ~4 of the set mean rgb 127,128,88 — measured); the off-tone tiles
+// 10/14 (darker) and 2/3/13 (dark/light) are demoted to sparse accents so no
+// tone jump reads as a checkerboard (W1 checker fix — measure, don't guess).
+const GRASS_BAG   = bag([[0, 12], [1, 12], [4, 12], [5, 11], [6, 12], [7, 11], [8, 12], [12, 11], [9, 4], [11, 3], [15, 3], [10, 3], [14, 2], [13, 2], [3, 1], [2, 1]]);
+// SOIL smooth packed dirt — roads + farmyard + path. Uses ONLY the smooth
+// dirt tiles (0-7,12-14); the furrow tiles are excluded so no plank/furrow
+// ever leaks into the yard (the "dark vertical bars" root cause, W1 audit).
+const SOIL_PATH_BAG = bag([[0, 10], [1, 10], [2, 9], [3, 8], [5, 9], [6, 10], [7, 9], [12, 9], [13, 8], [4, 4], [14, 2]]);
+/** Tilled-soil furrow tiles (the plot + freshly-hoed cells). Exported so the
  *  per-cell tilled painter (art/props.ts drawTilledTile) draws the SAME soil
  *  base as the baked field — seamless, no tone clash. */
-// Plain furrows (0,1,2 — clean vertical furrows) dominate ~86%; the feature
-// variants (8/15 green-sprout, 3 wet-clumpy) stay a sparse minority so the
-// field reads as evenly tilled soil, not a patchwork of sprouted/wet cells.
-export const SOIL_TILLED_BAG = bag([[0, 8], [1, 8], [2, 8], [8, 2], [3, 1], [15, 1]]);
-const WATER_DEEP_BAG    = bag([[10, 7], [11, 7], [14, 7], [1, 3], [7, 2], [5, 2], [9, 1]]);
-const WATER_SHALLOW_BAG = bag([[15, 5], [8, 4], [4, 2]]);          // muted shallow only (bright teal dropped — LEDGER)
-const WATER_SHORE_BAG   = bag([[12, 3], [2, 2], [0, 1]]);          // mud/sand shore, mud-dominant (supervisor note)
-const PLAZA_BAG = bag([[0, 6], [2, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [12, 6], [14, 6], [15, 6], [3, 3], [13, 2], [1, 2], [4, 2]]);
+// The soft HORIZONTAL crumbly-furrow tiles (8,9,10,11,15) dominate so the field
+// reads as evenly tilled dark rows — NOT the old vertical-plank read the owner
+// rejected; one smooth tile (12) sprinkled in for the odd bare patch.
+export const SOIL_TILLED_BAG = bag([[8, 10], [9, 9], [10, 9], [11, 9], [15, 9], [12, 2]]);
+// WATER deep cold interior: tiles 0 & 12 are near-identical dark cold water
+// (bright ~44, measured) and carry the field; 1/14 (bright ~58) are mild
+// secondaries and 2/5 (darkest) rare accents. The green/light outliers
+// (3,4,6,7 — bright 67-78) are kept OUT of the deep pool: mixing them in was
+// the lake checkerboard (a 38-point brightness jump). Shallow ring uses the
+// lighter tiles, shore ring the muddy/sandy ones.
+const WATER_DEEP_BAG    = bag([[0, 13], [12, 13], [14, 3], [2, 2], [5, 2], [1, 1]]);
+const WATER_SHALLOW_BAG = bag([[8, 6], [13, 5], [6, 3], [3, 3]]);   // lighter muted shallow (no bright teal)
+const WATER_SHORE_BAG   = bag([[9, 5], [11, 5], [15, 4], [10, 3]]); // mud-dominant, sand accent
+// PLAZA cobble — tight muted grey cobble dominant; the flagstone(4,15) and
+// dirt-patch(9,13) variants stay sparse so the square reads as one paving.
+const PLAZA_BAG = bag([[0, 8], [1, 8], [2, 8], [3, 7], [5, 7], [7, 8], [10, 7], [11, 7], [14, 7], [12, 6], [6, 4], [9, 3], [13, 3], [4, 2], [8, 2], [15, 2]]);
 
 /** Position + salt seeded pick from a bag — deterministic, iteration-order
  *  independent (so two terrains never correlate at a shared cell). */
@@ -474,6 +494,15 @@ function paintWater(g: CanvasRenderingContext2D) {
   for (const wtr of [RIVER, LAKE, TOWN_SEA]) { roundR(g, wtr.x, wtr.y, wtr.w, wtr.h, 26); g.stroke(); }
 }
 
+/** Places a single hard-edged pixel block at ROUNDED integer coordinates —
+ *  the shared primitive every scatter prop below is built from (UO-mood pixel
+ *  restyle: no ellipses/arcs/curves/rotation in ambient props, just fillRect
+ *  blocks in 1-2px units so everything reads as pixel art on the pixel tiles). */
+function pxDot(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, color: string) {
+  g.fillStyle = color;
+  g.fillRect(Math.round(x), Math.round(y), w, h);
+}
+
 /**
  * Ambient decorative props (environment detail pass): fallen leaves, small
  * stones, mushrooms, pebbles — purely visual, baked into the static ground so
@@ -525,164 +554,154 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
     return null;
   };
 
-  // small stones: a grey pair with a light top facet
-  for (let i = 0; i < 42 * AREA_K; i++) {
+  // small stones: a pixel cluster with one lighter top-facet block
+  for (let i = 0; i < 27 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
-    const [x, y] = p; const s = 2.2 + rnd() * 2.6;
-    g.fillStyle = ["#8f8a80", "#9a958a", "#7f7a70"][(rnd() * 3) | 0]!;
-    g.beginPath(); g.ellipse(x, y, s, s * 0.7, rnd() * 0.6, 0, 7); g.fill();
-    if (rnd() < 0.5) { g.beginPath(); g.ellipse(x + s, y + 1, s * 0.55, s * 0.4, 0, 0, 7); g.fill(); }
-    g.fillStyle = "rgba(255,255,255,.22)";
-    g.beginPath(); g.ellipse(x - s * 0.25, y - s * 0.3, s * 0.4, s * 0.22, 0, 0, 7); g.fill();
+    const [x, y] = p;
+    const c = ["#6c6059", "#5b5e64", "#73624f"][(rnd() * 3) | 0]!;
+    pxDot(g, x - 1, y - 1, 3, 2, c);
+    pxDot(g, x + 1, y, 2, 2, c);
+    if (rnd() < 0.5) pxDot(g, x + 3, y + 1, 2, 2, ["#6c6059", "#4a4d52"][(rnd() * 2) | 0]!);
+    pxDot(g, x - 1, y - 2, 2, 1, "#8a857a");   // top facet highlight (no pure white)
   }
-  // fallen leaves: tiny tinted ovals with a midrib (denser in the forest)
-  for (let i = 0; i < 56 * AREA_K; i++) {
+  // fallen leaves: 1-2px pixel blades with a 1px darker midrib (denser in the forest)
+  for (let i = 0; i < 36 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
-    const [x, y] = p; const rot = rnd() * Math.PI;
+    const [x, y] = p;
     const forest = regionAt(x, y) === "forest";
-    g.fillStyle = forest
-      ? ["#7a8f34", "#8f7a34", "#96803a", "#6f7a2a"][(rnd() * 4) | 0]!
-      : ["#a8823c", "#b5713a", "#8f7a34", "#a06a30"][(rnd() * 4) | 0]!;
-    g.beginPath(); g.ellipse(x, y, 3.2, 1.7, rot, 0, 7); g.fill();
-    g.strokeStyle = "rgba(70,50,20,.5)"; g.lineWidth = 0.8;
-    g.beginPath();
-    g.moveTo(x - Math.cos(rot) * 3, y - Math.sin(rot) * 3);
-    g.lineTo(x + Math.cos(rot) * 3, y + Math.sin(rot) * 3);
-    g.stroke();
+    const c = forest
+      ? ["#4a6a34", "#303f24", "#66693b"][(rnd() * 3) | 0]!
+      : ["#6a543a", "#8a7a3a", "#9a8a4a"][(rnd() * 3) | 0]!;
+    pxDot(g, x - 1, y - 1, 2, 2, c);
+    pxDot(g, x + (rnd() < 0.5 ? -2 : 1), y, 1, 1, c);
+    pxDot(g, x, y - 1, 1, 2, "#3a2c1c");   // midrib
   }
   // mushrooms — concentrated toward the forest, the odd one elsewhere
-  for (let i = 0; i < 30 * AREA_K; i++) {
+  for (let i = 0; i < 20 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     if (regionAt(x, y) !== "forest" && rnd() < 0.7) continue;   // mostly forest
-    g.fillStyle = "#e8e0cc";
-    g.fillRect(x - 1, y - 2.5, 2, 3.5);
-    g.fillStyle = rnd() < 0.5 ? "#b5543a" : "#a97b4a";
-    g.beginPath(); g.ellipse(x, y - 3, 3.4, 2, 0, Math.PI, 0); g.fill();
-    g.fillStyle = "rgba(255,255,255,.4)";
-    g.beginPath(); g.arc(x - 1.2, y - 3.6, 0.7, 0, 7); g.fill();
+    pxDot(g, x - 1, y - 2, 2, 3, "#b0a488");   // stem (bone, not white)
+    const cap = rnd() < 0.5 ? "#7a4a3a" : "#8a6a4a";
+    pxDot(g, x - 2, y - 4, 4, 2, cap);
+    pxDot(g, x - 1, y - 5, 2, 1, cap);
+    pxDot(g, x - 1, y - 4, 1, 1, "#9a8f78");   // tiny spot (muted, not bright white)
   }
 
   // ---- content-library commit 1: ~18 more kinds, region-appropriate, same
   // deterministic-seed + rejection-zone technique as the three kinds above ----
 
-  // logs: a mossy fallen trunk section, mostly in the forest
-  for (let i = 0; i < 10 * AREA_K; i++) {
+  // logs: a fallen trunk section — axis-aligned pixel blocks (no rotation, so
+  // no anti-aliased edge), a mossy patch on top, one lighter end-cap facet
+  for (let i = 0; i < 7 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     if (regionAt(x, y) !== "forest" && rnd() < 0.65) continue;
-    g.save(); g.translate(x, y); g.rotate(rnd() * Math.PI);
-    g.fillStyle = "rgba(20,16,10,.3)"; g.fillRect(-9, 2.5, 18, 3);
-    g.fillStyle = "#6f5334";
-    g.beginPath(); g.ellipse(0, 0, 9, 3.2, 0, 0, 7); g.fill();
-    g.fillStyle = "#8a6c42";
-    g.beginPath(); g.ellipse(-7.6, 0, 2.6, 2.9, 0, 0, 7); g.fill();
-    g.strokeStyle = "rgba(60,42,22,.5)"; g.lineWidth = 0.8;
-    g.beginPath(); g.arc(-7.6, 0, 1.4, 0, 7); g.stroke();
-    g.fillStyle = "#4a6a34";
-    g.beginPath(); g.ellipse(2, -1.4, 3.2, 1.5, 0.3, 0, 7); g.fill();
-    g.restore();
+    const c = rnd() < 0.5 ? "#4a3d29" : "#6a543a";
+    if (rnd() < 0.5) {
+      pxDot(g, x - 9, y - 1, 18, 3, c);
+      pxDot(g, x - 9, y - 2, 18, 1, "#2e261d");
+      pxDot(g, x - 9, y - 1, 3, 3, "#8a7a3a");   // end-cap facet
+      pxDot(g, x + 1, y, 3, 1, "#4a6a34");        // moss patch
+    } else {
+      pxDot(g, x - 1, y - 9, 3, 18, c);
+      pxDot(g, x - 2, y - 9, 1, 18, "#2e261d");
+      pxDot(g, x - 1, y - 9, 3, 3, "#8a7a3a");
+      pxDot(g, x, y + 1, 1, 3, "#4a6a34");
+    }
   }
-  // stumps: a short cut trunk, growth rings on top
-  for (let i = 0; i < 8 * AREA_K; i++) {
+  // stumps: a blocky cut trunk with a lighter cut-top facet and an inner ring
+  for (let i = 0; i < 5 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     if (regionAt(x, y) !== "forest" && rnd() < 0.75) continue;
-    g.fillStyle = "rgba(20,16,10,.28)";
-    g.beginPath(); g.ellipse(x + 1.4, y + 2, 6.2, 2.8, 0, 0, 7); g.fill();
-    g.fillStyle = "#6f5334";
-    g.beginPath(); g.ellipse(x, y, 5.8, 4.2, 0, 0, 7); g.fill();
-    g.fillStyle = "#9a7a4e";
-    g.beginPath(); g.ellipse(x, y - 0.5, 4.4, 3.1, 0, 0, 7); g.fill();
-    g.strokeStyle = "rgba(120,90,55,.6)"; g.lineWidth = 0.8;
-    for (const rr of [1.2, 2.3, 3.3]) { g.beginPath(); g.ellipse(x, y - 0.5, rr, rr * 0.72, 0, 0, 7); g.stroke(); }
+    pxDot(g, x - 3, y - 3, 6, 6, "#4a3d29");
+    pxDot(g, x - 2, y - 2, 4, 4, "#9a8a4a");
+    pxDot(g, x - 1, y - 1, 2, 2, "#6a543a");
   }
-  // twigs: a couple of crossed fallen branches
-  for (let i = 0; i < 24 * AREA_K; i++) {
+  // twigs: a couple of crossed fallen branches — two short pixel bars
+  for (let i = 0; i < 16 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     if (regionAt(x, y) === "market") continue;
-    g.strokeStyle = "#6f5334"; g.lineWidth = 1; g.lineCap = "round";
-    g.beginPath(); g.moveTo(x - 4, y + 1); g.lineTo(x + 4, y - 1); g.stroke();
-    g.beginPath(); g.moveTo(x - 2, y - 2 + rnd()); g.lineTo(x + 2.5, y + 1.5); g.stroke();
+    pxDot(g, x - 4, y, 8, 1, "#4a3d29");
+    pxDot(g, x - 1, y - 3, 1, 6, "#2e261d");
   }
-  // weed tufts: taller, scraggly, seed-headed grass clumps (distinct from the
-  // baked ground-texture blades — a sparser, coarser accent)
-  for (let i = 0; i < 40 * AREA_K; i++) {
-    const p = spot(); if (!p) continue;
-    const [x, y] = p;
-    if (regionAt(x, y) === "forest" || onPlaza(x, y)) continue;
-    g.strokeStyle = "rgba(120,110,60,.8)"; g.lineWidth = 1.1;
-    for (let b = 0; b < 3; b++) {
-      const lean = (b - 1) * 3, h = 6 + rnd() * 4;
-      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + lean * 0.5, y - h * 0.6, x + lean, y - h); g.stroke();
-      g.fillStyle = "#c9b25a";
-      g.beginPath(); g.arc(x + lean, y - h, 0.9, 0, 7); g.fill();
-    }
-  }
-  // clover patches: low three-leaf clusters, the odd tiny white bloom
-  for (let i = 0; i < 34 * AREA_K; i++) {
-    const p = spot(); if (!p) continue;
-    const [x, y] = p;
-    if (regionAt(x, y) === "forest" || onPlaza(x, y)) continue;
-    g.fillStyle = "#3f7a3a";
-    for (const [ox, oy] of [[-2.2, -1], [2.2, -1], [0, 1.6]] as const) {
-      g.beginPath(); g.arc(x + ox, y + oy, 1.6, 0, 7); g.fill();
-    }
-    if (rnd() < 0.25) { g.fillStyle = "#f0ece0"; g.beginPath(); g.arc(x, y - 3.5, 1, 0, 7); g.fill(); }
-  }
-  // pebble clusters: a tight group of many tiny pebbles (distinct from the
-  // larger faceted stone-pair painter above)
+  // weed tufts: taller, scraggly, seed-headed grass clumps — 1px-wide pixel
+  // blade columns (distinct from the baked ground-texture blades — a
+  // sparser, coarser accent)
   for (let i = 0; i < 26 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) === "forest" || onPlaza(x, y)) continue;
+    const dry = rnd() < 0.5 ? "#8a7a3a" : "#9a8a4a";
+    for (let b = 0; b < 3; b++) {
+      const lean = (b - 1) * 2;
+      const h = 5 + ((rnd() * 3) | 0);
+      pxDot(g, x + lean, y - h, 1, h, dry);
+      pxDot(g, x + lean, y - h - 1, 1, 1, "#7a6a30");   // seed head
+    }
+  }
+  // clover patches: low three-leaf clusters, the odd tiny muted bloom
+  for (let i = 0; i < 22 * AREA_K; i++) {
+    const p = spot(); if (!p) continue;
+    const [x, y] = p;
+    if (regionAt(x, y) === "forest" || onPlaza(x, y)) continue;
+    const c = rnd() < 0.5 ? "#4a6a34" : "#3f5a3a";
+    pxDot(g, x - 2, y - 1, 2, 2, c);
+    pxDot(g, x + 1, y - 1, 2, 2, c);
+    pxDot(g, x - 1, y + 1, 2, 2, c);
+    if (rnd() < 0.25) pxDot(g, x - 1, y - 4, 1, 1, "#a8a08c");   // bone bloom, not white
+  }
+  // pebble clusters: a tight group of many tiny pixel pebbles (distinct from
+  // the larger faceted stone-pair painter above)
+  for (let i = 0; i < 17 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     for (let n = 0; n < 5; n++) {
       const px = x + (rnd() - 0.5) * 8, py = y + (rnd() - 0.5) * 5;
-      g.fillStyle = ["#9a938a", "#8a8378", "#a8a196"][(rnd() * 3) | 0]!;
-      g.beginPath(); g.ellipse(px, py, 1.1 + rnd() * 0.8, 0.9 + rnd() * 0.6, rnd(), 0, 7); g.fill();
+      const c = ["#6c6059", "#5b5e64", "#73624f", "#4a4d52"][(rnd() * 4) | 0]!;
+      pxDot(g, px, py, 1 + ((rnd() * 2) | 0), 1, c);
     }
   }
-  // daisies / poppies / bluebells / dandelions: small wildflowers through
-  // the grass, thicker along the road/market edges
-  for (let i = 0; i < 46 * AREA_K; i++) {
+  // daisies / poppies / bluebells / dandelions: small muted wildflowers
+  // through the grass, thicker along the road/market edges
+  for (let i = 0; i < 30 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     if (onPlaza(x, y)) continue;
     if (regionAt(x, y) === "forest" && rnd() < 0.7) continue;
     const kind = rnd();
-    if (kind < 0.3) drawTinyFlower(g, x, y, rnd, 6, "#f2f2ea", 2.6, "#e8c34f");         // daisy
-    else if (kind < 0.55) drawTinyFlower(g, x, y, rnd, 4, "#c9302e", 3, "#2a2018");     // poppy
+    if (kind < 0.3) drawTinyFlower(g, x, y, rnd, 4, "#a8a08c", 2.6, "#7a6a30");         // bone daisy
+    else if (kind < 0.55) drawTinyFlower(g, x, y, rnd, 4, "#7e5150", 3, "#7a6a30");     // dusty-rose poppy
     else if (kind < 0.8) drawBluebell(g, x, y, rnd);
     else drawDandelion(g, x, y, rnd);
   }
-  // thistle: a spiky purple tuft, road/farm edges
-  for (let i = 0; i < 14 * AREA_K; i++) {
+  // thistle: a spiky muted-plum tuft, road/farm edges
+  for (let i = 0; i < 9 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     if (regionAt(x, y) === "forest" || onPlaza(x, y)) continue;
-    g.strokeStyle = "#5f8a4a"; g.lineWidth = 1.2;
-    g.beginPath(); g.moveTo(x, y + 3); g.lineTo(x, y - 5); g.stroke();
-    g.fillStyle = "#3f7a3a";
-    for (const a of [-0.9, -0.3, 0.3, 0.9]) { g.beginPath(); g.moveTo(x, y - 3); g.lineTo(x + Math.sin(a) * 4, y - 3 + Math.cos(a) * -1); g.lineTo(x, y - 4); g.closePath(); g.fill(); }
-    g.fillStyle = "#8a5ec2";
-    g.beginPath(); g.ellipse(x, y - 6, 2, 2.6, 0, 0, 7); g.fill();
-    g.fillStyle = "rgba(180,140,220,.7)";
-    for (let f = 0; f < 5; f++) { g.beginPath(); g.arc(x - 1.6 + f * 0.8, y - 7.4, 0.6, 0, 7); g.fill(); }
+    pxDot(g, x, y - 6, 1, 6, "#3f5a3a");
+    pxDot(g, x - 2, y - 7, 1, 1, "#3f5a3a");
+    pxDot(g, x + 2, y - 7, 1, 1, "#3f5a3a");
+    pxDot(g, x - 1, y - 9, 3, 2, "#6a5a70");
+    pxDot(g, x, y - 10, 1, 1, "#6a5a70");
   }
   // wildflower clumps: a mixed 3-stem cluster, dense along the market square
-  for (let i = 0; i < 20 * AREA_K; i++) {
+  for (let i = 0; i < 13 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     // (was biased toward the market square; now the square is paved cobble, so
     // clumps just avoid the cobble and land on the surrounding grass instead)
     if (onPlaza(x, y)) continue;
-    const colors = ["#d16a9a", "#e8c34f", "#8a7ac2", "#e0e6f0"];
+    const colors = ["#7e5150", "#9a8a4a", "#6a5a70", "#a8a08c"];
     for (const [ox, oy] of [[-4, 1], [3, -1], [0, 2]] as const) {
-      drawTinyFlower(g, x + ox, y + oy, rnd, 5, colors[(rnd() * colors.length) | 0]!, 2.2, "#e8c34f");
+      drawTinyFlower(g, x + ox, y + oy, rnd, 4, colors[(rnd() * colors.length) | 0]!, 2.2, "#7a6a30");
     }
   }
   // pinecones + ferns + acorns + moss patches: forest-floor accents
-  for (let i = 0; i < 22 * AREA_K; i++) {
+  for (let i = 0; i < 14 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     if (regionAt(x, y) !== "forest") continue;
@@ -690,106 +709,96 @@ function scatterAmbientProps(g: CanvasRenderingContext2D) {
     if (kind < 0.3) drawPinecone(g, x, y, rnd);
     else if (kind < 0.6) drawFern(g, x, y, rnd);
     else if (kind < 0.8) drawAcorn(g, x, y);
-    else { g.fillStyle = "rgba(74,106,52,.4)"; g.beginPath(); g.ellipse(x, y, 5 + rnd() * 3, 2.6 + rnd(), rnd(), 0, 7); g.fill(); }
+    else {
+      const c = rnd() < 0.5 ? "#4a6a34" : "#303f24";
+      pxDot(g, x - 3, y - 1, 3, 2, c);
+      pxDot(g, x, y - 2, 3, 2, c);
+      pxDot(g, x - 1, y, 3, 2, c);
+    }
   }
   // hay wisps: loose straw strands, farm/road only
-  for (let i = 0; i < 18 * AREA_K; i++) {
+  for (let i = 0; i < 12 * AREA_K; i++) {
     const p = spot(); if (!p) continue;
     const [x, y] = p;
     if (regionAt(x, y) === "forest" || regionAt(x, y) === "market") continue;
-    g.strokeStyle = "#d8b25a"; g.lineWidth = 1;
-    for (const [dx, dy] of [[-3, -5], [0, -6], [3, -4.5]] as const) {
-      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + dx * 0.5, y + dy * 0.5, x + dx, y + dy); g.stroke();
-    }
-    g.strokeStyle = "#a9885a"; g.lineWidth = 1.6;
-    g.beginPath(); g.moveTo(x - 2, y - 1); g.lineTo(x + 2, y - 1); g.stroke();
+    const c = rnd() < 0.5 ? "#8a7a3a" : "#9a8a4a";
+    pxDot(g, x - 3, y - 5, 1, 5, c);
+    pxDot(g, x, y - 6, 1, 6, c);
+    pxDot(g, x + 3, y - 4, 1, 4, c);
+    pxDot(g, x - 2, y - 1, 4, 1, "#6f6230");
   }
   scatterWaterEdgeDecor(g, rnd);
 }
 
-/** Shared tiny-wildflower painter: stem + a ring of petals + a center dot.
- *  Used by daisies/poppies/wildflower clumps above. */
+/** Shared tiny-wildflower painter: 1px stem + a small pixel-block petal
+ *  cluster + a center dot. Used by daisies/poppies/wildflower clumps above.
+ *  Pixel-block style (no ellipse petals) — size scales with the old petalR. */
 function drawTinyFlower(
   g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number,
   petals: number, petalColor: string, petalR: number, centerColor: string,
 ) {
-  g.strokeStyle = "#4a7a2a"; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(x, y + 3); g.lineTo(x, y - 1); g.stroke();
-  g.fillStyle = petalColor;
-  for (let p = 0; p < petals; p++) {
-    const a = (p / petals) * Math.PI * 2 + rnd() * 0.3;
-    g.beginPath(); g.ellipse(x + Math.cos(a) * petalR, y - 1 + Math.sin(a) * petalR, petalR * 0.7, petalR * 0.42, a, 0, 7); g.fill();
+  const s = petalR >= 2.8 ? 2 : 1;
+  pxDot(g, x, y - 2, 1, 3, "#4a6a34");   // stem
+  const offs: Array<[number, number]> = [[-s, -s - 1], [s, -s - 1], [-s, 1 - s], [s, 1 - s]];
+  const n = Math.min(petals, offs.length);
+  for (let p = 0; p < n; p++) {
+    const [ox, oy] = offs[p]!;
+    pxDot(g, x + ox, y - 2 + oy, s, s, petalColor);
   }
-  g.fillStyle = centerColor;
-  g.beginPath(); g.arc(x, y - 1, petalR * 0.4, 0, 7); g.fill();
+  pxDot(g, x, y - 2, 1, 1, centerColor);
 }
 
-/** Bluebell: 2-3 drooping bell-shaped blooms off one stem (forest-leaning). */
+/** Bluebell: 2-3 drooping bell-shaped blooms off one stem (forest-leaning),
+ *  built from small dull-blue-grey pixel blocks along a leaning stem. */
 function drawBluebell(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
-  const lean = (rnd() - 0.5) * 2;
-  g.strokeStyle = "#4a7a2a"; g.lineWidth = 1.2;
-  g.beginPath(); g.moveTo(x, y + 3); g.quadraticCurveTo(x + 1, y - 2, x - 1 + lean, y - 6); g.stroke();
-  g.fillStyle = "#5a6ec9";
-  for (const [ox, oy] of [[-2.4, -5.4], [0.4, -7], [2.6, -5]] as const) {
-    g.beginPath(); g.ellipse(x + ox + lean, y + oy, 1.5, 2.2, 0.3, 0, 7); g.fill();
-  }
+  const lean = rnd() < 0.5 ? -1 : 1;
+  pxDot(g, x, y - 5, 1, 5, "#4a6a34");
+  pxDot(g, x - 2 + lean, y - 6, 2, 2, "#5a6270");
+  pxDot(g, x + 1 + lean, y - 7, 2, 2, "#5a6270");
+  pxDot(g, x - 1 + lean, y - 8, 2, 2, "#5a6270");
 }
 
-/** Dandelion: either a dense yellow bloom or a fluffy white seed-head puff. */
+/** Dandelion: either a faded-gold bloom or a bone-toned seed-head puff
+ *  (never bright white), stacked pixel blocks on a 1px stem. */
 function drawDandelion(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
-  g.strokeStyle = "#4a7a2a"; g.lineWidth = 1;
-  g.beginPath(); g.moveTo(x, y + 3); g.lineTo(x, y - 4); g.stroke();
+  pxDot(g, x, y - 4, 1, 4, "#4a6a34");
   if (rnd() < 0.5) {
-    g.fillStyle = "#e8c34f";
-    for (let p = 0; p < 8; p++) {
-      const a = (p / 8) * Math.PI * 2;
-      g.beginPath(); g.ellipse(x + Math.cos(a) * 2.2, y - 4 + Math.sin(a) * 2.2, 1, 0.5, a, 0, 7); g.fill();
-    }
+    pxDot(g, x - 1, y - 6, 3, 3, "#9a8a4a");
+    pxDot(g, x, y - 6, 1, 1, "#7a6a30");
   } else {
-    g.fillStyle = "rgba(240,240,235,.75)";
-    g.beginPath(); g.arc(x, y - 4, 2.4, 0, 7); g.fill();
-    g.strokeStyle = "rgba(200,200,190,.6)"; g.lineWidth = 0.5;
-    for (let p = 0; p < 8; p++) {
-      const a = (p / 8) * Math.PI * 2;
-      g.beginPath(); g.moveTo(x, y - 4); g.lineTo(x + Math.cos(a) * 2.6, y - 4 + Math.sin(a) * 2.6); g.stroke();
-    }
+    pxDot(g, x - 1, y - 6, 3, 3, "#a8a08c");
+    pxDot(g, x - 2, y - 5, 1, 1, "#a8a08c");
+    pxDot(g, x + 2, y - 5, 1, 1, "#a8a08c");
   }
 }
 
-/** Pinecone: a small brown oval with diamond-scale texture lines. */
+/** Pinecone: a small vertical bark-brown pixel body with lighter scale dots
+ *  (axis-aligned, no rotation). */
 function drawPinecone(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
-  g.save(); g.translate(x, y); g.rotate(rnd() * 0.6 - 0.3);
-  g.fillStyle = "#6f5334";
-  g.beginPath(); g.ellipse(0, 0, 2.4, 4, 0, 0, 7); g.fill();
-  g.strokeStyle = "rgba(50,36,20,.6)"; g.lineWidth = 0.6;
-  for (let row = -2.5; row <= 2.5; row += 1.6) {
-    g.beginPath(); g.moveTo(-2, row); g.lineTo(0, row + 0.8); g.lineTo(2, row); g.stroke();
-  }
-  g.restore();
+  pxDot(g, x - 1, y - 4, 2, 8, "#4a3d29");
+  pxDot(g, x - 1, y - 3, 1, 1, "#6a543a");
+  pxDot(g, x, y - 1, 1, 1, "#6a543a");
+  pxDot(g, x - 1, y + 1, 1, 1, "#6a543a");
+  if (rnd() < 0.5) pxDot(g, x, y - 4, 1, 1, "#3a2c1c");
 }
 
-/** Fern: a fanning frond of 5 leaflet pairs from a base point. */
+/** Fern: a 1px stalk with stair-stepped leaflet pixel blocks alternating
+ *  either side (axis-aligned, no rotation). */
 function drawFern(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
-  const rot = rnd() * 0.5 - 0.25;
-  g.strokeStyle = "#3f7a3a"; g.lineWidth = 1;
-  g.save(); g.translate(x, y); g.rotate(rot);
-  g.beginPath(); g.moveTo(0, 4); g.lineTo(0, -9); g.stroke();
-  for (let i = 0; i < 5; i++) {
-    const fy = -8 + i * 2.2, len = 3.4 - Math.abs(i - 2) * 0.4;
-    g.beginPath(); g.moveTo(0, fy); g.lineTo(-len, fy + 1.4); g.stroke();
-    g.beginPath(); g.moveTo(0, fy); g.lineTo(len, fy + 1.4); g.stroke();
+  const h = 8 + ((rnd() * 3) | 0);
+  pxDot(g, x, y - h, 1, h, "#3f5a3a");
+  for (let i = 0; i < 4; i++) {
+    const fy = y - h + i * 2 + 1;
+    pxDot(g, x - 3, fy, 2, 1, "#3f5a3a");
+    pxDot(g, x + 1, fy, 2, 1, "#4a6a34");
   }
-  g.restore();
 }
 
-/** Acorn: a tiny oval nut with a cross-hatched cap. */
+/** Acorn: a tiny pixel-block nut with a darker cap. */
 function drawAcorn(g: CanvasRenderingContext2D, x: number, y: number) {
-  g.fillStyle = "#a97b4a";
-  g.beginPath(); g.ellipse(x, y + 1, 1.8, 2.3, 0, 0, 7); g.fill();
-  g.fillStyle = "#6f5334";
-  g.beginPath(); g.ellipse(x, y - 1.4, 2, 1.3, 0, Math.PI, 0); g.fill();
-  g.strokeStyle = "rgba(40,28,14,.6)"; g.lineWidth = 0.5;
-  g.beginPath(); g.moveTo(x - 1.6, y - 1.6); g.lineTo(x + 1.6, y - 1.2); g.stroke();
+  pxDot(g, x - 1, y - 1, 2, 3, "#8a6a4a");
+  pxDot(g, x - 1, y - 3, 2, 2, "#4a3d29");
+  pxDot(g, x - 2, y - 3, 1, 1, "#2e261d");
 }
 
 /**
@@ -803,7 +812,7 @@ function drawAcorn(g: CanvasRenderingContext2D, x: number, y: number) {
  */
 function scatterWaterEdgeDecor(g: CanvasRenderingContext2D, rnd: () => number) {
   for (const wtr of [RIVER, LAKE]) {
-    const n = Math.round((2 * (wtr.w + wtr.h) / 70) * AREA_K);
+    const n = Math.round((2 * (wtr.w + wtr.h) / 70) * AREA_K * 0.65);
     for (let i = 0; i < n; i++) {
       const side = rnd() * 4 | 0;
       let bx: number, by: number;
@@ -816,7 +825,7 @@ function scatterWaterEdgeDecor(g: CanvasRenderingContext2D, rnd: () => number) {
   }
   // lily pads at the LAKE's still-water edge (river excluded — it flows)
   {
-    const n = Math.round(6 * AREA_K);
+    const n = Math.round(6 * AREA_K * 0.65);
     for (let i = 0; i < n; i++) {
       const px = LAKE.x + 10 + rnd() * Math.max(4, LAKE.w - 20), py = LAKE.y + 10 + rnd() * Math.max(4, LAKE.h - 20);
       drawLilyPad(g, px, py, rnd);
@@ -824,41 +833,37 @@ function scatterWaterEdgeDecor(g: CanvasRenderingContext2D, rnd: () => number) {
   }
   // ...and the pond (an ELLIPSE, not a rect — sample within it by angle/radius
   // so pads never land past the shoreline into the surrounding grass).
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 3; i++) {
     const a = rnd() * Math.PI * 2, r = 0.25 + rnd() * 0.55;
     drawLilyPad(g, POND.cx + Math.cos(a) * POND.rx * r, POND.cy + Math.sin(a) * POND.ry * r, rnd);
   }
-  // shells: bleached pale shapes on the LAKE shore specifically
-  for (let i = 0; i < 10; i++) {
+  // shells: bone-toned pixel shapes on the LAKE shore specifically
+  for (let i = 0; i < 7; i++) {
     const bx = LAKE.x - 6 + rnd() * (LAKE.w + 12), by = LAKE.y + LAKE.h + 4 + rnd() * 8;
-    g.fillStyle = ["#ece2cf", "#e0d4bc", "#d8cbb0"][(rnd() * 3) | 0]!;
-    g.beginPath(); g.arc(bx, by, 2.2, Math.PI, 0); g.fill();
-    g.strokeStyle = "rgba(150,130,100,.5)"; g.lineWidth = 0.5;
-    for (const a of [0.7, 1.6, 2.4]) { g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + Math.cos(Math.PI + a * 0.4) * 2, by - Math.sin(a * 0.4) * 2); g.stroke(); }
+    pxDot(g, bx - 2, by - 1, 4, 2, "#a89a80");
+    pxDot(g, bx - 1, by - 2, 2, 1, "#a89a80");
   }
 }
 
-/** Lily pad: a flat green disc with a wedge notch, a slightly darker rim. */
+/** Lily pad: a flat green pixel-block disc with a lighter center facet. */
 function drawLilyPad(g: CanvasRenderingContext2D, px: number, py: number, rnd: () => number) {
-  g.fillStyle = "#3a6a4a";
-  g.beginPath(); g.arc(px, py, 4.5 + rnd() * 2, 0.4, Math.PI * 2 - 0.4); g.fill();
-  g.fillStyle = "#4f8a5f";
-  g.beginPath(); g.arc(px - 0.6, py - 0.6, 2.6, 0, 7); g.fill();
+  const s = 4 + ((rnd() * 2) | 0);
+  pxDot(g, px - s, py - s, s * 2, s * 2, "#3a5a3a");
+  pxDot(g, px - 1, py - 1, 2, 2, "#47694a");
 }
 
-/** Cattail: a brown corndog-shaped seed head on a thin green stem. */
+/** Cattail: a brown pixel-block seed head on a thin 1px green stem. */
 function drawCattail(g: CanvasRenderingContext2D, x: number, y: number) {
-  g.strokeStyle = "#4a7a3a"; g.lineWidth = 1.4;
-  g.beginPath(); g.moveTo(x, y + 4); g.lineTo(x, y - 12); g.stroke();
-  g.fillStyle = "#5a4020";
-  g.beginPath(); g.ellipse(x, y - 12, 1.6, 4.2, 0, 0, 7); g.fill();
+  pxDot(g, x, y - 12, 1, 12, "#3f5a3a");
+  pxDot(g, x - 1, y - 13, 2, 5, "#4a3a24");
 }
 
-/** Reed clump: 3-4 tall thin green blades fanning from a base. */
+/** Reed clump: 3-4 tall thin 1px-wide pixel blades fanning from a base
+ *  (axis-aligned columns, offset per blade instead of a curved fan). */
 function drawReedClump(g: CanvasRenderingContext2D, x: number, y: number, rnd: () => number) {
-  g.strokeStyle = "#3f7a3a"; g.lineWidth = 1.3;
   for (let b = 0; b < 4; b++) {
-    const lean = (b - 1.5) * 2.4, h = 10 + rnd() * 6;
-    g.beginPath(); g.moveTo(x, y + 3); g.quadraticCurveTo(x + lean * 0.5, y - h * 0.5, x + lean, y - h); g.stroke();
+    const lean = Math.round((b - 1.5) * 2);
+    const h = 8 + ((rnd() * 5) | 0);
+    pxDot(g, x + lean, y - h, 1, h, "#3f5a3a");
   }
 }

@@ -2954,11 +2954,14 @@ function draw(dt: number) {
   drawVignette();
 }
 
-/** Warm daylight vignette (screen space) — shared by both scenes. */
-function drawVignette(inner = "rgba(255,240,200,0)", outer = "rgba(60,50,20,.18)") {
+/** Moody vignette (screen space) — shared by both scenes. W1: deepened and
+ *  cooled to the UO-mood range (COMPOSITION_RULES rule 24 — the single biggest
+ *  "one photograph" move), corners now darken to ~40% instead of the old warm
+ *  ~18%, and the falloff starts closer in so more of the frame is embraced. */
+function drawVignette(inner = "rgba(16,18,14,0)", outer = "rgba(16,18,12,.40)") {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const grd = ctx.createRadialGradient(
-    cv.width / 2, cv.height / 2, cv.height * 0.35,
+    cv.width / 2, cv.height / 2, cv.height * 0.30,
     cv.width / 2, cv.height / 2, cv.height * 0.95
   );
   grd.addColorStop(0, inner);

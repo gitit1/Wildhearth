@@ -183,6 +183,61 @@ rule #1's code-drawn path), zero further gens.
   (aged brass, weathered timber, riveted iron, aged parchment) in `index.html`
   `:root` + a global de-candy of the bright-gold literals.
 
+### W1 ledger — the ground wave (2026-07-17)
+
+The first art-pivot terrain wave: all four ground tile sets regenerated in the
+UO-mood palette (grass/soil/water/plaza), replacing the cozy sets in-place
+(`src/assets/pixellab/ground/<set>/tile_0..15.png` — same ids/paths, drop-in).
+**Cost: 140 generations** (7 × `create_tiles_pro` @ 20 gens each — measured,
+`create_tiles_pro` is a flat 20/set at 32px×16-tile; the "~20-40" tool estimate
+is worst-case). Balance 6936 → **6796** (Tier 3).
+
+- **The winning tiles_pro recipe for terrain-FILL ground (calibrated this
+  wave, supersedes the session-4 assumption that ground used
+  `segmentation`):** `outline_mode: "outline"` (NOT `segmentation`),
+  `tile_type: "square_topdown"`, `tile_view: "top-down"` (flat, 0 depth → a
+  full-opaque 32×32 tile, no depth skirt), `tile_size: 32`, `seed: 7777`.
+  **`segmentation` mode is WRONG for terrain fill** — it only paints tiles that
+  carry a distinct feature/object and leaves featureless "plain" tiles fully
+  TRANSPARENT (measured: a plain-grass segmentation set came back ~100%
+  transparent; a full-bleed reword didn't help). `outline` mode fills every
+  tile — its one artifact is a dark ~2px OUTLINE ring baked onto each tile
+  border, which tiles into a hard grid; that is removed by a deterministic
+  post-process **border-erode** (clamp the outer 2px ring to the interior edge,
+  `scratchpad erode B=2`) BEFORE the PNG is committed. Net pipeline per set:
+  `create_tiles_pro (outline, top-down)` → download 16 → erode B=2 → drop into
+  `ground/<set>/`. (Same "generate then clean" class as the W-UI ring-clean.)
+- **Prompt style for ground tiles** deviates from the object STYLE SUFFIX in
+  one load-bearing way: ground tiles must be **flat, evenly-lit and seamlessly
+  tileable** — so the suffix's "moody dusk lighting from the upper-left,
+  detailed self-shadowing" is REPLACED by "flat even ambient lighting, no
+  directional gradient, seamlessly tileable with no visible edges seams grid or
+  brick courses". Directional light on a ground tile bakes a light-corner/
+  dark-corner that reads as a grid when tiled (the exact "masonry/brick-strip"
+  the owner rejected). The muted-palette / low-saturation / no-outlines / "like
+  classic Ultima Online" parts of the suffix are kept.
+- **Tile ids (all `seed 7777`, 32px square_topdown, outline, top-down):** grass
+  `a8b434fb-5fc0-4848-ae6e-9452b651eb83`, soil `0d97e67f-6ce8-4c88-9bdc-5e259b2b4f71`,
+  water `cf563875-f279-4079-95e4-b3b435df54ed`, plaza `6a6fee46-36df-4e70-968a-83a06e142b5f`.
+  (3 discarded recipe-finding gens: two `segmentation` grass/soil sets +
+  one `segmentation` high-top-down grass — all came back transparent.)
+- **Bag re-mapping (`src/world/ground.ts`)** — the per-terrain weighted tile
+  bags were re-derived from the new sheets' actual tile roles (see the inline
+  comments). Two lessons baked in: (1) the tilled-field bag uses ONLY the soft
+  HORIZONTAL crumbly-furrow tiles (kills the old "dark vertical planks" read the
+  owner rejected) and the path/yard bag uses ONLY smooth-dirt tiles (kills the
+  "odd dark vertical bars" the W0.6 audit flagged — same root cause: plank-
+  textured soil tiles leaking into the yard); (2) to avoid a tile-to-tile
+  **checkerboard**, each dominant pool is the tight same-tone cluster measured
+  off the sheet (grass mean rgb 127,128,88 → tiles within ~4; water deep → the
+  two near-identical dark tiles 0/12 at bright ~44, greens/lights excluded).
+
+### The GROUND generation checklist (append to, per new set)
+`create_tiles_pro` **outline / square_topdown / top-down / 32 / seed 7777** →
+download → **erode border B=2** → drop in `ground/<set>/` → re-derive the bag
+from the new tiles' roles, dominant pool = tight same-tone cluster (measure
+with a mean-RGB dump), features/off-tone sparse.
+
 ---
 
 ## 1. What's sprite-sourced today (vs code-drawn)
