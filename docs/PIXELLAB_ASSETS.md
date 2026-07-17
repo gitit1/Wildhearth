@@ -244,6 +244,69 @@ the bag from the new tiles' roles. Edge dithering in `world/ground.ts` is
 multi-octave positional hash noise (`edgeThr`, W1.1 — the 4x4 Bayer read as a
 mechanical dot lattice at gameplay zoom) with ~1.5-tile fades.
 
+### W2a ledger — the buildings wave (2026-07-17)
+
+Every on-screen building re-generated in the UO-mood straight-on style,
+replacing the cozy-era sprites in-place (same filenames/paths, drop-in). **Cost:
+34 generations** (27 shipped + 7 discards/re-rolls). Balance 6796 → **6762**
+(Tier 3). All 27 came back with healthy 38-58% transparency — the opaque-flood
+failure mode (#7) never triggered this wave.
+
+- **The load-bearing calibration — buildings drift to ISOMETRIC even with the
+  W0.5 "strict straight-on" clause + `view: high top-down`.** The first
+  validation batch (farmhouse/barn/cottage on the documented recipe) came back
+  as 3/4 corner-view miniatures — the exact look the owner rejected. Root cause:
+  `create_map_object` has a strong 3/4 prior for tall gable buildings that the
+  strict clause alone can't overcome (the approved W0.5 `*-v2` refs were the
+  lucky flat rolls kept from a higher-variance set). **The winning recipe for
+  GABLE BUILDINGS** (farmhouse, neighbor, barn, all 11 cottages, inn, stable,
+  outhouse): `view: "low top-down"` **+** the strengthened flat clause —
+  *"drawn as a completely flat 2D front elevation like a Stardew Valley building
+  sprite, showing ONLY the flat front wall and the pitched roof directly above
+  it, the front wall symmetrical and squarely facing the viewer, absolutely NO
+  side walls, NO side faces, NO visible building depth, NO corner view, NO
+  isometric projection, NO three-quarter angle, NO diagonal rotation"*. This
+  merges the proven wave-4 "no side walls / flat like Stardew" language with the
+  UO style suffix + `lineless`. `high top-down` reliably drifts isometric for
+  gable forms — **use `low top-down` for buildings**; `high top-down` stays
+  correct only for open **STALLS** (9 stalls, `view: high top-down` + the W0.5
+  straight-on clause — open counters read fine with a little awning-top depth)
+  and the **well**. PixelLab kept the full requested canvas (no trim), so anchors
+  barely moved from the cozy set.
+- **All 27 shipped** (subject clause per building's identity — weathered/muted):
+  `farmhouse` (dark timber + mossy roof), `farmhouse-neighbor` (prosperous
+  fieldstone+plaster+slate), `barn` (grey plank, cross-braced doors, cupola),
+  cottages `01-11` (varied timber/plaster/stone/brick walls × thatch/shingle/
+  slate/clay-tile roofs × porch/ivy/flowerbox/lean-to/net/buoys/lantern), `inn`
+  (two-storey timber-frame, warm-lit windows, hanging sign — re-rolled twice, the
+  hardest to flatten), `stable` (low broad, horseshoe sign, open bays),
+  `outhouse` (mono-pitch, crescent door), `well` (fieldstone + peaked post-roof),
+  and 9 stalls: generic `market-stall` (terracotta), the 4 market themes (fish
+  teal / produce olive / goods mustard / empty grey) + 4 distinct town-merchant
+  stalls (general brown / fishmonger slate-blue / greengrocer sage / tailor
+  plum, in `buildings/spare/`). Anchors re-measured (alpha bbox centre+foot) in
+  `art/buildings.ts`; the hard-coded set updated, the `spriteBaseAnchor` set
+  auto-adapts.
+- **Grounding (clean-cut + runtime base-blend decal, the "detached" fix):**
+  `world/ground.ts` `paintBuildingGrounding()` bakes a decal under every building
+  footprint INTO the ground canvas (once, so it sits under the depth-sorted
+  sprites and adapts to the terrain) — it SAMPLES the local ground pixels
+  (getImageData) and blends them toward a dark compacted-earth contact with a
+  two-octave noise-dithered edge; **farm buildings** (house/barn/outhouse +
+  neighbour farmstead) additionally get a wider WARM worn-dirt yard. Runs in BOTH
+  the tiled and painterly paths → grounding shows on the zero-PNG fallback too.
+  Contact shadows stay dynamic (`castShadow`, uniform sun) — the decal supplies
+  the "sits in the earth" weight, so no global shadow-alpha change was needed.
+- **Roofline metadata (the interiors constraint):** `BUILDING_ROOFLINE` in
+  `art/buildings.ts` records each sprite's roof band `[topY, eavesLine]` (sprite
+  px; eaves = the widest row in the top ~55%) for the future Sims-style roof-hide.
+- **Damage overlays re-tuned** to the new player farmhouse/barn art (read off a
+  16/8px coord grid + verified against a rundown-state screenshot): farmhouse
+  roof-hole+patch on the mossy roof ≈(112-152,72-106), boarded window ≈(119-146,
+  112-137); barn loose-plank across the doors ≈(104,132), missing-plank gap
+  ≈(167,118). The generic stall's `STALL_AWNING_BAND` was widened to 328-22° (the
+  new terracotta cloth) so the player-stall recolour still catches it.
+
 ---
 
 ## 1. What's sprite-sourced today (vs code-drawn)

@@ -5,6 +5,7 @@ import {
   ROAD_SEGMENTS, RIVER, LAKE, DOCK, WELL, STRUCTURES, HEDGES, MARKET_STALLS, COTTAGES,
   FOREST_BUSHES, WORLD_TREES, regionAt, onRoad, inWater, type Rect,
   TOWN_STREET, TOWN_SEA, TOWN_DOCK,
+  OUTHOUSE, NEIGHBOR, INN, STABLE, TOWN_HOMES, TOWN_MERCHANTS,
 } from "./zones";
 import { mulberry32 } from "../engine/rng";
 import { roundR } from "../art/shapes";
@@ -283,6 +284,93 @@ function paintTerrainTiles(g: CanvasRenderingContext2D): boolean {
  *  Measured 3456x960 (both sides < 4096) — one canvas is fine, no chunking.
  *  Tile-primary (pixel tiles + dither edges) when the ground PNGs are loaded;
  *  the painterly region painters below are the zero-PNG fallback. */
+// ===========================================================================
+//  W2a — building base-blend grounding decals. Clean-cut building sprites (no
+//  baked apron) need a runtime ground blend so they sit IN the terrain, not on
+//  it. Baked ONCE into the ground canvas (so it sits UNDER every depth-sorted
+//  building sprite and adapts to whatever ground the building sits on): each
+//  footprint SAMPLES the local ground pixels and blends them toward a darker
+//  compacted-earth contact under the base, with an organic multi-octave noise
+//  dither at the edge (same idea as the terrain edges, per PIXELLAB_ASSETS
+//  "grounding split"). Farm buildings additionally get a wider WARM worn-dirt
+//  yard — the trampled "lived-in yard" the old baked apron gave. Contact
+//  SHADOWS stay dynamic (castShadow, drawn per-frame in art/buildings.ts).
+// ===========================================================================
+interface FootPrint { cx: number; cy: number; halfW: number; worn: boolean }
+function buildingFootprints(): FootPrint[] {
+  const fp: FootPrint[] = [];
+  const B = (r: Rect, worn: boolean, k = 0.55) =>
+    fp.push({ cx: r.x + r.w / 2, cy: r.y + r.h, halfW: r.w * k, worn });
+  // Farm buildings/farmsteads — a worn trampled-dirt yard.
+  B(HOUSE, true); B(BARN, true); B(OUTHOUSE, true, 0.6);
+  B(NEIGHBOR.house, true); B(NEIGHBOR.barn, true);
+  // Market/town buildings — subtle contact only (they sit on plaza/street/grass,
+  // where a warm dirt patch would clash with cobble).
+  for (const c of COTTAGES) B(c, false);
+  for (const h of TOWN_HOMES) B(h, false);
+  B(INN, false); B(STABLE, false);
+  B(STALL, false, 0.5);
+  for (const s of MARKET_STALLS) B(s, false, 0.5);
+  for (const m of TOWN_MERCHANTS) B(m, false, 0.5);
+  fp.push({ cx: WELL.cx, cy: WELL.cy + WELL.r, halfW: WELL.r * 1.3, worn: false });
+  return fp;
+}
+
+/** Two-octave organic value in (0,1) for dithering a decal boundary. */
+function scuffNoise(x: number, y: number): number {
+  return noise01(x, y, 91) * 0.6 + noise01(x >> 1, y >> 1, 47) * 0.4;
+}
+
+/** Blend the ground under one building base toward compacted earth, edge
+ *  dithered. Reads + writes the ground canvas in place (samples local terrain). */
+function scuffOne(g: CanvasRenderingContext2D, f: FootPrint) {
+  const rxC = f.halfW * 1.06, ryC = Math.max(7, f.halfW * 0.34);   // dark contact
+  const rxW = f.halfW * 1.4,  ryW = Math.max(10, f.halfW * 0.6);   // warm worn ring
+  const rx = f.worn ? rxW : rxC, ry = f.worn ? ryW : ryC;
+  const cx = f.cx, cy = f.cy - ry * 0.15;
+  const x0 = Math.max(0, Math.floor(cx - rx - 2)), x1 = Math.min(WORLD_W, Math.ceil(cx + rx + 2));
+  const y0 = Math.max(0, Math.floor(cy - ry - 2)), y1 = Math.min(WORLD_H, Math.ceil(cy + ry + 2));
+  if (x1 <= x0 || y1 <= y0) return;
+  const img = g.getImageData(x0, y0, x1 - x0, y1 - y0);
+  const d = img.data, iw = x1 - x0;
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const i = ((y - y0) * iw + (x - x0)) * 4;
+    const nz = scuffNoise(x, y);
+    if (f.worn) {                                   // warm worn-dirt ring (farm)
+      const nxW = (x - cx) / rxW, nyW = (y - cy) / ryW;
+      const dW = Math.sqrt(nxW * nxW + nyW * nyW);
+      if (dW < 1) {
+        const fall = 1 - dW;
+        let a = 0.42 * fall * fall;
+        if (fall < 0.42 && nz > fall / 0.42) a = 0; // dither the outer boundary
+        if (a > 0) {
+          d[i]     = d[i]     * (1 - a) + 74 * a;
+          d[i + 1] = d[i + 1] * (1 - a) + 58 * a;
+          d[i + 2] = d[i + 2] * (1 - a) + 38 * a;
+        }
+      }
+    }
+    const nxC = (x - cx) / rxC, nyC = (y - cy) / ryC;   // dark contact compression
+    const dC = Math.sqrt(nxC * nxC + nyC * nyC);
+    if (dC < 1) {
+      const fall = 1 - dC;
+      let a = 0.4 * fall * fall;
+      if (fall < 0.5 && nz > fall / 0.5) a = 0;
+      if (a > 0) {
+        d[i]     = d[i]     * (1 - a) + 26 * a;
+        d[i + 1] = d[i + 1] * (1 - a) + 20 * a;
+        d[i + 2] = d[i + 2] * (1 - a) + 13 * a;
+      }
+    }
+  }
+  g.putImageData(img, x0, y0);
+}
+
+/** Bake every building's base-blend decal into the ground canvas. */
+function paintBuildingGrounding(g: CanvasRenderingContext2D) {
+  for (const f of buildingFootprints()) scuffOne(g, f);
+}
+
 export function paintGround(): HTMLCanvasElement {
   const ground = document.createElement("canvas");
   ground.width = WORLD_W; ground.height = WORLD_H;
@@ -295,6 +383,7 @@ export function paintGround(): HTMLCanvasElement {
     // stay code-drawn on TOP of the tiles — they break up any tile repetition
     // and add life; their rejection zones keep them off water/plaza/paths.
     scatterAmbientProps(g);
+    paintBuildingGrounding(g);
     return ground;
   }
 
@@ -387,6 +476,7 @@ export function paintGround(): HTMLCanvasElement {
   g.beginPath(); g.ellipse(POND.cx, POND.cy, POND.rx, POND.ry, 0, 0, 7); g.stroke();
 
   scatterAmbientProps(g);
+  paintBuildingGrounding(g);
   return ground;
 }
 

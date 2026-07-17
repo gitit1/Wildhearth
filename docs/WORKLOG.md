@@ -29,6 +29,72 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## W2a — the buildings wave: every structure in the UO-mood straight-on style, grounded
+- **Date:** 2026-07-17 (v1-foundation). The art-pivot W2 buildings wave (see
+  `docs/ART_PIVOT_UO.md`). Replaces every cozy-era building sprite with the
+  approved UO-mood look, in-place (same filenames/paths → drop-in swap; the
+  cozy code painters stay as the zero-PNG dual-path fallback, untouched).
+  **34 PixelLab generations** (27 shipped + 7 discards/re-rolls); balance
+  6796 → **6762** (Tier 3). Full ledger + prompts in `docs/PIXELLAB_ASSETS.md`
+  "W2a ledger".
+- **Recipe calibration (the load-bearing finding):** the documented W0.5
+  "strict straight-on" clause + `view: high top-down` still drifts tall gable
+  buildings to a 3/4 ISOMETRIC corner view (validated on the first batch —
+  farmhouse/barn/cottage all came back as corner miniatures, the exact look the
+  owner rejected). Fixed by a strengthened flat clause (merging the proven
+  wave-4 "flat 2D Stardew elevation, NO side walls / side faces / depth" wording
+  with the UO suffix + `lineless`) **and `view: "low top-down"` for all gable
+  buildings**; open stalls + the well stay on `high top-down`. Recorded as the
+  new building recipe in `docs/PIXELLAB_ASSETS.md`.
+- **27 sprites regenerated** under `src/assets/pixellab/buildings/` (+ `spare/`):
+  `farmhouse`, `farmhouse-neighbor`, `barn`, `cottage-01..11` (all 11 variants,
+  incl. spare 06/08), `inn` (re-rolled ×2 — the hardest to flatten), `stable`,
+  `outhouse`, `well`, generic `market-stall`, the 4 themed market stalls
+  (`stall-{fish,produce,goods,empty}`), and 4 distinct town-merchant stalls
+  (`spare/stall-{general-01,fish-02,produce-02,empty-01}` — kept distinct from
+  the market set so no two on-screen buildings repeat).
+- **`src/art/buildings.ts`:** re-measured every hard-coded anchor (`FARMHOUSE_SHEET`,
+  `FARMHOUSE_NEIGHBOR_SHEET`, `BARN_SHEET`, `STALL_SHEET`, `WELL_SHEET`,
+  `STALL_THEMES`, `COTTAGE_SPRITES` 1-5/7) to the new alpha bboxes; widened
+  `STALL_AWNING_BAND` to 328-22° for the new terracotta generic-stall awning
+  (keeps the player-stall `recolorSprite` path working); re-tuned the code-drawn
+  renovation DAMAGE overlays (`drawHouseRoofDamageSprite` roof-hole+patch,
+  `drawHouseWindowBoardSprite` boarded window, `drawBarnDamageSprite`
+  plank+gap) to sit on the new farmhouse/barn art (verified against a live
+  rundown-state screenshot); added the **`BUILDING_ROOFLINE`** export — each
+  sprite's roof band `[topY, eavesLine]` in sprite px, groundwork for the future
+  Sims-style roof-hide interiors (the W2 interiors constraint).
+- **`src/world/ground.ts`:** new `paintBuildingGrounding()` (+ `buildingFootprints()`,
+  `scuffOne()`, `scuffNoise()`) — the runtime base-blend grounding decal for the
+  clean-cut building sprites. Baked ONCE into the pre-rendered ground canvas (so
+  it sits under the depth-sorted sprites and adapts to the terrain): it samples
+  the local ground pixels and blends them toward a dark compacted-earth contact
+  with a two-octave noise-dithered edge; **farm buildings + the neighbour
+  farmstead** additionally get a wider WARM worn-dirt yard (the "lived-in yard"
+  the old baked apron gave). Runs in both the tiled and painterly paths, so the
+  grounding shows on the zero-PNG fallback too. New imports: `OUTHOUSE`,
+  `NEIGHBOR`, `INN`, `STABLE`, `TOWN_HOMES`, `TOWN_MERCHANTS`.
+- **Verified:** `npm run build` green (tsc strict + vite); `verify:smoke` +
+  `verify:save` green; a puppeteer **zero-PNG boot** (block all image loads →
+  every `sprite()` null → painters carry the game) boots clean with no
+  page/console errors — dual-path intact. Real-flow 1920×1080 screenshots of
+  farm (day+dusk), neighbour farm, market square, town street, inn, and stable
+  all show one consistent camera, muted palette, buildings sitting IN the ground
+  (worn-dirt yards on the farm, subtle cobble contact in town — no pasted-on
+  read, no grass-apron clash on cobble), damage overlays aligned, and no
+  cozy-era building anywhere on the sprite path. Mock test (farm-dusk beside
+  `uo-mock-screen-v3.png`): reads as the same world — same muted UO palette,
+  same weathered straight-on mossy-roofed buildings grounded in worn earth under
+  one camera.
+- **Follow-ups:** (1) interior furniture sprites (basin/bed/chair/hearth/
+  room-backdrop) are still cozy-era — a separate W2 sub-block regenerates them so
+  an interior doesn't mix eras (out of this wave's building scope). (2) Trees,
+  rocks, props, crops, festival kit are still cozy-era (W2b/W4). (3) A couple of
+  cottages retain a mild front-face dimensionality (within the approved-mock
+  tolerance, well short of the rejected corner-view); re-roll individually if the
+  owner wants them dead-flat. (4) `BUILDING_ROOFLINE` eaves values are a measured
+  estimate — refine per-sprite when the roof-hide feature is actually built.
+
 ## A4.1 — relationships rows get real faces
 - **Date:** 2026-07-17 (v1-foundation). Fix-block on top of the A3+A4 commit
   (`a3fa09d`), from an eyeball review of `verify/out/a34-b-relationships-full.png`:
