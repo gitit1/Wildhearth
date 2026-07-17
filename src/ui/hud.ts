@@ -37,15 +37,18 @@ export function updateHud(e: Economy, cal?: CalendarSlice, wx?: WeatherSlice, fe
   if (wx) weatherEl.textContent = `${WEATHER_GLYPH[wx.state] ?? ""} ${cap(wx.state)}`;
 }
 
-// the always-visible needs strip: 7 code-drawn icons + fill bars (DECISIONS:
-// "small fixed items always visible — clock, coins, need icons"). Its own crisp
-// canvas, dpr-scaled once, redrawn each frame from the World Context needs slice.
-const NS_W = 216, NS_H = 40;
+// the always-visible needs CLUSTER (HUD-A1): 7 labelled code-drawn cells at a
+// ≥52px pitch, each = glyph + a thick value-colored bar + the need's name, so
+// every need reads at arm's length on a 1080p screen (the owner's "tiny
+// unreadable thing" is retired). Its own crisp canvas, dpr-scaled once, redrawn
+// each frame; the CSS lets the wide native canvas scale DOWN to fit a phone.
+const NS_W = 420, NS_H = 62;
 const needsCv = document.getElementById("needsStrip") as HTMLCanvasElement;
 needsCv.width = NS_W * devicePixelRatio;
 needsCv.height = NS_H * devicePixelRatio;
 needsCv.style.width = `${NS_W}px`;
-needsCv.style.height = `${NS_H}px`;
+// height is left to CSS (#needsStrip: height:auto + max-width:100%) so the
+// cluster scales proportionally instead of clipping on a narrow screen.
 const needsG = needsCv.getContext("2d")!;
 
 export function updateNeedsStrip(record: Record<string, number> | undefined, time: number) {

@@ -325,7 +325,8 @@
        normal-day width up front (right-anchored windows would otherwise overflow). */
     #hudInfo{display:flex;flex-direction:column;gap:4px;align-items:stretch;min-width:104px}
     #hudInfo .pill{padding:3px 10px;font-size:12px;text-align:center}
-    #coinsWin .pill{padding:4px 12px;font-size:14px}
+    /* the coin count folded into the info box (HUD-A1): a touch bolder + gold */
+    #hudInfo .hud-coins{color:var(--gold);font-weight:800;font-size:13px}
     .choice-row{display:flex;gap:14px;justify-content:center;margin:6px 0 4px}
     .choice-card{width:160px;background:rgba(240,234,214,.07);border:2px solid rgba(240,234,214,.25);
       border-radius:14px;padding:14px 10px;cursor:pointer;text-align:center}
@@ -457,9 +458,15 @@
     .ctx-item{background:transparent;border:none;color:#f0ead6;font:inherit;font-size:14px;
       text-align:left;padding:7px 12px;border-radius:6px;cursor:pointer;white-space:nowrap}
     .ctx-item:hover{background:rgba(230,190,80,.9);color:#241d0e}
-    /* the always-visible needs strip (7 code-drawn icons) — now the body of the
-       Needs window; the window's own chrome is the wood panel behind it. */
-    #needsStrip{display:block}
+    /* the always-visible needs cluster (7 labelled code-drawn cells) — the body
+       of the anchored Needs window above the taskbar. max-width/height:auto let
+       the wide native canvas scale DOWN to fit a phone without clipping. */
+    #needsStrip{display:block;max-width:100%;height:auto}
+    /* narrow screens: the taskbar shrinks its buttons (and wraps to 2 rows if
+       it must) so the 9-button row never clips off-screen (HUD-A1 mobile). */
+    @media (max-width:520px){
+      #tools .tool-btn{width:44px;height:44px;font-size:20px}
+    }
     /* fade-to-black overlay for sleep / collapse time skips */
     #fade{position:fixed;inset:0;z-index:20;background:#000;opacity:0;pointer-events:none;
       display:flex;align-items:center;justify-content:center;color:var(--gold);
@@ -816,6 +823,14 @@
     .wh-window{cursor:move}
     .wh-window>.wh-body{cursor:auto}
     .wh-pinned{cursor:default}
+    /* Anchored chrome (HUD-A1 "the tidied UO desk"): the taskbar (dock), the
+       needs cluster, the info box (clock+coins) and the radar. No title bar and
+       not draggable — the window manager pins them to the desktop edge and
+       re-derives their spot on every resize (they never drift). They still hide
+       under .wh-story like any non-viewport window. */
+    .wh-anchored{cursor:default}
+    .wh-anchored>.wh-titlebar{display:none}
+    .wh-anchored>.wh-body{border-radius:8px}
     /* Story mode (the new-game sequence: intro / farm reveal / path / guidance):
        the world shows through the viewport alone — no HUD, no panels, no dock
        floating over the story moment. main.ts toggles the class. */
@@ -889,7 +904,7 @@
           interior stays the dark readable --panel-bg (no `fill`), so all the
           inner content keeps its designed contrast; only the border ring is the
           PNG. -- */
-    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"]){
+    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"]):not(.wh-anchored){
       border-style:solid;
       border-width:20px 18px 22px 18px;
       border-image:var(--skin-window) 34 30 36 30 / auto / 0 stretch;
@@ -900,7 +915,7 @@
     }
     /* the title bar becomes a slim strip sitting just inside the frame's top
        band — transparent (the wood frame shows around it), no rounded corners */
-    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"])>.wh-titlebar{
+    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"]):not(.wh-anchored)>.wh-titlebar{
       background:transparent;box-shadow:none;border-radius:0;height:22px;
       margin:-4px -2px 2px;padding:0 2px 0 4px;
     }
@@ -918,7 +933,7 @@
     }
     /* minimized strips + the resizable-window inner padding stay as-is; the
        frame's own border already supplies the breathing room */
-    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"]):not(.wh-resizable)>.wh-body{
+    .wh-skinned .wh-window[data-win]:not([data-win="viewport"]):not([data-win="clock"]):not([data-win="coins"]):not([data-win="needs"]):not([data-win="dock"]):not(.wh-anchored):not(.wh-resizable)>.wh-body{
       padding:2px 3px;
     }
 

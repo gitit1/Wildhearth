@@ -1,22 +1,31 @@
 import { ALL_NEEDS, type NeedId } from "../systems/needs";
 
 /**
- * The always-visible HUD needs strip: 7 tiny code-drawn glyphs, each with a
- * status fill-bar, in the game's wood/gold chrome (DECISIONS: "small fixed
- * items always visible — clock, coins, need icons"). All art is code, per the
- * project rule — one small glyph painter per need. Icons pulse when < 25.
+ * The always-visible HUD needs CLUSTER (HUD-A1 "the tidied UO desk"): 7 code-
+ * drawn cells at a ≥52px pitch, each = a scaled-up glyph + the need's NAME in
+ * small text + a thick value-colored bar, so every need is identifiable and
+ * readable at arm's length on a 1080p screen (retiring the old 216×40 "tiny
+ * unreadable thing"). All art is code, per the project rule — one glyph painter
+ * per need. A critical cell (< 25) keeps its pulsing red alert plate.
  */
 
-const INK = "#efe7cf";        // glyph stroke/fill (warm bone, reads on wood)
-const TRACK = "rgba(0,0,0,.38)";
+const INK = "#efe7cf";        // glyph stroke/fill + label (warm bone, reads on wood)
+const TRACK = "rgba(0,0,0,.42)";
 const GOOD = "#7ec46a", MID = "#e8c34f", LOW = "#d9534f";
+
+// Short, arm's-length-legible names under each glyph (the exact 0-100 value is
+// still on hover — see hud.ts's per-cell title).
+const NEED_SHORT: Record<NeedId, string> = {
+  hunger: "Food", thirst: "Water", energy: "Energy", hygiene: "Hygiene",
+  bathroom: "Toilet", social: "Social", mood: "Mood",
+};
 
 function barColor(v: number): string {
   return v >= 50 ? GOOD : v >= 25 ? MID : LOW;
 }
 
-/** Draws the whole strip into a W x H canvas (transparent gaps; the CSS chrome
- *  is the wood panel behind it). `record` is the World Context needs slice. */
+/** Draws the whole cluster into a W x H canvas (transparent gaps; the anchored
+ *  window's wood panel is the chrome behind it). `record` is the needs slice. */
 export function drawNeedsStrip(
   g: CanvasRenderingContext2D, record: Record<string, number>, time: number, W: number, H: number,
 ) {
@@ -38,23 +47,32 @@ function drawCell(
   if (low) {
     const pulse = 0.28 + 0.22 * (0.5 + 0.5 * Math.sin(time * 4));
     g.fillStyle = `rgba(217,83,79,${pulse})`;
-    roundRect(g, cx - cellW / 2 + 2, 3, cellW - 4, H - 6, 6);
+    roundRect(g, cx - cellW / 2 + 2, 2, cellW - 4, H - 4, 8);
     g.fill();
   }
 
-  // glyph
+  // glyph — scaled up ~1.35× from the native ~16px painter box
   g.save();
   g.strokeStyle = INK; g.fillStyle = INK;
-  g.lineWidth = 1.6; g.lineJoin = "round"; g.lineCap = "round";
-  glyph(g, id, cx, 13, v);
+  g.lineWidth = 1.5; g.lineJoin = "round"; g.lineCap = "round";
+  g.translate(cx, 15);
+  g.scale(1.35, 1.35);
+  glyph(g, id, 0, 0, v);
   g.restore();
 
-  // status bar
-  const bw = cellW - 10, bx = cx - bw / 2, by = H - 9, bh = 5;
-  g.fillStyle = TRACK; roundRect(g, bx, by, bw, bh, 2.5); g.fill();
+  // name label
+  g.fillStyle = INK;
+  g.font = "700 11px system-ui, sans-serif";
+  g.textAlign = "center"; g.textBaseline = "alphabetic";
+  g.fillText(NEED_SHORT[id], cx, 38);
+  g.textAlign = "start"; g.textBaseline = "alphabetic";
+
+  // thick status bar
+  const bw = cellW - 16, bx = cx - bw / 2, by = 45, bh = 10;
+  g.fillStyle = TRACK; roundRect(g, bx, by, bw, bh, 3.5); g.fill();
   const fw = Math.max(0, Math.min(1, v / 100)) * (bw - 2);
   g.fillStyle = barColor(v);
-  roundRect(g, bx + 1, by + 1, Math.max(1.5, fw), bh - 2, 2); g.fill();
+  roundRect(g, bx + 1, by + 1, Math.max(2, fw), bh - 2, 2.5); g.fill();
 }
 
 /** Dispatch to the per-need glyph, centred at (cx, cy) in a ~16px box. */

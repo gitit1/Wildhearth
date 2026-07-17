@@ -60,6 +60,8 @@ export function initBackpack(economy: Economy, eat: (id: string) => boolean) {
     content: panel,
     onScale: setScale,
     defaultPos: (d) => ({ x: d.w - 250 - GAP, y: 236 }),
+    // fixed home (HUD-A2): docked to the RIGHT edge, vertically centered.
+    openAt: (d, s) => ({ x: d.w - s.w - GAP, y: Math.round((d.h - s.h) / 2) }),
     onVisibleChange: (hidden) => { bagBtn?.classList.toggle("active", !hidden); if (!hidden) render(); },
   });
   bagBtn?.addEventListener("click", () => toggleWindow(win));

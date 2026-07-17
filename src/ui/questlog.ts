@@ -1,5 +1,6 @@
 import { createScaleWindow } from "./windows/scalewindow";
 import { toggleWindow } from "./windows/manager";
+import { leftPanelAnchor } from "./windows/setup";
 import type { WindowHandle } from "./windows/window";
 import { ITEM_NAMES } from "../systems/inventory";
 import { NPCS } from "../data/npcs";
@@ -70,6 +71,7 @@ export function initQuestLog(questLog: QuestLog, h: QuestLogHooks) {
     content: panel,
     onScale: (s) => panel.style.setProperty("--s", String(s)),
     defaultPos: (d) => ({ x: Math.round(d.w * 0.28), y: Math.round(d.h * 0.2) }),
+    openAt: (d, s) => leftPanelAnchor("quests", d, s),   // fixed left-edge home, cascaded (HUD-A2)
     onVisibleChange: (hidden) => { questBtn?.classList.toggle("active", !hidden); if (!hidden) render(); },
   });
   win.close();   // default: hidden

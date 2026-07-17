@@ -26,6 +26,11 @@ export function createScaleWindow(opts: {
   content: HTMLElement;
   onScale: (s: number) => void;
   defaultPos: (d: DesktopSize) => { x: number; y: number };
+  /** The FIXED spawn home (HUD-A2): where the window opens when the player has
+   *  never placed it herself. Defaults to `defaultPos` (its centered/edge home)
+   *  — pass an explicit one for size-aware homes (e.g. backpack right-docked).
+   *  Every scale window has one, so the free-space grid search is never hit. */
+  openAt?: (d: DesktopSize, s: { w: number; h: number }) => { x: number; y: number };
   closable?: boolean;
   /** Fires whenever visibility toggles either way (open/restore -> false,
    *  minimize/close -> true) — the one hook that covers every "became
@@ -54,6 +59,9 @@ export function createScaleWindow(opts: {
     maxH: Math.round(baseH * WIN_PANEL_SCALE_MAX),
     closable: opts.closable,
     defaultRect,
+    // fixed home (HUD-A2): explicit openAt, else the panel's own default spot —
+    // so a reopened un-user-placed panel never falls through to the edge-seek.
+    openAt: opts.openAt ?? ((d) => opts.defaultPos(d)),
     onResize: (cw) => {
       const s = Math.min(WIN_PANEL_SCALE_MAX, Math.max(WIN_PANEL_SCALE_MIN, cw / baseW));
       opts.onScale(s);

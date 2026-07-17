@@ -1,6 +1,6 @@
 import {
   WIN_SNAP_DIST, WIN_TITLEBAR_H, WIN_RESIZE_HANDLE, WIN_MIN_VISIBLE,
-  WIN_MIN_W, WIN_MIN_H,
+  WIN_MIN_W, WIN_MIN_H, WIN_ANCHOR_MARGIN, WIN_ANCHOR_GAP,
 } from "../../config";
 import {
   clamp, type WindowSpec, type WindowHandle, type WindowRect, type WindowState,
@@ -43,6 +43,7 @@ class WindowManager {
   private dock!: HTMLElement;
   private ready = false;
   private topZ = 10;
+  private anchorReflow = 0;   // pending rAF handle for the settle-pass re-anchor
   private readonly wins = new Map<string, Managed>();
   private dockOrientation: DockOrientation = "horizontal";
   private onLayoutChange?: () => void;
@@ -137,13 +138,16 @@ class WindowManager {
   // =========================================================================
   createWindow(spec: WindowSpec): WindowHandle {
     this.ensure();
-    const resizable = spec.resizable ?? false;
-    const closable = spec.closable ?? true;
-    const minimizable = spec.minimizable ?? true;
-    const pinnable = spec.pinnable ?? true;
+    // Anchored chrome is furniture: never resizable, closable, minimizable or
+    // pinnable — no matter what the spec asked for. Everything else follows.
+    const anchored = !!spec.anchor;
+    const resizable = anchored ? false : (spec.resizable ?? false);
+    const closable = anchored ? false : (spec.closable ?? true);
+    const minimizable = anchored ? false : (spec.minimizable ?? true);
+    const pinnable = anchored ? false : (spec.pinnable ?? true);
 
     const frame = document.createElement("div");
-    frame.className = "wh-window" + (resizable ? " wh-resizable" : "");
+    frame.className = "wh-window" + (resizable ? " wh-resizable" : "") + (anchored ? " wh-anchored" : "");
     frame.dataset.win = spec.id;
 
     const titlebar = document.createElement("div");
@@ -196,16 +200,24 @@ class WindowManager {
     if (resizable) this.addResizeHandles(managed);
 
     // ---- focus on any pointerdown (brings to front) ------------------------
-    frame.addEventListener("pointerdown", () => this.focus(spec.id), true);
-
-    // ---- drag from the title bar (or restore, when minimized) --------------
-    this.wireDrag(managed);
+    // Anchored chrome never grabs focus / drags — it's fixed furniture; only
+    // its own buttons (the taskbar tools) stay interactive.
+    if (!anchored) {
+      frame.addEventListener("pointerdown", () => this.focus(spec.id), true);
+      // ---- drag from the title bar (or restore, when minimized) ------------
+      this.wireDrag(managed);
+    }
 
     this.desktop.appendChild(frame);
-    // clampFor, not the raw default: a window created mid-play on a small
-    // screen (Settings is built lazily on first open) must land on-screen,
-    // capped to the desktop, from its very first frame.
-    this.applyRect(managed, this.clampFor(managed, this.frameRectFor(managed, rect)));
+    if (anchored) {
+      // an anchored window derives its spot from the desktop edge, not the rect
+      this.applyAnchor(managed);
+    } else {
+      // clampFor, not the raw default: a window created mid-play on a small
+      // screen (Settings is built lazily on first open) must land on-screen,
+      // capped to the desktop, from its very first frame.
+      this.applyRect(managed, this.clampFor(managed, this.frameRectFor(managed, rect)));
+    }
     this.focus(spec.id);
     spec.onOpen?.();
     return handle;
@@ -297,6 +309,9 @@ class WindowManager {
   //  State transitions (normal / minimized / hidden)
   // =========================================================================
   private setState(m: Managed, next: WindowState): void {
+    // anchored chrome is always shown at its edge — it can't be hidden or
+    // docked (a preset's minimize / an Esc / a stray close is a no-op on it).
+    if (m.spec.anchor && next !== "normal") return;
     // a non-closable window (the icon dock) can never be hidden — that would
     // strip the ☰ reopen path from the screen. Coerce a close request to a no-op.
     if (next === "hidden" && !(m.spec.closable ?? true)) return;
@@ -328,15 +343,77 @@ class WindowManager {
         this.reflowDock();
       }
       // A fresh OPEN (not a restore-from-minimize) of a window the player never
-      // placed herself gets the logical spot: centered cascade / its openAt
-      // anchor. Everything else keeps its rect, pulled fully on-screen.
-      if (prev === "hidden" && (m.spec.autoPlace ?? true) && !m.userPlaced) this.autoPlace(m);
+      // placed herself gets its FIXED home: the anchored edge, or its `openAt`
+      // anchor exactly (HUD-A2 — no scatter). Everything else keeps its rect,
+      // pulled fully on-screen.
+      if (prev === "hidden" && !m.userPlaced) this.placeFresh(m);
       else this.applyRect(m, this.clampFor(m, m.normalRect), true);
       this.focus(m.spec.id);
       m.spec.onMinimize?.(false);
       if (prev === "hidden") m.spec.onOpen?.();
     }
     this.persist();
+  }
+
+  // =========================================================================
+  //  Anchored chrome (HUD-A1) + fixed spawn homes (HUD-A2)
+  // =========================================================================
+  /** The desktop-edge spot an anchored window derives, from its MEASURED size.
+   *  `above-dock` stacks a window directly above the (bottom-center) taskbar,
+   *  recomputing the dock's own anchor so it never depends on iteration order. */
+  private anchorRectFor(m: Managed): { x: number; y: number } {
+    const { w: dw, h: dh } = this.deskSize();
+    const s = this.liveSize(m);
+    const w = s.w || m.normalRect.w, h = s.h || m.normalRect.h;
+    const M = WIN_ANCHOR_MARGIN;
+    const cx = Math.round((dw - w) / 2);
+    switch (m.spec.anchor) {
+      case "top-left":     return { x: M, y: M };
+      case "top-center":   return { x: cx, y: M };
+      case "top-right":    return { x: dw - w - M, y: M };
+      case "bottom-left":  return { x: M, y: dh - h - M };
+      case "bottom-center":return { x: cx, y: dh - h - M };
+      case "bottom-right": return { x: dw - w - M, y: dh - h - M };
+      case "above-dock": {
+        const dock = this.wins.get("dock");
+        const dockTop = dock ? this.anchorRectFor(dock).y : dh - h - M;
+        return { x: cx, y: dockTop - h - WIN_ANCHOR_GAP };
+      }
+      default:             return { x: cx, y: M };
+    }
+  }
+
+  /** Re-derive an anchored window's position from the desktop edge (create,
+   *  open, and every desktop resize — the fix for the old "only re-clamped, so
+   *  it drifts" chrome bug). Keeps the stored w/h (0 for auto-sized). */
+  private applyAnchor(m: Managed): void {
+    const p = this.anchorRectFor(m);
+    this.applyRect(m, this.clampFor(m, { x: p.x, y: p.y, w: m.normalRect.w, h: m.normalRect.h }), true);
+  }
+
+  /** A window's FIXED home (HUD-A2): opened at its authored `openAt` anchor
+   *  exactly (clamped on-screen), with NO free-space grid search. This is the
+   *  "kill the scatter" path — every content window in the game has an openAt,
+   *  so `autoPlace`'s edge-seek is never reached during normal play. */
+  private applyOpenAt(m: Managed): void {
+    const d = this.deskSize();
+    const resizable = m.spec.resizable ?? false;
+    const live = this.liveSize(m);
+    const w = resizable ? Math.min(m.normalRect.w, d.w) : live.w;
+    const h = resizable ? Math.min(m.normalRect.h, d.h) : live.h;
+    const p = m.spec.openAt!(d, { w, h });
+    this.applyRect(m, this.clampFor(m, { x: p.x, y: p.y, w: m.normalRect.w, h: m.normalRect.h }), true);
+  }
+
+  /** Where a window lands on a fresh OPEN (hidden → normal) that the player
+   *  never placed herself: anchored → its edge; an explicit `openAt` home →
+   *  exactly there (no scatter); else the legacy free-space grid (kept for
+   *  genuinely unanchored future windows — nothing in the game uses it now). */
+  private placeFresh(m: Managed): void {
+    if (m.spec.anchor) { this.applyAnchor(m); return; }
+    if (m.spec.openAt) { this.applyOpenAt(m); return; }
+    if (m.spec.autoPlace ?? true) { this.autoPlace(m); return; }
+    this.applyRect(m, this.clampFor(m, m.normalRect), true);
   }
 
   /** UO-gump open placement: a window opens in FREE SPACE, never on top of
@@ -357,9 +434,11 @@ class WindowManager {
     const prefer = m.spec.openAt
       ? m.spec.openAt(d, { w, h })
       : { x: Math.round((d.w - w) / 2), y: Math.round((d.h - h) / 2) };
-    // every other visible gump's footprint (measured for auto-sized windows)
+    // every other visible gump's footprint (measured for auto-sized windows).
+    // Anchored chrome (taskbar/needs/info/radar) is fixed furniture like the
+    // viewport — a popping window doesn't try to dodge it.
     const taken = [...this.wins.values()]
-      .filter((o) => o !== m && o.state === "normal" && o.spec.id !== "viewport")
+      .filter((o) => o !== m && o.state === "normal" && o.spec.id !== "viewport" && !o.spec.anchor)
       .map((o) => {
         const s = this.liveSize(o);
         return { x: o.normalRect.x, y: o.normalRect.y, w: s.w || o.normalRect.w, h: s.h || o.normalRect.h };
@@ -472,6 +551,19 @@ class WindowManager {
     };
     fr.addEventListener("pointerup", end);
     fr.addEventListener("pointercancel", end);
+
+    // ---- right-click the title bar / frame border to close (HUD-A2) --------
+    // Only the chrome closes — the body keeps its own interactions (the world
+    // context menu lives on the canvas, inside the body, and is untouched). The
+    // viewport is exempt: right-clicking the game must never hide it.
+    fr.addEventListener("contextmenu", (e) => {
+      if (m.spec.id === "viewport") return;
+      if (!(m.spec.closable ?? true)) return;
+      if (!grabbable(e.target as HTMLElement)) return;   // body / buttons / resize excluded
+      e.preventDefault();
+      e.stopPropagation();
+      this.setState(m, "hidden");
+    });
   }
 
   /** Gentle position-assist snap to desktop edges + other windows' edges. */
@@ -555,11 +647,29 @@ class WindowManager {
   private onDesktopResize(): void {
     for (const m of this.wins.values()) {
       if (m.state !== "normal") continue;
+      // Anchored chrome RE-DERIVES its edge position (not just a re-clamp) so it
+      // sticks to the corner instead of drifting inward as the desktop shrank.
+      if (m.spec.anchor) { this.applyAnchor(m); continue; }
       // clampFor shrinks a resizable window that overflows the desktop and
       // clamps auto-sized windows by their MEASURED box (stored w/h is 0).
       this.applyRect(m, this.clampFor(m, { ...m.normalRect }), true);
     }
+    // A resize event can arrive before the desktop's new size has fully laid
+    // out (an early/single-shot resize, some headless engines). Re-derive the
+    // anchored chrome once more on the NEXT frame, when clientWidth/Height have
+    // settled, so the taskbar/needs/info/radar always land on the true edge.
+    this.scheduleAnchorReflow();
     this.persist();
+  }
+
+  private scheduleAnchorReflow(): void {
+    if (this.anchorReflow || typeof requestAnimationFrame !== "function") return;
+    this.anchorReflow = requestAnimationFrame(() => {
+      this.anchorReflow = 0;
+      for (const m of this.wins.values()) {
+        if (m.state === "normal" && m.spec.anchor) this.applyAnchor(m);
+      }
+    });
   }
 
   // =========================================================================
@@ -599,6 +709,16 @@ class WindowManager {
     for (const [id, row] of Object.entries(store.windows)) {
       const m = this.wins.get(id);
       if (!m) continue;
+      // Anchored chrome overrides any persisted position/state: a stale layout
+      // row from before this window was anchored (or a hand-edited blob) can't
+      // move it or hide it — clear the drag flags and re-derive from the edge.
+      if (m.spec.anchor) {
+        m.userPlaced = false; m.userSized = false; m.pinned = false;
+        m.frame.classList.remove("wh-pinned");
+        this.forceState(m, "normal");
+        this.applyAnchor(m);
+        continue;
+      }
       const resizable = m.spec.resizable ?? false;
       m.userPlaced = row.up === true;
       m.userSized = row.us === true;
@@ -638,6 +758,8 @@ class WindowManager {
    *  onMinimize/onClose hooks so downstream flags (e.g. the viewport-active gate)
    *  are correct when a saved/preset layout restores a non-normal state. */
   private forceState(m: Managed, next: WindowState): void {
+    // anchored chrome is always shown at its edge — never docked or hidden
+    if (m.spec.anchor) next = "normal";
     // never restore a non-closable window (the dock) into the hidden state
     if (next === "hidden" && !(m.spec.closable ?? true)) next = "normal";
     m.state = next;

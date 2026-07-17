@@ -165,6 +165,7 @@ export function initDayEndPanel(): void {
     id: "dayend", title: "Day complete", icon: "📋",
     content: panel,
     defaultRect: (d) => ({ x: Math.round((d.w - EOD_W) / 2), y: Math.round((d.h - 320) / 2), w: 0, h: 0 }),
+    openAt: (d, s) => ({ x: Math.round((d.w - s.w) / 2), y: Math.round((d.h - s.h) / 2) }),   // fixed centered home (HUD-A2)
     onClose: () => {
       const cb = onCloseCb;
       onCloseCb = null;

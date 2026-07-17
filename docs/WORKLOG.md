@@ -29,6 +29,67 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## HUD A1+A2 — the anchored UO desk: taskbar, readable needs, one info box, fixed window homes
+- **Date:** 2026-07-17 (v1-foundation) — HUD Proposal A "the tidied UO desk", first half.
+- **Why:** the owner's window-feedback arc — floating gumps that "throw every
+  part in the wrong place" and a needs strip that was "the tiny unreadable
+  thing". Fix = anchored defaults, not a new paradigm (see DECISIONS.md "HUD
+  direction — Proposal A").
+- **A1 — anchored chrome (new window capability).** Added an `anchor` flag to
+  the window system: `WindowAnchor` type (`top-left|top-center|top-right|
+  bottom-*|above-dock`) in `src/ui/windows/window.ts`; the manager
+  (`src/ui/windows/manager.ts`) gives an anchored window NO title bar (CSS
+  `.wh-anchored>.wh-titlebar{display:none}`), forces closable/minimizable/
+  pinnable/resizable all off, skips drag + focus-on-pointerdown, and re-derives
+  its position from the desktop edge (`anchorRectFor`/`applyAnchor`) on create,
+  open, desktop-resize AND a next-frame `scheduleAnchorReflow()` settle pass
+  (fixes the old "only re-clamped, so it drifts" bug + an early-resize race).
+  `setState`/`forceState` coerce any non-normal state to normal for anchored
+  windows; `applyLayout` clears their `up`/`us` flags and ignores stale
+  persisted positions; `autoPlace` excludes anchored windows from overlap
+  scoring. Converted in `src/ui/windows/setup.ts`: **dock → bottom-center
+  taskbar** (title bar gone, the ⇄ orientation toggle dropped, the ☰
+  hidden-windows menu moved IN as a 9th `.tool-btn`; the menu now opens UPWARD
+  off the bottom bar); **needs → `above-dock`** enlarged cluster; **clock +
+  coins merged into ONE `info` window** anchored `top-right` (the `#coinsWin`
+  host is emptied — its pill folded into `#hudInfo` with a `.hud-coins`
+  accent — and removed from the DOM). **radar → `top-left`** anchored
+  (`src/ui/minimap.ts`). `CHROME_WINDOW_IDS` updated to `viewport/info/needs/
+  dock/radar`; the presets (Classic/Focus/Cozy/Reset) rewritten to the anchored
+  world (chrome self-positions; Reset = the new default desk). New config knobs
+  `WIN_ANCHOR_MARGIN`/`WIN_ANCHOR_GAP`.
+- **A1 — readable needs cluster.** `src/art/needsicons.ts` + `src/ui/hud.ts`:
+  the strip grew from 216×40 to a 420×62 canvas, 7 cells at 60px pitch, each a
+  1.35×-scaled code glyph + the need NAME (`NEED_SHORT`: Food/Water/Energy/
+  Hygiene/Toilet/Social/Mood) + a thick (10px) value-colored bar; the <25 red
+  pulse and the exact-value hover title are kept. `#needsStrip` gets
+  `max-width:100%;height:auto` so the wide native canvas scales DOWN on a phone.
+- **A2 — fixed spawn homes (kill the scatter).** The manager now opens an
+  un-user-placed window at its authored `openAt` anchor EXACTLY (`applyOpenAt`)
+  with no free-space grid search (`placeFresh` dispatch: anchor → openAt →
+  legacy grid, unused by any current window). `createScaleWindow`
+  (`src/ui/windows/scalewindow.ts`) gained an `openAt` option defaulting to its
+  `defaultPos`, so every panel has a home. Homes: **backpack** right-edge,
+  vertically centered; **skills/memory-book/quests** a shared left-edge zone
+  (`leftPanelAnchor` in setup.ts, below the top-left radar) cascading (24,24)
+  per already-open sibling; **dayend/settings** explicit centered `openAt`;
+  shop/gift/fisher/stable/storage/map/dialogue/debug keep their existing homes.
+- **A2 — right-click close.** In `manager.ts` a `contextmenu` handler on a
+  window's title bar / frame border closes it (body interactions and the world
+  context menu untouched; viewport + anchored chrome exempt).
+- **Verify:** `npm run build` green; `npm run verify:smoke` + `npm run
+  verify:save` green. Real new-game flow screenshotted at 1920×1080 — (a) full
+  new desk, (b) backpack+skills+quests each at its anchor (no scatter), (c)
+  resize smaller+back with chrome stuck to the edges, (d) 390×844 mobile
+  (2-row taskbar + scaled needs, nothing clipped) — plus story-mode (only the
+  viewport shows) and a stale-layout override test (dead clock/coins ids +
+  wrong anchored positions → overridden by anchors, no crash). All looked at.
+- **Follow-ups:** (1) A minimized content window's dock strip (`#whDock`,
+  bottom, z9000) can visually overlap the bottom taskbar — rare in the new
+  close-not-minimize world; left as-is. (2) On a browser resize the viewport
+  window clamps but doesn't re-grow to fill (pre-existing); a preset re-fills
+  it. (3) A3–A5 (paperdoll hub, relationships panel, edit-mode) remain.
+
 ## interior feel — hearth off the window, real sit/wash/cook motion, closer UO camera
 - **Date:** 2026-07-17 (v1-foundation) — GF-1 "the house feels alive" block.
 - **Owner reports fixed (four game-feel failures):**

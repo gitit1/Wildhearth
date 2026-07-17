@@ -20,6 +20,15 @@ export type WindowState = "normal" | "minimized" | "hidden";
 
 export type DesktopSize = { w: number; h: number };
 
+/** Anchored-chrome positions (HUD-A1). An anchored window has no title bar,
+ *  can't be dragged/resized/closed, ignores persisted positions, and re-derives
+ *  its spot from the named desktop edge on every resize. `above-dock` stacks a
+ *  window directly above the (bottom-center) dock taskbar. */
+export type WindowAnchor =
+  | "top-left" | "top-center" | "top-right"
+  | "bottom-left" | "bottom-center" | "bottom-right"
+  | "above-dock";
+
 /**
  * The declaration handed to the manager to build a window. `content` is the
  * element hosting the body (for the viewport this is the whole #gameArea, for
@@ -52,6 +61,12 @@ export interface WindowSpec {
    *  `openAt` overrides the centered base for windows with a natural anchor
    *  (dialogue = bottom-center, minimap = top-right, debug = top-left). */
   autoPlace?: boolean;    // default true
+  /** Anchored chrome (HUD-A1). When set the window has NO title bar, cannot be
+   *  dragged/resized/minimized/closed/pinned by the player, ignores any
+   *  persisted drag position, and re-derives its position from the named
+   *  desktop edge on every desktop resize (killing the old re-clamp drift).
+   *  The taskbar (dock), needs cluster, info box and radar use this. */
+  anchor?: WindowAnchor;
   /** When true, defaultRect's w/h describe the CONTENT box (what the window's
    *  body must give its content — a canvas, a scaled panel). The manager adds
    *  the MEASURED chrome (title bar + any skin border frame) when applying it,

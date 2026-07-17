@@ -128,8 +128,8 @@ export function initMinimap() {
   radarWin = wm.createWindow({
     id: "radar", title: "Radar", icon: "🧭",
     content: radarBox,
-    autoPlace: false,   // HUD chrome — its home is the top-right corner
-    defaultRect: (d) => ({ x: d.w - RADAR_W - 40, y: 140, w: 0, h: 0 }), // repositioned by presets
+    anchor: "top-left",   // HUD chrome (HUD-A1) — anchored to the top-left corner (UO's radar corner)
+    defaultRect: { x: 0, y: 0, w: 0, h: 0 },
   });
 
   mapBtn?.addEventListener("click", () => toggleWindow(win));

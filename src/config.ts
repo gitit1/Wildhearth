@@ -746,6 +746,13 @@ export const WIN_LAYOUT_SAVE_DEBOUNCE_MS = 400;       // debounce before a layou
 // corner-grip's default bounds.
 export const WIN_PANEL_SCALE_MIN = 0.6;
 export const WIN_PANEL_SCALE_MAX = 2.5;
+// Anchored chrome (HUD-A1 "the tidied UO desk"): the taskbar, needs cluster,
+// info box and radar are ANCHORED windows — no title bar, undraggable, and
+// re-derived from the desktop edge on every resize (never drift). MARGIN is
+// how far from the edge they sit; GAP is the space between two stacked anchors
+// (the needs cluster above the taskbar).
+export const WIN_ANCHOR_MARGIN = 8;
+export const WIN_ANCHOR_GAP = 8;
 
 // ===========================================================================
 //  Visual foundation (Part B, v1-foundation branch) — day/night, weather fx,

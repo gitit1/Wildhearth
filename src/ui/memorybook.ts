@@ -3,6 +3,7 @@ import type { Memories } from "../systems/memories";
 import { drawItemIcon } from "../art/icons";
 import { createScaleWindow } from "./windows/scalewindow";
 import { toggleWindow } from "./windows/manager";
+import { leftPanelAnchor } from "./windows/setup";
 import type { WindowHandle } from "./windows/window";
 
 /**
@@ -42,6 +43,7 @@ export function initMemoryBook(collections: Collections, memories: Memories) {
     content: panel,
     onScale: (s) => panel.style.setProperty("--s", String(s)),
     defaultPos: (d) => ({ x: Math.round(d.w * 0.22), y: Math.round(d.h * 0.18) }),
+    openAt: (d, s) => leftPanelAnchor("memorybook", d, s),   // fixed left-edge home, cascaded (HUD-A2)
     onVisibleChange: (hidden) => { bookBtn?.classList.toggle("active", !hidden); if (!hidden) render(); },
   });
   win.close(); // default: hidden

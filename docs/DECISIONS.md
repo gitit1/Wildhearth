@@ -305,6 +305,28 @@ The deferred character-matrix rebuild happens ONCE, inside this pivot
 
 ---
 
+## HUD direction — Proposal A "the tidied UO desk" (owner pick, 2026-07-17)
+
+After the window-feedback arc (the owner's repeated "you throw every part in
+the wrong place" / "the tiny unreadable thing"), the fix is a defaults change,
+not a new UI paradigm. **Research verdict:** UO's fully-free gumps are exactly
+the failure mode we hit — every panel floats, nothing has a home, so a busy
+desk always drifts into chaos; the durable pattern (Albion Online and modern
+MMO clients) is **anchored defaults** — fixed, edge-pinned chrome with content
+panels that spawn at fixed homes, while still letting the player drag if she
+wants. So: **ANCHORED CHROME** — the tool row becomes a bottom taskbar, the
+needs strip an enlarged labelled cluster above it, the clock+coins merge into
+one top-right info box, the radar sits top-left; none of these are draggable,
+and all re-derive from the desktop edge on every resize (no more drift).
+**FIXED SPAWN ANCHORS** — backpack docks right, skills/memory-book/quests open
+at a left-edge zone (cascading so they never stack exactly), everything else
+opens centered; the free-space edge-seek is retired for all current windows.
+**RIGHT-CLICK CLOSE** on a window's title bar / frame border. Shipped as block
+**A1+A2**. The rest of Proposal A follows: a paperdoll/equipment hub (A3), a
+relationships panel (A4), and an edit-mode to re-arrange/reset the desk (A5).
+
+---
+
 ## Open decisions still on the table
 
 - Mine location (accessible from farm/forest, or through town?)

@@ -93,6 +93,7 @@ export function showSettingsWindow(ctx: SettingsCtx) {
       defaultRect: (d) => ({
         x: Math.round((d.w - 720) / 2), y: Math.round((d.h - 560) / 2), w: 720, h: 560,
       }),
+      openAt: (d, s) => ({ x: Math.round((d.w - s.w) / 2), y: Math.round((d.h - s.h) / 2) }),   // fixed centered home (HUD-A2)
       // the window's ✕ / the shared Esc cascade both funnel through here —
       // same "go back to whatever opened Settings" semantics the old
       // screenShell's Back button had, just via WindowHandle.close() now.

@@ -2,6 +2,7 @@ import { SKILL_CAP } from "../config";
 import { SKILL_NAMES, cycleLock, totalSkills, skillTier, type Skills, type SkillLock } from "../systems/skills";
 import { createScaleWindow } from "./windows/scalewindow";
 import { toggleWindow } from "./windows/manager";
+import { leftPanelAnchor } from "./windows/setup";
 import type { WindowHandle } from "./windows/window";
 
 /**
@@ -66,6 +67,7 @@ export function initSkillsUI(skills: Skills) {
     content: panel,
     onScale: (s) => panel.style.setProperty("--s", String(s)),
     defaultPos: (d) => ({ x: GAP, y: Math.round(d.h * 0.42) }),
+    openAt: (d, s) => leftPanelAnchor("skills", d, s),   // fixed left-edge home, cascaded (HUD-A2)
     onVisibleChange: (hidden) => { skillsBtn?.classList.toggle("active", !hidden); if (!hidden) refresh(); },
   });
   win.close(); // default: hidden (matches the legacy panel's closed-by-default feel)
