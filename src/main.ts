@@ -197,7 +197,7 @@ import { questById as questDefById } from "./data/quests";
 import type { QuestDialogueOption, QuestPickResult } from "./ui/dialoguebox";
 import { rigFromCharacter } from "./entities/player";
 import type { RigParams, PoseName } from "./art/rig";
-import { nearRect, setCollisionScene, type Scene } from "./world/collision";
+import { nearRect, setCollisionScene, blocked, type Scene } from "./world/collision";
 import { paintDayNightTint, shadowFactors } from "./art/daynight";
 import { setSunFactors, getSunFactors } from "./art/shapes";
 import { updateWeatherFx, drawWeatherFx } from "./art/weatherfx";
@@ -1006,10 +1006,26 @@ function enterHouse() {
   scene = "interior";
   setCollisionScene(scene);
   setMounted(false);                         // you leave the horse outside (v2 block #5)
-  player.x = ROOM_ENTRY[0]; player.y = ROOM_ENTRY[1];
+  // Spawn on the door mat, facing the room — NEVER on furniture. HOME-1: the
+  // cottage enlarged & re-divided, so defensively clamp to a free cell (guards
+  // any future layout edit — position/scene aren't persisted today, so no save
+  // can load into the interior, but this keeps entry no-crash / no-stuck).
+  const [ex, ey] = safeInteriorSpawn(ROOM_ENTRY[0], ROOM_ENTRY[1]);
+  player.x = ex; player.y = ey;
   player.moving = false; player.dir = 0;     // stepping in, facing the room
   clearMoveTarget(); closeContextMenu(); closeGiftChooser();
   pending = null;
+}
+
+/** HOME-1: (x,y) if it's walkable in the interior, else the nearest free spot
+ *  (scanning outward), falling back to ROOM_ENTRY. Requires the interior
+ *  collision scene to be active (enterHouse sets it just above). */
+function safeInteriorSpawn(x: number, y: number): [number, number] {
+  if (!blocked(x, y)) return [x, y];
+  for (let rad = 8; rad <= 96; rad += 8)
+    for (const [dx, dy] of [[0, rad], [0, -rad], [rad, 0], [-rad, 0], [rad, rad], [-rad, rad]] as const)
+      if (!blocked(x + dx, y + dy)) return [x + dx, y + dy];
+  return [ROOM_ENTRY[0], ROOM_ENTRY[1]];
 }
 
 function leaveHouse() {

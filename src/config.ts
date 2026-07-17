@@ -345,11 +345,15 @@ export const CAM_ZOOM_REF_W = 620;      // window width where zoom starts growin
 export const CAM_USER_ZOOM_MIN = 0.6;   // player zoom factor bounds (wheel / +− buttons)...
 export const CAM_USER_ZOOM_MAX = 1.8;
 export const CAM_USER_ZOOM_STEP = 0.12; // ...changed by this much per wheel notch / button press
-// Interior camera boost (GF-1): the 320×224 ROOM floated as a small lit island
-// in a black void at the outdoor zoom. This multiplies the auto-zoom while
-// inside so the room fills most of the view (~70–80% of viewport height); the
-// hard-black surround is replaced by a warm-dark vignette (see drawInteriorScene).
-export const INTERIOR_ZOOM = 1.22;
+// Interior camera boost (GF-1): the small ROOM floated as a lit island in a
+// black void at the outdoor zoom. This multiplies the auto-zoom while inside so
+// the room fills most of the view; the hard-black surround is replaced by a
+// warm-dark vignette (see drawInteriorScene). HOME-1 retune: the cottage grew to
+// 16×11 tiles (512×352 px, from 10×7), so the boost drops from 1.22 to keep the
+// bigger room at ~70–80% of viewport height on a 1920×1080 desktop (autoZoom
+// ≈3.1 there → effective ≈2.3 → 352px room ≈75% of the 470px view height), fully
+// visible and centred, no clipping.
+export const INTERIOR_ZOOM = 0.74;
 
 // ===========================================================================
 //  Save system (Part A #11) — continuous per-store saves already happen on

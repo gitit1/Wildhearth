@@ -1,8 +1,11 @@
 import { T, WORLD_W, WORLD_H } from "../config";
 import {
-  HOUSE, BARN, STALL, POND, WORLD_TREES, ROOM, R_BED, R_BASIN, R_REST,
+  HOUSE, BARN, STALL, POND, WORLD_TREES, ROOM,
   STRUCTURES, HEDGES, WELL, OUTHOUSE, PROP_BLOCKERS, inWater,
 } from "./zones";
+import {
+  HOME_FURNITURE, DIVIDER_SEGMENTS, WALL, furnitureBlocker,
+} from "./furniture";
 
 /** Which collision map is active (world vs. the house interior). Module-level
  *  like camera.ts's lastCam — main.ts sets it on every scene switch. */
@@ -14,14 +17,23 @@ function inRect(x: number, y: number, r: { x: number; y: number; w: number; h: n
   return x > r.x - pad && x < r.x + r.w + pad && y > r.y - pad && y < r.y + r.h + pad;
 }
 
-/** Interior: room walls (the north band is deep — the hearth wall) + the
- *  furniture the player shouldn't walk through. */
+// HOME-1: interior blockers derived ONCE from the furniture instances (per-kind
+// footprint rules in world/furniture.ts) — the source of truth. A future
+// save-backed layout that swaps HOME_FURNITURE re-derives these for free.
+const FURNITURE_BLOCKERS = HOME_FURNITURE
+  .map((f) => furnitureBlocker(f))
+  .filter((r): r is NonNullable<typeof r> => r !== null);
+
+/** Interior: the cottage's outer walls (the north band is deep — the mount
+ *  wall), the internal divider (with its walkable doorway gap), and the solid
+ *  furniture — all generated from the furniture/architecture data. */
 function blockedInterior(x: number, y: number): boolean {
-  if (x < T * 0.5 || x > ROOM.w - T * 0.5 || y < T * 1.7 || y > ROOM.h - T * 0.35) return true;
-  if (inRect(x, y, R_BED, 2)) return true;
-  if (inRect(x, y, R_BASIN, 2)) return true;
-  // the crate table blocks; the chair beside it stays walkable
-  if (x > R_REST.x + R_REST.w * 0.45 && x < R_REST.x + R_REST.w && y > R_REST.y && y < R_REST.y + R_REST.h) return true;
+  // outer walls: deep north mount band, thin west/east/south strips
+  if (x < WALL.side || x > ROOM.w - WALL.side || y < WALL.north || y > ROOM.h - WALL.south) return true;
+  // the internal divider (its two solid segments; the gap between is walkable)
+  for (const d of DIVIDER_SEGMENTS) if (inRect(x, y, d)) return true;
+  // solid furniture (chair + rug stay walkable — see furnitureBlocks)
+  for (const b of FURNITURE_BLOCKERS) if (inRect(x, y, b)) return true;
   return false;
 }
 

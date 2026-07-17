@@ -29,6 +29,83 @@ project.
 
 <!-- Copy the template below for each new block. Keep newest at the top. -->
 
+## HOME-1 — a real house: bigger cottage, functional rooms, furniture as data
+- **Date:** 2026-07-17 (v1-foundation). The owner's brief: "the house isn't
+  divided right — a real house" and "the house is still too small an area,"
+  plus the recorded groundwork rule that furniture must become data-driven
+  placeable instances (the future Sims-style buy+place decorating depends on
+  it — see `docs/DECISIONS.md` "Sims-home vision"). **Zero PixelLab
+  generations** — layout, data model and code painters only (W2 regenerates
+  proper interior art).
+- **Files:**
+  - `src/world/furniture.ts` (**new**): the furniture DATA layer. `type
+    FurnitureKind` (hearth/counter/basin/crateTable/bed/nightstand/chair/table/
+    rug), `interface FurnitureInstance { id; kind; x; y; w; h; facing? }`, and
+    `HOME_FURNITURE` — the default home layout as a LIST of 9 instances (the
+    single source of truth). Also the architecture consts: `HOME_ROOM`
+    (16×11 tiles = 512×352 px), `WALL` (deep-north/side/south band depths),
+    the internal `DIVIDER_X/DIVIDER_W/DIVIDER_GAP` + `DIVIDER_SEGMENTS` (a
+    full-height vertical wall with one walkable doorway gap), `HOME_DOOR` (the
+    south exit), `HOME_WINDOWS` (1 north over the living area, 1 east in the
+    bedroom). Helpers: `furnitureById`, `furnitureRect`, `furnitureBlocks(kind)`
+    (rug + chair stay walkable), `furnitureBlocker(inst)` (collision rect). A
+    future save-backed layout can replace `HOME_FURNITURE` with a loaded list
+    with NO code change — that's the buy+place seam this block builds.
+  - `src/world/zones.ts`: the interior section is now COMPAT SHIMS re-deriving
+    the old named rects/anchors from the instance list — `ROOM = HOME_ROOM`;
+    `R_HEARTH/R_BASIN/R_BED` from `furnitureById(...)`; `R_REST` binds to THE
+    chair instance; `R_DOOR` from `HOME_DOOR`; `ROOM_ENTRY` on the door mat;
+    `REST_SEAT/REST_STAND/BED_SIDE` from the chair/bed instances. Callers
+    (painter/collision/interactions/main) keep their existing imports.
+  - `src/art/interior.ts`: rewritten to render the cottage ENTIRELY from data.
+    Retires the 10×7 room-backdrop sprite (it can't stretch); code-draws floor
+    planks, walls, the divider (with a framed doorway), the two windows (day/
+    night-tinted panes + muntins + floor light shafts), plus wear hints (ash at
+    the hearth base, a trampled patch + worn mat at the door). Furniture drawn
+    BY KIND via a `PAINTERS` map, foot-y sorted, iterating `HOME_FURNITURE`:
+    hearth/basin/bed keep their dual-path PixelLab sprite (code = zero-PNG
+    fallback), new code painters for counter/nightstand/chair/table/crateTable/
+    rug (the chair+crate combo sprite is retired — pieces are now separate
+    instances).
+  - `src/world/collision.ts`: `blockedInterior` regenerates from data — outer
+    walls (`WALL`), the two `DIVIDER_SEGMENTS`, and `FURNITURE_BLOCKERS` derived
+    once from `HOME_FURNITURE` via `furnitureBlocker`. The old hardcoded
+    R_BED/R_BASIN/R_REST-half branch is gone.
+  - `src/config.ts`: `INTERIOR_ZOOM` 1.22 → **0.74** — the room grew 10×7→16×11,
+    so the boost drops to keep it at ~75% of the viewport-window height on a
+    1920×1080 desktop, fully visible and centred (verified).
+  - `src/main.ts`: `enterHouse()` now clamps the spawn through
+    `safeInteriorSpawn()` (returns ROOM_ENTRY if walkable, else scans outward)
+    — defensive no-crash/no-stuck guard for any future layout edit or loaded
+    layout; imports `blocked` from collision.
+- **The layout (16×11, three functional areas + a divider):**
+  - KITCHEN (NW): hearth + counter (jars) + basin (+bucket) along the north
+    wall, crate table on the floor. LIVING/entry (SW): chair + table on a rug
+    by the south door mat. BEDROOM (E, behind the divider): bed + nightstand
+    (candle), lit by the east window. North window sits over the living area,
+    CLEAR of the hearth (COMPOSITION_RULES interiors addendum — no object over a
+    window/door). One focal per room (kitchen=hearth, bedroom=bed); clear
+    circulation to every interactable.
+- **Systems that follow the data:** cook/wash/sleep/sit anchors, seated
+  occlusion, unstick, and the interior camera all read the derived rects, so
+  every GF-1 behavior works at the new positions. Player position/scene are NOT
+  persisted (fixed outdoor spawn), so no save can load into the interior;
+  enter/leave is save-independent and proven on the old fixture.
+- **Verification:** `npm run build` green (tsc strict + vite). `verify:smoke`
+  and `verify:save` green, zero console errors. A 1920×1080 headless flow
+  (throwaway `verify/shot-home1.mjs`) drove the real interior: entered the
+  cottage, sat in the chair, washed at the basin (splash particles), cooked at
+  the hearth (steam), and walked THROUGH the divider doorway into the bedroom
+  and back (no stuck) — 6/6 assertions PASS, screenshots looked at. A separate
+  check confirmed the old v1 fixture save loads and enter/leave the house works.
+- **Follow-ups:**
+  - W2 regenerates proper interior art (floor/walls/windows/furniture as
+    PixelLab sprites); the code painters are the interim zero-PNG path.
+  - The buy+place decorating feature (ROADMAP_EXPANSION) can now build on
+    `HOME_FURNITURE` + `furnitureBlocker` — placement just appends/replaces
+    instances; a placement validator can check the addendum (no piece over a
+    window/door, clusters, circulation) against this data.
+
 ## W-UI polish — prompt clearance, icon clarity, skills window height
 - **Date:** 2026-07-17 (v1-foundation). Orchestrator eyeball review of the
   W-UI commit found 3 polish defects; fixed in one follow-up. Zero PixelLab
